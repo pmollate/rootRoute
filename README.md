@@ -15,7 +15,7 @@ The processed clips in `public/media` are committed, so the page runs as is. The
 
 | Section | Clip | Output | Playback |
 |---|---|---|---|
-| S0 Dispatch | `hero.mp4` | `dispatch-loop.mp4` | loops; scroll frames it. "ROOT ROUTE" is printed onto the truck's box side during processing |
+| S0 Dispatch | `hero-2.mp4`, then `hero.mp4` | `dispatch-intro.mp4`, `dispatch-loop.mp4` | slideshow (`HeroSlides`): each plays once, then the next slides in, forever; dots switch slides; scroll frames it. hero-2 gets a light tint for the copy. "ROOT ROUTE" is printed onto the hero truck's box side during processing |
 | S1 Detect | `orbit.mp4` | `inspect/0001–0240.webp` | canvas frame sequence |
 | S2 Drive | — | SVG truck, wheels turn with scroll | — |
 | S3 Network | `aerial rise.mp4` | `scale-scrub.mp4` (+ `-m` 9:16) | all-intra, scrubbed |

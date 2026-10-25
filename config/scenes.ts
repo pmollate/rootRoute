@@ -9,7 +9,8 @@ export type Range = [number, number];
 export type Beat = { at: Range; target: string; from: gsap.TweenVars; to: gsap.TweenVars };
 export type Meter = { id: string; from: number; to: number; at: Range; unit?: string; decimals?: number; max?: number };
 export type Media =
-  | { kind: 'loop'; src: string; poster: string }
+  /** each slide plays once, then the next slides in from the right; tint (0–1) darkens a bright clip under the copy */
+  | { kind: 'slides'; slides: { src: string; poster: string; tint?: number }[] }
   | { kind: 'scrub'; src: string; mobileSrc?: string; poster: string }
   | { kind: 'frames'; dir: string; count: number; poster: string }
   | { kind: 'cards'; srcs: string[]; posters: string[] };
@@ -38,21 +39,28 @@ const q = (i: number): Range => [i * 0.25, i * 0.25 + 0.25];
 
 export const scenes: Scene[] = [
   {
-    // hero.mp4: truck idling at the night depot, loops while the overlays move.
+    // hero-2.mp4: daytime depot and control room; hero.mp4: truck idling at the night depot.
+    // The two play in turn while the overlays move.
     id: 'dispatch', chapter: 1, scroll: 150, pin: true,
-    media: { kind: 'loop', src: '/media/dispatch-loop.mp4', poster: '/media/dispatch-poster.webp' },
+    media: {
+      kind: 'slides',
+      slides: [
+        { src: '/media/dispatch-intro.mp4', poster: '/media/dispatch-intro-poster.webp', tint: 0.2 },
+        { src: '/media/dispatch-loop.mp4', poster: '/media/dispatch-poster.webp' },
+      ],
+    },
     beats: [
       { at: [0, 0.4], target: '[data-hero-video]', from: { clipPath: 'inset(0% 0% 0% 0% round 0px)' }, to: { clipPath: 'inset(10% 6% 28% 6% round 14px)' } },
       { at: [0, 0.4], target: '[data-hero-copy]', from: { yPercent: 0, autoAlpha: 1 }, to: { yPercent: -40, autoAlpha: 0 } },
+      { at: [0, 0.2], target: '[data-hero-dots]', from: { autoAlpha: 1 }, to: { autoAlpha: 0 } },
       { at: [0, 0.3], target: '[data-hero-globe]', from: { autoAlpha: 1, scale: 1 }, to: { autoAlpha: 0, scale: 0.8 } },
       { at: [0.3, 0.8], target: '[data-hero-dim]', from: { autoAlpha: 0 }, to: { autoAlpha: 0.3 } },
-      { at: [0.3, 0.8], target: '[data-hero-truck]', from: { yPercent: 80, scale: 0.85, autoAlpha: 0 }, to: { yPercent: 0, scale: 1, autoAlpha: 1 } },
       { at: [0.8, 1], target: '[data-hero-video]', from: { autoAlpha: 1 }, to: { autoAlpha: 0 } },
       { at: [0.8, 1], target: '[data-hero-handoff]', from: { autoAlpha: 0, y: 20 }, to: { autoAlpha: 1, y: 0 } },
     ],
   },
   {
-    // orbit.mp4: studio turntable, front 3/4 → side → rear 3/4, one beat per quarter.
+    // catching_parcels.mp4: courier unpacking a parcel, green screen keyed out; one check per quarter.
     id: 'detect', chapter: 2, scroll: 400, pin: true,
     media: { kind: 'frames', dir: '/media/inspect', count: 240, poster: '/media/inspect/0001.webp' },
     meters: [
@@ -66,10 +74,7 @@ export const scenes: Scene[] = [
         const [a, b] = q(i);
         const inB: Beat = { at: [a, a + 0.02], target: `[data-card="${i}"]`, from: { autoAlpha: 0, y: 40 }, to: { autoAlpha: 1, y: 0 } };
         const outB: Beat = { at: [b - 0.02, b], target: `[data-card="${i}"]`, from: { autoAlpha: 1, y: 0 }, to: { autoAlpha: 0, y: -40 } };
-        // the same number, painted on the truck's box side
-        const numIn: Beat = { at: [a, a + 0.03], target: `[data-decal="${i}"]`, from: { autoAlpha: 0 }, to: { autoAlpha: 1 } };
-        const numOut: Beat = { at: [b - 0.03, b], target: `[data-decal="${i}"]`, from: { autoAlpha: 1 }, to: { autoAlpha: 0 } };
-        return i === 3 ? [inB, numIn] : [inB, outB, numIn, numOut];
+        return i === 3 ? [inB] : [inB, outB];
       }),
       { at: [0, 0.03], target: '[data-detect-head]', from: { autoAlpha: 0, y: 24 }, to: { autoAlpha: 1, y: 0 } },
       // S1 → S2: the canvas hands over to the drive rig

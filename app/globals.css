@@ -90,8 +90,7 @@
 /* The turntable frames are multiplied onto the light page; on charcoal that would black the truck
    out, so in dark mode they sit on the page as a spotlit studio instead. The spotlight is an ellipse
    sized to the frame itself (--frame-w / --frame-h from useFrameBox), not to the box it is
-   letterboxed in, so it never runs past the picture's edges. The hero's rising truck gets the same
-   light, so the hand-off into S1 stays seamless. */
+   letterboxed in, so it never runs past the picture's edges. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .truck-box img,
   :root:not([data-theme='light']) .truck-box canvas {
@@ -414,8 +413,78 @@ a {
   will-change: clip-path;
 }
 
+/* one clip per slide: waiting ones sit off to the right, HeroSlides slides them in and out */
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  transform: translateX(100%);
+  will-change: transform;
+}
+
+/* on top, so the incoming slide covers the outgoing one as it drifts away */
+.hero-slide.is-active {
+  z-index: 1;
+  transform: none;
+}
+
+/* a light wash on bright clips so the hero copy stays readable */
+.hero-slide-tint {
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--night-rgb));
+}
+
+.hero-dots {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: clamp(16px, 3.5vh, 32px);
+  display: flex;
+  gap: 4px;
+  transform: translateX(-50%);
+}
+
+/* 24px hit area around an 8px dot; the active one stretches into a pill */
+.hero-dot {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.hero-dot::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgb(var(--cream-rgb) / 0.45);
+  transition:
+    width 0.3s ease,
+    background-color 0.3s ease;
+}
+
+.hero-dot:hover::before {
+  background: rgb(var(--cream-rgb) / 0.75);
+}
+
+.hero-dot[aria-current='true']::before {
+  width: 20px;
+  background: var(--cream);
+}
+
+.hero-dot:focus-visible {
+  outline: 2px solid var(--cream);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
 .hero-shade {
   position: absolute;
+  z-index: 1;
   inset: 0;
   background:
     linear-gradient(90deg, rgb(var(--night-rgb) / 0.78) 0%, rgb(var(--night-rgb) / 0.35) 45%, rgb(var(--night-rgb) / 0) 70%),
@@ -424,6 +493,7 @@ a {
 
 .hero-dim {
   position: absolute;
+  z-index: 1;
   inset: 0;
   background: var(--bg);
   opacity: 0;
@@ -501,10 +571,6 @@ a {
   color: var(--on-dark-2);
 }
 
-.hero-truck {
-  opacity: 0;
-}
-
 .hero-handoff {
   position: absolute;
   z-index: 2;
@@ -558,37 +624,13 @@ a {
   visibility: hidden;
 }
 
-/* the frame-sized layer the box-side numbers are warped in; scaled like object-fit: contain */
-.detect-decal {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 1600px;
-  height: 900px;
-  transform: translate(-50%, -50%) scale(var(--decal-k, 0));
-  pointer-events: none;
-}
-
-.detect-panel {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform-origin: 0 0;
-}
-
-.detect-num {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-family: var(--font-display);
-  font-size: 660px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.05em;
-  color: transparent;
-  -webkit-text-stroke: 7px var(--line-strong);
-  visibility: hidden;
+/* The courier frames are already transparent, so the truck's edge fades (and the dark-mode
+   spotlight, 0,3,0) would only cut off the courier's feet. Parcels drop in through the frame's top
+   edge, so that edge alone fades in (--frame-h from useFrameBox). */
+:root:root .truck-box.detect-stage {
+  --frame-top: calc(50% - var(--frame-h, 100%) / 2);
+  -webkit-mask-image: linear-gradient(transparent var(--frame-top), #000 calc(var(--frame-top) + var(--frame-h, 0px) * 0.12));
+  mask-image: linear-gradient(transparent var(--frame-top), #000 calc(var(--frame-top) + var(--frame-h, 0px) * 0.12));
 }
 
 .detect-cards {
@@ -1411,13 +1453,63 @@ a {
     display: none;
   }
 
-  /* hero copy sized for phones so it clears the header even at 320×568 */
+  /* hero copy as one tidy column on phones (capped for small tablets) that spans the hero: the
+     kicker sits just under the header, the buttons and note stay down above the dots, and the
+     title and lede are centred in the space between (the two auto margins split it evenly) */
   .hero-copy {
-    bottom: clamp(28px, 6vh, 56px);
+    top: 92px;
+    bottom: clamp(52px, 8vh, 72px);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: min(520px, calc(100% - 2 * var(--gutter)));
+    max-width: none;
+  }
+
+  /* the copy runs top to bottom on phones, so the shade does too: darkest at the kicker and the
+     buttons, still enough mid-frame for the centred title and lede */
+  .hero-shade {
+    background: linear-gradient(
+      180deg,
+      rgb(var(--night-rgb) / 0.7) 0%,
+      rgb(var(--night-rgb) / 0.42) 28%,
+      rgb(var(--night-rgb) / 0.42) 62%,
+      rgb(var(--night-rgb) / 0.75) 100%
+    );
+  }
+
+  .hero-copy .kicker {
+    margin-bottom: 14px;
+    font-size: 11px;
+    letter-spacing: 0.12em;
   }
 
   .hero-copy .display {
-    font-size: clamp(34px, 11vw, 48px);
+    margin-top: auto;
+    font-size: clamp(34px, 10.5vw, 48px);
+    line-height: 1;
+    text-wrap: balance;
+  }
+
+  .hero-copy .lede {
+    text-wrap: pretty;
+  }
+
+  .hero-copy .ctas {
+    flex-direction: column;
+    align-self: stretch;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 24px;
+  }
+
+  .hero-copy .btn {
+    justify-content: center;
+  }
+
+  .hero-copy .note {
+    margin-top: 14px;
+    font-size: 12px;
   }
 
   .lede {
@@ -1599,7 +1691,17 @@ a {
 
 @media (max-height: 560px) {
   .hero-copy {
-    bottom: 20px;
+    top: auto;
+    bottom: 44px;
+    display: block;
+  }
+
+  .hero-copy .display {
+    margin-top: 0;
+  }
+
+  .hero-dots {
+    bottom: 10px;
   }
 
   .hero-copy .display {
@@ -1611,8 +1713,11 @@ a {
     font-size: 15px;
   }
 
-  .ctas {
+  .ctas,
+  .hero-copy .ctas {
+    flex-direction: row;
     margin-top: 16px;
+    padding-top: 0;
   }
 
   .btn {
@@ -1732,7 +1837,6 @@ a {
     min-height: var(--vh);
   }
 
-  .hero-truck,
   .hero-handoff,
   .chapters {
     display: none;
@@ -1754,10 +1858,6 @@ a {
 
   .detect-stage {
     height: 50vh;
-  }
-
-  .detect-decal {
-    display: none;
   }
 
   .detect-cards {

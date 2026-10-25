@@ -28,6 +28,7 @@ export const copy = {
     primary: DEMO,
     secondary: { label: 'See how it works', href: '#detect' },
     handoff: { step: '02', line: 'Four checks before it leaves the depot' },
+    slides: { label: 'Hero videos', item: 'Show video' },
   },
 
   detect: {
