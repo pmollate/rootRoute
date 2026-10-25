@@ -18,6 +18,8 @@ scoped: fix intake, promises, stock and carrier lanes, pilot for 8 weeks, then r
 - `analysis/prep.py` — reference loader + cause flags used for every number in the spec
   (`load('Halcyon-Hackathon-Dataset')` from the repo root)
 - `docs/SPEC.md` — product + technical spec (source of truth)
+- Landing page (Next.js + GSAP scroll film) at the repo root: `app/`, `components/`, `config/`,
+  `hooks/`, `lib/`, `public/`, `scripts/`; `npm run dev`. See README.md
 - To be created: `functions/` (Python Azure Functions), `web/` (dashboard), `tests/`;
   stretch: `bots/` (Playwright), `mocks/` (mock WMS); phase 2: `infra/` (full Bicep). Scope tiers in SPEC §3.
 

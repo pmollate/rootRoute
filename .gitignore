@@ -1,4 +1,8 @@
 node_modules
+.next
+*.tsbuildinfo
+next-env.d.ts
+Carrier clips/
 .env
 .venv/
 __pycache__/
