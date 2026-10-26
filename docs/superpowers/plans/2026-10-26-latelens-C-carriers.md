@@ -1121,13 +1121,13 @@ export default function Page() {
 ```bash
 #!/usr/bin/env bash
 # Create the LateLens demo environment once (owner C). Requires: az login, and PG_PASSWORD + ANTHROPIC_API_KEY exported.
-# Usage: RG=latelens-rg LOC=eastus NAME=latelens01 GITHUB_REPO=saiprasad-37/root-route ./infra/setup.sh
+# Usage: RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=saiprasad-37/root-route ./infra/setup.sh
 set -euo pipefail
-: "${RG:=latelens-rg}" "${LOC:=eastus}" "${NAME:?set NAME, e.g. latelens01}" "${GITHUB_REPO:?set GITHUB_REPO owner/name}"
+: "${RG:=rg-unhandled-rejections}" "${LOC:=centralindia}" "${NAME:?set NAME, e.g. rootroute01}" "${GITHUB_REPO:?set GITHUB_REPO owner/name}"
 : "${PG_PASSWORD:?export PG_PASSWORD}" "${ANTHROPIC_API_KEY:?export ANTHROPIC_API_KEY}"
 DEMO_API_KEY="${DEMO_API_KEY:-$(openssl rand -hex 16)}"
 
-az group create -n "$RG" -l "$LOC" -o none
+az group show -n "$RG" -o none 2>/dev/null || az group create -n "$RG" -l "$LOC" -o none   # never re-save the organisers' group: it drops their tags
 
 # PostgreSQL Flexible Server (Burstable, public access limited to Azure services)
 az postgres flexible-server create -g "$RG" -n "$NAME-db" -l "$LOC" --tier Burstable --sku-name Standard_B1ms \
@@ -1184,7 +1184,7 @@ Run it once:
 
 ```bash
 export PG_PASSWORD='<strong password>' ANTHROPIC_API_KEY='<key>'
-NAME=latelens01 GITHUB_REPO=saiprasad-37/root-route ./infra/setup.sh
+RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=saiprasad-37/root-route ./infra/setup.sh
 ```
 
 Expected: the closing message lists the GitHub secrets and variables to add. The repo owner adds them under Settings → Environments → `demo`.
