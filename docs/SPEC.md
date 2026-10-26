@@ -1,6 +1,6 @@
 # LateLens — Product and Technical Spec
 
-Repo: root-route · Status: draft v0.5 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
+Repo: root-route · Status: draft v0.6 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
 Hackathon: FDE AI Hackathon 5.0, Problem 2 (Halcyon Logistics). Coding: Mon 26 – Thu 29 Oct 2026. Code submission: 29 Oct, `[DEADLINE_TIME]`.
 Source brief: `docs/Halcyon.docx` (Participant Problem Statement). Data: `Halcyon-Hackathon-Dataset/` (supplied) and `backend/synthetic-data/` (ours, §12.1).
 
@@ -14,6 +14,12 @@ Platform stays Azure. v0.3 added the stack, team split, synthetic-data features 
 **Changes in v0.5:** follows the repo's `backend/` + `frontend/` layout — Python pipeline and Node API under `backend/`,
 the dashboard as `/dashboard` routes inside the Next.js app next to the landing page; root `package.json` forwards to
 both (§4.1, §4.3, §5.6, §5.7, §9.3).
+
+**Changes in v0.6** (EvoHack 2026 Level 1 qualification checklist, §16): three agents are core, one per role —
+intake (order desk), complaint triage (customer success) and "Ask LateLens" over MCP (leadership) (§3, §4.4, §5.10,
+§5.14); a discovery log records every question asked, the answer and what changed (§14.1); the first Azure deploy
+moves to Tue 27 and the Playwright smoke test against the deployed app is core (§9.1, §9.3, §10.2); the demo shows the
+AI model's output live next to the code's decision (§11). Nothing built so far changes.
 
 **Conventions.** **MUST** / **SHOULD** / **MAY** follow RFC 2119. Every requirement has an ID (`REQ-<module>-NN`,
 `NFR-NN`, `SEC-NN`). Its acceptance criterion has the same number (`AC-<module>-NN`). Every **MUST** has an AC.
@@ -247,7 +253,7 @@ Four tiers. **Core** must work at submission. **Synthetic** features are built o
 | E9 | Intake screen | Email | Core | §5.7 |
 | E10 | Late-risk score + delay alert agent | Email | Stretch | §5.5 |
 | E11 | Address checks on API and EDI orders | Email | Synthetic | §5.9 |
-| E12 | Complaint triage agent | Email | Synthetic | §5.10 |
+| E12 | Complaint triage agent (customer success) | Email | Core (synthetic input) | §5.10 |
 | E13 | Mailbox simulator + WMS entry bot | Email | Stretch (synthetic) | §5.6 |
 | W1 | Cut-off promise rule | Warehouse | Core | §5.4 |
 | W2 | Nearest-warehouse rule | Warehouse | Core | §5.4 |
@@ -271,7 +277,7 @@ Four tiers. **Core** must work at submission. **Synthetic** features are built o
 | D4 | Replay incl. expected-adoption programme and "as built" | Warehouse (shared) | Core | §5.8 |
 | D5 | Replay & decision screen | Warehouse (shared) | Core | §5.7 |
 | D6 | At-risk accounts table | Warehouse (shared) | Core | §5.7 |
-| D7 | "Ask LateLens" MCP server | Carriers | Stretch | §5.14 |
+| D7 | "Ask LateLens" agent over MCP (leadership) | Carriers | Core | §5.14 |
 | D8 | Cause attribution (points lost) and one KPI per cause on Overview | Warehouse (shared) | Core | §1.4, §5.1, §5.7 |
 | E14 | Tier 1 and at-risk clients first: intake queue, alerts, complaint escalation | Email | Core | §5.15 |
 | C11 | Friday capacity cap on carrier D | Carriers | Core | §5.2 |
@@ -280,13 +286,14 @@ Four tiers. **Core** must work at submission. **Synthetic** features are built o
 | P3 | Swappable AI model layer with recorded responses | Email | Core | §4.4 |
 | P4 | CI | Warehouse | Core | §9.3 |
 | P5 | Azure deployment | Carriers | Core | §9.3 |
-| P6 | Playwright smoke test | Carriers | Stretch | §9.3 |
+| P6 | Playwright smoke test against the deployed app | Carriers | Core | §9.3 |
 
 **Pitch only:** C9 routing engine for route overruns (the vendor's product; revisit after the pilot); P7 Entra login,
 full Bicep, Logic App on a real mailbox; live carrier portal automation (needs carrier permission); demand forecasting
 for stock replenishment.
 
-**Drop order if behind schedule** (never drop Core for these): E13 → D7 → C8 → W5 → E12 → E11 → E10.
+**Drop order if behind schedule** (never drop Core for these): E13 → C8 → W5 → E11 → E10. The three core agents
+(E1–E9 intake, E12 complaint triage, D7 Ask LateLens) are never dropped: Level 1 requires agents across roles (§16).
 
 ---
 
@@ -357,6 +364,20 @@ db/ llm/  pg queries · AI model interface (claude | azure-openai | recorded)
 - **The AI model gets no tools in the intake pipeline.** Its output must validate against a zod schema.
 - **LLM interface:** `json<T>({system, user, schema, temperature})` and `text(...)`. `LLM_PROVIDER=recorded` replays
   saved responses keyed by a prompt hash, so CI is fast, free and repeatable; `RECORD=1` refreshes them.
+- **Agents by role.** Each agent serves a different Halcyon role, and each keeps the same rule: the model proposes,
+  code checks, a person decides.
+
+  | Agent | Role it serves | Trigger | AI step | Tools / data | Human gate | Tier |
+  |---|---|---|---|---|---|---|
+  | Intake agent (§5.3) | Order desk | Order email arrives or client replies | Extract order to JSON; draft reply | Client lookup, saved addresses, `checkPromise`, `pickWarehouse`, `recommendCarrier` | Operator approves before reply or WMS entry | Core |
+  | Complaint triage agent (§5.10) | Customer success | Complaint email arrives | Draft a response stating cause and next action | `delivery_causes`, accounts (Tier 1 / at risk) | Agent drafts, person sends | Core |
+  | "Ask LateLens" agent (§5.14) | Leadership / COO | A question in Claude (Desktop or web) | The model chooses read-only tools and answers from their results | MCP tools: `delivery_causes`, `lane_scores`, `scenario`, `recommend_carrier`, `check_promise` | Read-only; no actions possible | Core |
+  | Delay alert agent (§5.5) | Customer communication | Order scored at risk before despatch | Draft a proactive delay notice | Risk lookup, promise | Person sends | Stretch |
+
+- **Agents in how we build** (not just code assist): each area works spec → plan → build → review with agents in
+  separate roles — spec writer (`spec-writing` skill, this document), planner (`writing-plans`, the plans in
+  `docs/superpowers/plans/`), implementer subagents working test-first task by task (`subagent-driven-development`),
+  and a reviewer agent plus a teammate on every PR (`code-review`). Evidence: the plans with ticked steps, and one PR per task.
 - **Shared contracts** between areas (fixed Mon 26 in `docs/CONTRACTS.md`; stubs return fixed values until real):
   ```ts
   checkPromise(commitment, receivedAt): { promiseDate, reason }                       // Warehouse
@@ -615,7 +636,7 @@ incomplete addresses on exactly the deliveries where `address_status == 'incompl
 | AC-API-02 | Given the SD-01 EDI files, when processed, then every file generated from an incomplete-address delivery is held and every other file is accepted. |
 | AC-API-03 | Given an API order missing line 1 for a client with one saved address in the same ZIP, when posted, then it is accepted with the saved line 1. |
 
-### 5.10 Complaint triage agent (owner: Email; E12, synthetic)
+### 5.10 Complaint triage agent (owner: Email; E12, core, synthetic input)
 Input: the 34 complaints in `complaints.csv` (real), expanded into fuller synthetic complaint emails (SD-03).
 
 | ID | Requirement |
@@ -673,19 +694,22 @@ carrier's style: API JSON (A, B, C), portal HTML pages (D), batch CSV files (E, 
 | AC-TRK-01 | Given SD-07, when ingested, then every delivery has a `picked_up` and a `delivered` event, with times matching the supplied dataset. |
 | AC-TRK-02 | Given a delivery promised for 2026-09-10 with its `delivered` event on 2026-09-12, when checked at end of 2026-09-10, then it is marked at risk. |
 
-### 5.14 "Ask LateLens" MCP server (owner: Carriers; D7, stretch)
+### 5.14 "Ask LateLens" agent over MCP (owner: Carriers; D7, core)
 An MCP endpoint (`/mcp`, Streamable HTTP, `@modelcontextprotocol/sdk`) inside the Node API exposing the same read-only
-tools the agents use, so leadership can query LateLens from Claude Desktop or another MCP client.
+tools the agents use, so leadership can ask LateLens questions from Claude Desktop or another MCP client. The model
+picks the tools and answers from their results; this is the third agent role (§4.4).
 
 | ID | Requirement |
 |---|---|
 | REQ-MCP-01 | The MCP server **MUST** expose only read-only tools (`delivery_causes`, `lane_scores`, `scenario`, `recommend_carrier`, `check_promise`). |
 | REQ-MCP-02 | The MCP endpoint **MUST** require a token. |
+| REQ-MCP-03 | Answers **SHOULD** use only figures returned by the tools, so they match the dashboard. |
 
 | ID | Acceptance criterion |
 |---|---|
 | AC-MCP-01 | Given an MCP client, when it lists tools, then none of them sends email, approves orders or writes to the database. |
 | AC-MCP-02 | Given a request without the token, when it reaches `/mcp`, then it is refused. |
+| AC-MCP-03 | Given the question "Which carrier lanes should we stop using, and why?", when asked in an MCP client, then the answer names the five blocked lanes from `lane_scores` with their reasons. |
 
 ### 5.15 Tier 1 and at-risk clients first (owner: Email; E14)
 7 of the 9 accounts threatening to leave are Tier 1, and Tier 1 is as late as Tier 3 today. A client is **priority** when
@@ -724,7 +748,7 @@ Tables holding synthetic data carry a `synthetic boolean` column set to true.
 `GET /api/replay?segment=` · `GET /api/accounts` · `GET /api/attribution` · `GET /api/cause-kpis` · `GET /api/penalties/unpaid` · `GET /api/placement?week=` ·
 `GET /api/intake` · `GET /api/intake/:id` · `POST /api/intake/email` · `POST /api/intake/:id/action` (approve | send_reply | send_to_wms) ·
 `POST /api/orders` · `POST /api/orders/edi` · `GET /api/complaints` · `POST /api/complaints/:id/triage` ·
-`POST /api/recommend` · `POST /api/alerts/run` · `/mcp` (stretch).
+`POST /api/recommend` · `POST /api/alerts/run` (stretch) · `/mcp` (Ask LateLens, core).
 Read endpoints serve precomputed tables and are cached in memory at startup (the data does not change).
 Exact JSON shapes live in `docs/CONTRACTS.md`.
 
@@ -762,7 +786,11 @@ Exact JSON shapes live in `docs/CONTRACTS.md`.
 Unit: flag definitions (AC-DIAG-01), block rule (AC-CAR-02), promise rules (AC-PRO-*), risk inputs (AC-RISK-01).
 Golden: every number in §2 (AC-DIAG-04, AC-DIAG-07, AC-REP-01, AC-REP-06). Extraction: 50 fixtures (AC-INT-*). Security: AC-SEC-02 to 04.
 Synthetic consistency: AC-STK-01, AC-TRK-01, AC-API-02, AC-NFR-05.
-E2E: fixture email → decision → reply draft → dashboard shows it. Backup demo video recorded on 29 Oct.
+E2E: fixture email → decision → reply draft → dashboard shows it. Smoke: Playwright opens every screen on the deployed
+app at phone and desktop width after each deploy (P6, core). Backup demo video recorded on 29 Oct.
+**Test evidence** (Level 1, §16): `docs/TEST-EVIDENCE.md` lists, per area, the test counts, the ACs covered, links to
+green CI runs, the extraction eval score (target ≥ 48/50) and the latest smoke-test run on the deployed URL. Owner C;
+updated after each deploy and frozen at submission.
 Each test names the AC ids it covers in its docstring.
 
 ### 9.2 How we would prove it worked in production
@@ -784,7 +812,9 @@ Each test names the AC ids it covers in its docstring.
   API tests with recorded AI responses · dashboard tests · `next build` · secrets (gitleaks).
 - `cd.yml` (after CI passes on `main`): Azure login via OIDC → run the Python pipeline and migrations against Azure Postgres
   (each table replaced in one transaction) → deploy `backend/api` to App Service (wait for `/api/health`) → deploy
-  `frontend/` (landing page + dashboard) to Static Web Apps → Playwright smoke test (stretch).
+  `frontend/` (landing page + dashboard) to Static Web Apps → Playwright smoke test against the deployed URL.
+- **First deploy Tue 27**: API `/api/health` plus the dashboard shell, so the live URL exists two days before submission;
+  every later merge to `main` redeploys.
 - `intake-eval.yml` (manual): the 50 fixtures against the real AI model; reports AC-INT-04/05.
 - Azure resources are created once by `infra/setup.sh` (az CLI). Full Bicep is pitch only.
 - Rollback: redeploy the previous tag; rerun the pipeline to rebuild computed tables.
@@ -806,9 +836,9 @@ Shared types, table columns and API shapes: `docs/CONTRACTS.md`.
 | Date | Email orders | Warehouse & promise | Carriers |
 |---|---|---|---|
 | **Mon 26** | Hour one together: AI model, `CONTRACTS.md`, team rules, repo access. Then: AI key + test call; 50 fixture emails + gold; extraction schema + prompt on 5 emails; SD-01 generator | Skeleton (P1): `backend/api`, dashboard shell in `frontend/`, `backend/analytics`, Docker Postgres, migration 001, CI; fix the frontend lockfile registry | Merge `carrier_optimizer` (remove `.DS_Store`, `.pyc`); lane scores + block-rule test; SD-06 capacity; check Azure access |
-| **Tue 27** | Intake pipeline end to end; E11 API/EDI checks | Diagnostic engine, promise + warehouse rules, W6 simulation, W7 report | Recommender + capacity, C7 backtest, SD-07 tracking events |
-| **Wed 28** | Intake screen, approvals, client replies; E12 complaint triage | Overview, Warehouses, replay incl. "as built"; SD-05 + W5 placement | Carriers screen, C8 tracking view; Azure deployment |
-| **Thu 29 AM** | E10 delay alert; E13 if time | Replay & decision, accounts table; number check | Smoke test; D7 MCP if time |
+| **Tue 27** | Intake pipeline end to end; E11 API/EDI checks | Diagnostic engine, promise + warehouse rules, W6 simulation, W7 report | Recommender + capacity, C7 backtest, SD-07 tracking events; **first Azure deploy** (health + dashboard shell) |
+| **Wed 28** | Intake screen, approvals, client replies; E12 complaint triage (core) | Overview, Warehouses, replay incl. "as built"; SD-05 + W5 placement | Carriers screen, C8 tracking view; redeploy with all screens; smoke test |
+| **Thu 29 AM** | E10 delay alert; E13 if time | Replay & decision, accounts table; number check | D7 Ask LateLens (core); test evidence page |
 | **Thu 29 noon** | **Feature freeze** | | |
 | **Thu 29 PM** | Rehearse the email part | Team Response Template, README | Tag `submission-v1`, deploy, backup video, submit |
 
@@ -820,14 +850,18 @@ Drop order if behind: §3. End-of-day check-in each day (15 min): what runs, whi
 - README: what LateLens is, architecture diagram, one-command local setup, deployed URL, backup video link.
 - `.env.example` with no real keys; `requirements.txt` and `package-lock.json` committed; secret scan clean.
 - `docs/SPEC.md` matches what was built; `backend/synthetic-data/README.md` lists every synthetic table; Team Response Template done.
+- Level 1 evidence linked from the README (§16): discovery log, agents by role, test evidence, deployed URL.
 - Judges can access the repo (private repo: collaborator invite, public, or zip; owner `saiprasad-37` to confirm).
 
 ## 11. Demo script (5 min)
 Belief ($680K routing) → Overview (five causes explain every late delivery; carriers are 7.6 of 29 points; 67% of late
 deliveries start before pickup; 28 of 34 complaints) → Carriers (five bad lanes; F, the preferred supplier, fails two
-regions; D only fails on Fridays) → live: C190's messy email (Tier 1, priority) → agent asks for the address → client
-replies → ALL_CLEAR → Warehouses (cut-off and stock) → Replay: flip from routing vendor only (78.3%) to the full programme
-(**92.0%**), step by step → Decision: don't sign as scoped; run the programme and pilot; decide on routing at the gate.
+regions; D only fails on Fridays) → live: C190's messy email (Tier 1, priority), processed by the real AI model on the
+deployed app, showing the model's extracted JSON next to the code's address check and decision → agent asks for the
+address → client replies → ALL_CLEAR → one complaint triaged (cause found, draft response) → Warehouses (cut-off and stock) → Replay: flip from routing vendor only (78.3%) to the full programme
+(**92.0%**), step by step → "Ask LateLens" in Claude: "Which carrier lanes should we stop using, and why?" → Decision:
+don't sign as scoped; run the programme and pilot; decide on routing at the gate. If the live AI call fails, switch to
+recorded responses (`LLM_PROVIDER=recorded`) and say so.
 
 ## 12. Assumptions and open questions
 Decisions (due Mon 26):
@@ -897,6 +931,23 @@ Record each answer and what changed in this spec.
 | Onboarding team / COO | Could stock placement be reviewed weekly instead of quarterly? Can we get a WMS inventory extract? |
 | CFO | Why were 2,002 eligible penalties not paid? What does a lost Tier 1 account cost beyond revenue? |
 
+### 14.1 Discovery log (questions asked, answers applied)
+Level 1 evidence (§16). Add a row for every question put to a sponsor, the organisers, the team or the data, with what it
+changed. A question with no answer yet stays in §12 and §14 until it gets one.
+
+| Date | Question | Asked (who / how) | Answer | What we changed |
+|---|---|---|---|---|
+| 25 Oct | Is carrier routing really the cause of 71% on-time? | The supplied data (48,340 deliveries) | No: 67% of late deliveries have a cause before pickup; carriers cost 7.6 of 29 points | Recommendation not to sign as scoped (§1.1); the five-cause model (§2.2) |
+| 25 Oct | Does the brief ask for a product or a diagnosis? | Problem statement (`docs/Halcyon.docx`) | Both: a recommendation before the contract and a working slice against the data | Scope tiers and the replay as the core slice (§3, §5.8); mapping (§15) |
+| 26 Oct | Which root-cause definitions does the team stand behind? | Team diagnostic deck review | Five causes: address, stock / wrong warehouse, cut-off, carrier lane or D on Friday, route >20% | v0.4: §2.2, §5.1; adoption-adjusted replay (§2.4) |
+| 26 Oct | Is carrier D bad everywhere? | The data (fair deliveries by weekday) | No: D is reliable except on Fridays, when it carries 39% of volume | Friday capacity cap instead of blocking D (C11, §5.2) |
+| 25 Oct | Which cloud platform? | Team | Azure | §4.1, §9.3 |
+| 26 Oct | Where does the code live? | Team (repo restructure) | `backend/` for Python and the API, Next.js `frontend/` for the landing page and dashboard | v0.5: §4.1, §4.3 |
+| 26 Oct | Can we create our own Azure resource group? | Azure subscription (az CLI) and team | No; the team group is `rg-unhandled-rejections` (centralindia), Terraform-managed with tags | C8 deploys there with prefix `rootroute01`; setup never re-saves the group |
+| 26 Oct | Can GitHub Actions sign in to Azure without stored secrets? | Tenant policy (Microsoft Graph) | Yes: users may create app registrations | CD keeps OIDC login (§9.3) |
+| 26 Oct | What must a submission show to qualify? | Organisers (EvoHack 2026 kickoff, Level 1 checklist) | Discovery, agents across roles, AI in the solution, live deployed demo, UI, backend, test evidence | v0.6: §3, §4.4, §9, §10.2, §11, §16 |
+| 26 Oct | Which AI model? | Team (Task 0); an Azure OpenAI account `RootRoute` already exists in the team group | Open | `[AI_MODEL]` in §12 |
+
 ## 15. Mapping to the brief's task list
 | Brief asks | Where in this spec |
 |---|---|
@@ -907,4 +958,19 @@ Record each answer and what changed in this spec.
 | Generate synthetic data where required | §12.1 |
 | How we would prove it worked; what we don't know | §9.2, §1.2, §12 |
 | Recommendation before the contract; what would change our mind | §1.1, §1.2 |
-| Sponsor time: what we asked and learned | §14 |
+| Sponsor time: what we asked and learned | §14, §14.1 |
+
+## 16. Level 1 qualification checklist (EvoHack 2026)
+Every item must be visible at submission. A submission is eliminated with no working prototype, no evidence of AI use,
+a missed deadline, a major deviation from the problem statement, or non-compliant behaviour.
+
+| Must-have | How LateLens meets it | Evidence for judges | Owner |
+|---|---|---|---|
+| Discovery: questions asked and answers applied | Questions to sponsors, organisers, team and data, each with what it changed | §14.1 discovery log; §12 open questions; §14 sponsor questions | All |
+| Agent pipeline: agents across roles, not just code assist | Intake (order desk), complaint triage (customer success), Ask LateLens (leadership); spec, plan, build and review agents in delivery | §4.4 agents by role; the plans with ticked steps; one PR per task | A, C |
+| AI services inside the solution | The model reads order emails into validated JSON, drafts replies and complaint responses, and answers leadership questions through tools | Live C190 email in the demo (§11); extraction eval ≥ 48/50 (AC-INT-04/05) | A |
+| Live app demo: working, deployed prototype | Azure App Service + Static Web Apps + Postgres; first deploy Tue 27 | Deployed URL in the README; smoke test on that URL | C |
+| UI: usable front end for the flow | Landing page and five dashboard screens; approval flow for emails | `/dashboard/*` on the deployed app; AC-UI-* | B, A, C |
+| Backend: working APIs, data and logic | Python pipeline (causes, replay, lane scores) and Node API (rules, agents) | CI: golden-number tests; API route tests on Postgres | B, C |
+| Testing: evidence the solution was tested | Unit, golden, extraction eval, API, dashboard and smoke tests, each naming its ACs | `docs/TEST-EVIDENCE.md`; green CI runs | C |
+| Not eliminated | Deployed by Tue 27; AI shown live with a recorded fallback; scope traced to the brief (§15); synthetic data labelled; secrets only in Key Vault / `.env`; outbound email only to the allow-list | §8, §10.3, §12.1 | All |
