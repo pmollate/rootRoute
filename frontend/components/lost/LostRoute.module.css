@@ -34,11 +34,9 @@
 }
 
 .glyph {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-soft);
+  flex: none;
+  width: 30px;
+  height: 30px;
 }
 
 .pill {

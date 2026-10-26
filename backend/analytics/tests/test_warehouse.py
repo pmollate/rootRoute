@@ -22,6 +22,8 @@ def test_warehouse_stats_totals(d):
     assert len(s) == 5
     assert (int(s.cutoff_misses.sum()), int(s.cutoff_before_11.sum()), int(s.out_of_stock.sum()),
             int(s.skipped_nearest.sum())) == (4826, 2414, 6009, 691)
+    assert round(s.nearest_freight_usd.sum() / s.nearest_shipped.sum(), 2) == 13.93
+    assert round(s.other_freight_usd.sum() / s.other_shipped.sum(), 2) == 23.58
 
 
 def test_ac_pen_01_unpaid(d, penalties):

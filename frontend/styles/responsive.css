@@ -1,3 +1,22 @@
+/* ───────────── Tablet ───────────── */
+
+@media (max-width: 1100px) {
+  /* four 54px+ figures no longer fit one row: two by two */
+  .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .stat:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  /* the dispatcher card and the two persona cards get too narrow side by side */
+  .people-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ───────────── Mobile ───────────── */
 
 @media (max-width: 768px) {
@@ -207,16 +226,6 @@
     aspect-ratio: 16 / 10;
   }
 
-  .stats {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .stat:nth-child(3) {
-    padding-left: 0;
-    border-left: 0;
-  }
-
-  .people-grid,
   .pcards {
     grid-template-columns: 1fr;
   }

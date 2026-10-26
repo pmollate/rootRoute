@@ -50,11 +50,12 @@
   --shadow-lift: 0 40px 80px -50px rgb(var(--shadow-rgb) / 0.45);
   --shadow-glass: 0 30px 70px -30px rgb(0 0 0 / 0.5);
 
-  /* stacking: spine < drive stage (the truck passes over it) < rail < header */
+  /* stacking: spine < drive stage (the truck passes over it) < rail < header < mobile menu */
   --z-spine: 5;
   --z-drive: 6;
   --z-rail: 20;
   --z-header: 30;
+  --z-menu: 40;
 
   /* layout */
   --gutter: clamp(16px, 5vw, 72px);

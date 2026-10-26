@@ -9,7 +9,6 @@
 .bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   max-width: 1280px;
   margin: 0 auto;
   padding: 8px 8px 8px 20px;
@@ -34,19 +33,19 @@
   text-decoration: none;
 }
 
-/* a route pin: orange dot with a ring */
 .glyph {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  flex: none;
+  width: 26px;
+  height: 26px;
+  color: var(--ink);
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 .nav {
   display: flex;
   align-items: center;
   gap: 2px;
+  margin-left: auto;
 }
 
 .navLink {
@@ -128,21 +127,9 @@
   transform: scale(0.97);
 }
 
-/* the logo dot pulses once on hover */
+/* the mark nudges forward on hover, along its speed lines */
 .mark:hover .glyph {
-  animation: glyph-pulse 0.9s ease-out;
-}
-
-@keyframes glyph-pulse {
-  0% {
-    box-shadow: 0 0 0 3px var(--accent-soft);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgb(var(--accent-rgb) / 0.12);
-  }
-  100% {
-    box-shadow: 0 0 0 3px var(--accent-soft);
-  }
+  transform: translateX(2px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -152,7 +139,7 @@
   }
 
   .mark:hover .glyph {
-    animation: none;
+    transform: none;
   }
 }
 
@@ -218,9 +205,22 @@
   }
 }
 
+/* the demo button at the foot of the mobile menu */
+.menuCta {
+  display: block;
+  margin: 0;
+  text-align: center;
+}
+
+/* the section links move into the hamburger menu, which sits left of the mark */
 @media (max-width: 860px) {
   .navLink {
     display: none;
+  }
+
+  .bar {
+    gap: 4px;
+    padding-left: 6px;
   }
 }
 
@@ -231,7 +231,7 @@
   }
 
   .bar {
-    padding: 5px 5px 5px 14px;
+    padding: 5px;
   }
 
   .mark {
@@ -241,8 +241,8 @@
   }
 
   .glyph {
-    width: 8px;
-    height: 8px;
+    width: 22px;
+    height: 22px;
   }
 
   .link {
