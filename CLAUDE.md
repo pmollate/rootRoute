@@ -1,6 +1,8 @@
 # root-route (LateLens): Halcyon late-deliveries hackathon
 
-FDE AI Hackathon 5.0, Problem 2. Team of 3, Azure, demo due in 4 days.
+FDE AI Hackathon 5.0, Problem 2. Team of 3, Azure. Coding Mon 26 – Thu 29 Oct 2026; code submission 29 Oct.
+Stack: React + Vite (web), Node + Fastify (API and agents), PostgreSQL, Python (data pipeline).
+Team split by problem area: Email orders · Warehouse & promise · Carriers (SPEC §10).
 Full spec: `docs/SPEC.md`. Read it before writing code.
 
 ## The problem in one paragraph
@@ -18,8 +20,10 @@ scoped: fix intake, promises, stock and carrier lanes, pilot for 8 weeks, then r
 - `analysis/prep.py` — reference loader + cause flags used for every number in the spec
   (`load('Halcyon-Hackathon-Dataset')` from the repo root)
 - `docs/SPEC.md` — product + technical spec (source of truth)
-- To be created: `functions/` (Python Azure Functions), `web/` (dashboard), `tests/`;
-  stretch: `bots/` (Playwright), `mocks/` (mock WMS); phase 2: `infra/` (full Bicep). Scope tiers in SPEC §3.
+- To be created (SPEC §4.3): `web/`, `api/`, `analytics/`, `db/migrations/`, `synthetic-data/`, `tests/fixtures/`,
+  `docs/CONTRACTS.md`, `docker-compose.yml`. Each problem area has its own folder in every layer
+  (`analytics/<area>/`, `api/src/modules/<area>/`, `web/src/features/<area>/`); migrations 1xx email, 2xx warehouse,
+  3xx carriers. Feature list and tiers in SPEC §3.
 
 ## Rules for working in this repo
 - Every number shown to users must be computed from the dataset. Never invent figures.
@@ -27,6 +31,11 @@ scoped: fix intake, promises, stock and carrier lanes, pilot for 8 weeks, then r
 - Cause flags and "fair data" are defined in SPEC §5.1. Use exactly those definitions.
 - Carrier scoring uses FAIR data only (deliveries without address/stock/cut-off causes).
 - Synthetic email orders must be labelled synthetic. US addresses (ZIP codes), not PIN codes.
+- Synthetic data (SPEC §12.1): generate it FROM the supplied data (same ids, dates, clients), one seeded generator per
+  dataset in `synthetic-data/generators/`, never edit `Halcyon-Hackathon-Dataset/`. Headline figures and the replay
+  use supplied data only; screens using synthetic data show a "Synthetic data" badge.
+- Python computes, Node looks up: anything derived from data analysis is written to a table by Python; Node applies
+  only order-time rules. Each table has one writer (SPEC §4.2).
 - Secrets live in Key Vault / local `.env` (gitignored). Never commit keys.
 - Keep it demo-reliable: simple rules over ML where rules are enough; the AI model is used only
   to read emails and draft replies.
@@ -38,9 +47,9 @@ scoped: fix intake, promises, stock and carrier lanes, pilot for 8 weeks, then r
   outbound email goes only to the test allow-list (SPEC §8).
 
 ## Key numbers (for quick checks; recompute, don't trust blindly)
-On-time 71.0% · late 14,019 · penalties $872,460 (4,847 × $180) · late-delivery handling $476,646 (14,019 × $34)
-Late rate when present: address 65% · same-day after 8am 61% · non-nearest warehouse 50% · carrier D 40% ·
-route overrun >12% 37% · carriers E/F 31% · none of the six causes 0%.
-"If fixed" on-time: route overruns only 73.4% · carriers+routes 80.2% · address only 76.8% ·
-address+carriers 83.7% · address+cut-off+stock 86.5% · address+cut-off+stock+carriers 95.6%.
-Cost avoided over 6 months: route only ≈ $104K · address+cut-off+stock+carriers ≈ $1.15M (SPEC §1.1).
+On-time 71.0% · late 14,019 · penalties $872,460 (4,847 × $180) · late-delivery handling $476,646 (14,019 × $34) · freight $738K
+Five causes (SPEC §2.2), points of on-time lost: carrier lane / D on Friday 7.6 · address 7.0 · wrong warehouse 5.6 ·
+cut-off 5.6 · route >20% 3.2 = 29.0. No delivery without one of the five is late.
+Bad lanes: D→MW/SE, E→West, F→NE/SE; D on Fridays is a capacity problem (Friday cap), not a blocked lane.
+Expected-adoption programme: 71.0 → 76.2 → 82.5 → 87.3 → 91.0 → 92.0%; routing vendor only 78.3%; as built 85.9%.
+Full-fix upper bounds: route only 73.6% · lanes + routes 80.4% · as built 88.5% · all but routes 96.3%.
