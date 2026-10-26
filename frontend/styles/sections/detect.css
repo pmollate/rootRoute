@@ -1,0 +1,93 @@
+/* S1 Detect: overlaps the hero's last screen, whose final frame matches S1's first, so the cut is invisible */
+.detect {
+  background: var(--bg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .detect {
+    z-index: 1;
+    margin-top: calc(-1 * var(--vh));
+  }
+}
+
+.detect-head {
+  position: absolute;
+  top: clamp(100px, 15vh, 150px);
+  left: var(--gutter);
+  max-width: 500px;
+}
+
+.detect-stage img,
+.detect-stage canvas {
+  mix-blend-mode: multiply;
+}
+
+/* the poster would double up under the multiplied canvas */
+.detect-stage:has(canvas[data-ready]) img {
+  visibility: hidden;
+}
+
+/* The courier frames are already transparent, so the truck's edge fades (and the dark-mode
+   spotlight, 0,3,0) would only cut off the courier's feet. Parcels drop in through the frame's top
+   edge, so that edge alone fades in (--frame-h from useFrameBox). */
+:root:root .truck-box.detect-stage {
+  --frame-top: calc(50% - var(--frame-h, 100%) / 2);
+  -webkit-mask-image: linear-gradient(transparent var(--frame-top), #000 calc(var(--frame-top) + var(--frame-h, 0px) * 0.12));
+  mask-image: linear-gradient(transparent var(--frame-top), #000 calc(var(--frame-top) + var(--frame-h, 0px) * 0.12));
+}
+
+.detect-cards {
+  position: absolute;
+  left: var(--gutter);
+  bottom: clamp(110px, 16vh, 170px);
+  width: min(430px, 38vw);
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dcard {
+  position: relative;
+  grid-area: 1 / 1;
+  isolation: isolate;
+}
+
+.dcard-body {
+  padding: 24px 24px 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+/* small orange step labels on cards */
+.dcard-step,
+.ocard-step,
+.pcard-n {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.dcard h3,
+.ocard h3,
+.pcard h3 {
+  margin: 10px 0 8px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.dcard p,
+.ocard p,
+.pcard p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}

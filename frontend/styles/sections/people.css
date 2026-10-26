@@ -1,0 +1,150 @@
+/* S7 Built for people */
+.people {
+  padding: clamp(110px, 18vh, 200px) 0;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.people-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: clamp(40px, 6vw, 96px);
+  align-items: center;
+}
+
+.pcards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 44px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pcard {
+  position: relative;
+  top: 0;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.dash {
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lift);
+  overflow: hidden;
+}
+
+.dash-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.dash-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.dash-dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+.dash-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--live-ink);
+}
+
+.dash-live::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--live);
+}
+
+.dash-body {
+  padding: 22px;
+}
+
+.dash-title {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.dash-map {
+  width: 100%;
+  height: auto;
+  margin-bottom: 8px;
+}
+
+.dash-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dash-rows li {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  grid-template-areas: 'k v btn' 'k why btn';
+  column-gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.dash-k {
+  grid-area: k;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.dash-v {
+  grid-area: v;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.dash-why {
+  grid-area: why;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.dash-override {
+  grid-area: btn;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--pill);
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.dash-eta {
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgb(var(--accent-rgb) / 0.08);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-text);
+}

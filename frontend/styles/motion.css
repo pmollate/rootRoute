@@ -1,0 +1,163 @@
+/* ───────────── Reduced motion: no pins, posters, final values ───────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .scene {
+    height: auto;
+    min-height: var(--vh);
+  }
+
+  .hero-handoff,
+  .chapters {
+    display: none;
+  }
+
+  .detect {
+    display: grid;
+    gap: 32px;
+    padding: 120px var(--gutter) 80px;
+  }
+
+  .detect-head,
+  .detect-cards,
+  .truck-box {
+    position: relative;
+    inset: auto;
+    width: auto;
+  }
+
+  .detect-stage {
+    height: 50vh;
+  }
+
+  .detect-cards {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+  }
+
+  .dcard {
+    grid-area: auto;
+  }
+
+  .deliver-card {
+    display: none;
+  }
+
+  .deliver-shade {
+    opacity: 1;
+  }
+
+  .drive {
+    height: auto;
+  }
+
+  .drive-stage {
+    position: relative;
+    height: 50vh;
+  }
+
+  .drive-truck {
+    transform: translateX(calc(50vw - 50%));
+  }
+
+  .btn,
+  .ocard,
+  .rail a {
+    transition: none;
+  }
+}
+
+/* ───────────── Hover: cards and stats ─────────────
+   GSAP owns `transform` (and writes an inline `translate: none`) on the cards it animates in, so
+   lifts go on an inner element, or on `top` for the people cards. Only on devices that really
+   hover, so taps don't leave cards stuck "up". */
+
+.dcard-body,
+.pcard,
+.stat dd,
+.stat dt {
+  transition:
+    translate 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
+    top 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
+    box-shadow 0.35s,
+    border-color 0.35s,
+    color 0.3s;
+}
+
+.ocard-media video,
+.ocard-media img {
+  transition: scale 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.ocard-chip,
+.pcard-n {
+  transition:
+    background 0.3s,
+    color 0.3s,
+    letter-spacing 0.3s;
+}
+
+@media (hover: hover) {
+  .dcard:hover .dcard-body {
+    translate: 0 -4px;
+  }
+
+  .pcard:hover {
+    top: -4px;
+  }
+
+  .dcard:hover .dcard-body,
+  .pcard:hover {
+    border-color: rgb(var(--accent-rgb) / 0.35);
+    box-shadow: 0 34px 60px -34px rgb(var(--shadow-rgb) / 0.45);
+  }
+
+  .pcard:hover .pcard-n {
+    letter-spacing: 0.2em;
+  }
+
+  .ocard.is-active:hover {
+    border-color: rgb(var(--accent-rgb) / 0.35);
+    box-shadow: 0 50px 90px -45px rgb(var(--shadow-rgb) / 0.6);
+  }
+
+  .ocard.is-active:hover .ocard-media video,
+  .ocard.is-active:hover .ocard-media img {
+    scale: 1.04;
+  }
+
+  .ocard.is-active:hover .ocard-chip {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .stat:hover dd {
+    translate: 0 -3px;
+    color: var(--accent-hover);
+  }
+
+  .stat:hover dt {
+    color: var(--cream);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:hover,
+  .btn:active,
+  .dcard:hover .dcard-body,
+  .stat:hover dd {
+    translate: none;
+  }
+
+  .pcard:hover {
+    top: 0;
+  }
+
+  .btn-primary::after {
+    display: none;
+  }
+
+  .ocard.is-active:hover .ocard-media video,
+  .ocard.is-active:hover .ocard-media img {
+    scale: none;
+  }
+}

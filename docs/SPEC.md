@@ -2,7 +2,7 @@
 
 Repo: root-route · Status: draft v0.2 · Owner: Priyank + team (A = data, B = agents/Azure, C = dashboard/demo)
 Hackathon: FDE AI Hackathon 5.0, Problem 2 (Halcyon Logistics). Build window: 4 days.
-Source brief: `Halcyon.docx` (Participant Problem Statement). Data: `Halcyon-Hackathon-Dataset/`.
+Source brief: `docs/Halcyon.docx` (Participant Problem Statement). Data: `Halcyon-Hackathon-Dataset/`.
 
 **Changes in v0.2:** recommendation with cost case (§1); why it keeps happening and what has been tried (§2.5–2.6);
 scope cut to a demo core (§3); requirement IDs with Given/When/Then acceptance criteria (§5, §8);
@@ -11,7 +11,7 @@ sponsor questions (§14); mapping to the brief (§15).
 
 **Conventions.** **MUST** / **SHOULD** / **MAY** follow RFC 2119. Every requirement has an ID (`REQ-<module>-NN`,
 `NFR-NN`, `SEC-NN`). Its acceptance criterion has the same number (`AC-<module>-NN`). Every **MUST** has an AC.
-All figures below are computed from the dataset with `analysis/prep.py` (1 Apr – 25 Sep 2026, 178 days).
+All figures below are computed from the dataset with `backend/analysis/prep.py` (1 Apr – 25 Sep 2026, 178 days).
 
 ---
 
@@ -119,7 +119,7 @@ FAIR = deliveries without an address, stock or cut-off cause (32,045 deliveries;
 "Carriers" fixes every delivery on D, E and F, not only their bad lanes. Their good lanes are already 94–97% on time on
 fair data, so the result is the same as fixing bad lanes only.
 
-Capacity check: the team's capacity-limited carrier replay (`carrier-optimization-engine/`, branch `carrier_optimizer`)
+Capacity check: the team's capacity-limited carrier replay (`backend/carrier-optimization-engine/`, branch `carrier_optimizer`)
 reaches 77.5–78.0% on Aug–Sep against 77.4% uncapped for carrier choice on the same months. Capacity tiers there are
 learned from observed volumes, not contracts; confirm with procurement (§12).
 
@@ -196,7 +196,7 @@ weekly lane scores (feeds the recommender).
 ## 5. Modules
 
 ### 5.1 Diagnostic engine (owner A)
-Input: the CSVs in `Halcyon-Hackathon-Dataset/`. Reference implementation: `analysis/prep.py`.
+Input: the CSVs in `Halcyon-Hackathon-Dataset/`. Reference implementation: `backend/analysis/prep.py`.
 
 Flag definitions (exact):
 - `late` = `on_time == 'N'`
@@ -487,7 +487,7 @@ Open questions:
 - Wireframes: https://claude.ai/artifact/KHS6cDyxUBp5E1HLmPQTyW
 - Team intake workflow canvas: https://claude.ai/artifact/L3zPwz8rNzmKRxNPzRGeDC
 - Team carrier optimization canvas: https://claude.ai/artifact/BMxbTQyniHbkBYuX3zkHN2
-- Carrier risk model and capacity-limited replay: branch `carrier_optimizer`, `carrier-optimization-engine/model_report.md`
+- Carrier risk model and capacity-limited replay: branch `carrier_optimizer`, `backend/carrier-optimization-engine/model_report.md`
 
 ## 14. Sponsor questions
 Record each answer and what changed in this spec.

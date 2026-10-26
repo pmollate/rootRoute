@@ -14,13 +14,14 @@ scoped: fix intake, promises, stock and carrier lanes, pilot for 8 weeks, then r
 
 ## Repo layout
 - `Halcyon-Hackathon-Dataset/` — the supplied synthetic dataset: CSVs, README, DATA_DICTIONARY (read-only; never edit)
-- `Halcyon.docx` — the participant problem statement
-- `analysis/prep.py` — reference loader + cause flags used for every number in the spec
-  (`load('Halcyon-Hackathon-Dataset')` from the repo root)
-- `docs/SPEC.md` — product + technical spec (source of truth)
-- Landing page (Next.js + GSAP scroll film) at the repo root: `app/`, `components/`, `config/`,
-  `hooks/`, `lib/`, `public/`, `scripts/`; `npm run dev`. See README.md
-- To be created: `functions/` (Python Azure Functions), `web/` (dashboard), `tests/`;
+- `docs/` — `SPEC.md` (product + technical spec, source of truth), `SPEC-carrier-optimizer.md`,
+  `SPEC-email-address-resolution.md`, `Halcyon.docx` (the participant problem statement)
+- `backend/` — Python. `analysis/prep.py`: reference loader + cause flags used for every number in the spec
+  (`load('Halcyon-Hackathon-Dataset')` from the repo root). `carrier-optimization-engine/`: carrier risk model
+  and capacity-limited replay (run from the repo root so `--data ./Halcyon-Hackathon-Dataset` resolves)
+- `frontend/` — landing page (Next.js + GSAP scroll film), the deployable app. `npm run dev` from the root or
+  from `frontend/`. Structure and conventions: `frontend/README.md`
+- To be created: `backend/functions/` (Python Azure Functions), `web/` (dashboard), `tests/`;
   stretch: `bots/` (Playwright), `mocks/` (mock WMS); phase 2: `infra/` (full Bicep). Scope tiers in SPEC §3.
 
 ## Rules for working in this repo

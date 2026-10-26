@@ -1,0 +1,56 @@
+/* S6 Results */
+.results {
+  padding: clamp(110px, 18vh, 200px) 0 clamp(90px, 14vh, 160px);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 64px 0 0;
+  border-top: 1px solid var(--rule-on-dark);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 32px 24px 0 0;
+}
+
+.stat + .stat {
+  padding-left: 24px;
+  border-left: 1px solid var(--rule-on-dark);
+}
+
+.stat dt {
+  font-size: 15px;
+  color: var(--on-dark-2);
+}
+
+.stat dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(54px, 6.6vw, 104px);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stat-unit {
+  font-size: 0.55em;
+  letter-spacing: -0.02em;
+}
+
+.stat:first-child dd {
+  color: var(--accent);
+}
+
+.security {
+  margin: 72px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--on-dark-3);
+}

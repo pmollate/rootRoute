@@ -1,0 +1,161 @@
+/* S2 Drive: one viewport of scroll, the stage sticks while the truck crosses */
+.drive {
+  position: relative;
+  height: calc(var(--vh) * 2);
+  background: var(--bg);
+}
+
+.drive-stage {
+  position: sticky;
+  z-index: var(--z-drive);
+  top: 0;
+  height: var(--vh);
+  overflow: hidden;
+}
+
+.drive-road {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(16vh - 6px);
+  height: 2px;
+  background: repeating-linear-gradient(90deg, rgb(var(--muted-rgb) / 0.45) 0 28px, transparent 28px 52px);
+}
+
+.drive-panel {
+  position: absolute;
+  inset: 0;
+  background: var(--dark);
+  clip-path: inset(0 100% 0 0);
+}
+
+.drive-line {
+  position: absolute;
+  left: var(--gutter);
+  top: 16vh;
+  margin: 0;
+  max-width: 11ch;
+  font-family: var(--font-display);
+  font-size: clamp(40px, min(7vw, 11vh), 104px);
+  font-weight: 650;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  color: var(--cream);
+}
+
+.drive-truck {
+  position: absolute;
+  left: 0;
+  bottom: 16vh;
+  width: var(--truck-w);
+  transform: translate3d(-120%, 0, 0);
+  will-change: transform;
+}
+
+.drive-body {
+  position: relative;
+  width: 100%;
+  height: auto;
+}
+
+/* soft floor shadow under the tyres */
+.drive-truck::after {
+  content: '';
+  position: absolute;
+  left: 4%;
+  right: 2%;
+  bottom: -3%;
+  height: 8%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.22), transparent);
+  z-index: -1;
+}
+
+.drive-wheel {
+  position: absolute;
+  height: auto;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+/* centred above the truck's roof line (truck height = width × 202/512); chevrons pulse forward */
+.drive-lead {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16vh + var(--truck-w) * 0.3945 + 40px);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+/* brand printed on the cargo box, same face and ink as the hero clip; multiply lets the box's shading through */
+.drive-livery {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-brand), var(--font-display);
+  font-size: calc(var(--truck-w) * 0.058);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--livery);
+  -webkit-text-stroke: 0.045em var(--livery); /* a touch heavier, like the painted livery */
+  mix-blend-mode: multiply;
+  white-space: nowrap;
+}
+
+.drive-arrows {
+  display: flex;
+  gap: 2px;
+}
+
+.drive-arrows svg {
+  width: 16px;
+  height: 26px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .drive-arrows svg {
+    animation: drive-arrow 1.1s ease-in-out infinite;
+  }
+}
+
+@keyframes drive-arrow {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translateX(-4px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(4px);
+  }
+}
+
+.drive-lead p {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.drive-lead p span {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}

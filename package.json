@@ -1,26 +1,13 @@
 {
-  "name": "root-router-site",
+  "name": "root-route",
   "private": true,
-  "version": "0.1.0",
+  "description": "LateLens / Root Route: Next.js landing page in frontend/, Python analysis and carrier engine in backend/",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "media": "bash scripts/process-media.sh \"Carrier clips\" public/media"
-  },
-  "dependencies": {
-    "@gsap/react": "^2.1.2",
-    "gsap": "^3.13.0",
-    "lenis": "^1.3.11",
-    "next": "^15.5.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.1.0",
-    "typescript": "^5.9.0"
+    "setup": "npm --prefix frontend ci",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start",
+    "typecheck": "npm --prefix frontend run typecheck",
+    "media": "npm --prefix frontend run media"
   }
 }

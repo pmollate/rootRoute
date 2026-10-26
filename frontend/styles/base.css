@@ -1,0 +1,62 @@
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* the chapter rail on the right is the progress indicator, so the browser scrollbar is hidden
+   (the page still scrolls with wheel, touch and keys) */
+html {
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+img,
+video,
+canvas {
+  display: block;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* keyboard focus on pill controls: the outline follows the pill and gets a soft orange halo */
+.btn:focus-visible,
+.deliver-links a:focus-visible {
+  outline-offset: 4px;
+  box-shadow: 0 0 0 6px rgb(var(--accent-rgb) / 0.22);
+}
+
+/* Placeholder figure: replace with a verified number, then drop the class. */
+.ph {
+  white-space: nowrap;
+  text-decoration: underline dotted rgb(var(--accent-text-rgb) / 0.6);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 2px;
+}

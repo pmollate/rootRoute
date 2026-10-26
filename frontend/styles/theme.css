@@ -1,0 +1,128 @@
+:root {
+  /* palette: base colours as RGB channels, so every translucent variant derives from them */
+  --bg-rgb: 247 245 240;
+  --cream-rgb: 247 245 240; /* light text on footage; unlike --bg it never flips with the theme */
+  --shadow-rgb: 30 30 30;
+  --dark-rgb: 18 18 17;
+  --ink-rgb: 30 30 30;
+  --accent-rgb: 255 90 31;
+  --accent-text-rgb: 194 65 12;
+  --muted-rgb: 128 124 116; /* road, rail dots, spine track */
+  --night-rgb: 10 14 22; /* the depot sky, for the hero shade */
+
+  --bg: rgb(var(--bg-rgb));
+  --cream: rgb(var(--cream-rgb));
+  --surface: #ffffff;
+  --dark: rgb(var(--dark-rgb));
+  --ink: rgb(var(--ink-rgb));
+  --ink-2: #5b5853;
+  --line: #e5e1d8;
+  --glass: rgb(var(--bg-rgb) / 0.86); /* cards over footage */
+  --accent: rgb(var(--accent-rgb)); /* fills: buttons, bars */
+  --accent-hover: #ff7a45;
+  --accent-ink: #1e1e1e; /* text on orange (6:1+), dark in both themes */
+  --accent-text: rgb(var(--accent-text-rgb)); /* orange text on off-white (AA) */
+  --accent-soft: rgb(var(--accent-rgb) / 0.2); /* the ring round route dots */
+  --livery: rgb(42 45 50 / 0.9); /* truck brand paint */
+  --live: #34c27a;
+  --live-ink: #1f8a55;
+
+  /* text and rules on dark footage */
+  --on-dark: rgb(var(--cream-rgb) / 0.82);
+  --on-dark-2: rgb(var(--cream-rgb) / 0.65);
+  --on-dark-3: rgb(var(--cream-rgb) / 0.55);
+  --rule-on-dark: rgb(var(--cream-rgb) / 0.14);
+
+  /* shape */
+  --radius: 14px;
+  --radius-lg: 20px;
+  --pill: 999px;
+  --shadow-card: 0 30px 60px -40px rgb(var(--shadow-rgb) / 0.35);
+  --shadow-lift: 0 40px 80px -50px rgb(var(--shadow-rgb) / 0.45);
+  --shadow-glass: 0 30px 70px -30px rgb(0 0 0 / 0.5);
+
+  /* stacking: spine < drive stage (the truck passes over it) < rail < header */
+  --z-spine: 5;
+  --z-drive: 6;
+  --z-rail: 20;
+  --z-header: 30;
+
+  /* layout */
+  --gutter: clamp(16px, 5vw, 72px);
+  --truck-w: min(640px, 72vw, 80vh); /* S2 truck; bounded by height so short screens fit */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: var(--font-inter-tight), var(--font-sans);
+  --vh: 100vh;
+}
+
+/* ───────────── Dark theme ─────────────
+   Follows the system unless the header toggle has set data-theme on <html> (see ThemeToggle).
+   Only page surfaces flip; footage, the hero and anything using --cream / --on-dark stay as they are. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg-rgb: 20 20 19;
+    --dark-rgb: 10 10 9;
+    --ink-rgb: 236 233 226;
+    --shadow-rgb: 0 0 0;
+    --accent-text-rgb: 255 128 80; /* orange text on charcoal (AA) */
+    --surface: #1c1c1a;
+    --ink-2: #aaa69d;
+    --line: #2f2e2b;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg-rgb: 20 20 19;
+  --dark-rgb: 10 10 9;
+  --ink-rgb: 236 233 226;
+  --shadow-rgb: 0 0 0;
+  --accent-text-rgb: 255 128 80;
+  --surface: #1c1c1a;
+  --ink-2: #aaa69d;
+  --line: #2f2e2b;
+  color-scheme: dark;
+}
+
+/* The turntable frames are multiplied onto the light page; on charcoal that would black the truck
+   out, so in dark mode they sit on the page as a spotlit studio instead. The spotlight is an ellipse
+   sized to the frame itself (--frame-w / --frame-h from useFrameBox), not to the box it is
+   letterboxed in, so it never runs past the picture's edges. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .truck-box img,
+  :root:not([data-theme='light']) .truck-box canvas {
+    mix-blend-mode: normal;
+    filter: brightness(0.82);
+  }
+
+  :root:not([data-theme='light']) .truck-box {
+    -webkit-mask-image: var(--spotlight);
+    mask-image: var(--spotlight);
+  }
+}
+
+:root[data-theme='dark'] .truck-box img,
+:root[data-theme='dark'] .truck-box canvas {
+  mix-blend-mode: normal;
+  filter: brightness(0.82);
+}
+
+:root[data-theme='dark'] .truck-box {
+  -webkit-mask-image: var(--spotlight);
+  mask-image: var(--spotlight);
+}
+
+.truck-box {
+  --spotlight: radial-gradient(
+    ellipse calc(var(--frame-w, 0px) * 0.5) calc(var(--frame-h, 0px) * 0.5) at 50% 50%,
+    #000 30%,
+    rgb(0 0 0 / 0.55) 62%,
+    transparent 92% /* fully faded just inside the frame's edges */
+  );
+}
+
+@supports (height: 100svh) {
+  :root {
+    --vh: 100svh;
+  }
+}

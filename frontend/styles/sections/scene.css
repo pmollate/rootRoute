@@ -1,0 +1,27 @@
+/* ───────────── Scenes ───────────── */
+
+.scene {
+  position: relative;
+  height: var(--vh);
+  overflow: hidden;
+}
+
+/* The truck framing shared by the hero hand-off and the S1 canvas, so the cut is seamless. */
+.truck-box {
+  position: absolute;
+  top: 13vh;
+  bottom: 7vh;
+  right: calc(var(--gutter) * 0.5);
+  width: min(60vw, 1120px);
+  -webkit-mask-image: radial-gradient(ellipse 47% 49% at 50% 54%, #000 52%, transparent 96%);
+  mask-image: radial-gradient(ellipse 47% 49% at 50% 54%, #000 52%, transparent 96%);
+}
+
+.truck-box img,
+.truck-box canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
