@@ -1,0 +1,64 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.disc {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(56vw, 90vh, 880px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--surface);
+  transform: translate(-50%, -50%);
+}
+
+/* copy and plug stack in normal flow; .page centres the stack in the disc */
+.copy {
+  position: relative;
+  width: min(36vw, 520px);
+  text-align: center;
+  z-index: 1;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4vw, 60px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.accent {
+  color: var(--accent-text);
+}
+
+.lead {
+  margin: 1em 0 0;
+  font-size: clamp(15px, 1.6vw, 24px);
+  color: var(--ink-2);
+}
+
+.plug {
+  position: relative;
+  width: 64%;
+  height: auto;
+  margin-top: min(4vw, 6vh);
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .disc { width: 92vw; }
+  .copy { width: calc(100% - 32px); }
+  .plug { width: 110%; max-width: none; }
+}

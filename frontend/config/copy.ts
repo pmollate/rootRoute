@@ -143,4 +143,15 @@ export const copy = {
     cta: DEMO,
     links: [PLATFORM, NETWORK, HOW, { label: 'Contact', href: CONTACT_HREF }],
   },
+
+  /** 404: the same shape fits empty lists, unknown tracking IDs, stale tracking, carrier down */
+  lost: {
+    code: '404',
+    accent: 'Wrong turn.',
+    title: 'This route doesn’t exist.',
+    body: 'The page you were looking for couldn’t be found. It may have moved, or the link was mistyped.',
+    home: { label: 'Back to home', href: '/' },
+    track: { label: 'Track a shipment', href: '/dashboard' },
+    help: { label: 'Contact us', href: CONTACT_HREF },
+  },
 };
