@@ -314,7 +314,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
 - Consumes: tables `lane_scores`, `carrier_capacity`, `recommendations`.
 - Produces: `LaneRow`, `isFriday(date)`, `rankLane(rows, slaClause)`, `applyCapacity(ranked, usedToday, limits)`, `allocateBatch(n, ranked, limits)`, `reasonFor(best, rows)`, `recommendFromLane(rows, slaClause, usedToday?, limits?) -> CarrierRecommendation`; real `carriersApi.recommendCarrier(input)` (uses `friday_limit` on Fridays, logs to `recommendations` for daily capacity counts); `laneRows(region, commitment)` (also used by MCP); endpoints `GET /api/carriers`, `GET /api/carriers/backtest`, `GET /api/tracking`, `POST /api/recommend`, `POST /api/overrides` (backtest and tracking return data after C5 and C6).
 
-- [ ] **Step 1: Write the failing tests** (AC-CAR-03, -04, -06, -07, -08):
+- [x] **Step 1: Write the failing tests** (AC-CAR-03, -04, -06, -07, -08):
 
 ```ts
 import type { LaneRow } from '../../src/modules/carriers/domain.js';
@@ -402,9 +402,9 @@ describe.skipIf(!hasDb)('carrier routes (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** `npm --prefix backend/api test -- test/carriers` — Expected: FAIL, cannot find `domain.js`.
+- [x] **Step 2: Run.** `npm --prefix backend/api test -- test/carriers` — Expected: FAIL, cannot find `domain.js`.
 
-- [ ] **Step 3: Implement.** Migration and domain logic:
+- [x] **Step 3: Implement.** Migration and domain logic:
 
 ```sql
 -- Owner C. Carrier recommendation log and operator overrides (CONTRACTS §5).
@@ -654,7 +654,7 @@ export default routes;
 
 - [ ] **Step 4: Run.** `npm run migrate:test && npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: domain tests 5 passed; route tests pass with the test database.
 
-- [ ] **Step 5: Commit and tell A** the real `carriersApi` is on `main`. `git add backend/api backend/db && git commit -m "feat(c): carrier recommender with capacity cap, overrides"`
+- [x] **Step 5: Commit and tell A** the real `carriersApi` is on `main`. `git add backend/api backend/db && git commit -m "feat(c): carrier recommender with capacity cap, overrides"`
 
 ---
 
