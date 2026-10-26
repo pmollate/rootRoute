@@ -623,7 +623,7 @@ git commit -m "feat(b): API skeleton in backend/api, Postgres, migrations, contr
 - [ ] **Step 1: Make `npm ci` work for everyone.** `frontend/package-lock.json` points every package at a private Pluralsight JFrog registry, so `npm ci` fails with 401 outside that network, including in CI. Point the same versions at the public registry (the checksums do not change):
 
 ```bash
-sed -i '' 's#https://pluralsight.jfrog.io/artifactory/api/npm/npm/#https://registry.npmjs.org/#g' frontend/package-lock.json
+sed -i '' 's#https://registry.npmjs.org/#g' frontend/package-lock.json
 npm --prefix frontend ci
 ```
 

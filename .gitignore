@@ -10,6 +10,13 @@ Carrier clips/
 __pycache__/
 *.pyc
 outputs/
+backend/api/dist/
+backend/synthetic-data/out/
+
+# frontend tests and bots
+frontend/test-results/
+frontend/playwright-report/
+frontend/bots/out/
 
 # secrets and OS
 .env
