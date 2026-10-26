@@ -212,7 +212,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
 **Interfaces:**
 - Produces: table `carrier_capacity` (24 rows: carrier × region, `daily_limit = ceil(1.1 × p95 of daily volume on days other than Friday)`, `friday_limit = daily_limit` so D is held at its normal level on Fridays, `synthetic = true`).
 
-- [ ] **Step 1: Write the failing test** (includes AC-CAR-08 at data level: every D `friday_limit` is below D's observed Friday peak):
+- [x] **Step 1: Write the failing test** (includes AC-CAR-08 at data level: every D `friday_limit` is below D's observed Friday peak):
 
 ```python
 from analytics.carriers import capacity
@@ -231,9 +231,9 @@ def test_ac_car_08_friday_cap_holds_d_at_its_weekday_level(d):
         assert cap.loc[("D", region), "friday_limit"] < peak
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL, `ImportError`.
+- [x] **Step 2: Run.** Expected: FAIL, `ImportError`.
 
-- [ ] **Step 3: Implement:**
+- [x] **Step 3: Implement:**
 
 ```python
 """SD-06 synthetic carrier capacity contracts (SPEC §12.1), from observed daily volume on days other than Friday.
@@ -297,9 +297,9 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && python backend/synthetic-data/generators/sd06_capacity.py` — Expected: pass; `backend/synthetic-data/out/carrier_capacity.csv` written.
+- [x] **Step 4: Run.** `python -m pytest && python backend/synthetic-data/generators/sd06_capacity.py` — Expected: pass; `backend/synthetic-data/out/carrier_capacity.csv` written.
 
-- [ ] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/generators && git commit -m "feat(c): synthetic carrier capacity contracts (SD-06)"`
+- [x] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/generators && git commit -m "feat(c): synthetic carrier capacity contracts (SD-06)"`
 
 ---
 
