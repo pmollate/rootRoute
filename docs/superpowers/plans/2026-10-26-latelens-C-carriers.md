@@ -196,7 +196,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test` — Expected: 3 new tests pass; `lane_scores` written.
+- [x] **Step 4: Run.** `python -m pytest && npm run pipeline:test` — Expected: 3 new tests pass; `lane_scores` written.
 
 - [x] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(c): lane scores and block rules on fair data"`
 
@@ -652,7 +652,7 @@ const routes: FastifyPluginAsync = async (app) => {
 export default routes;
 ```
 
-- [ ] **Step 4: Run.** `npm run migrate:test && npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: domain tests 5 passed; route tests pass with the test database.
+- [x] **Step 4: Run.** `npm run migrate:test && npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: domain tests 5 passed; route tests pass with the test database.
 
 - [x] **Step 5: Commit and tell A** the real `carriersApi` is on `main`. `git add backend/api backend/db && git commit -m "feat(c): carrier recommender with capacity cap, overrides"`
 
