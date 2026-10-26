@@ -54,9 +54,9 @@ The `carrier_optimizer` branch is already merged into `main` and lives in `backe
 **Files:**
 - Create: `requirements-ml.txt`
 
-- [ ] **Step 1: Confirm the state.** `git ls-files backend/carrier-optimization-engine` lists `carrier_recommender_ml.py`, `carrier_risk_model.txt`, `model_report.md`, `replay_results.csv`; `git ls-files | grep -E '\.DS_Store|\.pyc'` prints nothing.
+- [x] **Step 1: Confirm the state.** `git ls-files backend/carrier-optimization-engine` lists `carrier_recommender_ml.py`, `carrier_risk_model.txt`, `model_report.md`, `replay_results.csv`; `git ls-files | grep -E '\.DS_Store|\.pyc'` prints nothing.
 
-- [ ] **Step 2: Its packages.** `requirements-ml.txt`:
+- [x] **Step 2: Its packages.** `requirements-ml.txt`:
 
 ```text
 # Only for backend/carrier-optimization-engine (the LightGBM model). Not needed by the pipeline or CI.
@@ -65,9 +65,9 @@ scipy>=1.11
 scikit-learn>=1.4
 ```
 
-- [ ] **Step 3: Check.** `python -m pytest && ruff check backend/analytics` — Expected: still clean (the optimizer is outside the linted folders).
+- [x] **Step 3: Check.** `python -m pytest && ruff check backend/analytics` — Expected: still clean (the optimizer is outside the linted folders).
 
-- [ ] **Step 4: Commit.** `git add requirements-ml.txt && git commit -m "chore(c): separate requirements for the carrier optimizer"`
+- [x] **Step 4: Commit.** `git add requirements-ml.txt && git commit -m "chore(c): separate requirements for the carrier optimizer"`
 
 ---
 
@@ -82,7 +82,7 @@ scikit-learn>=1.4
 - Consumes: `ctx.d` with `fair`, `f_d_friday`, `late`, `days_late`, `carrier_rate_usd` (B3). The result must equal `BAD_LANES` in `backend/analytics/core/load.py`.
 - Produces: `lane_metrics(d)`, `lane_scores(d)` → table `lane_scores` (72 rows: 4 regions × 3 commitments × 6 carriers) with columns of CONTRACTS §4; constants `MIN_N = 30`, `MAX_LATE = 0.15`, `MEDIAN_MULTIPLE = 2.0`, `WEIGHTS`.
 
-- [ ] **Step 1: Write the failing test** (AC-CAR-01, AC-CAR-02, the spec's Northeast next-day example):
+- [x] **Step 1: Write the failing test** (AC-CAR-01, AC-CAR-02, the spec's Northeast next-day example):
 
 ```python
 import pandas as pd
@@ -115,9 +115,9 @@ def test_northeast_next_day_lane(scores):
     assert pd.isna(lane.loc["F", "score_default"]) and not lane.loc["D", "blocked"]
 ```
 
-- [ ] **Step 2: Run it.** `python -m pytest backend/analytics/tests/test_carriers_lanes.py` — Expected: FAIL, `ImportError: cannot import name 'lanes'`.
+- [x] **Step 2: Run it.** `python -m pytest backend/analytics/tests/test_carriers_lanes.py` — Expected: FAIL, `ImportError: cannot import name 'lanes'`.
 
-- [ ] **Step 3: Implement** `backend/analytics/carriers/lanes.py`:
+- [x] **Step 3: Implement** `backend/analytics/carriers/lanes.py`:
 
 ```python
 """Lane scores and block rules on FAIR data (SPEC §5.2, C1-C2).
@@ -198,7 +198,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
 
 - [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test` — Expected: 3 new tests pass; `lane_scores` written.
 
-- [ ] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(c): lane scores and block rules on fair data"`
+- [x] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(c): lane scores and block rules on fair data"`
 
 ---
 
