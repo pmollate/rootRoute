@@ -1,0 +1,24 @@
+From: orders@client133.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 22
+Date: Sun, 25 Oct 2026 12:32:00 -0400
+Message-ID: <sd02-22@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+Yes please go ahead with the order.
+1 lines, same day.
+- HX-323 x 52
+920 Broad St
+Dock 1
+Newark, NJ 07102
+
+> On Monday you wrote:
+> Please confirm the order.
+Thanks,
+Owen Brennan
+(973) 555-0174
+owen.brennan@client133.example
+
+-- SYNTHETIC test email, not a real order --

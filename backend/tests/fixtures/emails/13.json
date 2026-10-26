@@ -1,0 +1,36 @@
+{
+  "id": "13",
+  "layout": 13,
+  "from": "orders@client089.example",
+  "received_at": "2026-10-24 16:34",
+  "message_id": "<sd02-13@latelens.synthetic>",
+  "client_id": "C089",
+  "items": [
+    {
+      "sku": "HX-291",
+      "qty": 29
+    },
+    {
+      "sku": "HX-741",
+      "qty": 5
+    }
+  ],
+  "address": {
+    "line1": "600 4th Ave",
+    "line2": "Dock 8",
+    "city": "Seattle",
+    "state": "WA",
+    "zip": "98104"
+  },
+  "requested_commitment": "standard",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Tom Okafor",
+    "(206) 555-0176",
+    "tom.okafor@client089.example"
+  ]
+}

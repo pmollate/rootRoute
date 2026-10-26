@@ -1,0 +1,36 @@
+{
+  "id": "31",
+  "layout": 3,
+  "from": "orders@client172.example",
+  "received_at": "2026-10-26 06:14",
+  "message_id": "<sd02-31@latelens.synthetic>",
+  "client_id": "C172",
+  "items": [
+    {
+      "sku": "HX-313",
+      "qty": 23
+    },
+    {
+      "sku": "HX-784",
+      "qty": 69
+    }
+  ],
+  "address": {
+    "line1": "2 Woodward Ave",
+    "line2": "Dock 2",
+    "city": "Detroit",
+    "state": "MI",
+    "zip": "48226"
+  },
+  "requested_commitment": "next_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Grace Liu",
+    "(313) 555-0146",
+    "grace.liu@client172.example"
+  ]
+}

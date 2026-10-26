@@ -1,0 +1,28 @@
+From: orders@client091.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 14
+Date: Sun, 25 Oct 2026 15:01:00 -0400
+Message-ID: <sd02-14@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+ORDER DETAILS
+Requested delivery: next day
+
+SHIP TO BLOCK
+705 Pike St
+Dock 4
+Seattle, WA
+
+ITEMS
+- HX-775 x 7
+- HX-122 x 86
+
+BILLING: on account
+Thanks,
+Owen Brennan
+(206) 555-0112
+owen.brennan@client091.example
+
+-- SYNTHETIC test email, not a real order --

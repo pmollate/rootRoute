@@ -1,0 +1,42 @@
+{
+  "id": "48",
+  "layout": 6,
+  "from": "orders@client265.example",
+  "received_at": "2026-10-27 15:55",
+  "message_id": "<sd02-48@latelens.synthetic>",
+  "client_id": "C265",
+  "items": [
+    {
+      "sku": "HX-326",
+      "qty": 110
+    },
+    {
+      "sku": "HX-426",
+      "qty": 47
+    },
+    {
+      "sku": "HX-813",
+      "qty": 17
+    }
+  ],
+  "address": {
+    "line1": null,
+    "line2": "Dock 4",
+    "city": "Detroit",
+    "state": "MI",
+    "zip": "48226"
+  },
+  "requested_commitment": "same_day",
+  "missing": [
+    "address.line1"
+  ],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "CONFIRM_ADDRESS",
+  "injection": false,
+  "pii": [
+    "Owen Brennan",
+    "(313) 555-0112",
+    "owen.brennan@client265.example"
+  ]
+}

@@ -1,0 +1,24 @@
+From: buyer@unknown-co.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 50
+Date: Wed, 21 Oct 2026 11:55:00 -0400
+Message-ID: <sd02-50@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+Yes please go ahead with the order.
+1 lines, standard delivery.
+- HX-580 x 69
+24 Eagle St
+Dock 2
+Albany, NY 12207
+
+> On Monday you wrote:
+> Please confirm the order.
+Thanks,
+Grace Liu
+(518) 555-0185
+grace.liu@unknown-co.example
+
+-- SYNTHETIC test email, not a real order --

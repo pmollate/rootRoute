@@ -1,0 +1,36 @@
+{
+  "id": "04",
+  "layout": 4,
+  "from": "orders@client025.example",
+  "received_at": "2026-10-23 07:32",
+  "message_id": "<sd02-04@latelens.synthetic>",
+  "client_id": "C025",
+  "items": [
+    {
+      "sku": "HX-539",
+      "qty": 1
+    },
+    {
+      "sku": "HX-655",
+      "qty": 99
+    }
+  ],
+  "address": {
+    "line1": "1 City Hall Sq",
+    "line2": "Dock 6",
+    "city": "Boston",
+    "state": "MA",
+    "zip": "02201"
+  },
+  "requested_commitment": "next_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Priya Natarajan",
+    "(617) 555-0196",
+    "priya.natarajan@client025.example"
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "id": "14",
+  "layout": 14,
+  "from": "orders@client091.example",
+  "received_at": "2026-10-25 15:01",
+  "message_id": "<sd02-14@latelens.synthetic>",
+  "client_id": "C091",
+  "items": [
+    {
+      "sku": "HX-775",
+      "qty": 7
+    },
+    {
+      "sku": "HX-122",
+      "qty": 86
+    }
+  ],
+  "address": {
+    "line1": "705 Pike St",
+    "line2": "Dock 4",
+    "city": "Seattle",
+    "state": "WA",
+    "zip": null
+  },
+  "requested_commitment": "next_day",
+  "missing": [
+    "address.zip"
+  ],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "CONFIRM_ADDRESS",
+  "injection": false,
+  "pii": [
+    "Owen Brennan",
+    "(206) 555-0112",
+    "owen.brennan@client091.example"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "15",
+  "layout": 1,
+  "from": "orders@client098.example",
+  "received_at": "2026-10-26 06:31",
+  "message_id": "<sd02-15@latelens.synthetic>",
+  "client_id": "C098",
+  "items": [
+    {
+      "sku": "HX-691",
+      "qty": 87
+    }
+  ],
+  "address": {
+    "line1": "415 Summer St",
+    "line2": "Dock 8",
+    "city": "Boston",
+    "state": "MA",
+    "zip": "02210"
+  },
+  "requested_commitment": "next_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Tom Okafor",
+    "(617) 555-0187",
+    "tom.okafor@client098.example"
+  ]
+}

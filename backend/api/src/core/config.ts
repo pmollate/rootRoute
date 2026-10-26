@@ -8,8 +8,13 @@ const Env = z.object({
   NODE_ENV: z.string().default('development'),
   DATABASE_URL: z.string().min(1),
   PORT: z.coerce.number().default(3001),
-  LLM_PROVIDER: z.enum(['claude', 'azure-openai', 'recorded']).default('recorded'),
-  LLM_MODEL: z.string().default('claude-opus-5-5'),
+  LLM_PROVIDER: z.enum(['azure-openai', 'recorded']).default('recorded'),
+  AZURE_OPENAI_ENDPOINT: z.string().optional(), // v1 endpoint: https://<resource>.openai.azure.com/openai/v1/
+  AZURE_OPENAI_API_KEY: z.string().optional(),
+  AZURE_OPENAI_DEPLOYMENT: z.string().optional(), // the deployment name in Foundry, not the model name
+  PII_PROVIDER: z.enum(['azure-language', 'recorded']).default('recorded'),
+  AZURE_LANGUAGE_ENDPOINT: z.string().optional(), // https://<resource>.cognitiveservices.azure.com
+  AZURE_LANGUAGE_KEY: z.string().optional(),
   RECORD: z.string().optional(),
   API_KEY: z.string().min(1),
   ALLOW_LIST: z.string().default(''),

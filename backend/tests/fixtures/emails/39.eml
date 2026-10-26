@@ -1,0 +1,23 @@
+From: orders@client216.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 39
+Date: Mon, 26 Oct 2026 12:52:00 -0400
+Message-ID: <sd02-39@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+Line items:
+1. 10 x HX-634
+2. 90 x HX-409
+Delivery address:
+400 S Orange Ave
+Dock 7
+Orlando, FL 32801
+Delivery speed: standard delivery
+Thanks,
+Priya Natarajan
+(407) 555-0116
+priya.natarajan@client216.example
+
+-- SYNTHETIC test email, not a real order --

@@ -1,0 +1,40 @@
+{
+  "id": "45",
+  "layout": 3,
+  "from": "orders@client259.example",
+  "received_at": "2026-10-24 13:11",
+  "message_id": "<sd02-45@latelens.synthetic>",
+  "client_id": "C259",
+  "items": [
+    {
+      "sku": "HX-812",
+      "qty": 101
+    },
+    {
+      "sku": "HX-179",
+      "qty": 93
+    },
+    {
+      "sku": "HX-642",
+      "qty": 48
+    }
+  ],
+  "address": {
+    "line1": "1 Public Sq",
+    "line2": "Dock 6",
+    "city": "Nashville",
+    "state": "TN",
+    "zip": "37201"
+  },
+  "requested_commitment": "same_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Marcus Bell",
+    "(615) 555-0187",
+    "marcus.bell@client259.example"
+  ]
+}

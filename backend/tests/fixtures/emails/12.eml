@@ -1,0 +1,16 @@
+From: orders@client087.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 12
+Date: Fri, 23 Oct 2026 13:35:00 -0400
+Message-ID: <sd02-12@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+pls ship 106x HX-439 standard delivery -> 415 Summer St Dock 1 Boston, MA 02210
+Thanks,
+Elena Ruiz
+(617) 555-0106
+elena.ruiz@client087.example
+
+-- SYNTHETIC test email, not a real order --

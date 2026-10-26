@@ -1,0 +1,40 @@
+{
+  "id": "19",
+  "layout": 5,
+  "from": "orders@client114.example",
+  "received_at": "2026-10-22 16:34",
+  "message_id": "<sd02-19@latelens.synthetic>",
+  "client_id": "C114",
+  "items": [
+    {
+      "sku": "HX-426",
+      "qty": 13
+    },
+    {
+      "sku": "HX-261",
+      "qty": 47
+    },
+    {
+      "sku": "HX-411",
+      "qty": 37
+    }
+  ],
+  "address": {
+    "line1": "2009 Quillfeather Ln",
+    "line2": "Dock 2",
+    "city": "Orlando",
+    "state": "FL",
+    "zip": "32801"
+  },
+  "requested_commitment": "standard",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": "street_not_found",
+  "decision": "CONFIRM_ADDRESS",
+  "injection": false,
+  "pii": [
+    "Owen Brennan",
+    "(407) 555-0134",
+    "owen.brennan@client114.example"
+  ]
+}

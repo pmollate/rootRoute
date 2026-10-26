@@ -1,0 +1,36 @@
+{
+  "id": "06",
+  "layout": 6,
+  "from": "orders@client058.example",
+  "received_at": "2026-10-25 13:06",
+  "message_id": "<sd02-06@latelens.synthetic>",
+  "client_id": "C058",
+  "items": [
+    {
+      "sku": "HX-651",
+      "qty": 104
+    },
+    {
+      "sku": "HX-716",
+      "qty": 43
+    }
+  ],
+  "address": {
+    "line1": "400 N High St",
+    "line2": "Dock 6",
+    "city": "Columbus",
+    "state": "OH",
+    "zip": "43215"
+  },
+  "requested_commitment": "next_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Dana Whitfield",
+    "(614) 555-0166",
+    "dana.whitfield@client058.example"
+  ]
+}

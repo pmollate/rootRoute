@@ -1,0 +1,40 @@
+{
+  "id": "37",
+  "layout": 9,
+  "from": "orders@client208.example",
+  "received_at": "2026-10-24 10:50",
+  "message_id": "<sd02-37@latelens.synthetic>",
+  "client_id": "C208",
+  "items": [
+    {
+      "sku": "HX-992",
+      "qty": 79
+    },
+    {
+      "sku": "HX-635",
+      "qty": 13
+    }
+  ],
+  "address": {
+    "line1": "55 Trinity Ave SW",
+    "line2": "Dock 3",
+    "city": null,
+    "state": null,
+    "zip": null
+  },
+  "requested_commitment": "next_day",
+  "missing": [
+    "address.city",
+    "address.state",
+    "address.zip"
+  ],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "CONFIRM_ADDRESS",
+  "injection": false,
+  "pii": [
+    "Marcus Bell",
+    "(404) 555-0119",
+    "marcus.bell@client208.example"
+  ]
+}

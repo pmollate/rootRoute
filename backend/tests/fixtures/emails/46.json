@@ -1,0 +1,36 @@
+{
+  "id": "46",
+  "layout": 4,
+  "from": "orders@client261.example",
+  "received_at": "2026-10-25 07:22",
+  "message_id": "<sd02-46@latelens.synthetic>",
+  "client_id": "C261",
+  "items": [
+    {
+      "sku": "HX-748",
+      "qty": 25
+    }
+  ],
+  "address": {
+    "line1": "1101 Arch St",
+    "line2": "Dock 5",
+    "city": null,
+    "state": null,
+    "zip": null
+  },
+  "requested_commitment": "next_day",
+  "missing": [
+    "address.city",
+    "address.state",
+    "address.zip"
+  ],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "CONFIRM_ADDRESS",
+  "injection": false,
+  "pii": [
+    "Priya Natarajan",
+    "(215) 555-0141",
+    "priya.natarajan@client261.example"
+  ]
+}

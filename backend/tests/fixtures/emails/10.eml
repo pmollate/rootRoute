@@ -1,0 +1,20 @@
+From: orders@client070.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 10
+Date: Wed, 21 Oct 2026 13:31:00 -0400
+Message-ID: <sd02-10@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+{
+  "lines": [{"sku": "HX-546", "qty": 105}],
+  "service": "same day",
+  "ship_to": "Dock 6, Chicago, IL 60611"
+}
+Thanks,
+Marcus Bell
+(312) 555-0184
+marcus.bell@client070.example
+
+-- SYNTHETIC test email, not a real order --

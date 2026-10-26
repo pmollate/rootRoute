@@ -1,0 +1,27 @@
+From: orders@client130.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 21
+Date: Sat, 24 Oct 2026 16:22:00 -0400
+Message-ID: <sd02-21@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+Order for standard delivery:
+- HX-790 x 89
+- HX-618 x 70
+- HX-847 x 51
+Ship-To:
+920 Broad St
+Dock 5
+Newark, NJ 85004
+
+Regards,
+Procurement Desk
+This email and attachments are confidential.
+Thanks,
+Tom Okafor
+(973) 555-0171
+tom.okafor@client130.example
+
+-- SYNTHETIC test email, not a real order --

@@ -6,7 +6,7 @@
 
 **Architecture:** A fixed pipeline in Node (`backend/api/src/modules/intake/`) with two AI steps (extract, draft reply) behind one `LLM` interface. Code decides every state; the model never does (SEC-02). Python generates the synthetic test data (`backend/analytics/intake/`, `backend/synthetic-data/generators/`). Warehouse and carrier answers come from `warehouseApi` (B) and `carriersApi` (C) via CONTRACTS §2.
 
-**Tech Stack:** Node 22, TypeScript, Fastify 5, zod 4, `@anthropic-ai/sdk` (Claude, model `claude-opus-5-5`), Vitest · Python 3.12, pandas · Next.js 15 + React 19 (Order emails screen in `frontend/`) · Playwright (stretch bot).
+**Tech Stack:** Node 22, TypeScript, Fastify 5, zod 4, `openai` SDK (Azure OpenAI in Azure AI Foundry, GPT-5-family mini deployment, v1 endpoint), Vitest · Python 3.12, pandas · Next.js 15 + React 19 (Order emails screen in `frontend/`) · Playwright (stretch bot).
 
 **Read first:** `docs/SPEC.md` §5.3, §5.5, §5.6, §5.9, §5.10, §8 (SEC-02 to SEC-05), §12.1 (SD-01 to SD-04, SD-08); `docs/CONTRACTS.md` §1–3, §4 (`complaints`, `risk_lookup`), §5 (100–199), §6 (A rows).
 
@@ -15,7 +15,7 @@
 ## Global Constraints
 
 - The AI model only extracts and drafts. Decision states come from `decide()` (code). Address parts count only if they appear in the email text (`grounded()`), so a model cannot invent an address.
-- Never send `temperature`/`top_p` to Claude (they now return a 400). Use `output_config.effort` (`low` for extraction and replies).
+- Never send `temperature`/`top_p`/`max_tokens` (GPT-5-family reasoning models reject them). Use `reasoning_effort: 'low'` and `max_completion_tokens` for extraction and replies; JSON calls use Structured Outputs, so schemas sent to the model use `.nullable()`, never `.optional()` (Task A1).
 - Every email fixture and every synthetic file says `SYNTHETIC`; US addresses with 5-digit ZIPs.
 - Replies go only to `ALLOW_LIST` addresses; nothing is sent or entered into the WMS before `approve` (SEC-03, SEC-04).
 - Tier 1 and at-risk clients come first everywhere A builds a queue: intake list, delay alerts, complaint escalation (`isPriority()`, SPEC §5.15).
@@ -28,7 +28,7 @@
 ## File Structure (A creates or owns)
 
 ```
-backend/api/src/core/llm/{types,recorded,claude,index}.ts  (+ azureOpenai.ts only if [AI_MODEL] = Azure OpenAI)
+backend/api/src/core/llm/{types,recorded,azureOpenai,index}.ts
 backend/api/src/modules/intake/{region,schema,address,decide,extract,reply,repo,pipeline,actions,deps,routes,seed,edi,orders,complaints,alerts}.ts
 backend/api/src/modules/intake/prompts/{extract,reply}.md
 backend/api/scripts/eval-intake.ts   backend/api/test/recordings/*.json (recorded model responses)
@@ -51,18 +51,27 @@ frontend/public/mock-wms.html  frontend/bots/wms-entry.ts (stretch)
 | Wed 28 | A8, A9, A10 | B5 `delivery_causes` for A10 |
 | Thu 29 AM | A11 (stretch), A12 (stretch) | B3 `f_lane` flag for A11 |
 
-Before A1, in hour one with the team: decide `[AI_MODEL]` and get the key into everyone's `.env` (never commit it).
+`[AI_MODEL]` is decided: Azure OpenAI in Azure AI Foundry. Before A1, get the endpoint, key and deployment name into everyone's `.env` (never commit it).
 
 ---
 
 ### Task A1: AI model layer (P3)
 
+> **Superseded** by `docs/superpowers/implementations/2026-10-27-latelens-A1-A3-email-foundations.md` (A1–A3 reworked for Azure OpenAI, PII redaction, real addresses and the Gmail demo inbox). Kept here for reference.
+
+`[AI_MODEL]` is Azure OpenAI in Azure AI Foundry: a GPT-5-family mini deployment, called through the v1 endpoint
+(`https://<resource>.openai.azure.com/openai/v1/`, no `api-version`). GPT-5-family models are reasoning models: they reject
+`temperature`/`top_p`, take `max_completion_tokens` (which also counts reasoning tokens) and `reasoning_effort`.
+
 **Files:**
-- Create: `backend/api/src/core/llm/types.ts`, `backend/api/src/core/llm/recorded.ts`, `backend/api/src/core/llm/claude.ts`, `backend/api/src/core/llm/index.ts`
+- Create: `backend/api/src/core/llm/types.ts`, `backend/api/src/core/llm/recorded.ts`, `backend/api/src/core/llm/azureOpenai.ts`, `backend/api/src/core/llm/index.ts`
+- Modify: `backend/api/src/core/config.ts`, `backend/api/package.json` (swap `@anthropic-ai/sdk` for `openai`), `.env.example`, `docs/CONTRACTS.md` §7
 - Test: `backend/api/test/llm.test.ts`
 
 **Interfaces:**
-- Produces: `interface LLM { name; json<T>({system, user, schema}): Promise<T>; text({system, user}): Promise<string> }`; `LLMError(message, kind)` with `kind: 'refusal' | 'invalid' | 'transport' | 'missing_recording'`; `RecordedLLM(dir?)`, `RecordingLLM(inner, dir?)`, `RECORDINGS_DIR`, `recordingKey(kind, system, user)`; `ClaudeLLM(model)`; `createLLM()` reads `LLM_PROVIDER`, `LLM_MODEL`, `RECORD`.
+- Produces: `interface LLM { name; json<T>({system, user, schema}): Promise<T>; text({system, user}): Promise<string> }`; `LLMError(message, kind)` with `kind: 'refusal' | 'invalid' | 'transport' | 'missing_recording'`; `parseJson(raw, schema)`; `RecordedLLM(dir?)`, `RecordingLLM(inner, dir?)`, `RECORDINGS_DIR`, `recordingKey(kind, system, user)`; `AzureOpenAILLM(endpoint, apiKey, deployment, options?)`; `createLLM()` reads `LLM_PROVIDER`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, `RECORD`.
+
+**Status:** not run on the planning machine (no Azure deployment there). Step 4 checks the request shape and error mapping against a fake endpoint; Step 5 checks the real deployment.
 
 - [ ] **Step 1: Write the failing test** `backend/api/test/llm.test.ts`:
 
@@ -72,6 +81,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { AzureOpenAILLM } from '../src/core/llm/azureOpenai.js';
 import { RecordedLLM, RecordingLLM } from '../src/core/llm/recorded.js';
 import type { LLM } from '../src/core/llm/types.js';
 
@@ -94,11 +104,48 @@ describe('recorded LLM', () => {
     await expect(replay.text({ system: 's', user: 'other' })).rejects.toMatchObject({ kind: 'missing_recording' });
   });
 });
+
+/** A fake Azure endpoint: keeps each request body and answers with `reply`. */
+function fakeAzure(reply: { status?: number; body: object }) {
+  const sent: Record<string, unknown>[] = [];
+  const fetch = async (_url: unknown, init?: RequestInit) => {
+    sent.push(JSON.parse(String(init?.body)));
+    return new Response(JSON.stringify(reply.body), { status: reply.status ?? 200, headers: { 'content-type': 'application/json' } });
+  };
+  return { sent, llm: new AzureOpenAILLM('https://test.openai.azure.com/openai/v1/', 'key', 'gpt-test', { fetch, maxRetries: 0 }) };
+}
+
+const completion = (content: string, finish_reason = 'stop') => ({
+  id: 'c1', object: 'chat.completion', created: 0, model: 'gpt-test',
+  choices: [{ index: 0, finish_reason, message: { role: 'assistant', content, refusal: null } }],
+});
+
+describe('azure openai LLM', () => {
+  it('sends a strict schema and low reasoning effort, never temperature', async () => {
+    const { sent, llm } = fakeAzure({ body: completion('{"answer":42}') });
+    expect(await llm.json({ system: 's', user: 'u', schema: Schema })).toEqual({ answer: 42 });
+    expect(sent[0]).toMatchObject({ model: 'gpt-test', reasoning_effort: 'low', response_format: { type: 'json_schema', json_schema: { strict: true } } });
+    expect(sent[0]).not.toHaveProperty('temperature');
+  });
+
+  it('maps a content-filter block to refusal and cut-off output to invalid', async () => {
+    const blocked = fakeAzure({ status: 400, body: { error: { code: 'content_filter', message: 'filtered' } } }).llm;
+    await expect(blocked.text({ system: 's', user: 'u' })).rejects.toMatchObject({ kind: 'refusal' });
+    const cut = fakeAzure({ body: completion('{"ans', 'length') }).llm;
+    await expect(cut.json({ system: 's', user: 'u', schema: Schema })).rejects.toMatchObject({ kind: 'invalid' });
+  });
+});
 ```
 
-- [ ] **Step 2: Run it.** `npm --prefix backend/api test -- test/llm.test.ts` — Expected: FAIL, cannot find `recorded.js`.
+- [ ] **Step 2: Run it.** `npm --prefix backend/api test -- test/llm.test.ts` — Expected: FAIL, cannot find `azureOpenai.js`.
 
-- [ ] **Step 3: Implement.** `types.ts`, `recorded.ts`, `claude.ts`, `index.ts`:
+- [ ] **Step 3: Implement.** Swap the SDK first (its `openai/helpers/zod` must support zod 4, which the repo uses):
+
+```bash
+npm --prefix backend/api uninstall @anthropic-ai/sdk && npm --prefix backend/api install openai@latest
+```
+
+`types.ts`, `recorded.ts`, `azureOpenai.ts`, `index.ts`:
 
 ```ts
 import type { z } from 'zod';
@@ -114,7 +161,7 @@ export interface TextRequest {
   user: string;
 }
 
-/** The only way the app talks to an AI model. Implementations: claude, azure-openai, recorded. */
+/** The only way the app talks to an AI model. Implementations: azure-openai, recorded. */
 export interface LLM {
   readonly name: string;
   json<T>(req: JsonRequest<T>): Promise<T>;
@@ -129,6 +176,19 @@ export class LLMError extends Error {
     this.name = 'LLMError';
   }
 }
+
+/** Parses a model's JSON reply and checks it against the schema (model output is untrusted). */
+export function parseJson<T>(raw: string, schema: z.ZodType<T>): T {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new LLMError('model did not return JSON', 'invalid');
+  }
+  const result = schema.safeParse(parsed);
+  if (!result.success) throw new LLMError(result.error.message, 'invalid');
+  return result.data;
+}
 ```
 
 ```ts
@@ -136,7 +196,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type JsonRequest, type LLM, LLMError, type TextRequest } from './types.js';
+import { type JsonRequest, type LLM, LLMError, parseJson, type TextRequest } from './types.js';
 
 export const RECORDINGS_DIR = fileURLToPath(new URL('../../../test/recordings/', import.meta.url));
 
@@ -156,16 +216,7 @@ export class RecordedLLM implements LLM {
   }
 
   async json<T>(req: JsonRequest<T>): Promise<T> {
-    const raw = this.read('json', req.system, req.user);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new LLMError('recorded response is not JSON', 'invalid');
-    }
-    const result = req.schema.safeParse(parsed);
-    if (!result.success) throw new LLMError(result.error.message, 'invalid');
-    return result.data;
+    return parseJson(this.read('json', req.system, req.user), req.schema);
   }
 
   async text(req: TextRequest): Promise<string> {
@@ -200,131 +251,122 @@ export class RecordingLLM implements LLM {
 ```
 
 ```ts
-import Anthropic from '@anthropic-ai/sdk';
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
-import { type JsonRequest, type LLM, LLMError, type TextRequest } from './types.js';
+import OpenAI, { type ClientOptions } from 'openai';
+import { zodResponseFormat } from 'openai/helpers/zod';
+import { type JsonRequest, type LLM, LLMError, parseJson, type TextRequest } from './types.js';
 
-/** Claude via the Anthropic SDK. Reads ANTHROPIC_API_KEY from the environment. */
-export class ClaudeLLM implements LLM {
-  readonly name = 'claude';
-  private readonly client = new Anthropic();
-  constructor(private readonly model: string) {}
+type ResponseFormat = OpenAI.Chat.ChatCompletionCreateParams['response_format'];
+
+/** GPT on Azure AI Foundry through the v1 endpoint. JSON calls use Structured Outputs (strict schema). */
+export class AzureOpenAILLM implements LLM {
+  readonly name = 'azure-openai';
+  private readonly client: OpenAI;
+
+  constructor(endpoint: string, apiKey: string, private readonly deployment: string,
+    options: Pick<ClientOptions, 'fetch' | 'maxRetries'> = {}) {
+    this.client = new OpenAI({ baseURL: endpoint, apiKey, ...options });
+  }
+
+  private async complete(system: string, user: string, responseFormat?: ResponseFormat): Promise<string> {
+    let res: OpenAI.Chat.ChatCompletion;
+    try {
+      res = await this.client.chat.completions.create({
+        model: this.deployment,
+        messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+        reasoning_effort: 'low',
+        max_completion_tokens: 4000,
+        ...(responseFormat ? { response_format: responseFormat } : {}),
+      });
+    } catch (err) {
+      // Azure's content filter (including Prompt Shields) rejects a flagged prompt with HTTP 400, code content_filter.
+      if (err instanceof OpenAI.APIError && err.code === 'content_filter') throw new LLMError('blocked by the Azure content filter', 'refusal');
+      throw new LLMError(err instanceof Error ? err.message : String(err), 'transport');
+    }
+    const choice = res.choices[0];
+    if (choice?.finish_reason === 'content_filter' || choice?.message.refusal) throw new LLMError('model declined the request', 'refusal');
+    if (choice?.finish_reason === 'length') throw new LLMError('output cut off: raise max_completion_tokens', 'invalid');
+    return choice?.message.content ?? '';
+  }
 
   async json<T>(req: JsonRequest<T>): Promise<T> {
-    const res = await this.client.messages.parse({
-      model: this.model,
-      max_tokens: 4000,
-      system: req.system,
-      messages: [{ role: 'user', content: req.user }],
-      output_config: { format: zodOutputFormat(req.schema), effort: 'low' },
-    });
-    if (res.stop_reason === 'refusal') throw new LLMError('model declined the request', 'refusal');
-    if (res.parsed_output == null) throw new LLMError('no parsed output', 'invalid');
-    return res.parsed_output as T;
+    return parseJson(await this.complete(req.system, req.user, zodResponseFormat(req.schema, 'output')), req.schema);
   }
 
   async text(req: TextRequest): Promise<string> {
-    const res = await this.client.messages.create({
-      model: this.model,
-      max_tokens: 2000,
-      system: req.system,
-      messages: [{ role: 'user', content: req.user }],
-      output_config: { effort: 'low' },
-    });
-    if (res.stop_reason === 'refusal') throw new LLMError('model declined the request', 'refusal');
-    return res.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('').trim();
+    return (await this.complete(req.system, req.user)).trim();
   }
 }
 ```
 
 ```ts
 import { config } from '../config.js';
-import { ClaudeLLM } from './claude.js';
+import { AzureOpenAILLM } from './azureOpenai.js';
 import { RecordedLLM, RecordingLLM } from './recorded.js';
 import type { LLM } from './types.js';
 
 export function createLLM(): LLM {
   if (config.LLM_PROVIDER === 'recorded') return new RecordedLLM();
-  if (config.LLM_PROVIDER === 'azure-openai') {
-    throw new Error('LLM_PROVIDER=azure-openai: add src/core/llm/azureOpenai.ts (plan A, Task A1 step 7) first');
+  const { AZURE_OPENAI_ENDPOINT: endpoint, AZURE_OPENAI_API_KEY: apiKey, AZURE_OPENAI_DEPLOYMENT: deployment } = config;
+  if (!endpoint || !apiKey || !deployment) {
+    throw new Error('LLM_PROVIDER=azure-openai needs AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY and AZURE_OPENAI_DEPLOYMENT in .env');
   }
-  const real = new ClaudeLLM(config.LLM_MODEL);
+  const real = new AzureOpenAILLM(endpoint, apiKey, deployment);
   return config.RECORD === '1' ? new RecordingLLM(real) : real;
 }
 
 export * from './types.js';
 ```
 
-- [ ] **Step 4: Run.** `npm --prefix backend/api test -- test/llm.test.ts && npm --prefix backend/api run lint` — Expected: 2 passed, no type errors.
+In `backend/api/src/core/config.ts` replace the `LLM_PROVIDER` and `LLM_MODEL` lines with:
 
-- [ ] **Step 5: Live smoke check (needs the key).** With `LLM_PROVIDER=claude` in `.env`:
+```ts
+  LLM_PROVIDER: z.enum(['azure-openai', 'recorded']).default('recorded'),
+  AZURE_OPENAI_ENDPOINT: z.string().optional(), // v1 endpoint: https://<resource>.openai.azure.com/openai/v1/
+  AZURE_OPENAI_API_KEY: z.string().optional(),
+  AZURE_OPENAI_DEPLOYMENT: z.string().optional(), // the deployment name in Foundry, not the model name
+```
+
+In `.env.example` replace the AI model block with:
+
+```
+# AI model: azure-openai | recorded (recorded replays api/test/recordings, no key needed)
+LLM_PROVIDER=recorded
+# Azure AI Foundry: v1 endpoint (https://<resource>.openai.azure.com/openai/v1/), key, deployment name
+AZURE_OPENAI_ENDPOINT=
+AZURE_OPENAI_API_KEY=
+AZURE_OPENAI_DEPLOYMENT=
+RECORD=
+```
+
+In `docs/CONTRACTS.md` §7 drop `LLM_MODEL` and `ANTHROPIC_API_KEY`, and make the AI-model variables read:
+
+```
+`LLM_PROVIDER` (`azure-openai` \| `recorded`), `AZURE_OPENAI_ENDPOINT` (v1 endpoint, ends `/openai/v1/`), `AZURE_OPENAI_API_KEY`,
+`AZURE_OPENAI_DEPLOYMENT` (the deployment name in Foundry),
+```
+
+Schemas sent to the model must fit Azure's strict mode: every field required (use `.nullable()`, never `.optional()`), and no `.min()`, `.max()`, `.regex()` or array length limits. Check those in code after `parseJson`. `ExtractionSchema` (A4) already fits.
+
+- [ ] **Step 4: Run.** `npm --prefix backend/api test -- test/llm.test.ts && npm --prefix backend/api run lint` — Expected: 4 passed, no type errors.
+
+- [ ] **Step 5: Live smoke check (needs the key).** With `LLM_PROVIDER=azure-openai` and the three `AZURE_OPENAI_*` values in `.env`:
 
 ```bash
 cd backend/api && npx tsx -e "import('./src/core/llm/index.js').then(async m => console.log(await m.createLLM().text({system:'Reply with one word.', user:'Say OK'})))"
+cd backend/api && npx tsx -e "Promise.all([import('./src/core/llm/index.js'), import('zod')]).then(async ([m, {z}]) => console.log(await m.createLLM().json({system:'Extract the order line.', user:'Please ship 70 x HX-553', schema: z.object({sku: z.string(), qty: z.number()})})))"
 ```
 
-Expected: `OK` (or similar one-word reply). If it fails with 401, the key is wrong; with 400 mentioning `temperature`, someone added sampling parameters.
+Expected: `OK` (or similar), then `{ sku: 'HX-553', qty: 70 }`. If it fails with 401, the key is wrong. With 404 `DeploymentNotFound`, `AZURE_OPENAI_DEPLOYMENT` is not the deployment name shown in Foundry, or the endpoint does not end in `/openai/v1/`. With 400 `unsupported parameter`, someone added `temperature`, `top_p` or `max_tokens`.
 
-- [ ] **Step 6: Commit.** `git add backend/api/src/core/llm backend/api/test/llm.test.ts && git commit -m "feat(a): AI model layer with recorded replay"`
+Note for A5: Azure's default content filter includes Prompt Shields, so the prompt-injection fixture may come back as a `refusal` (extraction `null`, decision `MISSING_INFO`) instead of `CONFIRM_ADDRESS`. Both are safe (not `ALL_CLEAR`); count it as a known miss in the eval, not a bug.
 
-- [ ] **Step 7 (only if the team chose Azure OpenAI):** add `backend/api/src/core/llm/azureOpenai.ts` and wire it in `index.ts`:
-
-```ts
-// Only if the team picks Azure OpenAI for [AI_MODEL]. Install first: npm --prefix backend/api install openai
-// Not exercised during planning (no Azure OpenAI deployment available); run the A5 eval against it before relying on it.
-import { AzureOpenAI } from 'openai';
-import { type JsonRequest, type LLM, LLMError, type TextRequest } from './types.js';
-
-export class AzureOpenAILLM implements LLM {
-  readonly name = 'azure-openai';
-  private readonly client = new AzureOpenAI({
-    endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-    apiKey: process.env.AZURE_OPENAI_API_KEY,
-    apiVersion: '2024-10-21',
-    deployment: process.env.AZURE_OPENAI_DEPLOYMENT,
-  });
-
-  private async complete(system: string, user: string, json: boolean): Promise<string> {
-    const res = await this.client.chat.completions.create({
-      model: process.env.AZURE_OPENAI_DEPLOYMENT ?? '',
-      messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
-      ...(json ? { response_format: { type: 'json_object' as const } } : {}),
-    });
-    return res.choices[0]?.message?.content ?? '';
-  }
-
-  async json<T>(req: JsonRequest<T>): Promise<T> {
-    const raw = await this.complete(`${req.system}\nReturn only a JSON object.`, req.user, true);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new LLMError('model did not return JSON', 'invalid');
-    }
-    const result = req.schema.safeParse(parsed);
-    if (!result.success) throw new LLMError(result.error.message, 'invalid');
-    return result.data;
-  }
-
-  async text(req: TextRequest): Promise<string> {
-    return (await this.complete(req.system, req.user, false)).trim();
-  }
-}
-```
-
-```ts
-// in src/core/llm/index.ts replace the azure-openai branch with:
-import { AzureOpenAILLM } from './azureOpenai.js';
-// ...
-  if (config.LLM_PROVIDER === 'azure-openai') {
-    const real = new AzureOpenAILLM();
-    return config.RECORD === '1' ? new RecordingLLM(real) : real;
-  }
-```
+- [ ] **Step 6: Commit.** `git add backend/api .env.example docs/CONTRACTS.md && git commit -m "feat(a): AI model layer on Azure OpenAI with recorded replay"`
 
 ---
 
 ### Task A2: Reference data, client domains and saved addresses (SD-04), intake tables
+
+> **Superseded** by `docs/superpowers/implementations/2026-10-27-latelens-A1-A3-email-foundations.md` (A1–A3 reworked for Azure OpenAI, PII redaction, real addresses and the Gmail demo inbox). Kept here for reference.
 
 **Files:**
 - Create: `backend/synthetic-data/reference/state_regions.json`, `backend/analytics/intake/reference.py`, `backend/analytics/intake/synthetic.py`, `backend/synthetic-data/generators/sd02_sd04_intake.py` (SD-04 part)
@@ -643,6 +685,8 @@ Expected: 3 passed; `seeded client_domains and saved_addresses` twice.
 ---
 
 ### Task A3: 50 synthetic order emails with gold answers (SD-02)
+
+> **Superseded** by `docs/superpowers/implementations/2026-10-27-latelens-A1-A3-email-foundations.md` (A1–A3 reworked for Azure OpenAI, PII redaction, real addresses and the Gmail demo inbox). Kept here for reference.
 
 **Files:**
 - Create: `backend/analytics/intake/fixtures.py`
@@ -1276,7 +1320,7 @@ Eval script:
 
 ```ts
 // Run the 50 fixtures against the real model and record responses for CI.
-// Usage (repo root .env must have the model key):  RECORD=1 LLM_PROVIDER=claude npx tsx scripts/eval-intake.ts
+// Usage (repo root .env must have the model key):  RECORD=1 LLM_PROVIDER=azure-openai npx tsx scripts/eval-intake.ts
 import { createLLM } from '../src/core/llm/index.js';
 import { checkAddress } from '../src/modules/intake/address.js';
 import { decide } from '../src/modules/intake/decide.js';
@@ -1310,7 +1354,7 @@ In `backend/api/package.json` replace `build` and add `eval:intake`:
 - [ ] **Step 5: Run the real eval and record responses** (spends model credit: 50 calls).
 
 ```bash
-cd backend/api && RECORD=1 LLM_PROVIDER=claude npm run eval:intake
+cd backend/api && RECORD=1 LLM_PROVIDER=azure-openai npm run eval:intake
 ```
 
 Expected: last line `N/50 decisions match gold`, N ≥ 48. Look at every `MISS` line: if the model filled an address part that is not in the email, `grounded()` should have removed it; if it missed an item, improve `extract.md` and rerun. Then `npm --prefix backend/api test -- test/intake/eval.test.ts` — Expected: PASS with recorded responses (≥ 90% fields, ≥ 95% incomplete-address recall, injection email not ALL_CLEAR).
@@ -1940,7 +1984,7 @@ curl -s -X POST localhost:3001/api/intake/email -H 'content-type: application/js
   -d "$(python3 -c "import json;b=open('backend/tests/fixtures/emails/34.eml').read().split('\n\n',1)[1];print(json.dumps({'from':'orders@client190.example','subject':'[SYNTHETIC] Order 34','body':b,'receivedAt':'2026-10-21 16:51'}))")"
 ```
 
-Expected (with `LLM_PROVIDER=claude`): `"decision":"CONFIRM_ADDRESS"`. Then `curl localhost:3001/api/intake/<id>` shows a reply offering both saved C190 addresses.
+Expected (with `LLM_PROVIDER=azure-openai`): `"decision":"CONFIRM_ADDRESS"`. Then `curl localhost:3001/api/intake/<id>` shows a reply offering both saved C190 addresses.
 
 - [ ] **Step 6: Commit.** `git add backend/api && git commit -m "feat(a): intake pipeline, approvals, allow-listed sending, routes"`
 

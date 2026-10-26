@@ -203,9 +203,10 @@ All numbers are numbers (not strings). Rates are 0..1; the UI formats them. Pane
 
 ## 7. Environment variables (`.env.example`, owner B)
 
-`DATABASE_URL`, `TEST_DATABASE_URL`, `PORT` (3001), `LLM_PROVIDER` (`claude` \| `azure-openai` \| `recorded`),
-`LLM_MODEL` (default `claude-opus-5-5`), `ANTHROPIC_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`,
-`AZURE_OPENAI_DEPLOYMENT`, `RECORD` (`1` to save AI responses), `API_KEY`, `ALLOW_LIST` (comma-separated),
+`DATABASE_URL`, `TEST_DATABASE_URL`, `PORT` (3001), `LLM_PROVIDER` (`azure-openai` \| `recorded`),
+`AZURE_OPENAI_ENDPOINT` (v1 endpoint, ends `/openai/v1/`), `AZURE_OPENAI_API_KEY`,
+`AZURE_OPENAI_DEPLOYMENT` (the deployment name in Foundry), `PII_PROVIDER` (`azure-language` \| `recorded`),
+`AZURE_LANGUAGE_ENDPOINT`, `AZURE_LANGUAGE_KEY`, `RECORD` (`1` to save AI responses), `API_KEY`, `ALLOW_LIST` (comma-separated),
 `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_KEY` (dashboard in `frontend/`; `next.config.mjs` loads the root `.env`; the demo key is visible in the browser, acceptable for synthetic data only).
 
 ## 8. Team rules
