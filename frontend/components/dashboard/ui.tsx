@@ -39,8 +39,9 @@ export function SyntheticBadge() {
   return <Pill tone="synthetic" title="Built on data we generated (SPEC §12.1)">Synthetic data</Pill>;
 }
 
+/** Errors show a fixed message: the error text can carry API paths, status codes or server internals. */
 export function Status({ loading, error }: { loading: boolean; error?: string }) {
-  if (error) return <p className={s.error}>Could not load: {error}</p>;
+  if (error) return <p className={s.error} role="alert">Could not load this section. Please try again later.</p>;
   if (loading) return <p className={s.muted}>Loading…</p>;
   return null;
 }

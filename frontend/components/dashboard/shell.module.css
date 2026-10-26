@@ -1,11 +1,52 @@
-.page { min-height: 100vh; background: var(--bg); color: var(--ink); font-family: var(--font-sans); }
-.header { position: sticky; top: 0; z-index: var(--z-header); background: var(--surface); border-bottom: 1px solid var(--line); }
-.bar { max-width: 1240px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px var(--gutter); }
-.brand { font-family: var(--font-display); font-weight: 700; color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 8px; }
-.glyph { width: 18px; height: 18px; border-radius: 4px; background: var(--accent); }
-.nav { display: flex; flex-wrap: wrap; gap: 2px; margin-left: auto; align-items: center; }
-.link { color: var(--ink-2); text-decoration: none; padding: 6px 10px; border-radius: 6px; font-size: 0.9rem; }
-.link[aria-current='page'] { background: rgb(var(--ink-rgb) / 0.06); color: var(--ink); font-weight: 600; }
-.link:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
-.main { max-width: 1240px; margin: 0 auto; padding: 20px var(--gutter) 48px; display: grid; gap: 16px; }
-.foot { max-width: 1240px; margin: 0 auto; padding: 0 var(--gutter) 32px; color: var(--ink-2); font-size: 0.8rem; }
+/* Dashboard chrome: a fixed side nav and a breadcrumb bar; screens are dense, so a narrower gutter than the landing page. */
+.page { --page-gutter: clamp(16px, 2.5vw, 32px); --page-max: 1240px; --side-w: 232px; min-height: 100vh; background: var(--bg); color: var(--ink); font-family: var(--font-sans);
+  display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); }
+
+/* Side nav */
+.side { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 4px; padding: 20px 12px; background: var(--surface); border-right: 1px solid var(--line); overflow-y: auto; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 20px; color: var(--ink); text-decoration: none; font-weight: 700; font-size: 0.98rem; line-height: 1.2; }
+.brand small { display: block; font-weight: 400; font-size: 0.74rem; color: var(--ink-2); }
+.glyph { flex: none; width: 30px; height: 30px; color: var(--ink); }
+.group { margin: 8px 10px 6px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.nav { display: grid; gap: 2px; }
+.link { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; color: var(--ink); text-decoration: none; font-size: 0.9rem; }
+.link svg { color: var(--ink-2); }
+.link:hover { background: rgb(var(--ink-rgb) / 0.04); }
+.link[aria-current='page'] { background: rgb(var(--accent-rgb) / 0.1); color: var(--accent-text); font-weight: 600; }
+.link[aria-current='page'] svg { color: var(--accent-text); }
+.link:focus-visible, .crumbs a:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.dataset { margin-top: auto; display: grid; gap: 4px; padding: 12px; border-radius: 10px; background: rgb(var(--ink-rgb) / 0.04); font-size: 0.82rem; }
+.datasetHead { margin: 0; font-size: 0.76rem; font-weight: 600; }
+.dataset span { color: var(--ink-2); font-size: 0.76rem; }
+
+/* Breadcrumb bar */
+.body { min-width: 0; display: flex; flex-direction: column; }
+.header { position: sticky; top: 0; z-index: var(--z-header); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+  padding: 12px var(--page-gutter); background: var(--bg); border-bottom: 1px solid var(--line); }
+.lead { display: flex; align-items: center; gap: 4px; min-width: 0; margin-left: -8px; }
+.crumbs ol { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0; list-style: none; font-size: 0.88rem; }
+.crumbs li + li::before { content: '›'; margin-right: 10px; color: var(--ink-2); }
+.crumbs a { color: var(--ink-2); text-decoration: none; }
+.crumbs [aria-current] { font-weight: 600; }
+.tools { display: flex; align-items: center; gap: 8px; }
+
+.main { width: 100%; max-width: var(--page-max); margin: 0 auto; padding: 28px var(--page-gutter); display: grid; gap: 24px; }
+.foot { width: 100%; max-width: var(--page-max); margin: 0 auto; padding: 0 var(--page-gutter) 40px; color: var(--ink-2); font-size: 0.8rem;
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 24px; }
+.foot p { margin: 0; display: flex; align-items: center; gap: 8px; }
+
+/* In the mobile drawer the brand sits in the drawer head, which brings its own spacing. */
+[role='dialog'] .brand { padding: 0; }
+
+/* Narrow screens: the side nav moves into the hamburger drawer (MobileNav), left of the breadcrumb. */
+@media (max-width: 860px) {
+  .page { grid-template-columns: minmax(0, 1fr); }
+  .side { display: none; }
+}
+@media (min-width: 861px) { .lead { margin-left: 0; } }
+/* Phones: a little more side gutter and air between sections, so stacked cards don't run together. */
+@media (max-width: 640px) {
+  .page { --page-gutter: 20px; }
+  .main { padding-top: 24px; padding-bottom: 36px; gap: 32px; }
+  .foot { gap: 12px; padding-bottom: 32px; }
+}

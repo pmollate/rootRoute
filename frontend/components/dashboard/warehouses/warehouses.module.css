@@ -1,0 +1,183 @@
+/* Warehouses screen: header, penalty alert, cause cards, sites, two fixes, placement, unpaid penalties. */
+.screen { width: 100%; max-width: 1112px; margin: 0 auto; display: grid; gap: 24px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: clamp(18px, 2.4vw, 24px); min-width: 0; }
+.flush { padding: 0; overflow: hidden; }
+.pad { padding: clamp(18px, 2.4vw, 24px) clamp(18px, 2.4vw, 24px) 0; }
+.kicker { margin: 0 0 6px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.title { font-family: var(--font-sans); font-size: clamp(1.5rem, 2.6vw, 1.75rem); font-weight: 650; letter-spacing: -0.015em; line-height: 1.2; margin: 0 0 6px; }
+.lede { color: var(--ink-2); margin: 0; font-size: 0.92rem; }
+.intro { margin-top: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.h2 { font-family: var(--font-sans); font-size: 1.05rem; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.h3 { font-family: var(--font-sans); font-size: 1rem; font-weight: 650; margin: 8px 0 0; }
+.sub { color: var(--ink-2); margin: 0; font-size: 0.84rem; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; margin-bottom: 14px; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.num small { color: var(--ink-2); font-size: 0.74rem; }
+.big { font-size: clamp(1.7rem, 3vw, 2rem); font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.mid { font-size: 1.35rem; font-weight: 500; line-height: 1.1; }
+
+/* Buttons and controls */
+.tools, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.button, .dark, .select { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 0.86rem; font-weight: 500; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; cursor: pointer; white-space: nowrap; }
+.button:disabled { opacity: 0.5; cursor: default; }
+span.button { cursor: default; }
+.dark { background: var(--ink); border-color: var(--ink); color: var(--surface); font-weight: 600; }
+.select { padding-right: 10px; min-width: 130px; }
+.button:focus-visible, .dark:focus-visible, .select:focus-visible, .alert a:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+
+/* Penalty alert */
+.alert { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 16px; border-radius: var(--radius); border: 1px solid rgb(var(--accent-rgb) / 0.3); background: rgb(var(--accent-rgb) / 0.06); color: var(--accent-text); font-size: 0.88rem; }
+.alert p { margin: 0; flex: 1 1 320px; color: var(--ink); }
+.alert p b { color: var(--accent-text); }
+.alert a { color: var(--accent-text); font-weight: 600; text-underline-offset: 3px; white-space: nowrap; }
+
+/* Heat: late rate when present */
+.rate { display: inline-block; font-size: 0.74rem; font-weight: 600; padding: 2px 8px; border-radius: var(--pill); white-space: nowrap; }
+.rate.hot { background: rgb(var(--accent-rgb) / 0.14); color: var(--accent-text); }
+.rate.warm { background: rgb(var(--accent-rgb) / 0.08); color: var(--accent-text); }
+.rate.cool { background: rgb(var(--ink-rgb) / 0.07); color: var(--ink-2); }
+
+/* Cause cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+.cardTop { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.cardLabel { margin: 0 0 10px; font-size: 0.82rem; color: var(--ink-2); }
+.cardIcon { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgb(var(--ink-rgb) / 0.05); color: var(--ink-2); flex: none; }
+.cardRow { display: flex; align-items: center; gap: 12px; }
+.cardNote { margin: 10px 0 0; font-size: 0.78rem; color: var(--ink-2); }
+
+/* Site cards */
+.sites { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px; }
+.site { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.siteHead { display: flex; align-items: center; gap: 0; font-size: 0.92rem; }
+.siteHead b { font-weight: 600; }
+.pin { margin-left: auto; color: var(--ink-2); display: inline-flex; }
+.siteOrders { display: flex; align-items: baseline; gap: 8px; }
+.siteOrders small { font-size: 0.74rem; color: var(--ink-2); }
+.metric { display: grid; gap: 6px; font-size: 0.78rem; }
+.metricHead { display: flex; justify-content: space-between; gap: 8px; }
+.metricBar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.metricBar b { font-size: 0.78rem; font-weight: 600; }
+.barTrack { position: relative; height: 5px; border-radius: var(--pill); background: rgb(var(--ink-rgb) / 0.08); overflow: hidden; }
+.barTrack > span { position: absolute; inset: 0 auto 0 0; border-radius: var(--pill); }
+.barTrack .hot { background: var(--accent-text); }
+.barTrack .warm { background: var(--accent); }
+.barTrack .cool { background: rgb(var(--ink-rgb) / 0.35); }
+.note { display: flex; align-items: center; gap: 10px; margin: 14px 0 0; padding: 10px 14px; border-radius: 8px; background: var(--synthetic-soft); font-size: 0.84rem; color: var(--ink-2); }
+.note svg { flex: none; }
+.note b { color: var(--ink); }
+
+/* Table */
+.table { font-size: 0.86rem; }
+.table td { padding: 13px 12px; }
+.table th { padding: 10px 12px; }
+.table tfoot td { border-bottom: 0; }
+.flush .table th:first-child, .flush .table td:first-child { padding-left: clamp(18px, 2.4vw, 24px); }
+.flush .table th:last-child, .flush .table td:last-child { padding-right: clamp(18px, 2.4vw, 24px); }
+.placement { margin-top: 16px; }
+.placement thead th { background: rgb(var(--ink-rgb) / 0.03); }
+.code { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 6px; margin-right: 8px; border-radius: 4px; background: var(--ink); color: var(--surface); font-variant-numeric: tabular-nums; }
+.table .code { background: rgb(var(--ink-rgb) / 0.08); color: var(--ink); }
+
+/* Tables follow their card's width, not the screen's (the side nav takes 232px on tablets): below 640px each row
+   becomes a block, its first cell the title and every other cell a "label … value" line labelled by data-label. */
+.flush { container: table / inline-size; }
+@container table (max-width: 640px) {
+  .flush .stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .flush .stack tr { display: block; padding: 14px clamp(18px, 2.4vw, 24px); border-bottom: 1px solid var(--line); }
+  .flush .stack tbody tr:last-child { border-bottom: 0; }
+  .flush .stack tfoot tr { border-top: 1px solid var(--line); background: rgb(var(--ink-rgb) / 0.03); }
+  .flush .stack td, .flush .stack td:first-child, .flush .stack td:last-child { display: block; padding: 3px 0; border: 0; text-align: right; white-space: normal; }
+  .flush .stack td::before { content: attr(data-label); float: left; margin-right: 16px; color: var(--ink-2); font-family: var(--font-sans); font-size: 0.8rem; letter-spacing: 0; }
+  .flush .stack td:first-child { padding-bottom: 8px; text-align: left; font-weight: 600; }
+  .flush .stack td:first-child::before { content: none; }
+  .flush .stack td:empty { display: none; }
+}
+
+/* Fixes */
+.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 16px; }
+.options > .panel { display: flex; flex-direction: column; }
+.tags { display: flex; gap: 6px; }
+.optHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px 16px; margin-bottom: 18px; }
+.gain { text-align: right; }
+.gain small { color: var(--ink-2); font-size: 0.76rem; }
+.gainBig { font-size: 1.45rem; font-weight: 500; color: var(--accent-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.body { font-size: 0.88rem; line-height: 1.55; margin: 16px 0; color: inherit; }
+.options .actions { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); }
+.owner { display: inline-flex; align-items: center; gap: 8px; font-size: 0.84rem; color: var(--ink-2); margin-right: auto; }
+
+.timeline { position: relative; height: 30px; border-radius: 6px; background: rgb(var(--ink-rgb) / 0.05); overflow: hidden; font-size: 0.76rem; }
+.made, .after { position: absolute; top: 0; bottom: 0; display: block; line-height: 30px; padding: 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.made { background: var(--accent-text); color: var(--surface); font-weight: 600; }
+.after { background: rgb(var(--ink-rgb) / 0.14); }
+.scale { position: relative; height: 18px; margin-top: 8px; font-size: 0.72rem; color: var(--ink-2); }
+.scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.scale span:first-child { transform: none; }
+.scale span:last-child { transform: translateX(-100%); }
+.scale b { color: var(--ink); font-weight: 600; }
+/* In a narrow fix card the 06:00 and 15:00 ends collide with the cutoff label, and the bar labels keep only their counts. */
+.options > .panel { container: option / inline-size; }
+@container option (max-width: 460px) {
+  .scale span:first-child, .scale span:last-child, .barWords { display: none; }
+}
+
+.freight { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 10px; }
+.freight > div { border-radius: 10px; padding: 12px 14px; background: rgb(var(--ink-rgb) / 0.05); }
+.freight small { display: block; font-size: 0.74rem; color: var(--ink-2); margin-bottom: 4px; }
+.freight b { font-size: 1.15rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.freight .freightBad { background: rgb(var(--accent-rgb) / 0.08); color: var(--accent-text); }
+.freight .freightBad small { color: var(--accent-text); }
+
+/* Placement empty state */
+.empty { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 36px 20px 44px; color: var(--ink-2); }
+.empty b { color: var(--ink); }
+.empty p { margin: 0; max-width: 48ch; font-size: 0.84rem; }
+
+/* Unpaid penalties */
+.finance { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 24px 20px; align-items: center; }
+@media (max-width: 760px) { .finance { grid-template-columns: auto minmax(0, 1fr); } .finance > :last-child { grid-column: 1 / -1; } }
+@media (max-width: 520px) { .finance { grid-template-columns: minmax(0, 1fr); gap: 16px; } }
+
+/* Phones: more room between sections, cards and the lines inside them. */
+@media (max-width: 640px) {
+  .screen { gap: 32px; }
+  .intro { gap: 20px; }
+  .head { margin-bottom: 18px; gap: 14px; }
+  .cards, .options { gap: 20px; }
+  .sites { gap: 16px; }
+  .card { padding: 20px; }
+  .site { padding: 18px; gap: 18px; }
+  .note { margin-top: 18px; padding: 12px 14px; }
+  .optHead { margin-bottom: 22px; }
+  .freight { gap: 12px; }
+  .body { margin: 20px 0; }
+  .figures { gap: 16px 32px; margin-bottom: 18px; }
+  .tierKey { gap: 8px 16px; margin-top: 12px; }
+}
+@container table (max-width: 640px) {
+  .flush .stack tr { padding-top: 16px; padding-bottom: 16px; }
+  .flush .stack td, .flush .stack td:last-child { padding: 5px 0; }
+  .flush .stack td:first-child { padding: 0 0 10px; }
+}
+
+/* Phones: the site picker takes a full row, Export and Open replay split the row below. */
+@media (max-width: 520px) {
+  .intro .tools { width: 100%; }
+  .intro .select { flex: 1 1 100%; }
+  .intro .tools .button, .intro .tools .dark { flex: 1; justify-content: center; }
+}
+.financeIcon { align-self: start; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: rgb(var(--accent-rgb) / 0.12); color: var(--accent-text); }
+.finance .body { margin: 8px 0 14px; }
+.finance small { color: var(--ink-2); font-size: 0.76rem; }
+.figures { display: flex; flex-wrap: wrap; gap: 12px 32px; margin-bottom: 14px; }
+.money { color: var(--accent-text); }
+.tiers { display: flex; gap: 2px; height: 8px; border-radius: var(--pill); overflow: hidden; }
+.tierKey { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 0.78rem; color: var(--ink-2); }
+.tierKey i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; }
+.t0 { background: var(--accent-text); }
+.t1 { background: rgb(var(--accent-rgb) / 0.55); }
+.t2 { background: rgb(var(--ink-rgb) / 0.15); }
+
+/* The mockup sets counts and money in a monospace face. */
+.big, .mid, .gainBig, .freight b, .num, .metricBar b { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; letter-spacing: -0.02em; }
+.num small, .num .rate { font-family: var(--font-sans); letter-spacing: 0; }

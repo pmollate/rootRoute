@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { BRAND } from '@/config/copy';
 import styles from './LostRoute.module.css';
 
@@ -23,7 +24,7 @@ export default function LostRoute({ code, accent, title, body, home, help, track
     <main className={styles.page}>
       <header className={styles.bar}>
         <a className={styles.mark} href={home.href} aria-label={`${BRAND} home`}>
-          <span className={styles.glyph} aria-hidden="true" />
+          <BrandMark className={styles.glyph} />
           {BRAND.toUpperCase()}
         </a>
         <a className={styles.pill} href={track.href}>

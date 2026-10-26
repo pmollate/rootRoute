@@ -23,6 +23,7 @@ def warehouse_stats(d: pd.DataFrame, warehouses: pd.DataFrame) -> pd.DataFrame:
 
     rows = []
     for wid, s in d.groupby("nearest_warehouse_id"):
+        home = s.fulfilment_warehouse_id == s.nearest_warehouse_id
         rows.append({
             "warehouse_id": wid,
             "orders": len(s),
@@ -33,6 +34,11 @@ def warehouse_stats(d: pd.DataFrame, warehouses: pd.DataFrame) -> pd.DataFrame:
             "out_of_stock_late_rate": rate(s[s.f_stock_out]),
             "skipped_nearest": int(s.f_skip_nearest.sum()),
             "skipped_nearest_late_rate": rate(s[s.f_skip_nearest]),
+            # Freight sums, so Node can average across sites: shipped from the nearest site vs any other.
+            "nearest_shipped": int(home.sum()),
+            "nearest_freight_usd": float(s.carrier_rate_usd[home].sum()),
+            "other_shipped": int((~home).sum()),
+            "other_freight_usd": float(s.carrier_rate_usd[~home].sum()),
         })
     out = pd.DataFrame(rows).merge(warehouses[["warehouse_id", "warehouse_name"]], on="warehouse_id")
     return out[["warehouse_id", "warehouse_name", *[c for c in out.columns if c not in ("warehouse_id", "warehouse_name")]]]

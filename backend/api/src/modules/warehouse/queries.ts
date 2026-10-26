@@ -38,7 +38,15 @@ interface WarehouseStatsRow {
   warehouse_id: string; warehouse_name: string; orders: number; cutoff_misses: number; cutoff_late_rate: number;
   cutoff_before_11: number; out_of_stock: number; out_of_stock_late_rate: number; skipped_nearest: number;
   skipped_nearest_late_rate: number;
+  // Absent until the pipeline has been re-run with the freight columns.
+  nearest_shipped?: number; nearest_freight_usd?: number; other_shipped?: number; other_freight_usd?: number;
 }
+
+/** Average freight per order across all sites; null when the freight columns are missing. */
+const avgFreight = (rows: WarehouseStatsRow[], usd: keyof WarehouseStatsRow, n: keyof WarehouseStatsRow) => {
+  const orders = rows.reduce((a, r) => a + Number(r[n] ?? 0), 0);
+  return orders ? rows.reduce((a, r) => a + Number(r[usd] ?? 0), 0) / orders : null;
+};
 
 export const accounts = () => cached('accounts', async () => ({
   accounts: (await query<AccountRow>('SELECT * FROM accounts ORDER BY annual_revenue_usd DESC')).map((r) => ({
@@ -59,6 +67,10 @@ export const warehouses = () => cached('warehouses', async () => {
       outOfStockLateRate: r.out_of_stock_late_rate, skippedNearest: r.skipped_nearest, skippedNearestLateRate: r.skipped_nearest_late_rate,
     })),
     secondPick: { movedOrders: rows.reduce((a, r) => a + r.cutoff_before_11, 0), onTime: pick[0]?.on_time ?? null },
+    freightPerOrder: {
+      nearest: avgFreight(rows, 'nearest_freight_usd', 'nearest_shipped'),
+      otherSite: avgFreight(rows, 'other_freight_usd', 'other_shipped'),
+    },
   };
 });
 
