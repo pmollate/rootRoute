@@ -955,7 +955,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
 - Consumes: `/api/carriers`, `/api/carriers/backtest`, `/api/tracking`, `POST /api/overrides`; `Segmented`, `Pill`, `Table`, `SyntheticBadge`, `postJSON` (B2).
 - Produces: `/dashboard/carriers`: region / promise / SLA pickers, ranked carriers marked recommended / backup / blocked with reasons, backtest table, tracking panel with the synthetic badge, override form.
 
-- [ ] **Step 1: Write the failing test:**
+- [x] **Step 1: Write the failing test:**
 
 ```tsx
 import { screen } from '@testing-library/react';
@@ -984,9 +984,9 @@ describe('Carriers', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./CarriersScreen`.
+- [x] **Step 2: Run.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./CarriersScreen`.
 
-- [ ] **Step 3: Implement** the screen and its route:
+- [x] **Step 3: Implement** the screen and its route:
 
 ```tsx
 'use client';
@@ -1100,9 +1100,9 @@ export default function Page() {
 }
 ```
 
-- [ ] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck` — Expected: PASS. In the browser: West / standard shows E blocked and D eligible; Midwest shows D blocked and F eligible.
+- [x] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck` — Expected: PASS. In the browser: West / standard shows E blocked and D eligible; Midwest shows D blocked and F eligible.
 
-- [ ] **Step 5: Commit.** `git add frontend && git commit -m "feat(c): Carriers screen"`
+- [x] **Step 5: Commit.** `git add frontend && git commit -m "feat(c): Carriers screen"`
 
 ---
 
