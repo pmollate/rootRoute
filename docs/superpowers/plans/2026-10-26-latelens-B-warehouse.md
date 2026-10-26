@@ -74,7 +74,7 @@ backend/synthetic-data/generators/sd05_stock.py  backend/synthetic-data/README.m
 - Produces (stubs, CONTRACTS §2): `warehouseApi`, `diagnosisApi`, `carriersApi`.
 - Produces root scripts: `npm run setup | dev | dev:api | dev:all | test | typecheck | pipeline | migrate | seed | data`.
 
-- [ ] **Step 1: Root files.** In the root `package.json`, replace `scripts` with the following (`dev`, `build`, `start` and `media` behave as before; `setup` now also installs the API):
+- [x] **Step 1: Root files.** In the root `package.json`, replace `scripts` with the following (`dev`, `build`, `start` and `media` behave as before; `setup` now also installs the API):
 
 ```json
 "setup": "npm --prefix frontend ci && npm --prefix backend/api ci",
@@ -149,7 +149,7 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 NEXT_PUBLIC_API_KEY=dev-key
 ```
 
-- [ ] **Step 2: Install the API packages.**
+- [x] **Step 2: Install the API packages.**
 
 ```bash
 mkdir -p backend/api && cd backend/api
@@ -206,7 +206,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 3: Write the failing test.** `backend/api/test/setup.ts` (reads the root `.env`), `test/db.ts`, `test/platform.test.ts`:
+- [x] **Step 3: Write the failing test.** `backend/api/test/setup.ts` (reads the root `.env`), `test/db.ts`, `test/platform.test.ts`:
 
 ```ts
 import { config as loadEnv } from 'dotenv';
@@ -253,12 +253,12 @@ describe.skipIf(!hasDb)('platform (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 4: Run it to make sure it fails.**
+- [x] **Step 4: Run it to make sure it fails.**
 
 Run: `docker compose up -d && npm --prefix backend/api test`
 Expected: FAIL — `Cannot find module '../src/core/db/pool.js'`.
 
-- [ ] **Step 5: Core modules** (all under `backend/api/src/`). `core/config.ts` (loads the repo-root `.env`):
+- [x] **Step 5: Core modules** (all under `backend/api/src/`). `core/config.ts` (loads the repo-root `.env`):
 
 ```ts
 import { config as loadEnv } from 'dotenv';
@@ -558,7 +558,7 @@ CREATE TABLE audit_log (
 );
 ```
 
-- [ ] **Step 6: Contract stubs** so A and C can code against them today. `backend/api/src/modules/warehouse/index.ts`:
+- [x] **Step 6: Contract stubs** so A and C can code against them today. `backend/api/src/modules/warehouse/index.ts`:
 
 ```ts
 // Public entry point of the Warehouse & promise area (CONTRACTS §2). STUB until Task B8.
@@ -590,14 +590,14 @@ export const carriersApi: CarriersApi = {
 };
 ```
 
-- [ ] **Step 7: Run the tests and the server.**
+- [x] **Step 7: Run the tests and the server.**
 
 Run: `npm run migrate:test && npm --prefix backend/api test && npm --prefix backend/api run lint`
 Expected: PASS (2 tests), no type errors.
 Run: `npm run migrate && npm run dev:api`, then `curl localhost:3001/api/health`
 Expected: `{"db":"ok","llm":"recorded","version":"dev"}`. `npm run dev` still serves the landing page on :3000.
 
-- [ ] **Step 8: Commit and push to `main` (PR).**
+- [x] **Step 8: Commit and push to `main` (PR).**
 
 ```bash
 git add package.json .gitignore docker-compose.yml .env.example backend/db backend/api
@@ -606,7 +606,7 @@ git commit -m "feat(b): API skeleton in backend/api, Postgres, migrations, contr
 
 ---
 
-### Task B2: Dashboard shell inside the Next.js app
+### Task B2: Dashboard shell inside the Next.js app - Done
 
 **Files:**
 - Modify: `frontend/package-lock.json` (public registry), `frontend/package.json` (`test` script, test packages), `frontend/next.config.mjs` (root `.env`), `frontend/styles/theme.css` (status tokens)
@@ -620,7 +620,7 @@ git commit -m "feat(b): API skeleton in backend/api, Postgres, migrations, contr
 - Produces: `SCREENS` (nav order and owner), `API_URL`, `API_KEY` (`config/dashboard.ts`); `getJSON<T>`, `postJSON<T>` (`lib/api.ts`, sends `x-api-key`); `pct`, `int`, `usd`, `usd2`, `points` (`lib/metrics.ts`); `useApi<T>(path) → { data, error, loading, reload }`; UI pieces `ScreenHead`, `Section`, `Kpi`, `Pill`, `SyntheticBadge`, `Status`, `Table<T>`, `Bars`, `Segmented` and the `ui` class map (`components/dashboard/ui.tsx`); test helpers `mockApi(routes)`, `renderScreen(node)`.
 - Screens (B10, A8, C7) each add `app/dashboard/<screen>/page.tsx` + `components/dashboard/<screen>/<Name>Screen.tsx`. Nothing else in `frontend/` changes; the landing page is untouched.
 
-- [ ] **Step 1: Make `npm ci` work for everyone.** `frontend/package-lock.json` points every package at a private Pluralsight JFrog registry, so `npm ci` fails with 401 outside that network, including in CI. Point the same versions at the public registry (the checksums do not change):
+- [x] **Step 1: Make `npm ci` work for everyone.** `frontend/package-lock.json` points every package at a private Pluralsight JFrog registry, so `npm ci` fails with 401 outside that network, including in CI. Point the same versions at the public registry (the checksums do not change):
 
 ```bash
 sed -i '' 's#https://registry.npmjs.org/#g' frontend/package-lock.json
@@ -629,7 +629,7 @@ npm --prefix frontend ci
 
 (On Linux use `sed -i` without `''`.) Expected: install succeeds; `grep -c pluralsight frontend/package-lock.json` prints 0.
 
-- [ ] **Step 2: Test packages and script.**
+- [x] **Step 2: Test packages and script.**
 
 ```bash
 npm --prefix frontend install -D vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/dom
@@ -676,7 +676,7 @@ export function mockApi(routes: Record<string, unknown>) {
 export const renderScreen = (node: ReactNode) => render(<>{node}</>);
 ```
 
-- [ ] **Step 3: Write the failing test** `frontend/lib/metrics.test.ts`:
+- [x] **Step 3: Write the failing test** `frontend/lib/metrics.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -699,9 +699,9 @@ describe('dashboard basics', () => {
 });
 ```
 
-- [ ] **Step 4: Run it.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `@/config/dashboard`.
+- [x] **Step 4: Run it.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `@/config/dashboard`.
 
-- [ ] **Step 5: Config, data access and formats.**
+- [x] **Step 5: Config, data access and formats.**
 
 ```ts
 /** LateLens dashboard (app/dashboard). Screens in nav order; each problem area owns its screens (SPEC §5.7). */
@@ -807,7 +807,7 @@ Status colours as theme tokens (the frontend keeps every colour in `styles/theme
   --synthetic: #b39bff;
 ```
 
-- [ ] **Step 6: Shared UI and the shell.**
+- [x] **Step 6: Shared UI and the shell.**
 
 ```css
 .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
@@ -1039,13 +1039,13 @@ export default function DashboardHome() {
 }
 ```
 
-- [ ] **Step 7: Run.** `npm --prefix frontend test && npm run typecheck && npm run build` — Expected: 2 tests pass; no type errors; the build lists `/` and `/dashboard`. With `npm run dev`, `http://localhost:3000/dashboard` shows the shell; the landing page at `/` is unchanged.
+- [x] **Step 7: Run.** `npm --prefix frontend test && npm run typecheck && npm run build` — Expected: 2 tests pass; no type errors; the build lists `/` and `/dashboard`. With `npm run dev`, `http://localhost:3000/dashboard` shows the shell; the landing page at `/` is unchanged.
 
-- [ ] **Step 8: Commit.** `git add frontend && git commit -m "feat(b): dashboard shell in the Next.js app; public npm registry"`
+- [x] **Step 8: Commit.** `git add frontend && git commit -m "feat(b): dashboard shell in the Next.js app; public npm registry"`
 
 ---
 
-### Task B3: Analytics package in backend/analytics (replaces backend/analysis/prep.py)
+### Task B3: Analytics package in backend/analytics (replaces backend/analysis/prep.py) - Done
 
 **Files:**
 - Create: `requirements.txt`, `pytest.ini`, `ruff.toml` (repo root)
@@ -1059,7 +1059,7 @@ export default function DashboardHome() {
 - Produces: `Ctx(d, clients, data_dir, tables)` with `ctx.csv(name)`; each area exposes `build(ctx) -> dict[str, DataFrame]`; `write_tables(tables, url)`; `npm run pipeline [-- --dry-run]`, `npm run pipeline:test` (= `cd backend && npm run pipeline …`).
 - Produces pytest fixtures: `data`, `d`, `clients`, `penalties`. `pytest.ini` puts `backend/` on the path, so tests import `analytics…`.
 
-- [ ] **Step 1: Python environment** (root files):
+- [x] **Step 1: Python environment** (root files):
 
 ```text
 pandas>=2.2
@@ -1092,7 +1092,7 @@ mkdir -p backend/analytics/core backend/analytics/tests backend/analytics/wareho
 touch backend/analytics/__init__.py backend/analytics/core/__init__.py
 ```
 
-- [ ] **Step 2: Write the failing tests.** `backend/analytics/tests/conftest.py`, `test_load.py` (AC-DIAG-01), `test_pipeline.py`:
+- [x] **Step 2: Write the failing tests.** `backend/analytics/tests/conftest.py`, `test_load.py` (AC-DIAG-01), `test_pipeline.py`:
 
 ```python
 import pytest
@@ -1143,9 +1143,9 @@ def test_pipeline_runs_and_returns_tables():
     assert "clients" in tables and len(tables["clients"]) == 280
 ```
 
-- [ ] **Step 3: Run to see it fail.** `python -m pytest` — Expected: FAIL, `ModuleNotFoundError: analytics.core.load`.
+- [x] **Step 3: Run to see it fail.** `python -m pytest` — Expected: FAIL, `ModuleNotFoundError: analytics.core.load`.
 
-- [ ] **Step 4: Loader** (the old `backend/analysis/prep.py`, with the five causes and the split flags). `backend/analytics/core/load.py`:
+- [x] **Step 4: Loader** (the old `backend/analysis/prep.py`, with the five causes and the split flags). `backend/analytics/core/load.py`:
 
 ```python
 """Load the supplied dataset and add the cause flags defined in SPEC §5.1."""
@@ -1206,7 +1206,7 @@ def load(data_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 Then `git rm backend/analysis/prep.py`.
 
-- [ ] **Step 5: Context, writer, pipeline, stubs.** `backend/analytics/core/context.py`, `core/db.py` (reads the root `.env`), `backend/analytics/pipeline.py`:
+- [x] **Step 5: Context, writer, pipeline, stubs.** `backend/analytics/core/context.py`, `core/db.py` (reads the root `.env`), `backend/analytics/pipeline.py`:
 
 ```python
 from dataclasses import dataclass, field
@@ -1335,20 +1335,20 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     return {}
 ```
 
-- [ ] **Step 6: Run.** `python -m pytest && ruff check backend/analytics && npm run pipeline -- --dry-run`
+- [x] **Step 6: Run.** `python -m pytest && ruff check backend/analytics && npm run pipeline -- --dry-run`
 Expected: 3 passed; ruff clean; dry run prints `clients 280 rows`. Then `npm run pipeline:test` — Expected: `wrote 1 tables`.
 
-- [ ] **Step 7: Commit.** `git add requirements.txt pytest.ini ruff.toml backend/analytics && git rm -q backend/analysis/prep.py; git commit -m "feat(b): analytics package in backend/, five-cause loader, pipeline runner"`
+- [x] **Step 7: Commit.** `git add requirements.txt pytest.ini ruff.toml backend/analytics && git rm -q backend/analysis/prep.py; git commit -m "feat(b): analytics package in backend/, five-cause loader, pipeline runner"`
 
 ---
 
-### Task B4: CI and run instructions
+### Task B4: CI and run instructions - Done
 
 **Files:**
 - Create: `.github/workflows/ci.yml`
 - Modify: `README.md` (add a "Run LateLens locally" section; keep the landing-page quick start)
 
-- [ ] **Step 1: Workflow** `.github/workflows/ci.yml`. One job with a Postgres service runs the Python tests, regenerates synthetic data and checks it is byte-identical (AC-NFR-05), installs both apps through the root scripts, typechecks, fills the test database, runs the API and dashboard tests and builds both; a second job runs the secret scan (AC-SEC-01):
+- [x] **Step 1: Workflow** `.github/workflows/ci.yml`. One job with a Postgres service runs the Python tests, regenerates synthetic data and checks it is byte-identical (AC-NFR-05), installs both apps through the root scripts, typechecks, fills the test database, runs the API and dashboard tests and builds both; a second job runs the secret scan (AC-SEC-01):
 
 ```yaml
 name: ci
@@ -1426,7 +1426,7 @@ jobs:
 
 While no generators exist yet the synthetic-data step does nothing (`nullglob`).
 
-- [ ] **Step 2: README.** Add below the existing quick start:
+- [x] **Step 2: README.** Add below the existing quick start:
 
 ````markdown
 ## Run LateLens locally
@@ -1449,15 +1449,15 @@ Tests: `npm test` (API, dashboard, Python; API route tests run only when the tes
 Docs: `docs/SPEC.md` (what and why), `docs/CONTRACTS.md` (shared types, tables, API), `docs/superpowers/plans/` (task plans).
 ````
 
-- [ ] **Step 3: Verify on GitHub.** Push a branch, open a PR. Expected: `ci / test` and `ci / secrets` green. Ask the repo owner (`saiprasad-37`) to require `ci / test` on `main`.
+- [x] **Step 3: Verify on GitHub.** Push a branch, open a PR. Expected: `ci / test` and `ci / secrets` green. Ask the repo owner (`saiprasad-37`) to require `ci / test` on `main`.
 
-- [ ] **Step 4: Commit.** `git add .github README.md && git commit -m "ci(b): Python, API and dashboard tests, synthetic-data reproducibility, secret scan"`
+- [x] **Step 4: Commit.** `git add .github README.md && git commit -m "ci(b): Python, API and dashboard tests, synthetic-data reproducibility, secret scan"`
 
 **Monday check-in:** B1–B4 merged; everyone has run the README steps; `npm run dev:all` shows the landing page, `/dashboard` and the API.
 
 ---
 
-### Task B5: Diagnostic engine (D1, D2) — cause flags, stages, data quality, KPIs, accounts
+### Task B5: Diagnostic engine (D1, D2) — cause flags, stages, data quality, KPIs, accounts - Done
 
 **Files:**
 - Create: `backend/analytics/core/diagnosis.py`
@@ -1469,7 +1469,7 @@ Docs: `docs/SPEC.md` (what and why), `docs/CONTRACTS.md` (shared types, tables, 
 - Produces tables (CONTRACTS §4): `deliveries_clean`, `clients`, `carriers`, `warehouses`, `delivery_causes`, `dq_report`, `kpis`, `cause_summary`, `accounts`.
 - Produces: `diagnosis.segments(d)`, `diagnosis.unpaid_penalties(d, penalties)`, `diagnosis.cause_kpis(d, complaints)` (SPEC §1.4 baselines; written as table `cause_kpis` from B6), `LABELS`, `STAGE`, `HANDLING_COST = 34`, `PENALTY = 180`; `ctx.d` gains `dq_bad_dates`, `dq_dup_order_id`.
 
-- [ ] **Step 1: Write the failing test** `backend/analytics/tests/test_diagnosis.py` (AC-DIAG-02, -03, -05, KPI and account checks):
+- [x] **Step 1: Write the failing test** `backend/analytics/tests/test_diagnosis.py` (AC-DIAG-02, -03, -05, KPI and account checks):
 
 ```python
 import pytest
@@ -1535,9 +1535,9 @@ def test_accounts(dq, clients):
     assert len(a) == 9 and int(a.annual_revenue_usd.sum()) == 14_200_000 and int(a.complaints.sum()) == 24
 ```
 
-- [ ] **Step 2: Run it.** `python -m pytest backend/analytics/tests/test_diagnosis.py` — Expected: FAIL, `ImportError: cannot import name 'diagnosis'`.
+- [x] **Step 2: Run it.** `python -m pytest backend/analytics/tests/test_diagnosis.py` — Expected: FAIL, `ImportError: cannot import name 'diagnosis'`.
 
-- [ ] **Step 3: Implement** `backend/analytics/core/diagnosis.py`:
+- [x] **Step 3: Implement** `backend/analytics/core/diagnosis.py`:
 
 ```python
 """Data quality, stages and summary tables (SPEC §5.1, D1-D3, D6)."""
@@ -1716,9 +1716,9 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline -- --dry-run` — Expected: all pass; dry run lists `delivery_causes 48,340`, `kpis 9`, `accounts 9`.
+- [x] **Step 4: Run.** `python -m pytest && npm run pipeline -- --dry-run` — Expected: all pass; dry run lists `delivery_causes 48,340`, `kpis 9`, `accounts 9`.
 
-- [ ] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(b): diagnostic engine — causes, stages, data quality, KPIs, accounts"`
+- [x] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(b): diagnostic engine — causes, stages, data quality, KPIs, accounts"`
 
 ---
 
