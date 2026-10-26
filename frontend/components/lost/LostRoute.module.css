@@ -1,0 +1,219 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
+  grid-template-rows: auto 1fr;
+  padding: 0 var(--gutter);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* ───── top bar ───── */
+.bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 0;
+  position: relative;
+  z-index: 4;
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-brand), var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.glyph {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.pill {
+  display: inline-flex;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: var(--pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.pill:hover {
+  background: var(--accent-hover);
+}
+
+/* ───── route line: right half only, behind the character ───── */
+.route {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 55%;
+  width: 45%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.route path {
+  fill: none;
+  stroke: rgb(var(--muted-rgb) / 0.22);
+  stroke-width: 3;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* ───── copy ───── */
+.body {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: center;
+  position: relative;
+  z-index: 3;
+  max-width: 34rem;
+  padding-bottom: 48px;
+}
+
+.code {
+  margin: 0 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(36px, 5vw, 70px);
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+}
+
+/* each line is masked so it can rise into place */
+.clip {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.06em;
+}
+
+.clip > span {
+  display: block;
+}
+
+.accent {
+  color: var(--accent-text);
+}
+
+.lead {
+  margin: 20px 0 0;
+  max-width: 40ch;
+  font-size: clamp(16px, 1.3vw, 18px);
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.links {
+  margin: 28px 0 0;
+  font-size: 16px;
+  color: var(--ink-2);
+}
+
+.links a {
+  color: var(--accent-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ───── courier ───── */
+/* bottom-anchored and sunk past the edge, so the viewport crops his feet and cable */
+.figure {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+  justify-self: start;
+  position: relative;
+  z-index: 2;
+  height: 80vh;
+  height: 80svh;
+  margin-bottom: -11vh; /* ~14% of his height: boots and the cable's tail fall below the fold */
+  margin-bottom: -11svh;
+  /* the render's left third is just cable: pull it under the copy's edge so he sits near the text */
+  margin-left: -16vh;
+  margin-left: -16svh;
+}
+
+.figure > div,
+.figure > div > div {
+  height: 100%;
+}
+
+.render,
+.courier {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: none;
+}
+
+.shadow { fill: rgb(var(--shadow-rgb) / 0.12); }
+.uniform { fill: var(--accent); }
+.uniformDark { fill: var(--accent-text); }
+.collar { fill: var(--surface); }
+.skin { fill: #e8b48c; }
+.ink { fill: var(--dark); }
+.cap { fill: var(--accent); }
+.capText { fill: var(--accent-ink); font: 700 28px var(--font-display); }
+.brow { fill: none; stroke: var(--dark); stroke-width: 4; stroke-linecap: round; }
+.arm { fill: none; stroke: var(--accent); stroke-width: 26; stroke-linecap: round; }
+.map { fill: var(--surface); stroke: var(--line); stroke-width: 2; }
+.mapFold { stroke: var(--line); stroke-width: 2; }
+.mapRoute { fill: none; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 5 5; }
+.mapPin { fill: var(--accent-text); }
+
+@media (max-width: 820px) {
+  .page {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    padding-inline: 16px;
+  }
+
+  .route {
+    display: none;
+  }
+
+  .body {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    padding-bottom: 24px;
+  }
+
+  .figure {
+    grid-column: 1;
+    grid-row: 3;
+    justify-self: center;
+    height: 45vh;
+    height: 45svh;
+    margin-bottom: -6vh;
+    margin-bottom: -6svh;
+    margin-left: 0;
+  }
+}

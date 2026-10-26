@@ -26,6 +26,15 @@
   --livery: rgb(42 45 50 / 0.9); /* truck brand paint */
   --live: #34c27a;
   --live-ink: #1f8a55;
+  /* dashboard status (app/dashboard): semantic, separate from the accent */
+  --good: #1f8a55;
+  --good-soft: rgb(52 194 122 / 0.16);
+  --bad: #b42318;
+  --bad-soft: rgb(220 38 38 / 0.12);
+  --warn: #8a5a00;
+  --warn-soft: rgb(234 179 8 / 0.18);
+  --synthetic: #6d3fc0;
+  --synthetic-soft: rgb(124 58 237 / 0.12);
 
   /* text and rules on dark footage */
   --on-dark: rgb(var(--cream-rgb) / 0.82);
@@ -68,6 +77,10 @@
     --surface: #1c1c1a;
     --ink-2: #aaa69d;
     --line: #2f2e2b;
+    --good: #4ade80;
+    --bad: #f87171;
+    --warn: #facc15;
+    --synthetic: #b39bff;
     color-scheme: dark;
   }
 }
@@ -81,6 +94,10 @@
   --surface: #1c1c1a;
   --ink-2: #aaa69d;
   --line: #2f2e2b;
+  --good: #4ade80;
+  --bad: #f87171;
+  --warn: #facc15;
+  --synthetic: #b39bff;
   color-scheme: dark;
 }
 

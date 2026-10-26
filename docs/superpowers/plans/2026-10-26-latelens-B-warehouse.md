@@ -59,7 +59,7 @@ backend/synthetic-data/generators/sd05_stock.py  backend/synthetic-data/README.m
 
 ---
 
-### Task B1: API skeleton in backend/api, database, contracts and root scripts
+### Task B1: API skeleton in backend/api, database, contracts and root scripts - Implementation is Done with dummy env values
 
 **Files:**
 - Modify: `package.json` (root: keep the existing scripts' behaviour, add the backend ones), `.gitignore` (add backend and test outputs)
