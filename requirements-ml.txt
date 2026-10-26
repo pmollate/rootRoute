@@ -1,0 +1,4 @@
+# Only for backend/carrier-optimization-engine (the LightGBM model). Not needed by the pipeline or CI.
+lightgbm>=4.3
+scipy>=1.11
+scikit-learn>=1.4
