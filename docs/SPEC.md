@@ -2,7 +2,7 @@
 
 Repo: root-route · Status: draft v0.4 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
 Hackathon: FDE AI Hackathon 5.0, Problem 2 (Halcyon Logistics). Coding: Mon 26 – Thu 29 Oct 2026. Code submission: 29 Oct, `[DEADLINE_TIME]`.
-Source brief: `Halcyon.docx` (Participant Problem Statement). Data: `Halcyon-Hackathon-Dataset/` (supplied) and `synthetic-data/` (ours, §12.1).
+Source brief: `docs/Halcyon.docx` (Participant Problem Statement). Data: `Halcyon-Hackathon-Dataset/` (supplied) and `synthetic-data/` (ours, §12.1).
 
 **Changes in v0.4** (aligned with the team's *Halcyon Delivery Diagnostic* deck): five root causes replace the six flags —
 carrier lanes with a Friday cap on D, and route detours above 20% (§2.2, §5.1); lane rules block 5 lanes, not D everywhere
@@ -14,7 +14,7 @@ Platform stays Azure. v0.3 added the stack, team split, synthetic-data features 
 **Conventions.** **MUST** / **SHOULD** / **MAY** follow RFC 2119. Every requirement has an ID (`REQ-<module>-NN`,
 `NFR-NN`, `SEC-NN`). Its acceptance criterion has the same number (`AC-<module>-NN`). Every **MUST** has an AC.
 Feature IDs (E1, W1, C1, D1, P1 …) are listed in §3. All figures are computed from the supplied dataset with
-`analytics/core/load.py` (orders 1 Apr – 25 Sep 2026, 178 days). Synthetic data never feeds a headline figure (§12.1).
+`analytics/core/load.py` (today `backend/analysis/prep.py`, moved by plan B3; orders 1 Apr – 25 Sep 2026, 178 days). Synthetic data never feeds a headline figure (§12.1).
 
 ---
 
@@ -355,7 +355,7 @@ db/ llm/  pg queries · AI model interface (claude | azure-openai | recorded)
 ## 5. Modules
 
 ### 5.1 Diagnostic engine (owner: Warehouse; D1, D2)
-Input: the CSVs in `Halcyon-Hackathon-Dataset/`. Reference implementation: `analytics/core/load.py`.
+Input: the CSVs in `Halcyon-Hackathon-Dataset/`. Reference implementation: `analytics/core/load.py` (today `backend/analysis/prep.py`).
 
 Flag definitions (exact):
 - `late` = `on_time == 'N'`
@@ -865,7 +865,7 @@ screens using synthetic data show a badge (REQ-UI-04).
 - Wireframes: https://claude.ai/artifact/KHS6cDyxUBp5E1HLmPQTyW
 - Team intake workflow canvas: https://claude.ai/artifact/L3zPwz8rNzmKRxNPzRGeDC
 - Team carrier optimization canvas: https://claude.ai/artifact/BMxbTQyniHbkBYuX3zkHN2
-- Carrier risk model and capacity-limited replay: branch `carrier_optimizer`, `carrier-optimization-engine/model_report.md`
+- Carrier risk model and capacity-limited replay: `backend/carrier-optimization-engine/model_report.md`
 - Team diagnostic deck: `docs/Halcyon_Delivery_Diagnostic.pdf` (source of the five-cause definitions, adoption rates, per-cause KPIs and open questions in v0.4)
 - Clickable prototype: https://claude.ai/artifact/3e3anPMEBFDUEsbz89rYc5
 

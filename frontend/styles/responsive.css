@@ -1,0 +1,392 @@
+/* ───────────── Mobile ───────────── */
+
+@media (max-width: 768px) {
+  .truck-box {
+    top: 22vh;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: 38vh;
+  }
+
+  /* no room beside the hero copy on smaller screens */
+  .hero-globe {
+    display: none;
+  }
+
+  /* hero copy as one tidy column on phones (capped for small tablets) that spans the hero: the
+     kicker sits just under the header, the buttons and note stay down above the dots, and the
+     title and lede are centred in the space between (the two auto margins split it evenly) */
+  .hero-copy {
+    top: 92px;
+    bottom: clamp(52px, 8vh, 72px);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: min(520px, calc(100% - 2 * var(--gutter)));
+    max-width: none;
+  }
+
+  /* the copy runs top to bottom on phones, so the shade does too: darkest at the kicker and the
+     buttons, still enough mid-frame for the centred title and lede */
+  .hero-shade {
+    background: linear-gradient(
+      180deg,
+      rgb(var(--night-rgb) / 0.7) 0%,
+      rgb(var(--night-rgb) / 0.42) 28%,
+      rgb(var(--night-rgb) / 0.42) 62%,
+      rgb(var(--night-rgb) / 0.75) 100%
+    );
+  }
+
+  .hero-copy .kicker {
+    margin-bottom: 14px;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+  }
+
+  .hero-copy .display {
+    margin-top: auto;
+    font-size: clamp(34px, 10.5vw, 48px);
+    line-height: 1;
+    text-wrap: balance;
+  }
+
+  .hero-copy .lede {
+    text-wrap: pretty;
+  }
+
+  .hero-copy .ctas {
+    flex-direction: column;
+    align-self: stretch;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 24px;
+  }
+
+  .hero-copy .btn {
+    justify-content: center;
+  }
+
+  .hero-copy .note {
+    margin-top: 14px;
+    font-size: 12px;
+  }
+
+  .lede {
+    margin-top: 16px;
+    font-size: 15px;
+  }
+
+  .ctas {
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .ctas .btn {
+    padding: 12px 18px;
+    font-size: 14px;
+  }
+
+  .note {
+    margin-top: 14px;
+    font-size: 12px;
+  }
+
+  /* Detect as a column: heading, the truck takes whatever height is left, then the card */
+  .detect {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 88px var(--gutter) 24px;
+  }
+
+  .detect-head,
+  .detect-cards {
+    position: static;
+    width: auto;
+    max-width: none;
+  }
+
+  .detect-stage {
+    position: relative;
+    inset: auto;
+    flex: 1;
+    min-height: 110px;
+    width: auto;
+    height: auto;
+  }
+
+  .detect-head .h2 {
+    font-size: 26px;
+  }
+
+  .detect-head .kicker {
+    margin-bottom: 10px;
+  }
+
+  .drive-lead {
+    gap: 10px;
+  }
+
+  .drive-lead p {
+    font-size: 18px;
+  }
+
+  .dcard-body {
+    padding: 18px;
+  }
+
+  .dcard p {
+    font-size: 14px;
+  }
+
+  .hero-handoff {
+    bottom: 12vh;
+  }
+
+  .deliver-card {
+    right: var(--gutter);
+    bottom: 96px;
+  }
+
+  .deliver-cta {
+    bottom: 170px; /* clear of the links row */
+  }
+
+  .deliver-mark {
+    flex-basis: 100%;
+  }
+
+  .net-counter {
+    position: static;
+    order: 1;
+    align-self: flex-end;
+  }
+
+  .net-body {
+    order: 2;
+    max-width: none;
+  }
+
+  .network-shade {
+    background: linear-gradient(180deg, rgb(var(--dark-rgb) / 0.55) 0%, rgb(var(--dark-rgb) / 0.35) 45%, rgb(var(--dark-rgb) / 0.85) 100%);
+  }
+
+  .optimize {
+    height: auto;
+    padding: 110px 0 90px;
+  }
+
+  .optimize-head {
+    position: static;
+    padding: 0 var(--gutter);
+  }
+
+  .outline-word {
+    display: none;
+  }
+
+  .track {
+    position: static;
+    flex-direction: column;
+    gap: 20px;
+    padding: 36px var(--gutter) 0;
+  }
+
+  .ocard {
+    width: 100%;
+    height: auto;
+    grid-template-columns: 1fr;
+    transform: none;
+    opacity: 1;
+  }
+
+  .ocard-media {
+    aspect-ratio: 16 / 10;
+  }
+
+  .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .stat:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .people-grid,
+  .pcards {
+    grid-template-columns: 1fr;
+  }
+
+  /* dispatcher card: label + Override on one line, value and reason full width below */
+  .dash-body {
+    padding: 16px;
+  }
+
+  .dash-title {
+    font-size: 16px;
+  }
+
+  .dash-rows li {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: 'k btn' 'v v' 'why why';
+    row-gap: 2px;
+  }
+
+  .dash-override {
+    padding: 4px 10px;
+  }
+
+  .dash-eta {
+    font-size: 13px;
+  }
+
+  .chapters {
+    display: none;
+  }
+}
+
+/* ───────────── Short screens (landscape phones): compact pinned scenes ───────────── */
+
+@media (max-height: 560px) {
+  .hero-copy {
+    top: auto;
+    bottom: 44px;
+    display: block;
+  }
+
+  .hero-copy .display {
+    margin-top: 0;
+  }
+
+  .hero-dots {
+    bottom: 10px;
+  }
+
+  .hero-copy .display {
+    font-size: clamp(30px, 11vh, 56px);
+  }
+
+  .lede {
+    margin-top: 12px;
+    font-size: 15px;
+  }
+
+  .ctas,
+  .hero-copy .ctas {
+    flex-direction: row;
+    margin-top: 16px;
+    padding-top: 0;
+  }
+
+  .btn {
+    padding: 11px 18px;
+  }
+
+  .note,
+  .hero-handoff {
+    display: none;
+  }
+
+  .hero-globe {
+    display: none;
+  }
+
+  .truck-box {
+    top: 76px;
+    bottom: 8px;
+  }
+
+  .detect-head {
+    top: 76px;
+    max-width: 40vw;
+  }
+
+  .detect-head .kicker,
+  .optimize-head .kicker,
+  .network .kicker {
+    margin-bottom: 8px;
+  }
+
+  .detect-head .h2,
+  .optimize-head .h2,
+  .network .h2 {
+    font-size: 24px;
+  }
+
+  .detect-cards {
+    bottom: 12px;
+  }
+
+  .dcard-body {
+    padding: 14px 16px;
+  }
+
+  .dcard p,
+  .ocard-copy p {
+    display: none;
+  }
+
+  .drive-line {
+    top: 84px;
+    font-size: 32px;
+  }
+
+  .network-copy {
+    padding-top: 76px;
+    padding-bottom: 20px;
+    gap: 12px;
+  }
+
+  .net-body {
+    font-size: 14px;
+  }
+
+  .optimize-head {
+    top: 76px;
+  }
+
+  .track {
+    align-items: flex-end;
+    padding-top: 0;
+    padding-bottom: 16px;
+  }
+
+  .ocard {
+    height: calc(var(--vh) - 150px);
+  }
+
+  .ocard h3 {
+    font-size: 22px;
+  }
+
+  .deliver-card {
+    bottom: 12px;
+    padding: 16px 18px;
+  }
+
+  .deliver-card .h2 {
+    font-size: 24px;
+  }
+
+  .deliver-cta {
+    inset: 72px var(--gutter) 64px;
+  }
+
+  .deliver-cta-title {
+    margin-bottom: 10px;
+    font-size: 26px;
+  }
+
+  .deliver-cta-body {
+    margin-bottom: 14px;
+    font-size: 14px;
+  }
+
+  .deliver-base {
+    padding: 10px var(--gutter);
+  }
+}

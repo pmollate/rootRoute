@@ -1,5 +1,16 @@
+# frontend
 node_modules
-.env
+.next
+*.tsbuildinfo
+next-env.d.ts
+Carrier clips/
+
+# backend
 .venv/
 __pycache__/
+*.pyc
+outputs/
+
+# secrets and OS
+.env
 .DS_Store

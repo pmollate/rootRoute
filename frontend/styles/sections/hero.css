@@ -1,0 +1,195 @@
+/* S0 Hero: above S1 while pinned (S1 overlaps its last screen) */
+.hero {
+  z-index: 2;
+  background: var(--bg);
+}
+
+.hero-video {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* the truck rises from behind the frame and is revealed as the video fades */
+  overflow: hidden;
+  will-change: clip-path;
+}
+
+/* one clip per slide: waiting ones sit off to the right, HeroSlides slides them in and out */
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  transform: translateX(100%);
+  will-change: transform;
+}
+
+/* on top, so the incoming slide covers the outgoing one as it drifts away */
+.hero-slide.is-active {
+  z-index: 1;
+  transform: none;
+}
+
+/* a light wash on bright clips so the hero copy stays readable */
+.hero-slide-tint {
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--night-rgb));
+}
+
+.hero-dots {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: clamp(16px, 3.5vh, 32px);
+  display: flex;
+  gap: 4px;
+  transform: translateX(-50%);
+}
+
+/* 24px hit area around an 8px dot; the active one stretches into a pill */
+.hero-dot {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.hero-dot::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgb(var(--cream-rgb) / 0.45);
+  transition:
+    width 0.3s ease,
+    background-color 0.3s ease;
+}
+
+.hero-dot:hover::before {
+  background: rgb(var(--cream-rgb) / 0.75);
+}
+
+.hero-dot[aria-current='true']::before {
+  width: 20px;
+  background: var(--cream);
+}
+
+.hero-dot:focus-visible {
+  outline: 2px solid var(--cream);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
+.hero-shade {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgb(var(--night-rgb) / 0.78) 0%, rgb(var(--night-rgb) / 0.35) 45%, rgb(var(--night-rgb) / 0) 70%),
+    linear-gradient(0deg, rgb(var(--night-rgb) / 0.7) 0%, rgb(var(--night-rgb) / 0) 45%);
+}
+
+.hero-dim {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: var(--bg);
+  opacity: 0;
+}
+
+.hero-copy {
+  position: absolute;
+  z-index: 2;
+  left: var(--gutter);
+  bottom: clamp(56px, 12vh, 140px);
+  max-width: min(780px, calc(100% - 2 * var(--gutter)));
+  color: var(--cream);
+}
+
+/* the spinning globe tucked into the hero's bottom-right corner */
+.hero-globe {
+  --globe: clamp(96px, 9vw, 145px);
+  position: absolute;
+  z-index: 2;
+  right: calc(var(--gutter) * 0.4 + 20px); /* just inside the chapter rail */
+  bottom: clamp(28px, 5vh, 56px);
+  width: var(--globe);
+  height: var(--globe);
+}
+
+/* the soft contact shadow under the ball */
+.hero-globe::before {
+  content: '';
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: -2%;
+  height: 12%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.55), transparent);
+}
+
+.hero-globe-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* drag to turn it; touch-action keeps a drag on the globe from scrolling the page */
+.hero-globe-grab {
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.hero-globe-grab.is-dragging {
+  cursor: grabbing;
+}
+
+.lede {
+  max-width: 540px;
+  margin: 24px 0 0;
+  font-size: clamp(17px, 1.35vw, 20px);
+  line-height: 1.5;
+  color: var(--on-dark);
+}
+
+.ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.note {
+  margin: 20px 0 0;
+  font-size: 13px;
+  color: var(--on-dark-2);
+}
+
+.hero-handoff {
+  position: absolute;
+  z-index: 2;
+  left: var(--gutter);
+  bottom: 14vh;
+  margin: 0;
+  max-width: 300px;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  opacity: 0;
+}
+
+.hero-handoff span {
+  display: block;
+  margin-bottom: 8px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: var(--accent-text);
+}

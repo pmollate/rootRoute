@@ -1,0 +1,178 @@
+/* ───────────── Shared type and controls ───────────── */
+
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.kicker-light {
+  color: var(--on-dark);
+}
+
+.kicker-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.display {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: clamp(46px, 7.4vw, 112px);
+  line-height: 0.94;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-size: clamp(32px, 4.2vw, 60px);
+  line-height: 1.02;
+  letter-spacing: -0.032em;
+  text-wrap: balance;
+}
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 24px;
+  border-radius: var(--pill);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  overflow: hidden;
+  transition:
+    background 0.25s,
+    border-color 0.25s,
+    color 0.25s,
+    box-shadow 0.3s,
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 0.1s;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 14px 30px -12px rgb(var(--accent-rgb) / 0.75);
+}
+
+/* a light sweep across the primary button on hover */
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.45) 50%, transparent 70%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.btn-primary:hover::after {
+  transform: translateX(120%);
+  transition: transform 0.7s ease;
+}
+
+.btn-glass {
+  color: var(--cream);
+  background: rgb(var(--cream-rgb) / 0.1);
+  border: 1px solid rgb(var(--cream-rgb) / 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.btn-glass:hover {
+  border-color: var(--cream);
+  background: rgb(var(--cream-rgb) / 0.2);
+  box-shadow: 0 14px 30px -14px rgb(0 0 0 / 0.6);
+}
+
+.cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wrap {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.dark {
+  background: var(--dark);
+  color: var(--cream);
+}
+
+/* ───────────── Meter ───────────── */
+
+.meter {
+  margin-top: 20px;
+}
+
+.meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.meter-label {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.meter-val {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.meter-lg .meter-val {
+  font-size: 40px;
+}
+
+.meter-track {
+  display: block;
+  height: 4px;
+  margin-top: 10px;
+  border-radius: 4px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.meter-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: left center;
+}

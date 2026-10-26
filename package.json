@@ -1,0 +1,13 @@
+{
+  "name": "root-route",
+  "private": true,
+  "description": "LateLens / Root Route: Next.js landing page in frontend/, Python analysis and carrier engine in backend/",
+  "scripts": {
+    "setup": "npm --prefix frontend ci",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend run start",
+    "typecheck": "npm --prefix frontend run typecheck",
+    "media": "npm --prefix frontend run media"
+  }
+}

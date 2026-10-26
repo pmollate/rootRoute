@@ -16,14 +16,19 @@ scoped: fix intake, promises, stock and carrier lanes, pilot for 8 weeks, then r
 
 ## Repo layout
 - `Halcyon-Hackathon-Dataset/` — the supplied synthetic dataset: CSVs, README, DATA_DICTIONARY (read-only; never edit)
-- `Halcyon.docx` — the participant problem statement
-- `analysis/prep.py` — reference loader + cause flags used for every number in the spec
-  (`load('Halcyon-Hackathon-Dataset')` from the repo root)
-- `docs/SPEC.md` — product + technical spec (source of truth)
-- To be created (SPEC §4.3): `web/`, `api/`, `analytics/`, `db/migrations/`, `synthetic-data/`, `tests/fixtures/`,
-  `docs/CONTRACTS.md`, `docker-compose.yml`. Each problem area has its own folder in every layer
-  (`analytics/<area>/`, `api/src/modules/<area>/`, `web/src/features/<area>/`); migrations 1xx email, 2xx warehouse,
-  3xx carriers. Feature list and tiers in SPEC §3.
+- `docs/` — `SPEC.md` (product + technical spec, source of truth), `CONTRACTS.md` (shared types, tables, API),
+  `superpowers/plans/` (task plans for resources A, B, C), `prototype/` (clickable UX prototype),
+  `Halcyon_Delivery_Diagnostic.pdf` (team diagnostic deck), `SPEC-carrier-optimizer.md`,
+  `SPEC-email-address-resolution.md`, `Halcyon.docx` (the participant problem statement)
+- `backend/` — Python. `analysis/prep.py`: reference loader + cause flags used for every number in the spec
+  (`load('Halcyon-Hackathon-Dataset')` from the repo root). `carrier-optimization-engine/`: carrier risk model
+  and capacity-limited replay (run from the repo root so `--data ./Halcyon-Hackathon-Dataset` resolves)
+- `frontend/` — landing page (Next.js + GSAP scroll film), the deployable app. `npm run dev` from the root or
+  from `frontend/`. Structure and conventions: `frontend/README.md`
+- Planned by SPEC §4.3 and the task plans: `analytics/` (pipeline, replaces `backend/analysis/prep.py`), `api/` (Node),
+  `web/` (dashboard), `db/migrations/`, `synthetic-data/`, `tests/fixtures/`, `docker-compose.yml`; each problem area has
+  its own folder in every layer; migrations 1xx email, 2xx warehouse, 3xx carriers. **Open:** how these sit next to
+  `backend/` and `frontend/` (see SPEC §4.3). Feature list and tiers in SPEC §3.
 
 ## Rules for working in this repo
 - Every number shown to users must be computed from the dataset. Never invent figures.
