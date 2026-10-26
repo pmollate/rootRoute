@@ -1,9 +1,10 @@
-"""Core pipeline step (owner B): diagnosis tables. Replay is added in Task B6."""
+"""Core pipeline step (owner B): diagnosis tables and replay."""
 import pandas as pd
 
 from analytics.core import diagnosis
 from analytics.core.context import Ctx
 from analytics.core.load import DATE_COLS
+from analytics.core.scenarios import cause_attribution, scenario_results
 
 
 def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
@@ -25,4 +26,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
         "kpis": diagnosis.kpis(d, ctx.clients, penalties),
         "cause_summary": diagnosis.cause_summary(d),
         "accounts": diagnosis.accounts(d, ctx.clients, complaints),
+        "scenario_results": scenario_results(d, penalties),
+        "cause_attribution": cause_attribution(d),
+        "cause_kpis": diagnosis.cause_kpis(d, complaints),
     }
