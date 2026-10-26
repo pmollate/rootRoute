@@ -8,7 +8,7 @@ Resources: **A = Email orders**, **B = Warehouse & promise (+ platform, diagnosi
 
 ---
 
-## 1. Shared TypeScript types — `api/src/core/contracts.ts` (owner B, created in B1)
+## 1. Shared TypeScript types — `backend/api/src/core/contracts.ts` (owner B, created in B1)
 
 ```ts
 export type Commitment = 'same_day' | 'next_day' | 'standard';
@@ -96,8 +96,8 @@ export interface DiagnosisApi {
 
 | Import from | Export | Owner | Real implementation lands in |
 |---|---|---|---|
-| `api/src/modules/warehouse/index.ts` | `warehouseApi: WarehouseApi`, `diagnosisApi: DiagnosisApi` | B | B8 (warehouse), B9 (diagnosis) |
-| `api/src/modules/carriers/index.ts` | `carriersApi: CarriersApi` | C | C4 |
+| `backend/api/src/modules/warehouse/index.ts` | `warehouseApi: WarehouseApi`, `diagnosisApi: DiagnosisApi` | B | B8 (warehouse), B9 (diagnosis) |
+| `backend/api/src/modules/carriers/index.ts` | `carriersApi: CarriersApi` | C | C4 |
 
 B1 creates both files with **stubs** so A can build against them on day 1:
 - `checkPromise` → promise = received date + 1 day, commitment unchanged, `downgraded: false`, `reason: null`
@@ -119,10 +119,10 @@ Nobody imports another area's internal files; only these two `index.ts` files.
   Friday is a capacity problem: lane scoring leaves those shipments out, and `carrier_capacity.friday_limit` caps D.
 - Route detour cause: actual route more than 20% over plan.
 - Priority client: `account_tier == 'Tier 1'` or `account_status == 'threatening_to_leave'` (`isPriority()`).
-- US state → region map: `synthetic-data/reference/state_regions.json` (owner A, created in A2). Used by Python
+- US state → region map: `backend/synthetic-data/reference/state_regions.json` (owner A, created in A2). Used by Python
   generators and by Node.
 
-## 4. Tables written by Python (`analytics/`)
+## 4. Tables written by Python (`backend/analytics/`)
 
 Python creates and **replaces** these tables on every pipeline run (`if_exists="replace"`, one transaction). Node must
 not create or alter them. Booleans are `boolean`, counts `bigint` (Node parses to number), rates `double precision`
@@ -154,10 +154,10 @@ in 0..1, money in USD.
 | `carrier_events` | C (SD-07) | `delivery_id`, `carrier_id`, `event` (`picked_up`/`in_transit`/`out_for_delivery`/`delivered`), `ts`, `source` (`api`/`portal`/`batch`), `synthetic` |
 | `risk_lookup` | A | `f_addr`, `f_cutoff`, `f_stock`, `f_lane`, `n`, `late_rate` |
 
-Pipeline order (`python -m analytics.pipeline`): core (B) → warehouse (B) → carriers (C) → intake (A). Each area
+Pipeline order (`npm run pipeline`, i.e. `cd backend && python -m analytics.pipeline`): core (B) → warehouse (B) → carriers (C) → intake (A). Each area
 module exposes `build(ctx) -> dict[str, DataFrame]`; later modules may read earlier tables from `ctx.tables`.
 
-## 5. Tables written by Node (`db/migrations/`)
+## 5. Tables written by Node (`backend/db/migrations/`)
 
 | Range | Owner | Tables |
 |---|---|---|
@@ -167,6 +167,8 @@ module exposes `build(ctx) -> dict[str, DataFrame]`; later modules may read earl
 | `300–399` | C | `recommendations`, `override_log` |
 
 ## 6. API JSON shapes
+
+Served by `backend/api` (default `http://localhost:3001`); read by the dashboard screens in `frontend/components/dashboard/`.
 
 All numbers are numbers (not strings). Rates are 0..1; the UI formats them. Panels backed by synthetic data include
 `"synthetic": true`.
@@ -204,12 +206,13 @@ All numbers are numbers (not strings). Rates are 0..1; the UI formats them. Pane
 `DATABASE_URL`, `TEST_DATABASE_URL`, `PORT` (3001), `LLM_PROVIDER` (`claude` \| `azure-openai` \| `recorded`),
 `LLM_MODEL` (default `claude-opus-5-5`), `ANTHROPIC_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`,
 `AZURE_OPENAI_DEPLOYMENT`, `RECORD` (`1` to save AI responses), `API_KEY`, `ALLOW_LIST` (comma-separated),
-`VITE_API_URL` and `VITE_API_KEY` (web; the demo key is visible in the browser, acceptable for synthetic data only).
+`NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_KEY` (dashboard in `frontend/`; `next.config.mjs` loads the root `.env`; the demo key is visible in the browser, acceptable for synthetic data only).
 
 ## 8. Team rules
 
 - Branches: `a/<topic>`, `b/<topic>`, `c/<topic>`. PR into `main`; squash-merge; CI must be green.
-- A change to this file or to `db/migrations/` needs a review from another resource.
+- A change to this file or to `backend/db/migrations/` needs a review from another resource.
 - Every test names the acceptance criteria it covers, e.g. `it('AC-PRO-01: …')` / `def test_ac_diag_01_…`.
 - Commit messages: `feat(a): …`, `fix(b): …`, `test(c): …`, `docs: …`.
-- Never edit `Halcyon-Hackathon-Dataset/`. Never commit `.env` or anything under `synthetic-data/out/`.
+- Never edit `Halcyon-Hackathon-Dataset/`. Never commit `.env` or anything under `backend/synthetic-data/out/`.
+- Folders per resource: A owns `backend/analytics/intake`, `backend/api/src/modules/intake`, `frontend/components/dashboard/intake`, `frontend/app/dashboard/intake`; B owns `core` and `warehouse` in the same places plus `overview` and `replay` screens; C owns `carriers` (and `mcp`). Shared: `frontend/config/dashboard.ts` (screen list), `frontend/components/dashboard/ui.tsx`.

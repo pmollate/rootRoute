@@ -1,7 +1,7 @@
 # root-route (LateLens): Halcyon late-deliveries hackathon
 
 FDE AI Hackathon 5.0, Problem 2. Team of 3, Azure. Coding Mon 26 – Thu 29 Oct 2026; code submission 29 Oct.
-Stack: React + Vite (web), Node + Fastify (API and agents), PostgreSQL, Python (data pipeline).
+Stack: Next.js (landing page + dashboard, `frontend/`), Node + Fastify (API and agents, `backend/api`), PostgreSQL, Python (data pipeline, `backend/analytics`).
 Team split by problem area: Email orders · Warehouse & promise · Carriers (SPEC §10).
 Full spec: `docs/SPEC.md`. Read it before writing code.
 
@@ -14,21 +14,21 @@ from a non-nearest warehouse). Carrier problems are real but lane-specific. We b
 delivery diagnostic and recommendation system, and recommend not signing the vendor contract as
 scoped: fix intake, promises, stock and carrier lanes, pilot for 8 weeks, then revisit routing (SPEC §1).
 
-## Repo layout
+## Repo layout (target: folders under `backend/` and the dashboard are built by the plans in `docs/superpowers/plans/`)
 - `Halcyon-Hackathon-Dataset/` — the supplied synthetic dataset: CSVs, README, DATA_DICTIONARY (read-only; never edit)
 - `docs/` — `SPEC.md` (product + technical spec, source of truth), `CONTRACTS.md` (shared types, tables, API),
   `superpowers/plans/` (task plans for resources A, B, C), `prototype/` (clickable UX prototype),
   `Halcyon_Delivery_Diagnostic.pdf` (team diagnostic deck), `SPEC-carrier-optimizer.md`,
   `SPEC-email-address-resolution.md`, `Halcyon.docx` (the participant problem statement)
-- `backend/` — Python. `analysis/prep.py`: reference loader + cause flags used for every number in the spec
-  (`load('Halcyon-Hackathon-Dataset')` from the repo root). `carrier-optimization-engine/`: carrier risk model
-  and capacity-limited replay (run from the repo root so `--data ./Halcyon-Hackathon-Dataset` resolves)
-- `frontend/` — landing page (Next.js + GSAP scroll film), the deployable app. `npm run dev` from the root or
-  from `frontend/`. Structure and conventions: `frontend/README.md`
-- Planned by SPEC §4.3 and the task plans: `analytics/` (pipeline, replaces `backend/analysis/prep.py`), `api/` (Node),
-  `web/` (dashboard), `db/migrations/`, `synthetic-data/`, `tests/fixtures/`, `docker-compose.yml`; each problem area has
-  its own folder in every layer; migrations 1xx email, 2xx warehouse, 3xx carriers. **Open:** how these sit next to
-  `backend/` and `frontend/` (see SPEC §4.3). Feature list and tiers in SPEC §3.
+- `backend/` — `analytics/` (Python pipeline: loader, five cause flags, replay; run `npm run pipeline`), `api/` (Node +
+  Fastify API and agents), `db/migrations/`, `synthetic-data/` (generators, reference data), `tests/fixtures/`,
+  `carrier-optimization-engine/` (the team's LightGBM model). `analysis/prep.py` is replaced by `analytics/core/load.py`.
+- `frontend/` — Next.js app: the landing page (scroll film) at `/` and the LateLens dashboard at `/dashboard/*`
+  (`app/dashboard/`, `components/dashboard/`, `config/dashboard.ts`). Conventions: `frontend/README.md`.
+- Root `package.json` forwards to both: `npm run setup`, `dev` (frontend), `dev:api`, `dev:all`, `test`, `typecheck`,
+  `pipeline`, `migrate`, `seed`, `data`. One `.env` at the repo root serves all of them (`.env.example`).
+- Each problem area owns its folder in every layer (`backend/analytics/<area>/`, `backend/api/src/modules/<area>/`,
+  `frontend/components/dashboard/<screen>/`); migrations 1xx email, 2xx warehouse, 3xx carriers. Features: SPEC §3.
 
 ## Rules for working in this repo
 - Every number shown to users must be computed from the dataset. Never invent figures.
@@ -37,7 +37,7 @@ scoped: fix intake, promises, stock and carrier lanes, pilot for 8 weeks, then r
 - Carrier scoring uses FAIR data only (deliveries without address/stock/cut-off causes).
 - Synthetic email orders must be labelled synthetic. US addresses (ZIP codes), not PIN codes.
 - Synthetic data (SPEC §12.1): generate it FROM the supplied data (same ids, dates, clients), one seeded generator per
-  dataset in `synthetic-data/generators/`, never edit `Halcyon-Hackathon-Dataset/`. Headline figures and the replay
+  dataset in `backend/synthetic-data/generators/`, never edit `Halcyon-Hackathon-Dataset/`. Headline figures and the replay
   use supplied data only; screens using synthetic data show a "Synthetic data" badge.
 - Python computes, Node looks up: anything derived from data analysis is written to a table by Python; Node applies
   only order-time rules. Each table has one writer (SPEC §4.2).

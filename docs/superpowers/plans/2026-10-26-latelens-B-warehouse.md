@@ -4,18 +4,18 @@
 
 **Goal:** Build the shared platform everyone codes on, the diagnostic engine and replay that produce every headline number, the warehouse and promise rules, and the Overview, Warehouses and Replay & decision screens.
 
-**Architecture:** Python (`analytics/`) computes every table from the supplied CSVs and writes it to Postgres; Node (`api/`) serves those tables and applies order-time rules; React (`web/`) only calls the API. B owns the skeleton of all three, `analytics/core` + `analytics/warehouse`, `api/src/modules/warehouse`, and three screens.
+**Architecture:** Python (`backend/analytics/`) computes every table from the supplied CSVs and writes it to Postgres; Node (`backend/api/`) serves those tables and applies order-time rules; the dashboard (`/dashboard` routes in the existing Next.js app, `frontend/`) only calls the API. B owns the skeleton of all three — without touching the landing page — plus `backend/analytics/core` + `backend/analytics/warehouse`, `backend/api/src/modules/warehouse`, and three screens.
 
-**Tech Stack:** Python 3.12, pandas, SQLAlchemy + psycopg, pytest, ruff · Node 22, TypeScript (strict, ESM, NodeNext), Fastify 5, pg, zod 4, Vitest · React 19, Vite, React Router 7, Recharts 3, Testing Library · PostgreSQL 16 (Docker locally).
+**Tech Stack:** Python 3.12, pandas, SQLAlchemy + psycopg, pytest, ruff · Node 22, TypeScript (strict, ESM, NodeNext), Fastify 5, pg, zod 4, Vitest · Next.js 15, React 19, CSS modules on the landing page's theme tokens, Vitest + Testing Library · PostgreSQL 16 (Docker locally).
 
 **Read first:** `docs/SPEC.md` (§1.4 per-cause KPIs, §2 evidence, §3 features, §5.1, §5.4, §5.7, §5.8, §5.11, §5.12), `docs/CONTRACTS.md` (all of it — you own §1, §4 core/warehouse rows, §6 B rows, §7).
 
-**Prototype status:** every code block below was run before this plan was written: Python tests pass against the supplied data, Node/web code typechecks and its unit tests pass. Tests marked "needs test database" were written but could not run on the planning machine (no Postgres); CI runs them.
+**Prototype status:** every code block below was run before this plan was written: Python tests pass against the supplied data, Node and Next.js code typechecks, its unit tests pass, and `next build` succeeds with the landing page plus the dashboard. Tests marked "needs test database" were written but could not run on the planning machine (no Postgres); CI runs them.
 
 ## Global Constraints
 
-- Every number shown to users is computed from `Halcyon-Hackathon-Dataset/` by Python. Never hard-code a figure in Node or React.
-- Never edit `Halcyon-Hackathon-Dataset/`. Synthetic data lives in `synthetic-data/` and never feeds the replay (REQ-REP-04).
+- Every number shown to users is computed from `Halcyon-Hackathon-Dataset/` by Python. Never hard-code a figure in Node or the dashboard.
+- Never edit `Halcyon-Hackathon-Dataset/`. Synthetic data lives in `backend/synthetic-data/` and never feeds the replay (REQ-REP-04).
 - Flag definitions are exactly SPEC §5.1: five causes (`f_addr`, `f_stock`, `f_cutoff`, `f_lane` = bad lane or D on a Friday, `f_route` = >20% over plan). Golden numbers are SPEC §2.2 and §2.4; tests check them to 0.1 point.
 - Timestamps are local strings `YYYY-MM-DD HH:mm`; no time zones anywhere (pg type parsers return dates as strings).
 - TypeScript: ESM with `.js` import suffixes, `strict: true`. Python: 3.12+, ruff clean (`ruff.toml`).
@@ -27,22 +27,25 @@
 ## File Structure (B creates or owns)
 
 ```
-package.json · docker-compose.yml · db/init/01-test-db.sql · .env.example · .gitignore · requirements.txt · pytest.ini · ruff.toml · README.md (run section)
+package.json · docker-compose.yml · backend/db/init/01-test-db.sql · .env.example · .gitignore · requirements.txt · pytest.ini · ruff.toml · README.md (run section)
 .github/workflows/ci.yml
-db/migrations/001_core.sql
-api/  package.json tsconfig.json vitest.config.ts test/setup.ts test/db.ts test/platform.test.ts
-      src/index.ts src/server.ts
-      src/core/{config,auth,cache,contracts,modules}.ts  src/core/db/{pool,migrate,migrate-cli}.ts
-      src/modules/warehouse/{index,domain,lookups,queries,routes}.ts      (carriers/index.ts stub only, C replaces)
-      test/warehouse/domain.test.ts  test/routes/{warehouse,placement}.test.ts
-web/  package.json tsconfig.json vite.config.ts index.html public/staticwebapp.config.json
-      src/main.tsx src/app/{App,features,api,format,ui,test-utils}.ts(x) src/app/styles.css src/app/app.test.tsx
-      src/features/{health,overview,warehouses,replay}/index.tsx (+ tests)
-analytics/__init__.py  analytics/pipeline.py
-analytics/core/{__init__,load,context,db,diagnosis,ifixed,scenarios,build}.py
-analytics/warehouse/{__init__,tables,stock}.py   (stub __init__.py for carriers and intake, replaced by C and A)
-analytics/tests/{conftest,test_load,test_diagnosis,test_scenarios,test_warehouse,test_stock,test_pipeline}.py
-synthetic-data/generators/sd05_stock.py  synthetic-data/README.md
+backend/db/migrations/001_core.sql
+backend/api/  package.json tsconfig.json vitest.config.ts test/setup.ts test/db.ts test/platform.test.ts
+              src/index.ts src/server.ts
+              src/core/{config,auth,cache,contracts,modules}.ts  src/core/db/{pool,migrate,migrate-cli}.ts
+              src/modules/warehouse/{index,domain,lookups,queries,routes}.ts      (carriers/index.ts stub only, C replaces)
+              test/warehouse/domain.test.ts  test/routes/{warehouse,placement}.test.ts
+frontend/     (existing Next.js app; B adds the dashboard, the landing page stays as it is)
+              package-lock.json (public registry) · package.json (test script) · next.config.mjs (root .env) · styles/theme.css (status tokens)
+              vitest.config.mts · config/dashboard.ts · lib/{api,metrics,metrics.test}.ts · hooks/useApi.ts
+              app/dashboard/{layout,page}.tsx · app/dashboard/{overview,warehouses,replay}/page.tsx
+              components/dashboard/{ui.tsx,ui.module.css,DashboardShell.tsx,shell.module.css,test-utils.tsx}
+              components/dashboard/{overview,warehouses,replay}/<Name>Screen.tsx (+ .test.tsx)
+backend/analytics/__init__.py  backend/analytics/pipeline.py
+backend/analytics/core/{__init__,load,context,db,diagnosis,ifixed,scenarios,build}.py
+backend/analytics/warehouse/{__init__,tables,stock}.py   (stub __init__.py for carriers and intake, replaced by C and A)
+backend/analytics/tests/{conftest,test_load,test_diagnosis,test_scenarios,test_warehouse,test_stock,test_pipeline}.py
+backend/synthetic-data/generators/sd05_stock.py  backend/synthetic-data/README.md
 ```
 
 ## Schedule
@@ -56,35 +59,47 @@ synthetic-data/generators/sd05_stock.py  synthetic-data/README.md
 
 ---
 
-### Task B1: API skeleton, database and contracts
+### Task B1: API skeleton in backend/api, database, contracts and root scripts
 
 **Files:**
-- Create: `package.json`, `docker-compose.yml`, `db/init/01-test-db.sql`, `.env.example`, `.gitignore` (replace), `db/migrations/001_core.sql`
-- Create: `api/package.json`, `api/tsconfig.json`, `api/vitest.config.ts`, `api/test/setup.ts`, `api/test/db.ts`
-- Create: `api/src/index.ts`, `api/src/server.ts`, `api/src/core/config.ts`, `api/src/core/auth.ts`, `api/src/core/cache.ts`, `api/src/core/contracts.ts`, `api/src/core/modules.ts`, `api/src/core/db/pool.ts`, `api/src/core/db/migrate.ts`, `api/src/core/db/migrate-cli.ts`
-- Create (stubs): `api/src/modules/warehouse/index.ts`, `api/src/modules/carriers/index.ts`
-- Test: `api/test/platform.test.ts`
+- Modify: `package.json` (root: keep the existing scripts' behaviour, add the backend ones), `.gitignore` (add backend and test outputs)
+- Create: `docker-compose.yml`, `backend/db/init/01-test-db.sql`, `.env.example`, `backend/db/migrations/001_core.sql`
+- Create: `backend/api/package.json`, `backend/api/tsconfig.json`, `backend/api/vitest.config.ts`, `backend/api/test/setup.ts`, `backend/api/test/db.ts`
+- Create (under `backend/api/`): `src/index.ts`, `src/server.ts`, `src/core/config.ts`, `src/core/auth.ts`, `src/core/cache.ts`, `src/core/contracts.ts`, `src/core/modules.ts`, `src/core/db/pool.ts`, `src/core/db/migrate.ts`, `src/core/db/migrate-cli.ts`
+- Create (stubs): `backend/api/src/modules/warehouse/index.ts`, `backend/api/src/modules/carriers/index.ts`
+- Test: `backend/api/test/platform.test.ts`
 
 **Interfaces:**
-- Produces: `buildApp(): Promise<FastifyInstance>`; `query<T>(sql, params): Promise<T[]>`, `pool`, `dbOk()`; `migrate(): Promise<string[]>`; `cached(key, load)`, `clearCache()`; `requireApiKey` preHandler; `config`, `allowList`; every type in `core/contracts.ts` (CONTRACTS §1); module autoload: any `api/src/modules/<area>/routes.ts` default-exporting a `FastifyPluginAsync` is mounted under `/api`.
+- Produces: `buildApp(): Promise<FastifyInstance>`; `query<T>(sql, params): Promise<T[]>`, `pool`, `dbOk()`; `migrate(): Promise<string[]>`; `cached(key, load)`, `clearCache()`; `requireApiKey` preHandler; `config`, `allowList`; every type in `core/contracts.ts` (CONTRACTS §1); module autoload: any `backend/api/src/modules/<area>/routes.ts` default-exporting a `FastifyPluginAsync` is mounted under `/api`.
 - Produces (stubs, CONTRACTS §2): `warehouseApi`, `diagnosisApi`, `carriersApi`.
+- Produces root scripts: `npm run setup | dev | dev:api | dev:all | test | typecheck | pipeline | migrate | seed | data`.
 
-- [ ] **Step 1: Root files.** Create `package.json`:
+- [ ] **Step 1: Root files.** In the root `package.json`, replace `scripts` with the following (`dev`, `build`, `start` and `media` behave as before; `setup` now also installs the API):
 
 ```json
-{
-  "name": "latelens",
-  "private": true,
-  "workspaces": ["api", "web"],
-  "scripts": {
-    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w api\" \"npm run dev -w web\"",
-    "test": "npm test -w api && npm test -w web",
-    "lint": "npm run lint -w api && npm run lint -w web"
-  }
-}
+"setup": "npm --prefix frontend ci && npm --prefix backend/api ci",
+"dev": "npm --prefix frontend run dev",
+"dev:api": "npm --prefix backend/api run dev",
+"dev:all": "npm run dev:api & npm run dev",
+"build": "npm --prefix frontend run build",
+"build:api": "npm --prefix backend/api run build",
+"start": "npm --prefix frontend run start",
+"typecheck": "npm --prefix frontend run typecheck && npm --prefix backend/api run lint",
+"test": "npm --prefix backend/api test && npm --prefix frontend test && npm run test:py",
+"test:py": "python -m pytest",
+"data": "for g in backend/synthetic-data/generators/*.py; do python \"$g\"; done",
+"pipeline": "cd backend && python -m analytics.pipeline",
+"pipeline:test": "cd backend && python -m analytics.pipeline --test-db",
+"migrate": "npm --prefix backend/api run migrate",
+"migrate:test": "npm --prefix backend/api run migrate:test",
+"seed": "npm --prefix backend/api run seed",
+"seed:test": "npm --prefix backend/api run seed -- --test",
+"media": "npm --prefix frontend run media"
 ```
 
-`docker-compose.yml` and `db/init/01-test-db.sql`:
+Add to `.gitignore` under `# backend`: `backend/api/dist/` and `backend/synthetic-data/out/`; and a `# frontend tests and bots` block with `frontend/test-results/`, `frontend/playwright-report/`, `frontend/bots/out/`.
+
+`docker-compose.yml` and `backend/db/init/01-test-db.sql`:
 
 ```yaml
 services:
@@ -98,7 +113,7 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - ./backend/db/init:/docker-entrypoint-initdb.d:ro
 volumes:
   pgdata:
 ```
@@ -108,7 +123,7 @@ volumes:
 CREATE DATABASE latelens_test;
 ```
 
-`.env.example` (then `cp .env.example .env`):
+`.env.example` (then `cp .env.example .env`; one file at the root serves the API, the pipeline and the Next.js app):
 
 ```bash
 # Copy to .env (never commit .env). See docs/CONTRACTS.md §7.
@@ -129,38 +144,22 @@ RECORD=
 API_KEY=dev-key
 ALLOW_LIST=ops-test@latelens.example,orders@client190.example
 
-# Web (the demo key is visible in the browser: synthetic data only)
-VITE_API_URL=http://localhost:3001
-VITE_API_KEY=dev-key
-```
-
-`.gitignore` (replaces the current one):
-
-```bash
-node_modules
-.env
-.venv/
-__pycache__/
-.DS_Store
-*.pyc
-dist/
-synthetic-data/out/
-web/bots/out/
-web/test-results/
-web/playwright-report/
+# Dashboard in frontend/ (next.config.mjs loads this file; the demo key is visible in the browser: synthetic data only)
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_API_KEY=dev-key
 ```
 
 - [ ] **Step 2: Install the API packages.**
 
 ```bash
-mkdir -p api && cd api
+mkdir -p backend/api && cd backend/api
 npm init -y >/dev/null
 npm install fastify @fastify/cors pg zod dotenv @anthropic-ai/sdk
 npm install -D typescript tsx vitest @types/pg @types/node
-cd .. && npm install -D concurrently
+cd ../..
 ```
 
-Then replace `api/package.json` scripts so it reads:
+Then set `backend/api/package.json` scripts to:
 
 ```json
 {
@@ -179,7 +178,7 @@ Then replace `api/package.json` scripts so it reads:
 }
 ```
 
-(keep the `dependencies` / `devDependencies` npm wrote). `api/tsconfig.json` and `api/vitest.config.ts`:
+`backend/api/tsconfig.json` and `backend/api/vitest.config.ts`:
 
 ```json
 {
@@ -207,13 +206,13 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 3: Write the failing test.** `api/test/setup.ts`, `api/test/db.ts`, `api/test/platform.test.ts`:
+- [ ] **Step 3: Write the failing test.** `backend/api/test/setup.ts` (reads the root `.env`), `test/db.ts`, `test/platform.test.ts`:
 
 ```ts
 import { config as loadEnv } from 'dotenv';
 import { fileURLToPath } from 'node:url';
 
-loadEnv({ path: fileURLToPath(new URL('../../.env', import.meta.url)), quiet: true });
+loadEnv({ path: fileURLToPath(new URL('../../../.env', import.meta.url)), quiet: true });
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://latelens:latelens@localhost:5432/latelens_test';
 process.env.NODE_ENV = 'test';
 process.env.LLM_PROVIDER = 'recorded';
@@ -256,17 +255,17 @@ describe.skipIf(!hasDb)('platform (needs test database)', () => {
 
 - [ ] **Step 4: Run it to make sure it fails.**
 
-Run: `docker compose up -d && npm test -w api`
+Run: `docker compose up -d && npm --prefix backend/api test`
 Expected: FAIL — `Cannot find module '../src/core/db/pool.js'`.
 
-- [ ] **Step 5: Core modules.** `api/src/core/config.ts`:
+- [ ] **Step 5: Core modules** (all under `backend/api/src/`). `core/config.ts` (loads the repo-root `.env`):
 
 ```ts
 import { config as loadEnv } from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
-loadEnv({ path: fileURLToPath(new URL('../../../.env', import.meta.url)), quiet: true });
+loadEnv({ path: fileURLToPath(new URL('../../../../.env', import.meta.url)), quiet: true });
 
 const Env = z.object({
   NODE_ENV: z.string().default('development'),
@@ -285,7 +284,7 @@ export const allowList = new Set(
 );
 ```
 
-`api/src/core/db/pool.ts`:
+`core/db/pool.ts`:
 
 ```ts
 import pg from 'pg';
@@ -317,7 +316,7 @@ export async function dbOk(): Promise<boolean> {
 }
 ```
 
-`api/src/core/db/migrate.ts` and `api/src/core/db/migrate-cli.ts`:
+`core/db/migrate.ts` (applies `backend/db/migrations/*.sql`) and `core/db/migrate-cli.ts`:
 
 ```ts
 import { readdirSync, readFileSync } from 'node:fs';
@@ -361,7 +360,7 @@ export async function migrate(): Promise<string[]> {
 import { config as loadEnv } from 'dotenv';
 import { fileURLToPath } from 'node:url';
 
-loadEnv({ path: fileURLToPath(new URL('../../../../.env', import.meta.url)), quiet: true });
+loadEnv({ path: fileURLToPath(new URL('../../../../../.env', import.meta.url)), quiet: true });
 if (process.argv.includes('--test')) process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 
 const { migrate } = await import('./migrate.js');
@@ -374,7 +373,7 @@ try {
 }
 ```
 
-`api/src/core/modules.ts`, `api/src/core/auth.ts`, `api/src/core/cache.ts`:
+`core/modules.ts`, `core/auth.ts`, `core/cache.ts`:
 
 ```ts
 import { existsSync, readdirSync } from 'node:fs';
@@ -432,7 +431,7 @@ export function clearCache(): void {
 }
 ```
 
-`api/src/core/contracts.ts` (must match CONTRACTS §1):
+`core/contracts.ts` (must match CONTRACTS §1):
 
 ```ts
 // Shared types between problem areas. Source of truth: docs/CONTRACTS.md §1.
@@ -515,7 +514,7 @@ export interface DiagnosisApi {
 }
 ```
 
-`api/src/server.ts` and `api/src/index.ts`:
+`server.ts` and `index.ts`:
 
 ```ts
 import cors from '@fastify/cors';
@@ -545,7 +544,7 @@ const app = await buildApp();
 await app.listen({ port: config.PORT, host: '0.0.0.0' });
 ```
 
-`db/migrations/001_core.sql`:
+`backend/db/migrations/001_core.sql`:
 
 ```sql
 -- Owner B. Node-owned core tables. Python-owned tables are created by analytics/pipeline.py (CONTRACTS §4).
@@ -559,7 +558,7 @@ CREATE TABLE audit_log (
 );
 ```
 
-- [ ] **Step 6: Contract stubs** so A and C can code against them today. `api/src/modules/warehouse/index.ts`:
+- [ ] **Step 6: Contract stubs** so A and C can code against them today. `backend/api/src/modules/warehouse/index.ts`:
 
 ```ts
 // Public entry point of the Warehouse & promise area (CONTRACTS §2). STUB until Task B8.
@@ -580,7 +579,7 @@ export const warehouseApi: WarehouseApi = {
 export const diagnosisApi: DiagnosisApi = { getDeliveryCauses: async () => null };
 ```
 
-`api/src/modules/carriers/index.ts`:
+`backend/api/src/modules/carriers/index.ts`:
 
 ```ts
 // Public entry point of the Carriers area (CONTRACTS §2). STUB until Task C4.
@@ -593,200 +592,146 @@ export const carriersApi: CarriersApi = {
 
 - [ ] **Step 7: Run the tests and the server.**
 
-Run: `npm run migrate:test -w api && npm test -w api && npm run lint -w api`
+Run: `npm run migrate:test && npm --prefix backend/api test && npm --prefix backend/api run lint`
 Expected: PASS (2 tests), no type errors.
-Run: `npm run migrate -w api && npm run dev -w api`, then `curl localhost:3001/api/health`
-Expected: `{"db":"ok","llm":"recorded","version":"dev"}`
+Run: `npm run migrate && npm run dev:api`, then `curl localhost:3001/api/health`
+Expected: `{"db":"ok","llm":"recorded","version":"dev"}`. `npm run dev` still serves the landing page on :3000.
 
 - [ ] **Step 8: Commit and push to `main` (PR).**
 
 ```bash
-git add package.json package-lock.json docker-compose.yml db .env.example .gitignore api
-git commit -m "feat(b): API skeleton, Postgres, migrations, shared contracts and stubs"
+git add package.json .gitignore docker-compose.yml .env.example backend/db backend/api
+git commit -m "feat(b): API skeleton in backend/api, Postgres, migrations, contracts, root scripts"
 ```
 
 ---
 
-### Task B2: Web skeleton
+### Task B2: Dashboard shell inside the Next.js app
 
 **Files:**
-- Create: `web/package.json`, `web/tsconfig.json`, `web/vite.config.ts`, `web/index.html`, `web/public/staticwebapp.config.json`
-- Create: `web/src/main.tsx`, `web/src/app/App.tsx`, `web/src/app/features.ts`, `web/src/app/api.ts`, `web/src/app/format.ts`, `web/src/app/ui.tsx`, `web/src/app/styles.css`, `web/src/app/test-utils.tsx`, `web/src/features/health/index.tsx`
-- Test: `web/src/app/app.test.tsx`
+- Modify: `frontend/package-lock.json` (public registry), `frontend/package.json` (`test` script, test packages), `frontend/next.config.mjs` (root `.env`), `frontend/styles/theme.css` (status tokens)
+- Create: `frontend/config/dashboard.ts`, `frontend/lib/api.ts`, `frontend/lib/metrics.ts`, `frontend/hooks/useApi.ts`
+- Create: `frontend/components/dashboard/ui.tsx`, `ui.module.css`, `DashboardShell.tsx`, `shell.module.css`, `test-utils.tsx`
+- Create: `frontend/app/dashboard/layout.tsx`, `frontend/app/dashboard/page.tsx`, `frontend/vitest.config.mts`
+- Test: `frontend/lib/metrics.test.ts`
 
 **Interfaces:**
-- Produces: `Feature { path, label, order, element }` — each `web/src/features/<name>/index.tsx` exports `feature` and appears in the nav automatically. Orders: overview 10, intake 20, warehouses 30, carriers 40, replay 50, health 90.
-- Produces: `getJSON<T>(path)`, `postJSON<T>(path, body)` (sends `x-api-key` from `VITE_API_KEY`); `pct`, `int`, `usd`, `usd2`; `useApi<T>(path) → { data, error, loading, reload }`; `Section`, `Kpi`, `SyntheticBadge`, `Status`, `Table<T>` with `Column<T>`; test helpers `mockApi(routes)`, `renderScreen(node)`.
+- Produces: `/dashboard` (redirects to `/dashboard/overview`) and the shell every screen sits in: brand link back to the landing page, screen nav, the landing page's `ThemeToggle`.
+- Produces: `SCREENS` (nav order and owner), `API_URL`, `API_KEY` (`config/dashboard.ts`); `getJSON<T>`, `postJSON<T>` (`lib/api.ts`, sends `x-api-key`); `pct`, `int`, `usd`, `usd2`, `points` (`lib/metrics.ts`); `useApi<T>(path) → { data, error, loading, reload }`; UI pieces `ScreenHead`, `Section`, `Kpi`, `Pill`, `SyntheticBadge`, `Status`, `Table<T>`, `Bars`, `Segmented` and the `ui` class map (`components/dashboard/ui.tsx`); test helpers `mockApi(routes)`, `renderScreen(node)`.
+- Screens (B10, A8, C7) each add `app/dashboard/<screen>/page.tsx` + `components/dashboard/<screen>/<Name>Screen.tsx`. Nothing else in `frontend/` changes; the landing page is untouched.
 
-- [ ] **Step 1: Install.**
+- [ ] **Step 1: Make `npm ci` work for everyone.** `frontend/package-lock.json` points every package at a private Pluralsight JFrog registry, so `npm ci` fails with 401 outside that network, including in CI. Point the same versions at the public registry (the checksums do not change):
 
 ```bash
-mkdir -p web && cd web && npm init -y >/dev/null
-npm install react react-dom react-router-dom recharts
-npm install -D vite @vitejs/plugin-react typescript @types/react @types/react-dom vitest jsdom @testing-library/react @testing-library/dom
-cd ..
+sed -i '' 's#https://pluralsight.jfrog.io/artifactory/api/npm/npm/#https://registry.npmjs.org/#g' frontend/package-lock.json
+npm --prefix frontend ci
 ```
 
-Set `web/package.json` scripts to:
+(On Linux use `sed -i` without `''`.) Expected: install succeeds; `grep -c pluralsight frontend/package-lock.json` prints 0.
+
+- [ ] **Step 2: Test packages and script.**
+
+```bash
+npm --prefix frontend install -D vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/dom
+```
+
+Add to `frontend/package.json` scripts:
 
 ```json
-{
-  "name": "@latelens/web",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit -p tsconfig.json && vite build",
-    "test": "vitest run",
-    "lint": "tsc --noEmit -p tsconfig.json"
-  }
-}
+"test": "vitest run",
 ```
 
-- [ ] **Step 2: Write the failing test** `web/src/app/app.test.tsx`:
+`frontend/vitest.config.mts` and `frontend/components/dashboard/test-utils.tsx`:
+
+```
+import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
+import { defineConfig } from 'vitest/config';
+
+// Unit tests for the dashboard (components/dashboard, lib). The landing page has no tests here.
+export default defineConfig({
+  plugins: [react()],
+  resolve: { alias: { '@': fileURLToPath(new URL('.', import.meta.url)) } },
+  test: { environment: 'jsdom', include: ['components/**/*.test.tsx', 'lib/**/*.test.ts'] },
+});
+```
 
 ```tsx
-import { describe, expect, it } from 'vitest';
-import { features } from './features';
-import { int, pct, usd } from './format';
+import { render } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { vi } from 'vitest';
 
-describe('platform', () => {
+/** Mock fetch with a map of "path?query" -> JSON body. Unknown paths return 404. */
+export function mockApi(routes: Record<string, unknown>) {
+  const fn = vi.fn(async (url: string) => {
+    const u = new URL(url);
+    const path = u.pathname + u.search;
+    const hit = Object.entries(routes).find(([p]) => path === p);
+    return { ok: Boolean(hit), status: hit ? 200 : 404, json: async () => (hit ? hit[1] : { error: 'not found' }) } as Response;
+  });
+  vi.stubGlobal('fetch', fn);
+  return fn;
+}
+
+export const renderScreen = (node: ReactNode) => render(<>{node}</>);
+```
+
+- [ ] **Step 3: Write the failing test** `frontend/lib/metrics.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest';
+import { SCREENS } from '@/config/dashboard';
+import { int, pct, points, usd } from './metrics';
+
+describe('dashboard basics', () => {
   it('formats numbers', () => {
     expect(pct(0.71)).toBe('71.0%');
     expect(usd(872460)).toBe('$872,460');
     expect(int(14019)).toBe('14,019');
+    expect(points(0.0763)).toBe('7.6');
   });
 
-  it('discovers feature screens from web/src/features', () => {
-    expect(features.map((f) => f.path)).toContain('/health');
+  it('lists the five screens under /dashboard', () => {
+    expect(SCREENS.map((s) => s.href)).toEqual([
+      '/dashboard/overview', '/dashboard/intake', '/dashboard/warehouses', '/dashboard/carriers', '/dashboard/replay',
+    ]);
   });
 });
 ```
 
-- [ ] **Step 3: Run it to make sure it fails.** Run: `npm test -w web` — Expected: FAIL, `Failed to resolve import "./features"`.
+- [ ] **Step 4: Run it.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `@/config/dashboard`.
 
-- [ ] **Step 4: Config and entry files.**
+- [ ] **Step 5: Config, data access and formats.**
 
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "jsx": "react-jsx",
-    "strict": true,
-    "skipLibCheck": true,
-    "noEmit": true,
-    "types": ["vite/client"]
-  },
-  "include": ["src"]
-}
+```ts
+/** LateLens dashboard (app/dashboard). Screens in nav order; each problem area owns its screens (SPEC §5.7). */
+export const SCREENS = [
+  { href: '/dashboard/overview', label: 'Overview', owner: 'B' },
+  { href: '/dashboard/intake', label: 'Order emails', owner: 'A' },
+  { href: '/dashboard/warehouses', label: 'Warehouses', owner: 'B' },
+  { href: '/dashboard/carriers', label: 'Carriers', owner: 'C' },
+  { href: '/dashboard/replay', label: 'Replay & decision', owner: 'B' },
+] as const;
+
+/** Node API (backend/api). Set in the repo-root .env; next.config.mjs loads it. */
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+/** Shared demo key for write endpoints. Visible in the browser: synthetic data only (CONTRACTS §7). */
+export const API_KEY = process.env.NEXT_PUBLIC_API_KEY ?? '';
 ```
 
 ```ts
-import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vitest/config';
-
-export default defineConfig({
-  plugins: [react()],
-  envDir: '..',
-  server: { port: 5173 },
-  test: { environment: 'jsdom', exclude: ['e2e/**', 'node_modules/**'] },
-});
-```
-
-```html
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LateLens</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
-```
-
-```json
-{ "navigationFallback": { "rewrite": "/index.html" } }
-```
-
-```tsx
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import { App } from './app/App';
-import './app/styles.css';
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
-```
-
-- [ ] **Step 5: App shell and shared UI.** `web/src/app/features.ts`, `App.tsx`, `api.ts`, `format.ts`, `ui.tsx`, `styles.css`, `test-utils.tsx`:
-
-```ts
-import type { ReactNode } from 'react';
-
-/** Each web/src/features/<name>/index.tsx exports `feature`; screens appear in the nav automatically. */
-export interface Feature {
-  path: string;
-  label: string;
-  order: number;
-  element: ReactNode;
-}
-
-const mods = import.meta.glob<{ feature: Feature }>('../features/*/index.tsx', { eager: true });
-
-export const features: Feature[] = Object.values(mods).map((m) => m.feature).sort((a, b) => a.order - b.order);
-```
-
-```tsx
-import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom';
-import { features } from './features';
-
-export function App() {
-  const first = features[0]?.path ?? '/';
-  return (
-    <BrowserRouter>
-      <header className="top">
-        <span className="brand">LateLens</span>
-        <nav>
-          {features.map((f) => (
-            <NavLink key={f.path} to={f.path}>{f.label}</NavLink>
-          ))}
-        </nav>
-      </header>
-      <main>
-        <Routes>
-          {features.map((f) => <Route key={f.path} path={f.path} element={f.element} />)}
-          <Route path="*" element={<Navigate to={first} replace />} />
-        </Routes>
-      </main>
-    </BrowserRouter>
-  );
-}
-```
-
-```ts
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
-const KEY = import.meta.env.VITE_API_KEY ?? '';
+import { API_KEY, API_URL } from '@/config/dashboard';
 
 export async function getJSON<T>(path: string): Promise<T> {
-  const res = await fetch(BASE + path);
+  const res = await fetch(API_URL + path);
   if (!res.ok) throw new Error(`${res.status} ${path}`);
   return (await res.json()) as T;
 }
 
 export async function postJSON<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(BASE + path, {
+  const res = await fetch(API_URL + path, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': KEY },
+    headers: { 'content-type': 'application/json', 'x-api-key': API_KEY },
     body: JSON.stringify(body),
   });
   const data = (await res.json()) as T & { error?: string };
@@ -796,19 +741,23 @@ export async function postJSON<T>(path: string, body: unknown): Promise<T> {
 ```
 
 ```ts
+/** Number formats for the dashboard. Rates arrive as 0..1 from the API. */
 export const pct = (x: number | null | undefined, digits = 1) => (x == null ? '—' : `${(x * 100).toFixed(digits)}%`);
 export const int = (x: number | null | undefined) => (x == null ? '—' : Math.round(x).toLocaleString('en-US'));
 export const usd = (x: number | null | undefined) =>
   x == null ? '—' : x.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 export const usd2 = (x: number) => x.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+/** 0.0763 → "7.6": points of on-time delivery */
+export const points = (x: number) => (x * 100).toFixed(1);
 ```
 
-```tsx
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
-import { getJSON } from './api';
+```ts
+import { useCallback, useEffect, useState } from 'react';
+import { getJSON } from '@/lib/api';
 
+/** Loads `path` from the API; `null` skips loading. `reload()` fetches again. */
 export function useApi<T>(path: string | null): { data?: T; error?: string; loading: boolean; reload: () => void } {
-  const [state, setState] = useState<{ data?: T; error?: string; loading: boolean }>({ loading: true });
+  const [state, setState] = useState<{ data?: T; error?: string; loading: boolean }>({ loading: path != null });
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (!path) return;
@@ -824,11 +773,108 @@ export function useApi<T>(path: string | null): { data?: T; error?: string; load
   const reload = useCallback(() => setTick((t) => t + 1), []);
   return { ...state, reload };
 }
+```
 
-export function Section({ title, children, badge }: { title: string; children: ReactNode; badge?: ReactNode }) {
+Let Next.js read the root `.env`:
+
+```js
+// add at the top of frontend/next.config.mjs, above the ASSET_CACHE comment
+import nextEnv from '@next/env';
+import { fileURLToPath } from 'node:url';
+
+/** One .env at the repo root serves the API, the pipeline and this app (NEXT_PUBLIC_API_URL, NEXT_PUBLIC_API_KEY). */
+nextEnv.loadEnvConfig(fileURLToPath(new URL('..', import.meta.url)));
+```
+
+Status colours as theme tokens (the frontend keeps every colour in `styles/theme.css`):
+
+```css
+/* in frontend/styles/theme.css, :root block, after --live-ink */
+  /* dashboard status (app/dashboard): semantic, separate from the accent */
+  --good: #1f8a55;
+  --good-soft: rgb(52 194 122 / 0.16);
+  --bad: #b42318;
+  --bad-soft: rgb(220 38 38 / 0.12);
+  --warn: #8a5a00;
+  --warn-soft: rgb(234 179 8 / 0.18);
+  --synthetic: #6d3fc0;
+  --synthetic-soft: rgb(124 58 237 / 0.12);
+
+/* in BOTH dark blocks (the prefers-color-scheme one and :root[data-theme='dark']), before color-scheme: dark */
+  --good: #4ade80;
+  --bad: #f87171;
+  --warn: #facc15;
+  --synthetic: #b39bff;
+```
+
+- [ ] **Step 6: Shared UI and the shell.**
+
+```css
+.head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.title { font-family: var(--font-display); font-size: 1.6rem; font-weight: 700; letter-spacing: -0.015em; margin: 0; text-wrap: balance; }
+.lede { color: var(--ink-2); margin: 0; max-width: 70ch; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; }
+.cardTitle { font-family: var(--font-display); font-size: 1rem; font-weight: 700; margin: 0 0 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.kpiValue { font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.kpiLabel, .muted { color: var(--ink-2); font-size: 0.85rem; }
+.pill { display: inline-flex; align-items: center; font-size: 0.74rem; font-weight: 600; padding: 2px 8px; border-radius: var(--pill); white-space: nowrap; }
+.good { background: var(--good-soft); color: var(--good); }
+.bad { background: var(--bad-soft); color: var(--bad); }
+.warn { background: var(--warn-soft); color: var(--warn); }
+.synthetic { background: var(--synthetic-soft); color: var(--synthetic); }
+.neutral { background: rgb(var(--ink-rgb) / 0.06); color: var(--ink-2); }
+.error { color: var(--bad); }
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.table th, .table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.table th { font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+.right { text-align: right !important; font-variant-numeric: tabular-nums; }
+.bars { display: grid; gap: 8px; }
+.bar { display: grid; grid-template-columns: minmax(120px, 240px) minmax(0, 1fr) 64px; gap: 10px; align-items: center; font-size: 0.88rem; }
+@media (max-width: 520px) { .bar { grid-template-columns: minmax(0, 1fr) 56px; } .track { grid-column: 1 / -1; grid-row: 2; } }
+.track { position: relative; height: 16px; background: rgb(var(--ink-rgb) / 0.06); border-radius: 4px; overflow: hidden; }
+.fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--accent); }
+.fill.pre { background: var(--accent-text); }
+.fill.post { background: var(--ink-2); }
+.fill.good { background: var(--good); }
+.fill.muted { background: var(--line); }
+.mark { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--good); }
+.value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.seg { display: inline-flex; flex-wrap: wrap; background: rgb(var(--ink-rgb) / 0.06); border-radius: 8px; padding: 2px; }
+.seg button { font: inherit; font-size: 0.82rem; border: 0; background: transparent; color: var(--ink-2); padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+.seg button[aria-pressed='true'] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 0 0 1px var(--line); }
+.button { font: inherit; font-size: 0.86rem; font-weight: 600; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.button:focus-visible, .seg button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.input { font: inherit; font-size: 0.88rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.textarea { composes: input; width: 100%; min-height: 160px; }
+.pre { white-space: pre-wrap; font-size: 0.85rem; background: rgb(var(--ink-rgb) / 0.05); border-radius: 8px; padding: 12px; margin: 0; overflow-x: auto; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.callout { border: 1px solid var(--accent); border-radius: var(--radius); padding: 14px 16px; background: var(--surface); }
+```
+
+```tsx
+import type { ReactNode } from 'react';
+import s from './ui.module.css';
+
+export { s as ui };
+
+export function ScreenHead({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <section className="card">
-      <h2>{title} {badge}</h2>
+    <div className={s.head}>
+      <h1 className={s.title}>{title}</h1>
+      {children}
+    </div>
+  );
+}
+
+export function Section({ title, badge, children }: { title: string; badge?: ReactNode; children: ReactNode }) {
+  return (
+    <section className={s.card}>
+      <h2 className={s.cardTitle}>{title} {badge}</h2>
       {children}
     </section>
   );
@@ -836,21 +882,25 @@ export function Section({ title, children, badge }: { title: string; children: R
 
 export function Kpi({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="kpi">
-      <div className="kpi-value">{value}</div>
-      <div className="kpi-label">{label}</div>
-      {note && <div className="kpi-note">{note}</div>}
+    <div className={s.kpi}>
+      <div className={s.kpiValue}>{value}</div>
+      <div className={s.kpiLabel}>{label}{note ? ` · ${note}` : ''}</div>
     </div>
   );
 }
 
+export type Tone = 'good' | 'bad' | 'warn' | 'synthetic' | 'neutral';
+export function Pill({ tone = 'neutral', children, title }: { tone?: Tone; children: ReactNode; title?: string }) {
+  return <span className={`${s.pill} ${s[tone]}`} title={title}>{children}</span>;
+}
+
 export function SyntheticBadge() {
-  return <span className="badge synthetic" title="Built on data we generated (SPEC §12.1)">Synthetic data</span>;
+  return <Pill tone="synthetic" title="Built on data we generated (SPEC §12.1)">Synthetic data</Pill>;
 }
 
 export function Status({ loading, error }: { loading: boolean; error?: string }) {
-  if (error) return <p className="error">Could not load: {error}</p>;
-  if (loading) return <p className="muted">Loading…</p>;
+  if (error) return <p className={s.error}>Could not load: {error}</p>;
+  if (loading) return <p className={s.muted}>Loading…</p>;
   return null;
 }
 
@@ -858,129 +908,158 @@ export interface Column<T> { key: string; label: string; render: (row: T) => Rea
 
 export function Table<T>({ rows, columns }: { rows: T[]; columns: Column<T>[] }) {
   return (
-    <div className="table-wrap">
-      <table>
+    <div className={s.tableWrap}>
+      <table className={s.table}>
         <thead>
-          <tr>{columns.map((c) => <th key={c.key} className={c.align}>{c.label}</th>)}</tr>
+          <tr>{columns.map((c) => <th key={c.key} className={c.align === 'right' ? s.right : undefined}>{c.label}</th>)}</tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i}>{columns.map((c) => <td key={c.key} className={c.align}>{c.render(r)}</td>)}</tr>
+            <tr key={i}>{columns.map((c) => <td key={c.key} className={c.align === 'right' ? s.right : undefined}>{c.render(r)}</td>)}</tr>
           ))}
         </tbody>
       </table>
     </div>
   );
 }
-```
 
-```css
-:root {
-  --bg: #f7f7f5; --surface: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e3e3de;
-  --accent: #2f5bd3; --good: #1f7a4d; --bad: #b3261e; --warn: #9a6400; --synthetic: #6d3fc0;
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--text); background: var(--bg);
-}
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #161615; --surface: #1f1f1d; --text: #ecece8; --muted: #a3a39c; --line: #34342f;
-    --accent: #7ea0ff; --good: #5cc28f; --bad: #ff7a70; --warn: #e0a93b; --synthetic: #b89bff; }
-}
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); }
-.top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
-.brand { font-weight: 700; }
-nav { display: flex; flex-wrap: wrap; gap: 4px 12px; }
-nav a { color: var(--muted); text-decoration: none; }
-nav a.active { color: var(--accent); font-weight: 600; }
-main { padding: 16px; max-width: 1200px; margin: 0 auto; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-.card h2 { margin: 0 0 12px; font-size: 1.05rem; }
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-.kpi-value { font-size: 1.6rem; font-weight: 700; }
-.kpi-label, .kpi-note, .muted { color: var(--muted); font-size: 0.85rem; }
-.table-wrap { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
-th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-.right { text-align: right; }
-.badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.75rem; border: 1px solid currentColor; }
-.badge.synthetic { color: var(--synthetic); }
-.badge.priority { color: var(--bad); }
-.status-recommended { color: var(--good); font-weight: 600; }
-.status-backup { color: var(--accent); }
-.status-blocked { color: var(--bad); }
-.error { color: var(--bad); }
-.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
-button, select, input, textarea { font: inherit; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--text); }
-button { cursor: pointer; }
-button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-textarea { width: 100%; min-height: 160px; }
-pre { white-space: pre-wrap; font-size: 0.85rem; }
-.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-```
+export interface BarItem { label: ReactNode; value: number; tone?: 'pre' | 'post' | 'good' | 'muted' | 'accent' }
 
-```tsx
-import { render } from '@testing-library/react';
-import type { ReactNode } from 'react';
-import { MemoryRouter } from 'react-router-dom';
-import { vi } from 'vitest';
-
-/** Mock fetch with a map of path -> JSON body. Unknown paths return 404. */
-export function mockApi(routes: Record<string, unknown>) {
-  const fn = vi.fn(async (url: string) => {
-    const path = new URL(url).pathname + new URL(url).search;
-    const hit = Object.entries(routes).find(([p]) => path === p || path.startsWith(`${p}?`) || path === p.split('?')[0]);
-    const body = hit ? hit[1] : { error: 'not found' };
-    return { ok: Boolean(hit), status: hit ? 200 : 404, json: async () => body } as Response;
-  });
-  vi.stubGlobal('fetch', fn);
-  return fn;
-}
-
-export function renderScreen(node: ReactNode) {
-  return render(<MemoryRouter>{node}</MemoryRouter>);
-}
-```
-
-`web/src/features/health/index.tsx` (the first screen; proves autoload and the API connection):
-
-```tsx
-import type { Feature } from '../../app/features';
-import { Section, Status, useApi } from '../../app/ui';
-
-function Health() {
-  const { data, loading, error } = useApi<{ db: string; llm: string; version: string }>('/api/health');
+/** Horizontal bars on one scale from `min` to `max`; `mark` draws a reference line (e.g. the 94% benchmark). */
+export function Bars({ items, min = 0, max = 1, mark, format }: {
+  items: BarItem[]; min?: number; max?: number; mark?: number; format: (v: number) => string;
+}) {
+  const w = (v: number) => `${Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100))}%`;
   return (
-    <Section title="System health">
-      <Status loading={loading} error={error} />
-      {data && <p>Database: {data.db} · AI model: {data.llm} · Version: {data.version}</p>}
-    </Section>
+    <div className={s.bars}>
+      {items.map((it, i) => (
+        <div key={i} className={s.bar}>
+          <span>{it.label}</span>
+          <span className={s.track} role="img" aria-label={format(it.value)}>
+            <span className={`${s.fill} ${it.tone && it.tone !== 'accent' ? s[it.tone] : ''}`} style={{ width: w(it.value) }} />
+            {mark != null && <span className={s.mark} style={{ left: w(mark) }} />}
+          </span>
+          <span className={s.value}>{format(it.value)}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
-export const feature: Feature = { path: '/health', label: 'Health', order: 90, element: <Health /> };
+/** A row of toggle buttons; exactly one is pressed. */
+export function Segmented<V extends string>({ label, value, options, onChange }: {
+  label: string; value: V; options: readonly (readonly [V, string])[]; onChange: (v: V) => void;
+}) {
+  return (
+    <div className={s.seg} role="group" aria-label={label}>
+      {options.map(([v, l]) => (
+        <button key={v} type="button" aria-pressed={v === value} onClick={() => onChange(v)}>{l}</button>
+      ))}
+    </div>
+  );
+}
 ```
 
-- [ ] **Step 6: Run.** `npm test -w web && npm run build -w web` — Expected: PASS (2 tests), build succeeds. `npm run dev` and open `http://localhost:5173/health` — Expected: "Database: ok".
+```css
+.page { min-height: 100vh; background: var(--bg); color: var(--ink); font-family: var(--font-sans); }
+.header { position: sticky; top: 0; z-index: var(--z-header); background: var(--surface); border-bottom: 1px solid var(--line); }
+.bar { max-width: 1240px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px var(--gutter); }
+.brand { font-family: var(--font-display); font-weight: 700; color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+.glyph { width: 18px; height: 18px; border-radius: 4px; background: var(--accent); }
+.product { color: var(--ink-2); font-weight: 500; }
+.nav { display: flex; flex-wrap: wrap; gap: 2px; margin-left: auto; align-items: center; }
+.link { color: var(--ink-2); text-decoration: none; padding: 6px 10px; border-radius: 6px; font-size: 0.9rem; }
+.link[aria-current='page'] { background: rgb(var(--ink-rgb) / 0.06); color: var(--ink); font-weight: 600; }
+.link:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.main { max-width: 1240px; margin: 0 auto; padding: 20px var(--gutter) 48px; display: grid; gap: 16px; }
+.foot { max-width: 1240px; margin: 0 auto; padding: 0 var(--gutter) 32px; color: var(--ink-2); font-size: 0.8rem; }
+```
 
-- [ ] **Step 7: Commit.** `git add web package-lock.json && git commit -m "feat(b): web skeleton with feature autoload and shared UI"`
+```tsx
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import type { ReactNode } from 'react';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
+import { BRAND } from '@/config/copy';
+import { SCREENS } from '@/config/dashboard';
+import s from './shell.module.css';
+
+/** Chrome for every /dashboard screen: brand back to the landing page, screen nav, theme toggle. */
+export function DashboardShell({ children }: { children: ReactNode }) {
+  const path = usePathname();
+  return (
+    <div className={s.page}>
+      <header className={s.header}>
+        <div className={s.bar}>
+          <Link className={s.brand} href="/">
+            <span className={s.glyph} aria-hidden="true" />
+            {BRAND} <span className={s.product}>· LateLens</span>
+          </Link>
+          <nav className={s.nav} aria-label="Dashboard">
+            {SCREENS.map((sc) => (
+              <Link key={sc.href} className={s.link} href={sc.href} aria-current={path === sc.href ? 'page' : undefined}>
+                {sc.label}
+              </Link>
+            ))}
+            <ThemeToggle />
+          </nav>
+        </div>
+      </header>
+      <main className={s.main}>{children}</main>
+      <p className={s.foot}>
+        Figures are computed from the supplied Halcyon dataset (48,340 deliveries). Panels marked Synthetic data use data we generated.
+      </p>
+    </div>
+  );
+}
+```
+
+```tsx
+import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
+import { DashboardShell } from '@/components/dashboard/DashboardShell';
+
+export const metadata: Metadata = {
+  title: { template: '%s · LateLens', default: 'LateLens' },
+  description: 'Why Halcyon deliveries are late, what fixes them, and the case for the routing decision.',
+};
+
+export default function DashboardLayout({ children }: { children: ReactNode }) {
+  return <DashboardShell>{children}</DashboardShell>;
+}
+```
+
+```tsx
+import { redirect } from 'next/navigation';
+
+export default function DashboardHome() {
+  redirect('/dashboard/overview');
+}
+```
+
+- [ ] **Step 7: Run.** `npm --prefix frontend test && npm run typecheck && npm run build` — Expected: 2 tests pass; no type errors; the build lists `/` and `/dashboard`. With `npm run dev`, `http://localhost:3000/dashboard` shows the shell; the landing page at `/` is unchanged.
+
+- [ ] **Step 8: Commit.** `git add frontend && git commit -m "feat(b): dashboard shell in the Next.js app; public npm registry"`
 
 ---
 
-### Task B3: Analytics skeleton (move `prep.py`, loader, writer, pipeline)
+### Task B3: Analytics package in backend/analytics (replaces backend/analysis/prep.py)
 
 **Files:**
-- Create: `requirements.txt`, `pytest.ini`, `ruff.toml`
-- Create: `analytics/__init__.py`, `analytics/core/__init__.py`, `analytics/core/load.py`, `analytics/core/context.py`, `analytics/core/db.py`, `analytics/core/build.py` (stub), `analytics/pipeline.py`
-- Create (stubs, replaced by owners): `analytics/warehouse/__init__.py`, `analytics/carriers/__init__.py`, `analytics/intake/__init__.py`
-- Delete: `analysis/prep.py` (replaced by `analytics/core/load.py`)
-- Modify: `CLAUDE.md` and `docs/SPEC.md` §5.1 — replace `analysis/prep.py` with `analytics/core/load.py`
-- Test: `analytics/tests/conftest.py`, `analytics/tests/test_load.py`, `analytics/tests/test_pipeline.py`
+- Create: `requirements.txt`, `pytest.ini`, `ruff.toml` (repo root)
+- Create: `backend/analytics/__init__.py`, `backend/analytics/core/__init__.py`, `core/load.py`, `core/context.py`, `core/db.py`, `core/build.py` (stub), `backend/analytics/pipeline.py`
+- Create (stubs, replaced by owners): `backend/analytics/warehouse/__init__.py`, `backend/analytics/carriers/__init__.py`, `backend/analytics/intake/__init__.py`
+- Delete: `backend/analysis/prep.py` (its flags move into `backend/analytics/core/load.py`)
+- Test: `backend/analytics/tests/conftest.py`, `test_load.py`, `test_pipeline.py`
 
 **Interfaces:**
-- Produces: `load() -> (d, clients)` where `d` has every supplied column, the client columns, and flags `late, after_cutoff, route_dev, f_addr, f_cutoff, f_stock, f_stock_out, f_skip_nearest, f_bad_lane, f_d_friday, f_lane, f_route, f_addr_email, f_addr_other, f_cut_early, f_cut_late, fair`; constants `FLAGS` (the five causes), `AREA_FLAGS`, `PICK_FLAGS`, `BAD_LANES`, `ROUTE_OVERRUN = 1.20`, `DATA_DIR`, `DATE_COLS`.
-- Produces: `Ctx(d, clients, data_dir, tables)` with `ctx.csv(name)`; each area exposes `build(ctx) -> dict[str, DataFrame]`; `write_tables(tables, url)`; `python -m analytics.pipeline [--test-db | --dry-run]`.
-- Produces pytest fixtures: `data`, `d`, `clients`, `penalties`.
+- Produces: `load() -> (d, clients)` where `d` has every supplied column, the client columns, and flags `late, after_cutoff, route_dev, f_addr, f_cutoff, f_stock, f_stock_out, f_skip_nearest, f_bad_lane, f_d_friday, f_lane, f_route, f_addr_email, f_addr_other, f_cut_early, f_cut_late, fair`; constants `FLAGS` (the five causes), `AREA_FLAGS`, `PICK_FLAGS`, `BAD_LANES`, `ROUTE_OVERRUN = 1.20`, `BACKEND`, `REPO`, `DATA_DIR`, `DATE_COLS`.
+- Produces: `Ctx(d, clients, data_dir, tables)` with `ctx.csv(name)`; each area exposes `build(ctx) -> dict[str, DataFrame]`; `write_tables(tables, url)`; `npm run pipeline [-- --dry-run]`, `npm run pipeline:test` (= `cd backend && npm run pipeline …`).
+- Produces pytest fixtures: `data`, `d`, `clients`, `penalties`. `pytest.ini` puts `backend/` on the path, so tests import `analytics…`.
 
-- [ ] **Step 1: Python environment.**
+- [ ] **Step 1: Python environment** (root files):
 
 ```text
 pandas>=2.2
@@ -994,13 +1073,14 @@ ruff>=0.6
 
 ```ini
 [pytest]
-pythonpath = .
-testpaths = analytics/tests
+pythonpath = backend
+testpaths = backend/analytics/tests
 ```
 
 ```toml
 line-length = 135
 target-version = "py312"
+src = ["backend"]
 
 [lint]
 select = ["E", "F", "I"]
@@ -1008,11 +1088,11 @@ select = ["E", "F", "I"]
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
-mkdir -p analytics/core analytics/tests analytics/warehouse analytics/carriers analytics/intake
-touch analytics/__init__.py analytics/core/__init__.py
+mkdir -p backend/analytics/core backend/analytics/tests backend/analytics/warehouse backend/analytics/carriers backend/analytics/intake
+touch backend/analytics/__init__.py backend/analytics/core/__init__.py
 ```
 
-- [ ] **Step 2: Write the failing tests.** `analytics/tests/conftest.py`, `test_load.py` (AC-DIAG-01), `test_pipeline.py`:
+- [ ] **Step 2: Write the failing tests.** `backend/analytics/tests/conftest.py`, `test_load.py` (AC-DIAG-01), `test_pipeline.py`:
 
 ```python
 import pytest
@@ -1065,7 +1145,7 @@ def test_pipeline_runs_and_returns_tables():
 
 - [ ] **Step 3: Run to see it fail.** `python -m pytest` — Expected: FAIL, `ModuleNotFoundError: analytics.core.load`.
 
-- [ ] **Step 4: Loader** (the old `analysis/prep.py`, with the spec's flag names and the split flags). `analytics/core/load.py`:
+- [ ] **Step 4: Loader** (the old `backend/analysis/prep.py`, with the five causes and the split flags). `backend/analytics/core/load.py`:
 
 ```python
 """Load the supplied dataset and add the cause flags defined in SPEC §5.1."""
@@ -1073,7 +1153,8 @@ from pathlib import Path
 
 import pandas as pd
 
-REPO = Path(__file__).resolve().parents[2]
+BACKEND = Path(__file__).resolve().parents[2]
+REPO = BACKEND.parent
 DATA_DIR = REPO / "Halcyon-Hackathon-Dataset"
 DATE_COLS = ["order_received_ts", "shipped_ts", "promised_date", "pick_list_date", "delivered_date"]
 
@@ -1123,9 +1204,9 @@ def load(data_dir: Path = DATA_DIR) -> tuple[pd.DataFrame, pd.DataFrame]:
     return d, clients
 ```
 
-Then `git rm analysis/prep.py` and update the two references in `CLAUDE.md` and SPEC §5.1.
+Then `git rm backend/analysis/prep.py`.
 
-- [ ] **Step 5: Context, writer, pipeline, stubs.** `analytics/core/context.py`, `analytics/core/db.py`, `analytics/pipeline.py`:
+- [ ] **Step 5: Context, writer, pipeline, stubs.** `backend/analytics/core/context.py`, `core/db.py` (reads the root `.env`), `backend/analytics/pipeline.py`:
 
 ```python
 from dataclasses import dataclass, field
@@ -1153,7 +1234,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 load_dotenv(REPO / ".env")
 
 
@@ -1228,7 +1309,7 @@ if __name__ == "__main__":
     main()
 ```
 
-`analytics/core/build.py` (stub until B5):
+`backend/analytics/core/build.py` (stub until B5):
 
 ```python
 """Core pipeline step (owner B). Filled in Tasks B5 and B6."""
@@ -1241,7 +1322,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     return {"clients": ctx.clients}
 ```
 
-`analytics/warehouse/__init__.py`, `analytics/carriers/__init__.py`, `analytics/intake/__init__.py` (same stub in each; A, B and C replace their own):
+`backend/analytics/{warehouse,carriers,intake}/__init__.py` (same stub in each; A, B and C replace their own):
 
 ```python
 """<Area> pipeline step. Replaced by the owning resource's plan."""
@@ -1254,10 +1335,10 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     return {}
 ```
 
-- [ ] **Step 6: Run.** `python -m pytest && ruff check analytics && python -m analytics.pipeline --dry-run`
-Expected: 3 passed (flag counts, "five causes explain every late delivery", pipeline); ruff clean; dry run prints `clients 280 rows`. Then `python -m analytics.pipeline --test-db` — Expected: `wrote 1 tables`.
+- [ ] **Step 6: Run.** `python -m pytest && ruff check backend/analytics && npm run pipeline -- --dry-run`
+Expected: 3 passed; ruff clean; dry run prints `clients 280 rows`. Then `npm run pipeline:test` — Expected: `wrote 1 tables`.
 
-- [ ] **Step 7: Commit.** `git add requirements.txt pytest.ini ruff.toml analytics CLAUDE.md docs/SPEC.md && git rm -q analysis/prep.py; git commit -m "feat(b): analytics package, loader with spec flags, pipeline runner"`
+- [ ] **Step 7: Commit.** `git add requirements.txt pytest.ini ruff.toml backend/analytics && git rm -q backend/analysis/prep.py; git commit -m "feat(b): analytics package in backend/, five-cause loader, pipeline runner"`
 
 ---
 
@@ -1265,9 +1346,9 @@ Expected: 3 passed (flag counts, "five causes explain every late delivery", pipe
 
 **Files:**
 - Create: `.github/workflows/ci.yml`
-- Modify: `README.md` (append the run section)
+- Modify: `README.md` (add a "Run LateLens locally" section; keep the landing-page quick start)
 
-- [ ] **Step 1: Workflow** `.github/workflows/ci.yml` (one job with a Postgres service runs Python tests, regenerates synthetic data and checks it is byte-identical — AC-NFR-05 — fills the test database, runs every Node test, and builds; a second job runs the secret scan — AC-SEC-01):
+- [ ] **Step 1: Workflow** `.github/workflows/ci.yml`. One job with a Postgres service runs the Python tests, regenerates synthetic data and checks it is byte-identical (AC-NFR-05), installs both apps through the root scripts, typechecks, fills the test database, runs the API and dashboard tests and builds both; a second job runs the secret scan (AC-SEC-01):
 
 ```yaml
 name: ci
@@ -1295,6 +1376,7 @@ jobs:
       TEST_DATABASE_URL: postgres://latelens:latelens@localhost:5432/latelens_test
       API_KEY: test-key
       LLM_PROVIDER: recorded
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -1302,30 +1384,34 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: ruff check analytics synthetic-data/generators
+      - run: ruff check backend/analytics backend/synthetic-data/generators
       - run: python -m pytest
       - name: Generate synthetic data (and check it is reproducible)
         run: |
           shopt -s nullglob
-          for g in synthetic-data/generators/*.py; do python "$g"; done
-          files=(synthetic-data/out/*.csv synthetic-data/out/*.json)
+          for g in backend/synthetic-data/generators/*.py; do python "$g"; done
+          files=(backend/synthetic-data/out/*.csv backend/synthetic-data/out/*.json)
           if [ ${#files[@]} -gt 0 ]; then
             sha1sum "${files[@]}" > /tmp/first
-            for g in synthetic-data/generators/*.py; do python "$g" > /dev/null; done
+            for g in backend/synthetic-data/generators/*.py; do python "$g" > /dev/null; done
             sha1sum -c /tmp/first
           fi
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: python -m analytics.pipeline --test-db
-      - run: npm run migrate:test -w api
-      - run: npm run seed -w api -- --test
-      - run: npm test
-      - run: npm run build -w api
-      - run: npm run build -w web
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/api/package-lock.json
+      - run: npm run setup
+      - run: npm run typecheck
+      - run: npm run pipeline:test
+      - run: npm run migrate:test
+      - run: npm run seed:test
+      - run: npm --prefix backend/api test
+      - run: npm --prefix frontend test
+      - run: npm run build:api
+      - run: npm run build
 
   secrets:
     runs-on: ubuntu-latest
@@ -1338,9 +1424,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-While no generators exist yet the synthetic-data step does nothing (`nullglob`); it starts checking reproducibility as soon as A, B or C add one.
+While no generators exist yet the synthetic-data step does nothing (`nullglob`).
 
-- [ ] **Step 2: README.** Append to `README.md`:
+- [ ] **Step 2: README.** Add below the existing quick start:
 
 ````markdown
 ## Run LateLens locally
@@ -1351,40 +1437,39 @@ Prerequisites: Docker Desktop, Node 22+, Python 3.12+.
 cp .env.example .env
 docker compose up -d                      # Postgres with databases latelens and latelens_test
 python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
-for g in synthetic-data/generators/*.py; do python "$g"; done
-python -m analytics.pipeline              # computed tables -> latelens
-python -m analytics.pipeline --test-db    # computed tables -> latelens_test
-npm install
-npm run migrate -w api && npm run migrate:test -w api
-npm run seed -w api && npm run seed -w api -- --test
-npm run dev                               # API on :3001, web on :5173
+npm run setup                             # frontend and backend/api dependencies
+npm run data                              # synthetic data (backend/synthetic-data/out)
+npm run pipeline && npm run pipeline:test # computed tables -> latelens and latelens_test
+npm run migrate && npm run migrate:test
+npm run seed && npm run seed:test
+npm run dev:all                           # API on :3001, landing page on :3000, dashboard on :3000/dashboard
 ```
 
-Tests: `python -m pytest` · `npm test` (route tests run only when the test database is up).
+Tests: `npm test` (API, dashboard, Python; API route tests run only when the test database is up). Types: `npm run typecheck`.
 Docs: `docs/SPEC.md` (what and why), `docs/CONTRACTS.md` (shared types, tables, API), `docs/superpowers/plans/` (task plans).
 ````
 
-- [ ] **Step 3: Verify on GitHub.** Push a branch, open a PR. Expected: `ci / test` and `ci / secrets` both green. Ask the repo owner (`saiprasad-37`) to require `ci / test` on `main` (Settings → Branches).
+- [ ] **Step 3: Verify on GitHub.** Push a branch, open a PR. Expected: `ci / test` and `ci / secrets` green. Ask the repo owner (`saiprasad-37`) to require `ci / test` on `main`.
 
-- [ ] **Step 4: Commit.** `git add .github README.md && git commit -m "ci(b): tests, synthetic-data reproducibility, secret scan"`
+- [ ] **Step 4: Commit.** `git add .github README.md && git commit -m "ci(b): Python, API and dashboard tests, synthetic-data reproducibility, secret scan"`
 
-**Monday check-in:** B1–B4 merged; everyone has run the README steps on their laptop.
+**Monday check-in:** B1–B4 merged; everyone has run the README steps; `npm run dev:all` shows the landing page, `/dashboard` and the API.
 
 ---
 
 ### Task B5: Diagnostic engine (D1, D2) — cause flags, stages, data quality, KPIs, accounts
 
 **Files:**
-- Create: `analytics/core/diagnosis.py`
-- Modify: `analytics/core/build.py`
-- Test: `analytics/tests/test_diagnosis.py`
+- Create: `backend/analytics/core/diagnosis.py`
+- Modify: `backend/analytics/core/build.py`
+- Test: `backend/analytics/tests/test_diagnosis.py`
 
 **Interfaces:**
 - Consumes: `load()`, `FLAGS` (B3).
 - Produces tables (CONTRACTS §4): `deliveries_clean`, `clients`, `carriers`, `warehouses`, `delivery_causes`, `dq_report`, `kpis`, `cause_summary`, `accounts`.
 - Produces: `diagnosis.segments(d)`, `diagnosis.unpaid_penalties(d, penalties)`, `diagnosis.cause_kpis(d, complaints)` (SPEC §1.4 baselines; written as table `cause_kpis` from B6), `LABELS`, `STAGE`, `HANDLING_COST = 34`, `PENALTY = 180`; `ctx.d` gains `dq_bad_dates`, `dq_dup_order_id`.
 
-- [ ] **Step 1: Write the failing test** `analytics/tests/test_diagnosis.py` (AC-DIAG-02, -03, -05, KPI and account checks):
+- [ ] **Step 1: Write the failing test** `backend/analytics/tests/test_diagnosis.py` (AC-DIAG-02, -03, -05, KPI and account checks):
 
 ```python
 import pytest
@@ -1450,9 +1535,9 @@ def test_accounts(dq, clients):
     assert len(a) == 9 and int(a.annual_revenue_usd.sum()) == 14_200_000 and int(a.complaints.sum()) == 24
 ```
 
-- [ ] **Step 2: Run it.** `python -m pytest analytics/tests/test_diagnosis.py` — Expected: FAIL, `ImportError: cannot import name 'diagnosis'`.
+- [ ] **Step 2: Run it.** `python -m pytest backend/analytics/tests/test_diagnosis.py` — Expected: FAIL, `ImportError: cannot import name 'diagnosis'`.
 
-- [ ] **Step 3: Implement** `analytics/core/diagnosis.py`:
+- [ ] **Step 3: Implement** `backend/analytics/core/diagnosis.py`:
 
 ```python
 """Data quality, stages and summary tables (SPEC §5.1, D1-D3, D6)."""
@@ -1598,7 +1683,7 @@ def cause_kpis(d: pd.DataFrame, complaints: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["cause", "label", "kpi", "baseline", "target", "owner"])
 ```
 
-and replace `analytics/core/build.py`:
+and replace `backend/analytics/core/build.py`:
 
 ```python
 """Core pipeline step (owner B): diagnosis tables. Replay is added in Task B6."""
@@ -1631,23 +1716,23 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && python -m analytics.pipeline --dry-run` — Expected: all pass; dry run lists `delivery_causes 48,340`, `kpis 9`, `accounts 9`.
+- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline -- --dry-run` — Expected: all pass; dry run lists `delivery_causes 48,340`, `kpis 9`, `accounts 9`.
 
-- [ ] **Step 5: Commit.** `git add analytics && git commit -m "feat(b): diagnostic engine — causes, stages, data quality, KPIs, accounts"`
+- [ ] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(b): diagnostic engine — causes, stages, data quality, KPIs, accounts"`
 
 ---
 
 ### Task B6: Replay (D4, W6, D8) — full-fix and expected-adoption scenarios, cause attribution
 
 **Files:**
-- Create: `analytics/core/ifixed.py`, `analytics/core/scenarios.py`
-- Modify: `analytics/core/build.py` (adds `scenario_results`)
-- Test: `analytics/tests/test_scenarios.py`
+- Create: `backend/analytics/core/ifixed.py`, `backend/analytics/core/scenarios.py`
+- Modify: `backend/analytics/core/build.py` (adds `scenario_results`)
+- Test: `backend/analytics/tests/test_scenarios.py`
 
 **Interfaces:**
 - Produces: `if_fixed(d, fix, flags) -> Series` (raises if a combination has no baseline), `adopted(d, rates, flags) -> Series` (expected adoption; equals `if_fixed` at rate 1.0), `shapley(d, flags) -> dict` (points of on-time lost per cause), `paid_ratio(d, penalties)`, `cost_avoided(d, est, ratio) -> (late_avoided, usd)`, `SCENARIOS`, `ADOPTION`, `cause_attribution(d)`; tables `scenario_results` (23 scenarios × 4 segments = 92 rows), `cause_attribution` (5 rows), `cause_kpis` (7 rows).
 
-- [ ] **Step 1: Write the failing test** `analytics/tests/test_scenarios.py` (AC-DIAG-04, AC-DIAG-07, AC-REP-01, -02, -04, -05, -06, AC-PRO-05):
+- [ ] **Step 1: Write the failing test** `backend/analytics/tests/test_scenarios.py` (AC-DIAG-04, AC-DIAG-07, AC-REP-01, -02, -04, -05, -06, AC-PRO-05):
 
 ```python
 import pytest
@@ -1744,7 +1829,7 @@ def test_cause_attribution_sums_to_lateness(d):
 
 - [ ] **Step 2: Run it.** Expected: FAIL, `ModuleNotFoundError: analytics.core.scenarios`.
 
-- [ ] **Step 3: Implement** `analytics/core/ifixed.py` and `analytics/core/scenarios.py`:
+- [ ] **Step 3: Implement** `backend/analytics/core/ifixed.py` and `backend/analytics/core/scenarios.py`:
 
 ```python
 """'If fixed' estimate (SPEC §5.1), adoption-adjusted replay, cause attribution and cost avoided (SPEC §1.1)."""
@@ -1945,7 +2030,7 @@ def cause_attribution(d: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values("points_lost", ascending=False).reset_index(drop=True)
 ```
 
-Replace `analytics/core/build.py` with the final version:
+Replace `backend/analytics/core/build.py` with the final version:
 
 ```python
 """Core pipeline step (owner B): diagnosis tables and replay."""
@@ -1982,24 +2067,24 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest analytics/tests/test_scenarios.py -v` — Expected: 35 passed (23 golden scenarios, 6 segment checks, the programme waterfall 71.0 → 92.0% with vendor 78.3%, adoption = full fix at 100%, attribution 7.6 / 7.0 / 5.6 / 5.6 / 3.2, and 3 others). If a golden value is off by 0.1, do not change the test: compare your flag sets with SPEC §2.4 "Flag sets".
+- [ ] **Step 4: Run.** `python -m pytest backend/analytics/tests/test_scenarios.py -v` — Expected: 35 passed (23 golden scenarios, 6 segment checks, the programme waterfall 71.0 → 92.0% with vendor 78.3%, adoption = full fix at 100%, attribution 7.6 / 7.0 / 5.6 / 5.6 / 3.2, and 3 others). If a golden value is off by 0.1, do not change the test: compare your flag sets with SPEC §2.4 "Flag sets".
 
-- [ ] **Step 5: Commit.** `git add analytics && git commit -m "feat(b): replay scenarios with golden tests (SPEC §2.4)"`
+- [ ] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(b): replay scenarios with golden tests (SPEC §2.4)"`
 
 ---
 
 ### Task B7: Warehouse tables (W4 data, W7) — distances, nearest per client, stats, unpaid penalties
 
 **Files:**
-- Create: `analytics/warehouse/tables.py`
-- Modify: `analytics/warehouse/__init__.py`
-- Test: `analytics/tests/test_warehouse.py`
+- Create: `backend/analytics/warehouse/tables.py`
+- Modify: `backend/analytics/warehouse/__init__.py`
+- Test: `backend/analytics/tests/test_warehouse.py`
 
 **Interfaces:**
 - Consumes: `ctx.d` with flags (B3) and `unpaid_penalties` (B5).
 - Produces tables: `warehouse_region_distance` (20 rows), `client_region_nearest`, `warehouse_stats` (5 rows), `penalty_reconciliation` (2,002 rows).
 
-- [ ] **Step 1: Write the failing test** `analytics/tests/test_warehouse.py` (includes AC-PEN-01):
+- [ ] **Step 1: Write the failing test** `backend/analytics/tests/test_warehouse.py` (includes AC-PEN-01):
 
 ```python
 import pandas as pd
@@ -2034,7 +2119,7 @@ def test_ac_pen_01_unpaid(d, penalties):
 
 - [ ] **Step 2: Run it.** Expected: FAIL, `ImportError: cannot import name 'tables'`.
 
-- [ ] **Step 3: Implement** `analytics/warehouse/tables.py`:
+- [ ] **Step 3: Implement** `backend/analytics/warehouse/tables.py`:
 
 ```python
 """Warehouse & promise tables (owner B): W4, W6, W7 and lookups used by Node."""
@@ -2084,7 +2169,7 @@ def penalty_reconciliation(d: pd.DataFrame, penalties: pd.DataFrame) -> pd.DataF
     return out.sort_values(["account_tier", "days_late"], ascending=[True, False]).reset_index(drop=True)
 ```
 
-and `analytics/warehouse/__init__.py`:
+and `backend/analytics/warehouse/__init__.py`:
 
 ```python
 """Warehouse pipeline step (owner B). Synthetic stock is added in Task B11."""
@@ -2105,24 +2190,24 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && python -m analytics.pipeline --test-db` — Expected: all pass; tables written.
+- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test` — Expected: all pass; tables written.
 
-- [ ] **Step 5: Commit.** `git add analytics && git commit -m "feat(b): warehouse stats, nearest-warehouse lookup, unpaid penalties"`
+- [ ] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(b): warehouse stats, nearest-warehouse lookup, unpaid penalties"`
 
 ---
 
 ### Task B8: Promise and warehouse rules in Node (W1–W3) — replaces the stub A is using
 
 **Files:**
-- Create: `api/src/modules/warehouse/domain.ts`, `api/src/modules/warehouse/lookups.ts`
-- Modify: `api/src/modules/warehouse/index.ts` (stub → real)
-- Test: `api/test/warehouse/domain.test.ts`
+- Create: `backend/api/src/modules/warehouse/domain.ts`, `backend/api/src/modules/warehouse/lookups.ts`
+- Modify: `backend/api/src/modules/warehouse/index.ts` (stub → real)
+- Test: `backend/api/test/warehouse/domain.test.ts`
 
 **Interfaces:**
 - Consumes: tables `warehouse_region_distance`, `client_region_nearest`, `delivery_causes` (B5, B7).
 - Produces (CONTRACTS §1–3): `checkPromise(commitment, receivedAt)`, `chooseWarehouse(input, milesToRegion)`, `linkExpiry(createdAt, cutoffHour = 8)`, `addDays(date, n)`, `LEAD_DAYS`, `CUTOFF_HOUR`; real `warehouseApi` and `diagnosisApi` (`getDeliveryCauses`).
 
-- [ ] **Step 1: Write the failing test** `api/test/warehouse/domain.test.ts` (AC-PRO-01 to -04):
+- [ ] **Step 1: Write the failing test** `backend/api/test/warehouse/domain.test.ts` (AC-PRO-01 to -04):
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -2180,9 +2265,9 @@ describe('confirm-address link expiry', () => {
 });
 ```
 
-- [ ] **Step 2: Run it.** `npm test -w api -- test/warehouse` — Expected: FAIL, cannot find `domain.js`.
+- [ ] **Step 2: Run it.** `npm --prefix backend/api test -- test/warehouse` — Expected: FAIL, cannot find `domain.js`.
 
-- [ ] **Step 3: Implement** `api/src/modules/warehouse/domain.ts`:
+- [ ] **Step 3: Implement** `backend/api/src/modules/warehouse/domain.ts`:
 
 ```ts
 import type {
@@ -2263,7 +2348,7 @@ export function linkExpiry(createdAt: LocalTimestamp, cutoffHour = CUTOFF_HOUR):
 }
 ```
 
-`api/src/modules/warehouse/lookups.ts`:
+`backend/api/src/modules/warehouse/lookups.ts`:
 
 ```ts
 import { cached } from '../../core/cache.js';
@@ -2301,7 +2386,7 @@ export async function deliveryCauses(deliveryId: string): Promise<DeliveryCauses
 }
 ```
 
-Replace the stub `api/src/modules/warehouse/index.ts`:
+Replace the stub `backend/api/src/modules/warehouse/index.ts`:
 
 ```ts
 // Public entry point of the Warehouse & promise area (CONTRACTS §2). Other areas import only this file.
@@ -2325,7 +2410,7 @@ export const warehouseApi: WarehouseApi = {
 export const diagnosisApi: DiagnosisApi = { getDeliveryCauses: deliveryCauses };
 ```
 
-- [ ] **Step 4: Run.** `npm test -w api && npm run lint -w api` — Expected: domain tests pass (8), no type errors.
+- [ ] **Step 4: Run.** `npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: domain tests pass (8), no type errors.
 
 - [ ] **Step 5: Commit and tell A** the real `warehouseApi` is on `main`. `git commit -am "feat(b): promise and warehouse rules (W1-W3), real warehouseApi"`
 
@@ -2336,14 +2421,14 @@ export const diagnosisApi: DiagnosisApi = { getDeliveryCauses: deliveryCauses };
 ### Task B9: Read API for the Overview, Warehouses and Replay screens
 
 **Files:**
-- Create: `api/src/modules/warehouse/queries.ts`, `api/src/modules/warehouse/routes.ts`
-- Test: `api/test/routes/warehouse.test.ts` (needs test database)
+- Create: `backend/api/src/modules/warehouse/queries.ts`, `backend/api/src/modules/warehouse/routes.ts`
+- Test: `backend/api/test/routes/warehouse.test.ts` (needs test database)
 
 **Interfaces:**
 - Consumes: tables `kpis`, `cause_summary`, `scenario_results`, `accounts`, `warehouse_stats`, `penalty_reconciliation`, `placement_suggestions`, `placement_impact`.
 - Produces endpoints (CONTRACTS §6): `GET /api/overview`, `/api/causes?segment=`, `/api/replay?segment=`, `/api/accounts`, `/api/attribution`, `/api/cause-kpis`, `/api/warehouses`, `/api/penalties/unpaid`, `/api/placement` (tables filled in B11). Also used by C's MCP server: `overview()`, `causes(segment)`, `replay(segment)`.
 
-- [ ] **Step 1: Write the failing test** `api/test/routes/warehouse.test.ts` (AC-UI-01 data, AC-PEN-01 via API, AC-DIAG-06, AC-NFR-01, contract checks):
+- [ ] **Step 1: Write the failing test** `backend/api/test/routes/warehouse.test.ts` (AC-UI-01 data, AC-PEN-01 via API, AC-DIAG-06, AC-NFR-01, contract checks):
 
 ```ts
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -2406,9 +2491,9 @@ describe.skipIf(!hasDb)('warehouse & diagnosis routes (needs test database)', ()
 });
 ```
 
-- [ ] **Step 2: Run it.** `python -m analytics.pipeline --test-db && npm test -w api -- test/routes/warehouse` — Expected: FAIL, 404s on `/api/overview`.
+- [ ] **Step 2: Run it.** `npm run pipeline:test && npm --prefix backend/api test -- test/routes/warehouse` — Expected: FAIL, 404s on `/api/overview`.
 
-- [ ] **Step 3: Implement** `api/src/modules/warehouse/queries.ts` and `routes.ts`:
+- [ ] **Step 3: Implement** `backend/api/src/modules/warehouse/queries.ts` and `routes.ts`:
 
 ```ts
 import { cached } from '../../core/cache.js';
@@ -2552,43 +2637,44 @@ export default routes;
 
 - [ ] **Step 4: Run.** Expected: 6 passed. `curl localhost:3001/api/overview` shows `onTime: 0.70999…`; `curl localhost:3001/api/attribution` lists carrier lane first at 0.0763.
 
-- [ ] **Step 5: Commit.** `git add api && git commit -m "feat(b): overview, causes, replay, accounts, warehouse and penalty endpoints"`
+- [ ] **Step 5: Commit.** `git add backend/api && git commit -m "feat(b): overview, causes, replay, accounts, warehouse and penalty endpoints"`
 
 ---
 
-### Task B10: Overview, Warehouses and Replay & decision screens (D3, D5, D6, W4)
+### Task B10: Overview, Warehouses and Replay & decision screens (D3, D5, D6, D8, W4)
 
 **Files:**
-- Create: `web/src/features/overview/index.tsx`, `web/src/features/warehouses/index.tsx`, `web/src/features/replay/index.tsx`
-- Test: `web/src/features/overview/overview.test.tsx`, `web/src/features/warehouses/warehouses.test.tsx`, `web/src/features/replay/replay.test.tsx`
+- Create: `frontend/components/dashboard/overview/OverviewScreen.tsx`, `frontend/components/dashboard/warehouses/WarehousesScreen.tsx`, `frontend/components/dashboard/replay/ReplayScreen.tsx`
+- Create: `frontend/app/dashboard/overview/page.tsx`, `frontend/app/dashboard/warehouses/page.tsx`, `frontend/app/dashboard/replay/page.tsx`
+- Test: `OverviewScreen.test.tsx`, `WarehousesScreen.test.tsx`, `ReplayScreen.test.tsx` next to each screen
 
 **Interfaces:**
-- Consumes: B9 endpoints; `useApi`, `Table`, `Kpi`, `Section`, `SyntheticBadge`, formatters (B2).
-- Produces: screens at `/overview` (order 10: KPIs, points lost per cause, one measure per cause, late rate by cause), `/warehouses` (30), `/replay` (50: expected-adoption programme waterfall vs routing vendor, full-fix bounds, recommendation).
+- Consumes: B9 endpoints; `useApi`, `Table`, `Kpi`, `Bars`, `Segmented`, `Section`, `SyntheticBadge`, formatters (B2).
+- Produces: `/dashboard/overview` (KPIs, points lost per cause, one measure per cause, late rate by cause), `/dashboard/warehouses`, `/dashboard/replay` (expected-adoption programme vs routing vendor, full-fix bounds, recommendation, at-risk accounts).
 
 - [ ] **Step 1: Write the failing tests** (AC-UI-01/02, AC-UI-04, recommendation built from API numbers):
 
 ```tsx
 import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { mockApi, renderScreen } from '../../app/test-utils';
-import { OverviewScreen } from './index';
+import { mockApi, renderScreen } from '../test-utils';
+import { OverviewScreen } from './OverviewScreen';
 
 describe('Overview', () => {
-  it('AC-UI-01/02: shows the on-time rate and causes from the API', async () => {
+  it('AC-UI-01/02: shows on-time, attribution and per-cause measures from the API', async () => {
     mockApi({
       '/api/overview': { onTime: 0.71, benchmark: 0.94, deliveries: 48340, late: 14019, penaltiesUsd: 872460, handlingCostUsd: 476646,
         atRiskAccounts: 9, atRiskRevenueUsd: 14200000, prePickupShare: 0.673 },
-      '/api/causes?segment=all': { segment: 'all', causes: [{ flag: 'f_addr', label: 'Incomplete address at intake', stage: 'Intake', n: 5994, lateRate: 0.646 }] },
       '/api/attribution': { causes: [{ cause: 'f_lane', label: 'Carrier lane / Friday overload', stage: 'Carrier', deliveries: 10030, pointsLost: 0.0763, share: 0.263 }] },
       '/api/cause-kpis': { kpis: [{ cause: 'f_addr', label: 'Incomplete address', kpi: 'Orders with an incomplete address at the pick list', baseline: 0.124, target: '<2%', owner: 'Customer success' }] },
+      '/api/causes?segment=all': { segment: 'all', causes: [{ flag: 'f_addr', label: 'Incomplete address at intake', stage: 'Intake', n: 5994, lateRate: 0.646 }] },
     });
     renderScreen(<OverviewScreen />);
     expect(await screen.findByText('71.0%')).toBeTruthy();
     expect(await screen.findByText('$872,460')).toBeTruthy();
-    expect((await screen.findAllByText('Incomplete address at intake')).length).toBeGreaterThan(0);
     expect(await screen.findByText('7.6')).toBeTruthy();
     expect(await screen.findByText('12.4%')).toBeTruthy();
+    expect(await screen.findByText('Incomplete address at intake')).toBeTruthy();
   });
 });
 ```
@@ -2596,21 +2682,21 @@ describe('Overview', () => {
 ```tsx
 import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { mockApi, renderScreen } from '../../app/test-utils';
-import { WarehousesScreen } from './index';
+import { mockApi, renderScreen } from '../test-utils';
+import { WarehousesScreen } from './WarehousesScreen';
 
 describe('Warehouses', () => {
   it('AC-UI-04: the placement panel carries the synthetic badge', async () => {
     mockApi({
       '/api/warehouses': { warehouses: [{ warehouseId: 'W4', name: 'Northeast', orders: 12668, cutoffMisses: 1200, cutoffLateRate: 0.6,
         cutoffBefore11: 600, outOfStock: 1568, outOfStockLateRate: 0.5, skippedNearest: 150, skippedNearestLateRate: 0.49 }],
-        secondPick: { movedOrders: 2414, onTime: 0.732 } },
+        secondPick: { movedOrders: 2414, onTime: 0.734 } },
       '/api/placement': { synthetic: true, week: '2026-09-21', suggestions: [], impact: [] },
-      '/api/penalties/unpaid': { count: 2002, byTier: [{ tier: 'Tier 1', n: 500 }], rows: [] },
+      '/api/penalties/unpaid': { count: 2002, byTier: [{ tier: 'Tier 1', n: 699 }], rows: [] },
     });
     renderScreen(<WarehousesScreen />);
     expect(await screen.findByText('Synthetic data')).toBeTruthy();
-    expect(await screen.findByText(/73\.2%/)).toBeTruthy();
+    expect(await screen.findByText(/73\.4%/)).toBeTruthy();
     expect(await screen.findByText(/2,002 late deliveries/)).toBeTruthy();
   });
 });
@@ -2619,135 +2705,126 @@ describe('Warehouses', () => {
 ```tsx
 import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { mockApi, renderScreen } from '../../app/test-utils';
-import { ReplayScreen } from './index';
+import { mockApi, renderScreen } from '../test-utils';
+import { ReplayScreen } from './ReplayScreen';
 
-const s = (scenario: string, label: string, onTime: number, costAvoided: number) => ({ scenario, label, grp: 'reference', onTime, lateAvoided: 1, costAvoided });
+const s = (scenario: string, label: string, onTime: number, costAvoided: number) => ({ scenario, label, grp: 'adoption', onTime, lateAvoided: 1, costAvoided });
 
 describe('Replay & decision', () => {
-  it('builds the recommendation sentence from API numbers', async () => {
+  it('builds the recommendation from API numbers', async () => {
     mockApi({
       '/api/replay?segment=all': { segment: 'all', scenarios: [
         s('today', 'Today', 0.71, 0), s('route_only', 'Route only', 0.736, 113347), s('adopt_vendor', 'Vendor only', 0.783, 320482),
         s('as_built_adopted', 'As built (adoption)', 0.859, 707950), s('adopt_all', 'Full programme', 0.92, 980764)] },
       '/api/accounts': { accounts: [] },
-      '/api/overview': { benchmark: 0.94 },
+      '/api/overview': { benchmark: 0.94, onTime: 0.71 },
     });
     renderScreen(<ReplayScreen />);
     expect(await screen.findByText(/routing vendor alone reaches 78\.3%/)).toBeTruthy();
-    expect(await screen.findByText(/Fixing all five causes reaches 92\.0%/)).toBeTruthy();
+    expect(await screen.findByText(/Fixing all five causes reaches/)).toBeTruthy();
+    expect((await screen.findAllByText('92.0%')).length).toBeGreaterThan(0);
   });
 });
 ```
 
-- [ ] **Step 2: Run them.** `npm test -w web` — Expected: FAIL, cannot resolve `./index`.
+- [ ] **Step 2: Run them.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./OverviewScreen`.
 
-- [ ] **Step 3: Implement the three screens.**
+- [ ] **Step 3: Implement the three screens** (client components) and their routes:
 
 ```tsx
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import type { Feature } from '../../app/features';
-import { int, pct, usd } from '../../app/format';
-import { Kpi, Section, Status, Table, useApi } from '../../app/ui';
+'use client';
+
 import { useState } from 'react';
+import { Bars, Kpi, ScreenHead, Section, Segmented, Status, Table, ui } from '@/components/dashboard/ui';
+import { useApi } from '@/hooks/useApi';
+import { int, pct, points, usd } from '@/lib/metrics';
 
 export interface Overview {
   onTime: number; benchmark: number; deliveries: number; late: number; penaltiesUsd: number; handlingCostUsd: number;
   atRiskAccounts: number; atRiskRevenueUsd: number; prePickupShare: number;
 }
-export interface Cause { flag: string; label: string; stage: string; n: number; lateRate: number }
+interface Cause { flag: string; label: string; stage: string; n: number; lateRate: number }
 interface Attribution { cause: string; label: string; stage: string; deliveries: number; pointsLost: number; share: number }
 interface CauseKpi { cause: string; label: string; kpi: string; baseline: number; target: string; owner: string }
 
 const PRE_PICKUP = new Set(['Intake', 'Promise', 'Fulfilment']);
+const FIVE = ['f_addr', 'f_cutoff', 'f_stock', 'f_lane', 'f_route', 'none'];
+const SEGMENTS = [['all', 'All orders'], ['email', 'Email orders'], ['at_risk', 'At-risk accounts']] as const;
+type Segment = (typeof SEGMENTS)[number][0];
+/** Counts are shown as whole numbers, shares as percentages. */
+const isCount = (k: CauseKpi) => k.baseline > 1;
 
 export function OverviewScreen() {
-  const [segment, setSegment] = useState('all');
+  const [segment, setSegment] = useState<Segment>('all');
   const o = useApi<Overview>('/api/overview');
-  const c = useApi<{ causes: Cause[] }>(`/api/causes?segment=${segment}`);
   const a = useApi<{ causes: Attribution[] }>('/api/attribution');
   const k = useApi<{ kpis: CauseKpi[] }>('/api/cause-kpis');
-  const causes = (c.data?.causes ?? []).filter((x) => ['f_addr', 'f_cutoff', 'f_stock', 'f_lane', 'f_route', 'none'].includes(x.flag));
+  const c = useApi<{ causes: Cause[] }>(`/api/causes?segment=${segment}`);
+  const causes = (c.data?.causes ?? []).filter((x) => FIVE.includes(x.flag));
   return (
     <>
-      <Section title="Where Halcyon stands">
-        <Status loading={o.loading} error={o.error} />
-        {o.data && (
-          <div className="kpis">
-            <Kpi label="On-time delivery" value={pct(o.data.onTime)} note={`benchmark ${pct(o.data.benchmark, 0)}`} />
-            <Kpi label="Late deliveries (6 months)" value={int(o.data.late)} />
-            <Kpi label="Late deliveries with a cause before pickup" value={pct(o.data.prePickupShare, 0)} />
-            <Kpi label="SLA penalties" value={usd(o.data.penaltiesUsd)} />
-            <Kpi label="Late-delivery handling cost" value={usd(o.data.handlingCostUsd)} />
-            <Kpi label="Accounts threatening to leave" value={`${o.data.atRiskAccounts}`} note={usd(o.data.atRiskRevenueUsd)} />
-          </div>
-        )}
-      </Section>
+      <ScreenHead title="Where Halcyon stands" />
+      <Status loading={o.loading} error={o.error} />
+      {o.data && (
+        <div className={ui.kpis}>
+          <Kpi label="On-time delivery" value={pct(o.data.onTime)} note={`benchmark ${pct(o.data.benchmark, 0)}`} />
+          <Kpi label="Late deliveries (6 months)" value={int(o.data.late)} />
+          <Kpi label="Late deliveries with a cause before pickup" value={pct(o.data.prePickupShare, 0)} />
+          <Kpi label="SLA penalties" value={usd(o.data.penaltiesUsd)} />
+          <Kpi label="Late-delivery handling cost" value={usd(o.data.handlingCostUsd)} />
+          <Kpi label="Accounts threatening to leave" value={`${o.data.atRiskAccounts}`} note={usd(o.data.atRiskRevenueUsd)} />
+        </div>
+      )}
       <Section title="Points of on-time delivery lost to each cause">
         <Status loading={a.loading} error={a.error} />
-        {a.data && <Table rows={a.data.causes} columns={[
-          { key: 'l', label: 'Cause', render: (r) => r.label },
-          { key: 's', label: 'Stage', render: (r) => `${r.stage}${PRE_PICKUP.has(r.stage) ? ' (before pickup)' : ''}` },
-          { key: 'p', label: 'Points lost', align: 'right', render: (r) => (r.pointsLost * 100).toFixed(1) },
-          { key: 'h', label: 'Share of lateness', align: 'right', render: (r) => pct(r.share, 0) },
-        ]} />}
+        {a.data && (
+          <Bars
+            items={a.data.causes.map((x) => ({ label: `${x.label} · ${int(x.deliveries)}`, value: x.pointsLost, tone: PRE_PICKUP.has(x.stage) ? 'pre' : 'post' }))}
+            max={0.08}
+            format={points}
+          />
+        )}
       </Section>
       <Section title="One measure per cause">
         <Status loading={k.loading} error={k.error} />
         {k.data && <Table rows={k.data.kpis} columns={[
           { key: 'l', label: 'Cause', render: (r) => r.label },
           { key: 'k', label: 'Measure', render: (r) => r.kpi },
-          { key: 'b', label: 'Today', align: 'right', render: (r) => (r.baseline <= 1 && !/complaints|far warehouse/.test(r.kpi) ? pct(r.baseline) : int(r.baseline)) },
+          { key: 'b', label: 'Today', align: 'right', render: (r) => (isCount(r) ? int(r.baseline) : pct(r.baseline)) },
           { key: 't', label: 'Target', render: (r) => r.target },
           { key: 'o', label: 'Owner', render: (r) => r.owner },
         ]} />}
       </Section>
-      <Section title="Late rate by cause">
-        <div className="row">
-          <label>Orders <select value={segment} onChange={(e) => setSegment(e.target.value)}>
-            <option value="all">All</option><option value="email">Email orders</option><option value="at_risk">At-risk accounts</option>
-          </select></label>
-        </div>
+      <Section title="Late rate when each cause is present">
+        <div className={ui.row}><Segmented label="Orders" value={segment} options={SEGMENTS} onChange={setSegment} /></div>
         <Status loading={c.loading} error={c.error} />
-        {causes.length > 0 && (
-          <>
-            <div style={{ width: '100%', height: 260 }}>
-              <ResponsiveContainer>
-                <BarChart data={causes} layout="vertical" margin={{ left: 8, right: 16 }}>
-                  <XAxis type="number" tickFormatter={(v: number) => pct(v, 0)} domain={[0, 1]} />
-                  <YAxis type="category" dataKey="label" width={180} tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(v) => pct(Number(v))} />
-                  <Bar dataKey="lateRate" fill="var(--accent)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <Table rows={causes} columns={[
-              { key: 'label', label: 'Cause', render: (r) => r.label },
-              { key: 'stage', label: 'Stage', render: (r) => `${r.stage}${PRE_PICKUP.has(r.stage) ? ' (before pickup)' : ''}` },
-              { key: 'n', label: 'Deliveries', align: 'right', render: (r) => int(r.n) },
-              { key: 'late', label: 'Late rate', align: 'right', render: (r) => pct(r.lateRate, 0) },
-            ]} />
-          </>
-        )}
+        {causes.length > 0 && <Table rows={causes} columns={[
+          { key: 'l', label: 'Cause', render: (r) => r.label },
+          { key: 's', label: 'Stage', render: (r) => `${r.stage}${PRE_PICKUP.has(r.stage) ? ' (before pickup)' : ''}` },
+          { key: 'n', label: 'Deliveries', align: 'right', render: (r) => int(r.n) },
+          { key: 'late', label: 'Late rate', align: 'right', render: (r) => pct(r.lateRate, 0) },
+        ]} />}
       </Section>
     </>
   );
 }
-
-export const feature: Feature = { path: '/overview', label: 'Overview', order: 10, element: <OverviewScreen /> };
 ```
 
 ```tsx
-import type { Feature } from '../../app/features';
-import { int, pct } from '../../app/format';
-import { Section, Status, SyntheticBadge, Table, useApi } from '../../app/ui';
+'use client';
+
+import { ScreenHead, Section, Status, SyntheticBadge, Table } from '@/components/dashboard/ui';
+import { useApi } from '@/hooks/useApi';
+import { int, pct } from '@/lib/metrics';
 
 interface WarehouseRow {
   warehouseId: string; name: string; orders: number; cutoffMisses: number; cutoffLateRate: number; cutoffBefore11: number;
   outOfStock: number; outOfStockLateRate: number; skippedNearest: number; skippedNearestLateRate: number;
 }
-interface Placement { week: string | null; suggestions: { clientId: string; from: string; to: string; qty: number; reason: string }[];
-  impact: { week: string; suggestions: number; avoidedNextWeek: number }[] }
+interface Placement {
+  week: string | null; suggestions: { clientId: string; from: string; to: string; qty: number; reason: string }[];
+  impact: { week: string; suggestions: number; avoidedNextWeek: number }[];
+}
 interface Unpaid { count: number; byTier: { tier: string; n: number }[] }
 
 export function WarehousesScreen() {
@@ -2756,6 +2833,7 @@ export function WarehousesScreen() {
   const u = useApi<Unpaid>('/api/penalties/unpaid');
   return (
     <>
+      <ScreenHead title="Warehouses and promises" />
       <Section title="Problems before pickup, by warehouse">
         <Status loading={w.loading} error={w.error} />
         {w.data && <Table rows={w.data.warehouses} columns={[
@@ -2775,15 +2853,12 @@ export function WarehousesScreen() {
       <Section title="Weekly stock placement suggestions" badge={<SyntheticBadge />}>
         <Status loading={p.loading} error={p.error} />
         {p.data && (
-          <>
-            <p className="muted">Week of {p.data.week}. Based on synthetic stock levels (SD-05); out-of-stock flags match the real data.</p>
-            <Table rows={p.data.suggestions.slice(0, 15)} columns={[
-              { key: 'c', label: 'Client', render: (r) => r.clientId },
-              { key: 'm', label: 'Move', render: (r) => `${r.from} → ${r.to}` },
-              { key: 'q', label: 'Units', align: 'right', render: (r) => int(r.qty) },
-              { key: 'r', label: 'Why', render: (r) => r.reason },
-            ]} />
-          </>
+          <Table rows={p.data.suggestions.slice(0, 15)} columns={[
+            { key: 'c', label: 'Client', render: (r) => r.clientId },
+            { key: 'm', label: 'Move', render: (r) => `${r.from} → ${r.to}` },
+            { key: 'q', label: 'Units', align: 'right', render: (r) => int(r.qty) },
+            { key: 'r', label: 'Why', render: (r) => r.reason },
+          ]} />
         )}
       </Section>
       <Section title="Penalties possibly owed but not paid">
@@ -2794,74 +2869,75 @@ export function WarehousesScreen() {
     </>
   );
 }
-
-export const feature: Feature = { path: '/warehouses', label: 'Warehouses', order: 30, element: <WarehousesScreen /> };
 ```
 
 ```tsx
+'use client';
+
 import { useState } from 'react';
-import { Bar, BarChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import type { Feature } from '../../app/features';
-import { int, pct, usd } from '../../app/format';
-import { Section, Status, Table, useApi } from '../../app/ui';
+import { Bars, type BarItem, ScreenHead, Section, Segmented, Status, Table, ui } from '@/components/dashboard/ui';
+import { useApi } from '@/hooks/useApi';
+import { int, pct, usd } from '@/lib/metrics';
 
 interface Scenario { scenario: string; label: string; grp: string; onTime: number; lateAvoided: number; costAvoided: number }
 interface Account { clientId: string; clientName: string; tier: string; revenueUsd: number; channel: string; onTime: number; mainCause: string; complaints: number }
 
-// Expected-adoption programme (as in the diagnostic deck) against the routing vendor, then the full-fix upper bounds.
-const SHOWN = ['today', 'adopt_vendor', 'adopt_address', 'adopt_lanes', 'adopt_cutoff', 'adopt_warehouse', 'adopt_all',
-  'as_built_adopted', 'as_built', 'route_only', 'vendor_best'];
+// Expected-adoption programme (SPEC §2.4) against the routing vendor; then the full-fix upper bounds.
+const PROGRAMME = ['today', 'adopt_vendor', 'adopt_address', 'adopt_lanes', 'adopt_cutoff', 'adopt_warehouse', 'adopt_all', 'as_built_adopted'];
+const UPPER = ['route_only', 'vendor_best', 'as_built', 'all_but_route'];
+const TONE: Record<string, BarItem['tone']> = { today: 'muted', adopt_vendor: 'post', adopt_all: 'good', as_built_adopted: 'accent' };
+const SEGMENTS = [['all', 'All'], ['email', 'Email orders'], ['at_risk', 'At-risk accounts'], ['aug_sep', 'Aug–Sep']] as const;
+type Segment = (typeof SEGMENTS)[number][0];
 
 export function ReplayScreen() {
-  const [segment, setSegment] = useState('all');
+  const [segment, setSegment] = useState<Segment>('all');
   const r = useApi<{ scenarios: Scenario[] }>(`/api/replay?segment=${segment}`);
   const a = useApi<{ accounts: Account[] }>('/api/accounts');
-  const o = useApi<{ benchmark: number }>('/api/overview');
+  const o = useApi<{ benchmark: number; onTime: number }>('/api/overview');
   const byKey = new Map((r.data?.scenarios ?? []).map((s) => [s.scenario, s]));
-  const shown = SHOWN.map((k) => byKey.get(k)).filter((s): s is Scenario => Boolean(s));
+  const pick = (keys: string[]) => keys.map((k) => byKey.get(k)).filter((s): s is Scenario => Boolean(s));
+  const programme = pick(PROGRAMME);
   const vendor = byKey.get('adopt_vendor');
-  const route = byKey.get('route_only');
+  const full = byKey.get('adopt_all');
   const built = byKey.get('as_built_adopted');
-  const programme = byKey.get('adopt_all');
+  const route = byKey.get('route_only');
   return (
     <>
-      <Section title="Replay of 48,340 deliveries: what if each problem were fixed?">
-        <div className="row">
-          <label>Orders <select value={segment} onChange={(e) => setSegment(e.target.value)}>
-            <option value="all">All</option><option value="email">Email orders</option>
-            <option value="at_risk">At-risk accounts</option><option value="aug_sep">Aug–Sep only</option>
-          </select></label>
-        </div>
+      <ScreenHead title="Replay and decision" />
+      <p className={ui.lede}>Each scenario replays all 48,340 deliveries. The programme adds one fix at a time, each working on part of its
+        cause (address 85%, lanes 90%, cut-off 85%, warehouse 60%, route 30%). The routing vendor is assumed to fix every carrier
+        issue and 30% of detours.</p>
+      <Section title="On-time delivery under each scenario">
+        <div className={ui.row}><Segmented label="Orders" value={segment} options={SEGMENTS} onChange={setSegment} /></div>
         <Status loading={r.loading} error={r.error} />
-        {shown.length > 0 && (
+        {programme.length > 0 && (
           <>
-            <div style={{ width: '100%', height: 300 }}>
-              <ResponsiveContainer>
-                <BarChart data={shown} layout="vertical" margin={{ left: 8, right: 24 }}>
-                  <XAxis type="number" domain={[0.6, 1]} tickFormatter={(v: number) => pct(v, 0)} />
-                  <YAxis type="category" dataKey="label" width={220} tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(v) => pct(Number(v))} />
-                  {o.data && <ReferenceLine x={o.data.benchmark} stroke="var(--good)" label="benchmark" />}
-                  <Bar dataKey="onTime" fill="var(--accent)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <Table rows={shown} columns={[
+            <Bars items={programme.map((s) => ({ label: s.label, value: s.onTime, tone: TONE[s.scenario] ?? 'pre' }))}
+              min={0.6} max={1} mark={o.data?.benchmark} format={(v) => pct(v)} />
+            <Table rows={programme} columns={[
               { key: 'l', label: 'Scenario', render: (s) => s.label },
               { key: 'o', label: 'On-time', align: 'right', render: (s) => pct(s.onTime) },
               { key: 'a', label: 'Late avoided', align: 'right', render: (s) => int(s.lateAvoided) },
               { key: 'c', label: 'Cost avoided (6 mo)', align: 'right', render: (s) => usd(s.costAvoided) },
             ]} />
+            <p className={ui.muted}>Upper bounds if every fix worked on every delivery:</p>
+            <Table rows={pick(UPPER)} columns={[
+              { key: 'l', label: 'Scenario', render: (s) => s.label },
+              { key: 'o', label: 'On-time', align: 'right', render: (s) => pct(s.onTime) },
+              { key: 'c', label: 'Cost avoided (6 mo)', align: 'right', render: (s) => usd(s.costAvoided) },
+            ]} />
           </>
         )}
       </Section>
-      {vendor && route && built && programme && (
-        <Section title="Recommendation on the $680K routing contract">
-          <p><strong>Do not sign as scoped.</strong> With expected adoption, the routing vendor alone reaches {pct(vendor.onTime)};
-            route overruns, the only cause routing fixes directly, are worth {pct(route.onTime)} on their own.
-            Fixing all five causes reaches {pct(programme.onTime)} ({usd(programme.costAvoided)} avoided in 6 months);
-            what we build this week reaches {pct(built.onTime)}. Run the programme, then decide on routing with evidence.</p>
-        </Section>
+      {vendor && full && built && route && o.data && (
+        <section className={ui.callout}>
+          <h2 className={ui.cardTitle}>Recommendation on the $680K routing contract</h2>
+          <p><strong>Do not sign as scoped.</strong> The routing vendor alone reaches {pct(vendor.onTime)}. Fixing all five causes reaches{' '}
+            {pct(full.onTime)} and avoids {usd(full.costAvoided)} in six months; what we build this week reaches {pct(built.onTime)}.
+            Route detours, the one cause routing fixes directly, are worth {((route.onTime - o.data.onTime) * 100).toFixed(1)} points on
+            their own. Pilot for 8 weeks with one measure per cause; if carrier and route causes still cost more than 3 points, pilot
+            the vendor on the remaining lanes.</p>
+        </section>
       )}
       <Section title="The 9 accounts threatening to leave">
         <Status loading={a.loading} error={a.error} />
@@ -2877,22 +2953,53 @@ export function ReplayScreen() {
     </>
   );
 }
-
-export const feature: Feature = { path: '/replay', label: 'Replay & decision', order: 50, element: <ReplayScreen /> };
 ```
 
-- [ ] **Step 4: Run.** `npm test -w web && npm run build -w web` — Expected: PASS. With `npm run dev`, check each screen at 375 px wide in the browser's device toolbar: no sideways scrolling (AC-UI-03).
+```tsx
+import type { Metadata } from 'next';
+import { OverviewScreen } from '@/components/dashboard/overview/OverviewScreen';
 
-- [ ] **Step 5: Commit.** `git add web && git commit -m "feat(b): Overview, Warehouses and Replay & decision screens"`
+export const metadata: Metadata = { title: 'Overview' };
+
+export default function Page() {
+  return <OverviewScreen />;
+}
+```
+
+```tsx
+import type { Metadata } from 'next';
+import { WarehousesScreen } from '@/components/dashboard/warehouses/WarehousesScreen';
+
+export const metadata: Metadata = { title: 'Warehouses' };
+
+export default function Page() {
+  return <WarehousesScreen />;
+}
+```
+
+```tsx
+import type { Metadata } from 'next';
+import { ReplayScreen } from '@/components/dashboard/replay/ReplayScreen';
+
+export const metadata: Metadata = { title: 'Replay and decision' };
+
+export default function Page() {
+  return <ReplayScreen />;
+}
+```
+
+- [ ] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck && npm run build` — Expected: PASS; the build lists the three routes. With `npm run dev:all`, check each screen at 375 px wide in the browser's device toolbar: no sideways scrolling (AC-UI-03), in light and dark.
+
+- [ ] **Step 5: Commit.** `git add frontend && git commit -m "feat(b): Overview, Warehouses and Replay & decision screens"`
 
 ---
 
 ### Task B11: Synthetic stock (SD-05) and weekly placement suggestions (W5)
 
 **Files:**
-- Create: `analytics/warehouse/stock.py`, `synthetic-data/generators/sd05_stock.py`
-- Modify: `analytics/warehouse/__init__.py` (final version)
-- Test: `analytics/tests/test_stock.py`, `api/test/routes/placement.test.ts`
+- Create: `backend/analytics/warehouse/stock.py`, `backend/synthetic-data/generators/sd05_stock.py`
+- Modify: `backend/analytics/warehouse/__init__.py` (final version)
+- Test: `backend/analytics/tests/test_stock.py`, `backend/api/test/routes/placement.test.ts`
 
 **Interfaces:**
 - Produces tables: `stock_daily` (43,164 rows, `synthetic = true`), `placement_suggestions`, `placement_impact`. `/api/placement` (B9) starts returning data.
@@ -2951,9 +3058,9 @@ describe.skipIf(!hasDb)('placement route (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** `python -m pytest analytics/tests/test_stock.py` — Expected: FAIL, `ImportError: cannot import name 'stock'`.
+- [ ] **Step 2: Run.** `python -m pytest backend/analytics/tests/test_stock.py` — Expected: FAIL, `ImportError: cannot import name 'stock'`.
 
-- [ ] **Step 3: Implement** `analytics/warehouse/stock.py`:
+- [ ] **Step 3: Implement** `backend/analytics/warehouse/stock.py`:
 
 ```python
 """SD-05 synthetic stock and W5 weekly placement suggestions (SPEC §5.11).
@@ -3046,7 +3153,7 @@ def placement_impact(d: pd.DataFrame, suggestions: pd.DataFrame) -> pd.DataFrame
     return pd.DataFrame(rows, columns=["week", "suggestions", "avoided_next_week", "synthetic"])
 ```
 
-Replace `analytics/warehouse/__init__.py`:
+Replace `backend/analytics/warehouse/__init__.py`:
 
 ```python
 """Warehouse pipeline step (owner B)."""
@@ -3072,23 +3179,23 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-Generator script `synthetic-data/generators/sd05_stock.py`:
+Generator script `backend/synthetic-data/generators/sd05_stock.py`:
 
 ```python
 """SD-05: synthetic daily stock per warehouse x client x SKU (owner B). The pipeline builds the same table in memory.
 
-Run from the repo root:  python synthetic-data/generators/sd05_stock.py
+Run from the repo root:  python backend/synthetic-data/generators/sd05_stock.py
 """
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
+BACKEND = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(BACKEND))
 
 from analytics.core.load import load  # noqa: E402
 from analytics.warehouse.stock import stock_daily  # noqa: E402
 
-OUT = REPO / "synthetic-data" / "out"
+OUT = BACKEND / "synthetic-data" / "out"
 
 if __name__ == "__main__":
     d, _ = load()
@@ -3097,9 +3204,9 @@ if __name__ == "__main__":
     print(f"wrote {OUT / 'stock_daily.csv'}")
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && python synthetic-data/generators/sd05_stock.py && python -m analytics.pipeline --test-db && npm test -w api -- test/routes/placement` — Expected: all pass. The Warehouses screen now shows suggestions with the "Synthetic data" badge.
+- [ ] **Step 4: Run.** `python -m pytest && python backend/synthetic-data/generators/sd05_stock.py && npm run pipeline:test && npm --prefix backend/api test -- test/routes/placement` — Expected: all pass. The Warehouses screen now shows suggestions with the "Synthetic data" badge.
 
-- [ ] **Step 5: Commit.** `git add analytics synthetic-data/generators && git commit -m "feat(b): synthetic stock (SD-05) and weekly placement suggestions (W5)"`
+- [ ] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/generators && git commit -m "feat(b): synthetic stock (SD-05) and weekly placement suggestions (W5)"`
 
 **Wednesday check-in:** Overview, Warehouses, Replay screens on live data; deployed by C.
 
@@ -3108,10 +3215,10 @@ if __name__ == "__main__":
 ### Task B12: Contract check and synthetic-data register (Thursday morning)
 
 **Files:**
-- Modify: `analytics/tests/test_pipeline.py` (final contract check)
-- Create: `synthetic-data/README.md`
+- Modify: `backend/analytics/tests/test_pipeline.py` (final contract check)
+- Create: `backend/synthetic-data/README.md`
 
-- [ ] **Step 1: Replace `analytics/tests/test_pipeline.py`** with the full contract check (fails if any area forgot a table from CONTRACTS §4):
+- [ ] **Step 1: Replace `backend/analytics/tests/test_pipeline.py`** with the full contract check (fails if any area forgot a table from CONTRACTS §4):
 
 ```python
 from analytics.pipeline import run
@@ -3132,12 +3239,12 @@ def test_pipeline_builds_every_contract_table():
     assert list(tables["delivery_causes"].columns)[:2] == ["delivery_id", "client_id"]
 ```
 
-- [ ] **Step 2: Run.** `python -m pytest analytics/tests/test_pipeline.py` — Expected: PASS once A, B and C have all merged. A failure names the missing table: tell its owner.
+- [ ] **Step 2: Run.** `python -m pytest backend/analytics/tests/test_pipeline.py` — Expected: PASS once A, B and C have all merged. A failure names the missing table: tell its owner.
 
-- [ ] **Step 3: Write `synthetic-data/README.md`** — one section per SD-01 … SD-08 from SPEC §12.1 (built from, used by, generator command, what real data replaces it), plus the three rules (generated from supplied data, seeded, never in headline figures).
+- [ ] **Step 3: Write `backend/synthetic-data/README.md`** — one section per SD-01 … SD-08 from SPEC §12.1 (built from, used by, generator command, what real data replaces it), plus the three rules (generated from supplied data, seeded, never in headline figures).
 
 - [ ] **Step 4: Number check.** Open every screen and compare each figure with SPEC §2 (on-time 71.0%; programme 92.0% vs routing vendor 78.3%; as built 85.9% expected / 88.5% full fix; route only 73.6%; points lost 7.6 / 7.0 / 5.6 / 5.6 / 3.2; penalties $872,460; 2,002 unpaid; 2,414 second-pick orders). Any mismatch is a bug, not a copy-edit.
 
-- [ ] **Step 5: Commit.** `git add analytics synthetic-data/README.md && git commit -m "test(b): full table contract check; synthetic data register"`
+- [ ] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/README.md && git commit -m "test(b): full table contract check; synthetic data register"`
 
 Then follow the overview plan §6 (submission).

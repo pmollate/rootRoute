@@ -4,9 +4,9 @@
 
 **Goal:** Turn messy order emails into checked orders: the AI model reads the email, code checks the address and decides, the client gets a reply asking only for what is missing, and nothing leaves without an operator's approval. Then extend the same checks to API/EDI orders, complaints and delay alerts.
 
-**Architecture:** A fixed pipeline in Node (`api/src/modules/intake/`) with two AI steps (extract, draft reply) behind one `LLM` interface. Code decides every state; the model never does (SEC-02). Python generates the synthetic test data (`analytics/intake/`, `synthetic-data/generators/`). Warehouse and carrier answers come from `warehouseApi` (B) and `carriersApi` (C) via CONTRACTS §2.
+**Architecture:** A fixed pipeline in Node (`backend/api/src/modules/intake/`) with two AI steps (extract, draft reply) behind one `LLM` interface. Code decides every state; the model never does (SEC-02). Python generates the synthetic test data (`backend/analytics/intake/`, `backend/synthetic-data/generators/`). Warehouse and carrier answers come from `warehouseApi` (B) and `carriersApi` (C) via CONTRACTS §2.
 
-**Tech Stack:** Node 22, TypeScript, Fastify 5, zod 4, `@anthropic-ai/sdk` (Claude, model `claude-opus-5-5`), Vitest · Python 3.12, pandas · React 19 (Intake screen) · Playwright (stretch bot).
+**Tech Stack:** Node 22, TypeScript, Fastify 5, zod 4, `@anthropic-ai/sdk` (Claude, model `claude-opus-5-5`), Vitest · Python 3.12, pandas · Next.js 15 + React 19 (Order emails screen in `frontend/`) · Playwright (stretch bot).
 
 **Read first:** `docs/SPEC.md` §5.3, §5.5, §5.6, §5.9, §5.10, §8 (SEC-02 to SEC-05), §12.1 (SD-01 to SD-04, SD-08); `docs/CONTRACTS.md` §1–3, §4 (`complaints`, `risk_lookup`), §5 (100–199), §6 (A rows).
 
@@ -20,7 +20,7 @@
 - Replies go only to `ALLOW_LIST` addresses; nothing is sent or entered into the WMS before `approve` (SEC-03, SEC-04).
 - Tier 1 and at-risk clients come first everywhere A builds a queue: intake list, delay alerts, complaint escalation (`isPriority()`, SPEC §5.15).
 - Tests in CI use `LLM_PROVIDER=recorded` (saved responses, no key). Only `scripts/eval-intake.ts` calls the real model.
-- Import other areas only through `api/src/modules/warehouse/index.ts` and `api/src/modules/carriers/index.ts`.
+- Import other areas only through `backend/api/src/modules/warehouse/index.ts` and `backend/api/src/modules/carriers/index.ts`.
 - Local timestamps `YYYY-MM-DD HH:mm`; the order time is the email's arrival time.
 - Commit messages `feat(a): …`; tests name their ACs.
 - **This Mac:** fix the npm cache once: `sudo chown -R $(id -u):$(id -g) ~/.npm`.
@@ -28,17 +28,18 @@
 ## File Structure (A creates or owns)
 
 ```
-api/src/core/llm/{types,recorded,claude,index}.ts  (+ azureOpenai.ts only if [AI_MODEL] = Azure OpenAI)
-api/src/modules/intake/{region,schema,address,decide,extract,reply,repo,pipeline,actions,deps,routes,seed,edi,orders,complaints,alerts}.ts
-api/src/modules/intake/prompts/{extract,reply}.md
-api/scripts/eval-intake.ts   api/test/recordings/*.json (recorded model responses)
-api/test/llm.test.ts  api/test/intake/*.test.ts  api/test/intake/{fixtures,memoryRepo}.ts  api/test/routes/{orders,complaints,alerts}.test.ts
-db/migrations/100_intake.sql
-synthetic-data/reference/state_regions.json
-synthetic-data/generators/{sd02_sd04_intake,sd01_orders,sd03_complaints}.py
-analytics/intake/{__init__,reference,synthetic,fixtures,orders,risk}.py  analytics/tests/test_intake_*.py, test_risk.py
-tests/fixtures/emails/NN.eml + NN.json (generated, committed)
-web/src/features/intake/  (Intake screen)   web/public/mock-wms.html  web/bots/wms-entry.ts (stretch)
+backend/api/src/core/llm/{types,recorded,claude,index}.ts  (+ azureOpenai.ts only if [AI_MODEL] = Azure OpenAI)
+backend/api/src/modules/intake/{region,schema,address,decide,extract,reply,repo,pipeline,actions,deps,routes,seed,edi,orders,complaints,alerts}.ts
+backend/api/src/modules/intake/prompts/{extract,reply}.md
+backend/api/scripts/eval-intake.ts   backend/api/test/recordings/*.json (recorded model responses)
+backend/api/test/llm.test.ts  backend/api/test/intake/*.test.ts  backend/api/test/intake/{fixtures,memoryRepo}.ts  backend/api/test/routes/{orders,complaints,alerts}.test.ts
+backend/db/migrations/100_intake.sql
+backend/synthetic-data/reference/state_regions.json
+backend/synthetic-data/generators/{sd02_sd04_intake,sd01_orders,sd03_complaints}.py
+backend/analytics/intake/{__init__,reference,synthetic,fixtures,orders,risk}.py  backend/analytics/tests/test_intake_*.py, test_risk.py
+backend/tests/fixtures/emails/NN.eml + NN.json (generated, committed)
+frontend/components/dashboard/intake/  frontend/app/dashboard/intake/page.tsx  (Order emails screen)
+frontend/public/mock-wms.html  frontend/bots/wms-entry.ts (stretch)
 ```
 
 ## Schedule
@@ -57,13 +58,13 @@ Before A1, in hour one with the team: decide `[AI_MODEL]` and get the key into e
 ### Task A1: AI model layer (P3)
 
 **Files:**
-- Create: `api/src/core/llm/types.ts`, `api/src/core/llm/recorded.ts`, `api/src/core/llm/claude.ts`, `api/src/core/llm/index.ts`
-- Test: `api/test/llm.test.ts`
+- Create: `backend/api/src/core/llm/types.ts`, `backend/api/src/core/llm/recorded.ts`, `backend/api/src/core/llm/claude.ts`, `backend/api/src/core/llm/index.ts`
+- Test: `backend/api/test/llm.test.ts`
 
 **Interfaces:**
 - Produces: `interface LLM { name; json<T>({system, user, schema}): Promise<T>; text({system, user}): Promise<string> }`; `LLMError(message, kind)` with `kind: 'refusal' | 'invalid' | 'transport' | 'missing_recording'`; `RecordedLLM(dir?)`, `RecordingLLM(inner, dir?)`, `RECORDINGS_DIR`, `recordingKey(kind, system, user)`; `ClaudeLLM(model)`; `createLLM()` reads `LLM_PROVIDER`, `LLM_MODEL`, `RECORD`.
 
-- [ ] **Step 1: Write the failing test** `api/test/llm.test.ts`:
+- [ ] **Step 1: Write the failing test** `backend/api/test/llm.test.ts`:
 
 ```ts
 import { mkdtempSync } from 'node:fs';
@@ -95,7 +96,7 @@ describe('recorded LLM', () => {
 });
 ```
 
-- [ ] **Step 2: Run it.** `npm test -w api -- test/llm.test.ts` — Expected: FAIL, cannot find `recorded.js`.
+- [ ] **Step 2: Run it.** `npm --prefix backend/api test -- test/llm.test.ts` — Expected: FAIL, cannot find `recorded.js`.
 
 - [ ] **Step 3: Implement.** `types.ts`, `recorded.ts`, `claude.ts`, `index.ts`:
 
@@ -254,22 +255,22 @@ export function createLLM(): LLM {
 export * from './types.js';
 ```
 
-- [ ] **Step 4: Run.** `npm test -w api -- test/llm.test.ts && npm run lint -w api` — Expected: 2 passed, no type errors.
+- [ ] **Step 4: Run.** `npm --prefix backend/api test -- test/llm.test.ts && npm --prefix backend/api run lint` — Expected: 2 passed, no type errors.
 
 - [ ] **Step 5: Live smoke check (needs the key).** With `LLM_PROVIDER=claude` in `.env`:
 
 ```bash
-cd api && npx tsx -e "import('./src/core/llm/index.js').then(async m => console.log(await m.createLLM().text({system:'Reply with one word.', user:'Say OK'})))"
+cd backend/api && npx tsx -e "import('./src/core/llm/index.js').then(async m => console.log(await m.createLLM().text({system:'Reply with one word.', user:'Say OK'})))"
 ```
 
 Expected: `OK` (or similar one-word reply). If it fails with 401, the key is wrong; with 400 mentioning `temperature`, someone added sampling parameters.
 
-- [ ] **Step 6: Commit.** `git add api/src/core/llm api/test/llm.test.ts && git commit -m "feat(a): AI model layer with recorded replay"`
+- [ ] **Step 6: Commit.** `git add backend/api/src/core/llm backend/api/test/llm.test.ts && git commit -m "feat(a): AI model layer with recorded replay"`
 
-- [ ] **Step 7 (only if the team chose Azure OpenAI):** add `api/src/core/llm/azureOpenai.ts` and wire it in `index.ts`:
+- [ ] **Step 7 (only if the team chose Azure OpenAI):** add `backend/api/src/core/llm/azureOpenai.ts` and wire it in `index.ts`:
 
 ```ts
-// Only if the team picks Azure OpenAI for [AI_MODEL]. Install first: npm install openai -w api
+// Only if the team picks Azure OpenAI for [AI_MODEL]. Install first: npm --prefix backend/api install openai
 // Not exercised during planning (no Azure OpenAI deployment available); run the A5 eval against it before relying on it.
 import { AzureOpenAI } from 'openai';
 import { type JsonRequest, type LLM, LLMError, type TextRequest } from './types.js';
@@ -326,15 +327,15 @@ import { AzureOpenAILLM } from './azureOpenai.js';
 ### Task A2: Reference data, client domains and saved addresses (SD-04), intake tables
 
 **Files:**
-- Create: `synthetic-data/reference/state_regions.json`, `analytics/intake/reference.py`, `analytics/intake/synthetic.py`, `synthetic-data/generators/sd02_sd04_intake.py` (SD-04 part)
-- Create: `db/migrations/100_intake.sql`, `api/src/modules/intake/region.ts`, `api/src/modules/intake/seed.ts`
-- Modify: `api/package.json` (add the `seed` script)
-- Test: `analytics/tests/test_intake_sd04.py`
+- Create: `backend/synthetic-data/reference/state_regions.json`, `backend/analytics/intake/reference.py`, `backend/analytics/intake/synthetic.py`, `backend/synthetic-data/generators/sd02_sd04_intake.py` (SD-04 part)
+- Create: `backend/db/migrations/100_intake.sql`, `backend/api/src/modules/intake/region.ts`, `backend/api/src/modules/intake/seed.ts`
+- Modify: `backend/api/package.json` (add the `seed` script)
+- Test: `backend/analytics/tests/test_intake_sd04.py`
 
 **Interfaces:**
-- Produces: `STATE_REGION`, `CITIES`, `client_domain(client_id)` → `clientNNN.example`, `client_sender(client_id)` → `orders@clientNNN.example`; `client_domains(clients)`, `saved_addresses(clients)` (C190 always has exactly 2); `synthetic-data/out/{client_domains,saved_addresses}.csv`; Node `regionOfState(state)`, `isUsState(state)`; Postgres tables of CONTRACTS §5 range 100; `npm run seed -w api [-- --test]`.
+- Produces: `STATE_REGION`, `CITIES`, `client_domain(client_id)` → `clientNNN.example`, `client_sender(client_id)` → `orders@clientNNN.example`; `client_domains(clients)`, `saved_addresses(clients)` (C190 always has exactly 2); `backend/synthetic-data/out/{client_domains,saved_addresses}.csv`; Node `regionOfState(state)`, `isUsState(state)`; Postgres tables of CONTRACTS §5 range 100; `npm run seed [-- --test]`.
 
-- [ ] **Step 1: Write the failing test** `analytics/tests/test_intake_sd04.py`:
+- [ ] **Step 1: Write the failing test** `backend/analytics/tests/test_intake_sd04.py`:
 
 ```python
 import pandas as pd
@@ -365,9 +366,9 @@ def test_nfr_05_sd04_reproducible(clients):
     pd.testing.assert_frame_equal(synthetic.saved_addresses(clients), synthetic.saved_addresses(clients))
 ```
 
-- [ ] **Step 2: Run it.** `python -m pytest analytics/tests/test_intake_sd04.py` — Expected: FAIL, `ModuleNotFoundError: analytics.intake.reference`.
+- [ ] **Step 2: Run it.** `python -m pytest backend/analytics/tests/test_intake_sd04.py` — Expected: FAIL, `ModuleNotFoundError: analytics.intake.reference`.
 
-- [ ] **Step 3: Implement.** `synthetic-data/reference/state_regions.json` (also read by Node; CONTRACTS §3):
+- [ ] **Step 3: Implement.** `backend/synthetic-data/reference/state_regions.json` (also read by Node; CONTRACTS §3):
 
 ```json
 {
@@ -391,8 +392,8 @@ def test_nfr_05_sd04_reproducible(clients):
 import json
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
-REF = json.loads((REPO / "synthetic-data" / "reference" / "state_regions.json").read_text())
+BACKEND = Path(__file__).resolve().parents[2]
+REF = json.loads((BACKEND / "synthetic-data" / "reference" / "state_regions.json").read_text())
 STATE_REGION = {s: region for region, states in REF["regions"].items() for s in states}
 CITIES = REF["cities"]
 STREETS = ["Main St", "Commerce Dr", "Industrial Pkwy", "Harbor Blvd", "Market St", "Logistics Way", "Mill Rd", "Depot Ave"]
@@ -441,18 +442,18 @@ Generator (SD-04 only for now; A3 adds the fixtures):
 ```python
 """Generate SD-04 (client domains, saved addresses). SD-02 fixtures are added in Task A3.
 
-Run from the repo root:  python synthetic-data/generators/sd02_sd04_intake.py
+Run from the repo root:  python backend/synthetic-data/generators/sd02_sd04_intake.py
 """
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
+BACKEND = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(BACKEND))
 
 from analytics.core.load import load  # noqa: E402
 from analytics.intake import synthetic  # noqa: E402
 
-OUT = REPO / "synthetic-data" / "out"
+OUT = BACKEND / "synthetic-data" / "out"
 
 
 def main() -> None:
@@ -468,7 +469,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Node side.** `db/migrations/100_intake.sql`:
+- [ ] **Step 4: Node side.** `backend/db/migrations/100_intake.sql`:
 
 ```sql
 -- Owner A. Intake tables (CONTRACTS §5).
@@ -557,7 +558,7 @@ CREATE TABLE complaint_triage (
 );
 ```
 
-`api/src/modules/intake/region.ts` and `api/src/modules/intake/seed.ts`:
+`backend/api/src/modules/intake/region.ts` and `backend/api/src/modules/intake/seed.ts`:
 
 ```ts
 import { readFileSync } from 'node:fs';
@@ -582,12 +583,12 @@ export function regionOfState(state: string): Region | null {
 ```
 
 ```ts
-// Load SD-04 (client domains, saved addresses) into Postgres. Run: npm run seed -w api [-- --test]
+// Load SD-04 (client domains, saved addresses) into Postgres. Run: npm run seed (from backend/api) [-- --test]
 import { config as loadEnv } from 'dotenv';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-loadEnv({ path: fileURLToPath(new URL('../../../../.env', import.meta.url)), quiet: true });
+loadEnv({ path: fileURLToPath(new URL('../../../../../.env', import.meta.url)), quiet: true });
 if (process.argv.includes('--test')) process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 const { pool } = await import('../../core/db/pool.js');
 
@@ -622,7 +623,7 @@ try {
 }
 ```
 
-Add to the `scripts` in `api/package.json`:
+Add to the `scripts` in `backend/api/package.json`:
 
 ```json
 "seed": "tsx src/modules/intake/seed.ts",
@@ -631,28 +632,28 @@ Add to the `scripts` in `api/package.json`:
 - [ ] **Step 5: Run.**
 
 ```bash
-python -m pytest analytics/tests/test_intake_sd04.py && python synthetic-data/generators/sd02_sd04_intake.py
-npm run migrate -w api && npm run migrate:test -w api && npm run seed -w api && npm run seed -w api -- --test
+python -m pytest backend/analytics/tests/test_intake_sd04.py && python backend/synthetic-data/generators/sd02_sd04_intake.py
+npm run migrate && npm run migrate:test && npm run seed && npm run seed:test
 ```
 
 Expected: 3 passed; `seeded client_domains and saved_addresses` twice.
 
-- [ ] **Step 6: Commit.** `git add synthetic-data analytics/intake analytics/tests db/migrations/100_intake.sql api && git commit -m "feat(a): SD-04 client domains and saved addresses, intake tables"`
+- [ ] **Step 6: Commit.** `git add backend/synthetic-data backend/analytics/intake backend/analytics/tests backend/db/migrations/100_intake.sql backend/api && git commit -m "feat(a): SD-04 client domains and saved addresses, intake tables"`
 
 ---
 
 ### Task A3: 50 synthetic order emails with gold answers (SD-02)
 
 **Files:**
-- Create: `analytics/intake/fixtures.py`
-- Modify: `synthetic-data/generators/sd02_sd04_intake.py` (final version)
-- Create (generated, commit them): `tests/fixtures/emails/01.eml` … `50.eml` and `.json`
-- Test: `analytics/tests/test_intake_fixtures.py`
+- Create: `backend/analytics/intake/fixtures.py`
+- Modify: `backend/synthetic-data/generators/sd02_sd04_intake.py` (final version)
+- Create (generated, commit them): `backend/tests/fixtures/emails/01.eml` … `50.eml` and `.json`
+- Test: `backend/analytics/tests/test_intake_fixtures.py`
 
 **Interfaces:**
 - Produces: `make_fixtures(clients, saved) -> list[(eml_text, gold)]`; `matches_saved(address, client_saved)` (same rule as Node `checkAddress`); gold fields `id, layout, from, received_at, client_id, items, address, requested_commitment, missing, matched_saved, decision, injection`. Result: 36 ALL_CLEAR (1 via saved address), 13 CONFIRM_ADDRESS (includes C190 and the prompt-injection email), 1 MISSING_INFO; 14 layouts; 11 same-day orders after 08:00.
 
-- [ ] **Step 1: Write the failing test** `analytics/tests/test_intake_fixtures.py` (includes AC-SEC-05):
+- [ ] **Step 1: Write the failing test** `backend/analytics/tests/test_intake_fixtures.py` (includes AC-SEC-05):
 
 ```python
 import pytest
@@ -693,7 +694,7 @@ def test_fixture_bodies_contain_gold_values(fx):
 
 - [ ] **Step 2: Run it.** Expected: FAIL, `ImportError: cannot import name 'fixtures'`.
 
-- [ ] **Step 3: Implement** `analytics/intake/fixtures.py`:
+- [ ] **Step 3: Implement** `backend/analytics/intake/fixtures.py`:
 
 ```python
 """SD-02: 50 synthetic intake emails in 14 layouts, each with a gold answer (SPEC §5.3)."""
@@ -831,20 +832,20 @@ Replace the generator with the final version:
 ```python
 """Generate SD-04 (client domains, saved addresses) and SD-02 (50 intake fixture emails + gold JSON).
 
-Run from the repo root:  python synthetic-data/generators/sd02_sd04_intake.py
+Run from the repo root:  python backend/synthetic-data/generators/sd02_sd04_intake.py
 """
 import json
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
+BACKEND = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(BACKEND))
 
 from analytics.core.load import load  # noqa: E402
 from analytics.intake import fixtures, synthetic  # noqa: E402
 
-OUT = REPO / "synthetic-data" / "out"
-FIXTURES = REPO / "tests" / "fixtures" / "emails"
+OUT = BACKEND / "synthetic-data" / "out"
+FIXTURES = BACKEND / "tests" / "fixtures" / "emails"
 
 
 def main() -> None:
@@ -864,10 +865,10 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Run and inspect.** `python -m pytest analytics/tests && python synthetic-data/generators/sd02_sd04_intake.py && ls tests/fixtures/emails | wc -l`
+- [ ] **Step 4: Run and inspect.** `python -m pytest backend/analytics/tests && python backend/synthetic-data/generators/sd02_sd04_intake.py && ls backend/tests/fixtures/emails | wc -l`
 Expected: tests pass; `100` files. Open three `.eml` files of different layouts and the C190 one; check they read like real order emails.
 
-- [ ] **Step 5: Commit** (fixtures are committed so Node tests and the eval use the same files). `git add analytics synthetic-data/generators tests/fixtures && git commit -m "feat(a): 50 synthetic intake emails with gold answers (SD-02)"`
+- [ ] **Step 5: Commit** (fixtures are committed so Node tests and the eval use the same files). `git add backend/analytics backend/synthetic-data/generators backend/tests/fixtures && git commit -m "feat(a): 50 synthetic intake emails with gold answers (SD-02)"`
 
 **Monday check-in:** model key works (A1 step 5); fixtures committed.
 
@@ -876,8 +877,8 @@ Expected: tests pass; `100` files. Open three `.eml` files of different layouts 
 ### Task A4: Address check and decision (E4, E5)
 
 **Files:**
-- Create: `api/src/modules/intake/schema.ts`, `api/src/modules/intake/address.ts`, `api/src/modules/intake/decide.ts`
-- Test: `api/test/intake/address.test.ts`, `api/test/intake/fixtures.ts` (loader), `api/test/intake/oracle.test.ts`
+- Create: `backend/api/src/modules/intake/schema.ts`, `backend/api/src/modules/intake/address.ts`, `backend/api/src/modules/intake/decide.ts`
+- Test: `backend/api/test/intake/address.test.ts`, `backend/api/test/intake/fixtures.ts` (loader), `backend/api/test/intake/oracle.test.ts`
 
 **Interfaces:**
 - Produces: `ExtractionSchema`, `Extraction`, `ExtractedAddress`, `SavedAddress`; `grounded(addr, source)`; `checkAddress(extracted, saved, source) -> AddressCheck { status: 'complete' | 'matched' | 'incomplete', address, missing, candidates }`; `decide(clientId, extraction, address) -> 'ALL_CLEAR' | 'CONFIRM_ADDRESS' | 'MISSING_INFO'`; test helpers `loadFixtures()`, `loadSavedAddresses()`.
@@ -1009,7 +1010,7 @@ describe('fixture oracle', () => {
 });
 ```
 
-- [ ] **Step 2: Run them.** `npm test -w api -- test/intake` — Expected: FAIL, cannot find `address.js`.
+- [ ] **Step 2: Run them.** `npm --prefix backend/api test -- test/intake` — Expected: FAIL, cannot find `address.js`.
 
 - [ ] **Step 3: Implement.**
 
@@ -1116,17 +1117,17 @@ export function decide(clientId: string | null, extraction: Extraction | null, a
 
 - [ ] **Step 4: Run.** Expected: address tests 7 passed; oracle 50 passed. If an oracle case fails, the Python `matches_saved` and Node `checkAddress` rules have drifted — fix the code, not the fixture.
 
-- [ ] **Step 5: Commit.** `git add api && git commit -m "feat(a): grounded address check and decision rules"`
+- [ ] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): grounded address check and decision rules"`
 
 ---
 
 ### Task A5: Extraction (E3) and the fixture eval
 
 **Files:**
-- Create: `api/src/modules/intake/prompts/extract.md`, `api/src/modules/intake/extract.ts`, `api/scripts/eval-intake.ts`
-- Create (recorded): `api/test/recordings/*.json`
-- Modify: `api/package.json` (build copies prompts; `eval:intake` script)
-- Test: `api/test/intake/extract.test.ts`, `api/test/intake/eval.test.ts`
+- Create: `backend/api/src/modules/intake/prompts/extract.md`, `backend/api/src/modules/intake/extract.ts`, `backend/api/scripts/eval-intake.ts`
+- Create (recorded): `backend/api/test/recordings/*.json`
+- Modify: `backend/api/package.json` (build copies prompts; `eval:intake` script)
+- Test: `backend/api/test/intake/extract.test.ts`, `backend/api/test/intake/eval.test.ts`
 
 **Interfaces:**
 - Consumes: `LLM` (A1), `ExtractionSchema` (A4).
@@ -1297,32 +1298,32 @@ for (const fx of fixtures) {
 console.log(`\n${right}/${fixtures.length} decisions match gold using ${llm.name}`);
 ```
 
-In `api/package.json` replace `build` and add `eval:intake`:
+In `backend/api/package.json` replace `build` and add `eval:intake`:
 
 ```json
 "build": "tsc -p tsconfig.json && cp -R src/modules/intake/prompts dist/modules/intake/",
 "eval:intake": "tsx scripts/eval-intake.ts",
 ```
 
-- [ ] **Step 4: Run unit tests.** `npm test -w api -- test/intake/extract.test.ts` — Expected: 4 passed.
+- [ ] **Step 4: Run unit tests.** `npm --prefix backend/api test -- test/intake/extract.test.ts` — Expected: 4 passed.
 
 - [ ] **Step 5: Run the real eval and record responses** (spends model credit: 50 calls).
 
 ```bash
-cd api && RECORD=1 LLM_PROVIDER=claude npm run eval:intake
+cd backend/api && RECORD=1 LLM_PROVIDER=claude npm run eval:intake
 ```
 
-Expected: last line `N/50 decisions match gold`, N ≥ 48. Look at every `MISS` line: if the model filled an address part that is not in the email, `grounded()` should have removed it; if it missed an item, improve `extract.md` and rerun. Then `npm test -w api -- test/intake/eval.test.ts` — Expected: PASS with recorded responses (≥ 90% fields, ≥ 95% incomplete-address recall, injection email not ALL_CLEAR).
+Expected: last line `N/50 decisions match gold`, N ≥ 48. Look at every `MISS` line: if the model filled an address part that is not in the email, `grounded()` should have removed it; if it missed an item, improve `extract.md` and rerun. Then `npm --prefix backend/api test -- test/intake/eval.test.ts` — Expected: PASS with recorded responses (≥ 90% fields, ≥ 95% incomplete-address recall, injection email not ALL_CLEAR).
 
-- [ ] **Step 6: Commit** (recordings included, so CI can replay them). `git add api && git commit -m "feat(a): order extraction, fixture eval with recorded responses"`
+- [ ] **Step 6: Commit** (recordings included, so CI can replay them). `git add backend/api && git commit -m "feat(a): order extraction, fixture eval with recorded responses"`
 
 ---
 
 ### Task A6: Reply drafting (E6)
 
 **Files:**
-- Create: `api/src/modules/intake/prompts/reply.md`, `api/src/modules/intake/reply.ts`
-- Test: `api/test/intake/reply.test.ts`
+- Create: `backend/api/src/modules/intake/prompts/reply.md`, `backend/api/src/modules/intake/reply.ts`
+- Test: `backend/api/test/intake/reply.test.ts`
 
 **Interfaces:**
 - Consumes: `checkPromise` from B (the test imports B8's `domain.ts`; until B8 merges, write the expected strings by hand).
@@ -1474,15 +1475,15 @@ export async function draftReply(llm: LLM, f: ReplyFacts): Promise<{ text: strin
 
 - [ ] **Step 4: Run.** Expected: 5 passed.
 
-- [ ] **Step 5: Commit.** `git add api && git commit -m "feat(a): reply drafts from checked facts with template fallback"`
+- [ ] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): reply drafts from checked facts with template fallback"`
 
 ---
 
 ### Task A7: Intake pipeline, approvals, priority and routes (E1, E2, E7, E8, E14)
 
 **Files:**
-- Create: `api/src/modules/intake/priority.ts`, `repo.ts`, `pipeline.ts`, `actions.ts`, `deps.ts`, `routes.ts`
-- Test: `api/test/intake/priority.test.ts`, `api/test/intake/memoryRepo.ts`, `api/test/intake/pipeline.test.ts`
+- Create: `backend/api/src/modules/intake/priority.ts`, `repo.ts`, `pipeline.ts`, `actions.ts`, `deps.ts`, `routes.ts`
+- Test: `backend/api/test/intake/priority.test.ts`, `backend/api/test/intake/memoryRepo.ts`, `backend/api/test/intake/pipeline.test.ts`
 
 **Interfaces:**
 - Consumes: `warehouseApi`, `carriersApi` (CONTRACTS §2; stubs until B8/C4 land), `createLLM()` (A1), all of A4–A6.
@@ -1929,46 +1930,47 @@ const routes: FastifyPluginAsync = async (app) => {
 export default routes;
 ```
 
-- [ ] **Step 4: Run.** `npm test -w api && npm run lint -w api` — Expected: priority 2 and pipeline 6 passed; everything else still green.
+- [ ] **Step 4: Run.** `npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: priority 2 and pipeline 6 passed; everything else still green.
 
 - [ ] **Step 5: Try it end to end.**
 
 ```bash
-npm run dev -w api
+npm run dev:api
 curl -s -X POST localhost:3001/api/intake/email -H 'content-type: application/json' -H 'x-api-key: dev-key' \
-  -d "$(python3 -c "import json;b=open('tests/fixtures/emails/34.eml').read().split('\n\n',1)[1];print(json.dumps({'from':'orders@client190.example','subject':'[SYNTHETIC] Order 34','body':b,'receivedAt':'2026-10-21 16:51'}))")"
+  -d "$(python3 -c "import json;b=open('backend/tests/fixtures/emails/34.eml').read().split('\n\n',1)[1];print(json.dumps({'from':'orders@client190.example','subject':'[SYNTHETIC] Order 34','body':b,'receivedAt':'2026-10-21 16:51'}))")"
 ```
 
 Expected (with `LLM_PROVIDER=claude`): `"decision":"CONFIRM_ADDRESS"`. Then `curl localhost:3001/api/intake/<id>` shows a reply offering both saved C190 addresses.
 
-- [ ] **Step 6: Commit.** `git add api && git commit -m "feat(a): intake pipeline, approvals, allow-listed sending, routes"`
+- [ ] **Step 6: Commit.** `git add backend/api && git commit -m "feat(a): intake pipeline, approvals, allow-listed sending, routes"`
 
 **Tuesday check-in:** C190 demo works through the API: CONFIRM_ADDRESS → client reply → ALL_CLEAR.
 
 ---
 
-### Task A8: Intake screen (E9)
+### Task A8: Order emails screen (E9)
 
 **Files:**
-- Create: `web/src/features/intake/index.tsx`
-- Test: `web/src/features/intake/intake.test.tsx`
+- Create: `frontend/components/dashboard/intake/IntakeScreen.tsx`, `frontend/app/dashboard/intake/page.tsx`
+- Test: `frontend/components/dashboard/intake/IntakeScreen.test.tsx`
 
 **Interfaces:**
-- Consumes: A7 endpoints; `useApi`, `postJSON`, `Table`, `Section` (B2).
-- Produces: screen at `/intake` (order 20): email list, detail with checks and reply draft, Approve / Send reply / Send to WMS buttons, and a paste-an-email form (a reply to an email waiting for an address is linked to it).
+- Consumes: A7 endpoints; `useApi`, `postJSON`, `Table`, `Section`, `Pill`, `ui` (B2).
+- Produces: `/dashboard/intake`: inbox (priority clients marked), detail with checks and reply draft, Approve / Send reply / Send to WMS buttons, and a paste-an-email form (a reply to an email waiting for an address is linked to it).
 
 - [ ] **Step 1: Write the failing test:**
 
 ```tsx
 import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { mockApi, renderScreen } from '../../app/test-utils';
-import { IntakeScreen } from './index';
+import { mockApi, renderScreen } from '../test-utils';
+import { IntakeScreen } from './IntakeScreen';
 
 describe('Intake', () => {
-  it('lists emails and shows the checks and reply for the selected one', async () => {
+  it('marks priority clients and shows checks and the reply for the selected email', async () => {
     mockApi({
-      '/api/intake': { emails: [{ id: 7, from: 'orders@client190.example', subject: 's', receivedAt: '2026-10-21 16:51', clientId: 'C190', status: 'AWAITING_APPROVAL', decision: 'CONFIRM_ADDRESS', priority: true }] },
+      '/api/intake': { emails: [{ id: 7, from: 'orders@client190.example', subject: 's', receivedAt: '2026-10-21 16:51', clientId: 'C190',
+        status: 'AWAITING_APPROVAL', decision: 'CONFIRM_ADDRESS', priority: true }] },
       '/api/intake/7': { email: { id: 7, from_addr: 'orders@client190.example', subject: 's', body: 'Ship to Dock 2', received_at: '2026-10-21 16:51', status: 'AWAITING_APPROVAL' },
         decision: 'CONFIRM_ADDRESS', replySource: 'template', replyDraft: 'Please send the street address, ZIP code',
         extraction: { items: [{ sku: 'HX-616', qty: 45 }] },
@@ -1983,17 +1985,21 @@ describe('Intake', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** `npm test -w web` — Expected: FAIL, cannot resolve `./index`.
+- [ ] **Step 2: Run.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./IntakeScreen`.
 
-- [ ] **Step 3: Implement:**
+- [ ] **Step 3: Implement** the screen and its route:
 
 ```tsx
-import { useState } from 'react';
-import { postJSON } from '../../app/api';
-import type { Feature } from '../../app/features';
-import { Section, Status, Table, useApi } from '../../app/ui';
+'use client';
 
-interface EmailItem { id: number; from: string; subject: string; receivedAt: string; clientId: string | null; status: string; decision: string | null; priority: boolean }
+import { useState } from 'react';
+import { Pill, ScreenHead, Section, Status, Table, ui } from '@/components/dashboard/ui';
+import { postJSON } from '@/lib/api';
+import { useApi } from '@/hooks/useApi';
+
+interface EmailItem {
+  id: number; from: string; subject: string; receivedAt: string; clientId: string | null; status: string; decision: string | null; priority: boolean;
+}
 interface Detail {
   email: { id: number; from_addr: string; subject: string; body: string; received_at: string; status: string };
   decision: string | null; replyDraft: string | null; replySource: string | null;
@@ -2035,70 +2041,84 @@ export function IntakeScreen() {
 
   const d = detail.data;
   return (
-    <div className="grid2">
-      <Section title="Order emails">
-        <Status loading={list.loading} error={list.error} />
-        {list.data && <Table rows={list.data.emails} columns={[
-          { key: 'i', label: '#', render: (e) => <button onClick={() => setSelected(e.id)}>{e.id}</button> },
-          { key: 'f', label: 'From', render: (e) => <>{e.from} {e.priority && <span className="badge priority" title="Tier 1 or at-risk client: handled first">Priority</span>}</> },
-          { key: 'd', label: 'Decision', render: (e) => e.decision ?? '—' },
-          { key: 's', label: 'Status', render: (e) => e.status },
-        ]} />}
-        <h3>Paste an email (synthetic only)</h3>
-        <div className="row">
-          <input aria-label="From" value={draft.from} onChange={(e) => setDraft({ ...draft, from: e.target.value })} />
-          <input aria-label="Received at" value={draft.receivedAt} onChange={(e) => setDraft({ ...draft, receivedAt: e.target.value })} />
-        </div>
-        <textarea aria-label="Body" value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
-        <div className="row"><button className="primary" onClick={submit}>Process email</button>
-          <span className="muted">Replies to an email waiting for an address are linked to it.</span></div>
-        {message && <p className="muted">{message}</p>}
-      </Section>
-      <Section title={selected ? `Email ${selected}` : 'Select an email'}>
-        <Status loading={Boolean(selected) && detail.loading} error={detail.error} />
-        {d && (
-          <>
-            <p><strong>{d.decision}</strong> · {d.email.status}</p>
-            <pre>{d.email.body}</pre>
-            <h3>Checks</h3>
-            <ul>
-              <li>Items: {d.extraction?.items.map((i) => `${i.qty} × ${i.sku}`).join(', ') ?? 'not read'}</li>
-              <li>Address: {d.checks?.address?.status ?? '—'}{d.checks?.address?.missing.length ? ` (missing ${d.checks.address.missing.join(', ')})` : ''}</li>
-              <li>Promise: {d.checks?.promise ? `${d.checks.promise.promiseDate}${d.checks.promise.reason ? ` — ${d.checks.promise.reason}` : ''}` : '—'}</li>
-              <li>Carrier: {d.checks?.carrier?.reason ?? '—'}</li>
-            </ul>
-            <h3>Reply draft <span className="muted">({d.replySource})</span></h3>
-            <pre>{d.replyDraft}</pre>
-            <div className="row">
-              <button className="primary" onClick={() => act('approve')}>Approve</button>
-              <button onClick={() => act('send_reply')}>Send reply</button>
-              <button onClick={() => act('send_to_wms')}>Send to WMS</button>
-            </div>
-          </>
-        )}
-      </Section>
-    </div>
+    <>
+      <ScreenHead title="Order emails" />
+      <div className={ui.grid2}>
+        <Section title="Inbox">
+          <Status loading={list.loading} error={list.error} />
+          {list.data && <Table rows={list.data.emails} columns={[
+            { key: 'i', label: '#', render: (e) => <button type="button" className={ui.button} onClick={() => setSelected(e.id)}>{e.id}</button> },
+            { key: 'f', label: 'From', render: (e) => <>{e.from} {e.priority && <Pill tone="bad" title="Tier 1 or at-risk client: handled first">Priority</Pill>}</> },
+            { key: 'd', label: 'Decision', render: (e) => e.decision ?? '—' },
+            { key: 's', label: 'Status', render: (e) => e.status },
+          ]} />}
+          <h3>Paste an email (synthetic only)</h3>
+          <div className={ui.row}>
+            <input className={ui.input} aria-label="From" value={draft.from} onChange={(e) => setDraft({ ...draft, from: e.target.value })} />
+            <input className={ui.input} aria-label="Received at" value={draft.receivedAt} onChange={(e) => setDraft({ ...draft, receivedAt: e.target.value })} />
+          </div>
+          <textarea className={ui.textarea} aria-label="Body" value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
+          <div className={ui.row}>
+            <button type="button" className={`${ui.button} ${ui.primary}`} onClick={submit}>Process email</button>
+            <span className={ui.muted}>Replies to an email waiting for an address are linked to it.</span>
+          </div>
+          {message && <p className={ui.muted}>{message}</p>}
+        </Section>
+        <Section title={selected ? `Email ${selected}` : 'Select an email'}>
+          <Status loading={Boolean(selected) && detail.loading} error={detail.error} />
+          {d && (
+            <>
+              <p><strong>{d.decision}</strong> · {d.email.status}</p>
+              <pre className={ui.pre}>{d.email.body}</pre>
+              <h3>Checks</h3>
+              <ul>
+                <li>Items: {d.extraction?.items.map((i) => `${i.qty} × ${i.sku}`).join(', ') ?? 'not read'}</li>
+                <li>Address: {d.checks?.address?.status ?? '—'}{d.checks?.address?.missing.length ? ` (missing ${d.checks.address.missing.join(', ')})` : ''}</li>
+                <li>Promise: {d.checks?.promise ? `${d.checks.promise.promiseDate}${d.checks.promise.reason ? ` — ${d.checks.promise.reason}` : ''}` : '—'}</li>
+                <li>Carrier: {d.checks?.carrier?.reason ?? '—'}</li>
+              </ul>
+              <h3>Reply draft <span className={ui.muted}>({d.replySource})</span></h3>
+              <pre className={ui.pre}>{d.replyDraft}</pre>
+              <div className={ui.row}>
+                <button type="button" className={`${ui.button} ${ui.primary}`} onClick={() => act('approve')}>Approve</button>
+                <button type="button" className={ui.button} onClick={() => act('send_reply')}>Send reply</button>
+                <button type="button" className={ui.button} onClick={() => act('send_to_wms')}>Send to WMS</button>
+              </div>
+            </>
+          )}
+        </Section>
+      </div>
+    </>
   );
 }
-
-export const feature: Feature = { path: '/intake', label: 'Intake', order: 20, element: <IntakeScreen /> };
 ```
 
-- [ ] **Step 4: Run.** Expected: PASS. Rehearse the demo in the browser: paste fixture 34's body, process, approve, then paste a reply that gives the street and ZIP of one of the saved addresses offered in the draft → ALL_CLEAR.
+```tsx
+import type { Metadata } from 'next';
+import { IntakeScreen } from '@/components/dashboard/intake/IntakeScreen';
 
-- [ ] **Step 5: Commit.** `git add web && git commit -m "feat(a): Intake screen"`
+export const metadata: Metadata = { title: 'Order emails' };
+
+export default function Page() {
+  return <IntakeScreen />;
+}
+```
+
+- [ ] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck` — Expected: PASS. Rehearse the demo with `npm run dev:all` at `http://localhost:3000/dashboard/intake`: paste fixture 34's body, process, approve, then paste a reply that gives the street and ZIP of one of the saved addresses offered in the draft → ALL_CLEAR.
+
+- [ ] **Step 5: Commit.** `git add frontend && git commit -m "feat(a): Order emails screen"`
 
 ---
 
 ### Task A9: Address checks on API and EDI orders (E11, SD-01)
 
 **Files:**
-- Create: `analytics/intake/orders.py`, `synthetic-data/generators/sd01_orders.py`, `api/src/modules/intake/edi.ts`, `api/src/modules/intake/orders.ts`
-- Modify: `api/src/modules/intake/routes.ts`
-- Test: `analytics/tests/test_intake_orders.py`, `api/test/intake/edi.test.ts`, `api/test/routes/orders.test.ts` (needs test database)
+- Create: `backend/analytics/intake/orders.py`, `backend/synthetic-data/generators/sd01_orders.py`, `backend/api/src/modules/intake/edi.ts`, `backend/api/src/modules/intake/orders.ts`
+- Modify: `backend/api/src/modules/intake/routes.ts`
+- Test: `backend/analytics/tests/test_intake_orders.py`, `backend/api/test/intake/edi.test.ts`, `backend/api/test/routes/orders.test.ts` (needs test database)
 
 **Interfaces:**
-- Produces: `api_orders(d, n=40)`, `edi_orders(d, n=20)` (half incomplete, from real API/EDI deliveries with `address_status == 'incomplete'`), `synthetic-data/out/{api_orders,edi_orders}.json`; Node `parseEdi850(text)`, `evaluateOrder(order, saved) -> { status: 'accepted' | 'held', check }`, `saveOrder`; `POST /api/orders` (201 or 422), `POST /api/orders/edi` (text/plain).
+- Produces: `api_orders(d, n=40)`, `edi_orders(d, n=20)` (half incomplete, from real API/EDI deliveries with `address_status == 'incomplete'`), `backend/synthetic-data/out/{api_orders,edi_orders}.json`; Node `parseEdi850(text)`, `evaluateOrder(order, saved) -> { status: 'accepted' | 'held', check }`, `saveOrder`; `POST /api/orders` (201 or 422), `POST /api/orders/edi` (text/plain).
 
 - [ ] **Step 1: Write the failing tests** (AC-API-01 to -03):
 
@@ -2252,19 +2272,19 @@ def edi_orders(d: pd.DataFrame, n: int = 20) -> list[tuple[str, dict]]:
 ```python
 """SD-01: synthetic API JSON orders and simplified EDI 850 files (owner A).
 
-Run from the repo root:  python synthetic-data/generators/sd01_orders.py
+Run from the repo root:  python backend/synthetic-data/generators/sd01_orders.py
 """
 import json
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
+BACKEND = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(BACKEND))
 
 from analytics.core.load import load  # noqa: E402
 from analytics.intake import orders  # noqa: E402
 
-OUT = REPO / "synthetic-data" / "out"
+OUT = BACKEND / "synthetic-data" / "out"
 
 
 def main() -> None:
@@ -2382,18 +2402,18 @@ const ApiOrder = z.object({ order_ref: z.string(), client_id: z.string(), ship_t
   });
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest analytics/tests/test_intake_orders.py && python synthetic-data/generators/sd01_orders.py && npm test -w api` — Expected: all pass (route tests run when the test database is up).
+- [ ] **Step 4: Run.** `python -m pytest backend/analytics/tests/test_intake_orders.py && python backend/synthetic-data/generators/sd01_orders.py && npm --prefix backend/api test` — Expected: all pass (route tests run when the test database is up).
 
-- [ ] **Step 5: Commit.** `git add analytics synthetic-data/generators api && git commit -m "feat(a): address checks on API and EDI orders (E11)"`
+- [ ] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/generators backend/api && git commit -m "feat(a): address checks on API and EDI orders (E11)"`
 
 ---
 
 ### Task A10: Complaint triage agent (E12, SD-03)
 
 **Files:**
-- Create: `api/src/modules/intake/complaints.ts`, `synthetic-data/generators/sd03_complaints.py`
-- Modify: `analytics/intake/__init__.py` (writes the `complaints` table), `api/src/modules/intake/routes.ts`
-- Test: `api/test/intake/complaints.test.ts`, `api/test/routes/complaints.test.ts` (needs test database)
+- Create: `backend/api/src/modules/intake/complaints.ts`, `backend/synthetic-data/generators/sd03_complaints.py`
+- Modify: `backend/analytics/intake/__init__.py` (writes the `complaints` table), `backend/api/src/modules/intake/routes.ts`
+- Test: `backend/api/test/intake/complaints.test.ts`, `backend/api/test/routes/complaints.test.ts` (needs test database)
 
 **Interfaces:**
 - Consumes: `diagnosisApi.getDeliveryCauses` (B, real from B8), table `complaints`.
@@ -2453,7 +2473,7 @@ describe.skipIf(!hasDb)('complaint routes (needs test database)', () => {
 
 - [ ] **Step 2: Run.** Expected: FAIL, cannot find `complaints.js`.
 
-- [ ] **Step 3: Implement.** `analytics/intake/__init__.py`:
+- [ ] **Step 3: Implement.** `backend/analytics/intake/__init__.py`:
 
 ```python
 """Intake pipeline step (owner A)."""
@@ -2545,23 +2565,23 @@ export async function saveTriage(t: Awaited<ReturnType<typeof triage>>): Promise
 ```python
 """SD-03: the 34 real complaints rendered as synthetic complaint emails for the demo (owner A).
 
-Run from the repo root:  python synthetic-data/generators/sd03_complaints.py
+Run from the repo root:  python backend/synthetic-data/generators/sd03_complaints.py
 """
 import sys
 from pathlib import Path
 
 import pandas as pd
 
-REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
+BACKEND = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(BACKEND))
 
 from analytics.intake.reference import client_sender  # noqa: E402
 
-OUT = REPO / "synthetic-data" / "out" / "complaints"
+OUT = BACKEND / "synthetic-data" / "out" / "complaints"
 
 
 def main() -> None:
-    complaints = pd.read_csv(REPO / "Halcyon-Hackathon-Dataset" / "complaints.csv")
+    complaints = pd.read_csv(BACKEND.parent / "Halcyon-Hackathon-Dataset" / "complaints.csv")
     OUT.mkdir(parents=True, exist_ok=True)
     for c in complaints.itertuples():
         body = (f"Hello,\n\nAbout delivery {c.delivery_id}: {c.text}\n\nCategory: {c.category}\n\n"
@@ -2598,20 +2618,20 @@ import { diagnosisApi } from '../warehouse/index.js';
   });
 ```
 
-- [ ] **Step 4: Run.** `python -m analytics.pipeline --test-db && python synthetic-data/generators/sd03_complaints.py && npm test -w api` — Expected: all pass; triage of all 34 gives 28 before-pickup causes and 24 escalations.
+- [ ] **Step 4: Run.** `npm run pipeline:test && python backend/synthetic-data/generators/sd03_complaints.py && npm --prefix backend/api test` — Expected: all pass; triage of all 34 gives 28 before-pickup causes and 24 escalations.
 
-- [ ] **Step 5: Commit.** `git add analytics api synthetic-data/generators && git commit -m "feat(a): complaint triage agent (E12)"`
+- [ ] **Step 5: Commit.** `git add backend/analytics backend/api backend/synthetic-data/generators && git commit -m "feat(a): complaint triage agent (E12)"`
 
-**Wednesday check-in:** Intake screen live on the deployed app; API/EDI and complaints endpoints working.
+**Wednesday check-in:** Order emails screen live on the deployed app; API/EDI and complaints endpoints working.
 
 ---
 
 ### Task A11 (stretch): Late-risk score and delay alerts (E10)
 
 **Files:**
-- Create: `analytics/intake/risk.py`, `api/src/modules/intake/alerts.ts`
-- Modify: `analytics/intake/__init__.py` (final), `api/src/modules/intake/routes.ts`
-- Test: `analytics/tests/test_risk.py`, `api/test/intake/alerts.test.ts`, `api/test/routes/alerts.test.ts` (needs test database)
+- Create: `backend/analytics/intake/risk.py`, `backend/api/src/modules/intake/alerts.ts`
+- Modify: `backend/analytics/intake/__init__.py` (final), `backend/api/src/modules/intake/routes.ts`
+- Test: `backend/analytics/tests/test_risk.py`, `backend/api/test/intake/alerts.test.ts`, `backend/api/test/routes/alerts.test.ts` (needs test database)
 
 **Interfaces:**
 - Consumes: `f_lane` on `ctx.d` (B3); `delivery_causes`, `deliveries_clean`, `clients` (B); `isPriority`, `byPriority` (A7).
@@ -2705,7 +2725,7 @@ def risk_lookup(d: pd.DataFrame) -> pd.DataFrame:
     return g.drop(columns="coarse")
 ```
 
-Final `analytics/intake/__init__.py`:
+Final `backend/analytics/intake/__init__.py`:
 
 ```python
 """Intake pipeline step (owner A)."""
@@ -2794,21 +2814,21 @@ import { runAlerts } from './alerts.js';
   });
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && python -m analytics.pipeline --test-db && npm test -w api` — Expected: all pass.
+- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test` — Expected: all pass.
 
-- [ ] **Step 5: Commit.** `git add analytics api && git commit -m "feat(a): late-risk score and delay alert drafts (E10)"`
+- [ ] **Step 5: Commit.** `git add backend/analytics backend/api && git commit -m "feat(a): late-risk score and delay alert drafts (E10)"`
 
 ---
 
 ### Task A12 (stretch, only if A11 is done before Thursday 11:00): Mock WMS and entry bot (E13)
 
 **Files:**
-- Create: `web/public/mock-wms.html`, `web/bots/wms-entry.ts`
-- Modify: `web/package.json` (script)
+- Create: `frontend/public/mock-wms.html`, `frontend/bots/wms-entry.ts`
+- Modify: `frontend/package.json` (script, dev packages)
 
-- [ ] **Step 1: Install.** `npm install -D playwright tsx -w web && npx playwright install chromium`
+- [ ] **Step 1: Install.** `npm --prefix frontend install -D playwright tsx && npx --prefix frontend playwright install chromium`
 
-- [ ] **Step 2: Mock form and bot.**
+- [ ] **Step 2: Mock form and bot.** The mock page is served by the Next.js app at `/mock-wms.html`.
 
 ```html
 <!doctype html>
@@ -2839,11 +2859,11 @@ import { runAlerts } from './alerts.js';
 
 ```ts
 // E13 (stretch, owner A): enter approved ALL_CLEAR orders into the mock WMS form (SPEC §5.6).
-// Usage: WEB_URL=http://localhost:5173 API_URL=http://localhost:3001 API_KEY=dev-key npm run bot:wms -w web
+// Usage (from frontend/): WEB_URL=http://localhost:3000 API_URL=http://localhost:3001 API_KEY=dev-key npm run bot:wms
 import { mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 
-const WEB = process.env.WEB_URL ?? 'http://localhost:5173';
+const WEB = process.env.WEB_URL ?? 'http://localhost:3000';
 const API = process.env.API_URL ?? 'http://localhost:3001';
 const KEY = process.env.API_KEY ?? 'dev-key';
 
@@ -2880,13 +2900,13 @@ await browser.close();
 console.log(`${ready.length} orders entered`);
 ```
 
-Add to `web/package.json` scripts:
+Add to `frontend/package.json` scripts:
 
 ```json
 "bot:wms": "tsx bots/wms-entry.ts",
 ```
 
-- [ ] **Step 3: Run.** Approve an ALL_CLEAR email on the Intake screen, then `WEB_URL=http://localhost:5173 API_URL=http://localhost:3001 API_KEY=dev-key npm run bot:wms -w web`.
-Expected: `email N -> WMS-123456 (200)` and a screenshot in `web/bots/out/` (AC-BOT-01: CONFIRM_ADDRESS emails are never picked; AC-BOT-02: order number and screenshot saved).
+- [ ] **Step 3: Run.** Approve an ALL_CLEAR email on the Order emails screen, then from `frontend/`: `WEB_URL=http://localhost:3000 API_URL=http://localhost:3001 API_KEY=dev-key npm run bot:wms`.
+Expected: `email N -> WMS-123456 (200)` and a screenshot in `frontend/bots/out/` (AC-BOT-01: CONFIRM_ADDRESS emails are never picked; AC-BOT-02: order number and screenshot saved). `npm run typecheck` still passes.
 
-- [ ] **Step 4: Commit.** `git add web && git commit -m "feat(a): mock WMS form and entry bot (E13)"`
+- [ ] **Step 4: Commit.** `git add frontend && git commit -m "feat(a): mock WMS form and entry bot (E13)"`

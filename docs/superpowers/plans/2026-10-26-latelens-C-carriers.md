@@ -4,9 +4,9 @@
 
 **Goal:** Replace the carrier preference spreadsheet with lane rules computed on fair data (block D Midwest/Southeast, E West, F Northeast/Southeast; cap D on Fridays), recommend a carrier and backup with a reason for every order within capacity, show it on the Carriers screen with a backtest and synthetic tracking, and deploy the whole app to Azure.
 
-**Architecture:** Python (`analytics/carriers/`) computes `lane_scores`, `carrier_capacity`, `carrier_backtest` and `carrier_events`; Node (`api/src/modules/carriers/`) looks them up, applies the capacity cap and serves the recommendation through `carriersApi` (CONTRACTS §2) and REST. C also owns Azure setup, the CD workflow, the MCP server and the smoke test.
+**Architecture:** Python (`backend/analytics/carriers/`) computes `lane_scores`, `carrier_capacity`, `carrier_backtest` and `carrier_events`; Node (`backend/api/src/modules/carriers/`) looks them up, applies the capacity cap and serves the recommendation through `carriersApi` (CONTRACTS §2) and REST. C also owns Azure setup, the CD workflow, the MCP server and the smoke test.
 
-**Tech Stack:** Python 3.12, pandas · Node 22, TypeScript, Fastify 5, zod 4, Vitest, `@modelcontextprotocol/sdk` (stretch) · React 19, Recharts · Azure (App Service, Static Web Apps, PostgreSQL Flexible Server, Key Vault, Application Insights), GitHub Actions with OIDC · Playwright (stretch).
+**Tech Stack:** Python 3.12, pandas · Node 22, TypeScript, Fastify 5, zod 4, Vitest, `@modelcontextprotocol/sdk` (stretch) · Next.js 15 + React 19 (Carriers screen in `frontend/`) · Azure (App Service, Static Web Apps, PostgreSQL Flexible Server, Key Vault, Application Insights), GitHub Actions with OIDC · Playwright (stretch).
 
 **Read first:** `docs/SPEC.md` §2.3, §5.2, §5.13, §5.14, §9.3, §12.1 (SD-06, SD-07); `docs/CONTRACTS.md` §1–2, §4 (C rows), §5 (300–399), §6 (C rows).
 
@@ -25,13 +25,14 @@
 ## File Structure (C creates or owns)
 
 ```
-analytics/carriers/{__init__,lanes,capacity,backtest,tracking}.py   analytics/carriers/optimizer/ (teammate's ML work, moved)
-analytics/tests/{test_carriers_lanes,test_capacity,test_backtest,test_tracking}.py
-synthetic-data/generators/{sd06_capacity,sd07_tracking}.py   requirements-ml.txt
-db/migrations/300_carriers.sql
-api/src/modules/carriers/{index,domain,queries,routes}.ts   api/src/modules/mcp/routes.ts (stretch)
-api/test/carriers/{domain.test,lane.fixture}.ts  api/test/routes/{carriers,backtest,tracking,mcp}.test.ts  api/test/mcp.test.ts
-web/src/features/carriers/  web/playwright.config.ts web/e2e/smoke.spec.ts (stretch)
+backend/analytics/carriers/{__init__,lanes,capacity,backtest,tracking}.py   backend/carrier-optimization-engine/ (teammate's ML work, already merged)
+backend/analytics/tests/{test_carriers_lanes,test_capacity,test_backtest,test_tracking}.py
+backend/synthetic-data/generators/{sd06_capacity,sd07_tracking}.py   requirements-ml.txt
+backend/db/migrations/300_carriers.sql
+backend/api/src/modules/carriers/{index,domain,queries,routes}.ts   backend/api/src/modules/mcp/routes.ts (stretch)
+backend/api/test/carriers/{domain.test,lane.fixture}.ts  backend/api/test/routes/{carriers,backtest,tracking,mcp}.test.ts  backend/api/test/mcp.test.ts
+frontend/components/dashboard/carriers/  frontend/app/dashboard/carriers/page.tsx  (Carriers screen)
+frontend/playwright.config.ts  frontend/e2e/smoke.spec.ts (stretch)
 infra/setup.sh  .github/workflows/cd.yml
 ```
 
@@ -46,62 +47,39 @@ infra/setup.sh  .github/workflows/cd.yml
 
 ---
 
-### Task C1: Bring the `carrier_optimizer` branch into `main`, cleaned up
+### Task C1: Check the merged carrier optimizer
+
+The `carrier_optimizer` branch is already merged into `main` and lives in `backend/carrier-optimization-engine/` (no `.DS_Store` or `.pyc` left). This task only keeps its heavy packages out of the main install.
 
 **Files:**
-- Move: `carrier-optimization-engine/` → `analytics/carriers/optimizer/`
-- Delete from git: `carrier-optimization-engine/.DS_Store`, `carrier-optimization-engine/__pycache__/`
 - Create: `requirements-ml.txt`
-- Modify: `ruff.toml` (exclude the optimizer folder)
 
-- [ ] **Step 1: Branch and merge.**
+- [ ] **Step 1: Confirm the state.** `git ls-files backend/carrier-optimization-engine` lists `carrier_recommender_ml.py`, `carrier_risk_model.txt`, `model_report.md`, `replay_results.csv`; `git ls-files | grep -E '\.DS_Store|\.pyc'` prints nothing.
 
-```bash
-git fetch origin
-git switch -c c/merge-optimizer origin/main
-git merge --no-ff origin/carrier_optimizer -m "merge: carrier_optimizer branch (nvarada1)"
-```
-
-- [ ] **Step 2: Remove junk and move the folder.**
-
-```bash
-git rm -r --cached carrier-optimization-engine/.DS_Store carrier-optimization-engine/__pycache__
-rm -rf carrier-optimization-engine/__pycache__ carrier-optimization-engine/.DS_Store
-mkdir -p analytics/carriers
-git mv carrier-optimization-engine analytics/carriers/optimizer
-git rm --cached .DS_Store 2>/dev/null || true
-```
-
-- [ ] **Step 3: Keep its heavy packages out of the main install.** `requirements-ml.txt`:
+- [ ] **Step 2: Its packages.** `requirements-ml.txt`:
 
 ```text
-# Only for analytics/carriers/optimizer (the LightGBM model from the carrier_optimizer branch). Not needed by the pipeline.
+# Only for backend/carrier-optimization-engine (the LightGBM model). Not needed by the pipeline or CI.
 lightgbm>=4.3
 scipy>=1.11
 scikit-learn>=1.4
 ```
 
-Add under the first lines of `ruff.toml`:
+- [ ] **Step 3: Check.** `python -m pytest && ruff check backend/analytics` — Expected: still clean (the optimizer is outside the linted folders).
 
-```toml
-extend-exclude = ["analytics/carriers/optimizer"]
-```
-
-- [ ] **Step 4: Check.** `ruff check analytics && python -m pytest` — Expected: clean, all pass. `ls analytics/carriers/optimizer` shows `carrier_recommender_ml.py`, `model_report.md`, `replay_results.csv`, `carrier_risk_model.txt`.
-
-- [ ] **Step 5: Commit and PR.** `git add -A analytics requirements-ml.txt ruff.toml && git commit -m "chore(c): move carrier optimizer under analytics, drop committed junk"`
+- [ ] **Step 4: Commit.** `git add requirements-ml.txt && git commit -m "chore(c): separate requirements for the carrier optimizer"`
 
 ---
 
 ### Task C2: Lane scores and block rules (C1, C2)
 
 **Files:**
-- Create: `analytics/carriers/lanes.py`
-- Modify: `analytics/carriers/__init__.py` (replaces B's stub)
-- Test: `analytics/tests/test_carriers_lanes.py`
+- Create: `backend/analytics/carriers/lanes.py`
+- Modify: `backend/analytics/carriers/__init__.py` (replaces B's stub)
+- Test: `backend/analytics/tests/test_carriers_lanes.py`
 
 **Interfaces:**
-- Consumes: `ctx.d` with `fair`, `f_d_friday`, `late`, `days_late`, `carrier_rate_usd` (B3). The result must equal `BAD_LANES` in `analytics/core/load.py`.
+- Consumes: `ctx.d` with `fair`, `f_d_friday`, `late`, `days_late`, `carrier_rate_usd` (B3). The result must equal `BAD_LANES` in `backend/analytics/core/load.py`.
 - Produces: `lane_metrics(d)`, `lane_scores(d)` → table `lane_scores` (72 rows: 4 regions × 3 commitments × 6 carriers) with columns of CONTRACTS §4; constants `MIN_N = 30`, `MAX_LATE = 0.15`, `MEDIAN_MULTIPLE = 2.0`, `WEIGHTS`.
 
 - [ ] **Step 1: Write the failing test** (AC-CAR-01, AC-CAR-02, the spec's Northeast next-day example):
@@ -137,9 +115,9 @@ def test_northeast_next_day_lane(scores):
     assert pd.isna(lane.loc["F", "score_default"]) and not lane.loc["D", "blocked"]
 ```
 
-- [ ] **Step 2: Run it.** `python -m pytest analytics/tests/test_carriers_lanes.py` — Expected: FAIL, `ImportError: cannot import name 'lanes'`.
+- [ ] **Step 2: Run it.** `python -m pytest backend/analytics/tests/test_carriers_lanes.py` — Expected: FAIL, `ImportError: cannot import name 'lanes'`.
 
-- [ ] **Step 3: Implement** `analytics/carriers/lanes.py`:
+- [ ] **Step 3: Implement** `backend/analytics/carriers/lanes.py`:
 
 ```python
 """Lane scores and block rules on FAIR data (SPEC §5.2, C1-C2).
@@ -201,7 +179,7 @@ def lane_scores(d: pd.DataFrame) -> pd.DataFrame:
     return g[cols].sort_values(["region", "commitment", "carrier_id"]).reset_index(drop=True)
 ```
 
-and `analytics/carriers/__init__.py`:
+and `backend/analytics/carriers/__init__.py`:
 
 ```python
 """Carriers pipeline step (owner C)."""
@@ -218,18 +196,18 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && python -m analytics.pipeline --test-db` — Expected: 3 new tests pass; `lane_scores` written.
+- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test` — Expected: 3 new tests pass; `lane_scores` written.
 
-- [ ] **Step 5: Commit.** `git add analytics && git commit -m "feat(c): lane scores and block rules on fair data"`
+- [ ] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(c): lane scores and block rules on fair data"`
 
 ---
 
 ### Task C3: Synthetic carrier capacity contracts and the Friday cap (SD-06, C10, C11)
 
 **Files:**
-- Create: `analytics/carriers/capacity.py`, `synthetic-data/generators/sd06_capacity.py`
-- Modify: `analytics/carriers/__init__.py`
-- Test: `analytics/tests/test_capacity.py`
+- Create: `backend/analytics/carriers/capacity.py`, `backend/synthetic-data/generators/sd06_capacity.py`
+- Modify: `backend/analytics/carriers/__init__.py`
+- Test: `backend/analytics/tests/test_capacity.py`
 
 **Interfaces:**
 - Produces: table `carrier_capacity` (24 rows: carrier × region, `daily_limit = ceil(1.1 × p95 of daily volume on days other than Friday)`, `friday_limit = daily_limit` so D is held at its normal level on Fridays, `synthetic = true`).
@@ -281,18 +259,18 @@ def carrier_capacity(d: pd.DataFrame) -> pd.DataFrame:
 ```python
 """SD-06: synthetic carrier capacity contracts (owner C). The pipeline builds the same table in memory.
 
-Run from the repo root:  python synthetic-data/generators/sd06_capacity.py
+Run from the repo root:  python backend/synthetic-data/generators/sd06_capacity.py
 """
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
+BACKEND = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(BACKEND))
 
 from analytics.carriers.capacity import carrier_capacity  # noqa: E402
 from analytics.core.load import load  # noqa: E402
 
-OUT = REPO / "synthetic-data" / "out"
+OUT = BACKEND / "synthetic-data" / "out"
 
 if __name__ == "__main__":
     d, _ = load()
@@ -301,7 +279,7 @@ if __name__ == "__main__":
     print(f"wrote {OUT / 'carrier_capacity.csv'}")
 ```
 
-`analytics/carriers/__init__.py`:
+`backend/analytics/carriers/__init__.py`:
 
 ```python
 """Carriers pipeline step (owner C)."""
@@ -319,18 +297,18 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && python synthetic-data/generators/sd06_capacity.py` — Expected: pass; `synthetic-data/out/carrier_capacity.csv` written.
+- [ ] **Step 4: Run.** `python -m pytest && python backend/synthetic-data/generators/sd06_capacity.py` — Expected: pass; `backend/synthetic-data/out/carrier_capacity.csv` written.
 
-- [ ] **Step 5: Commit.** `git add analytics synthetic-data/generators && git commit -m "feat(c): synthetic carrier capacity contracts (SD-06)"`
+- [ ] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/generators && git commit -m "feat(c): synthetic carrier capacity contracts (SD-06)"`
 
 ---
 
 ### Task C4: Recommender in Node (C3, C4, C6) — replaces the stub A is using
 
 **Files:**
-- Create: `api/src/modules/carriers/domain.ts`, `api/src/modules/carriers/queries.ts`, `api/src/modules/carriers/routes.ts`, `db/migrations/300_carriers.sql`
-- Modify: `api/src/modules/carriers/index.ts` (stub → real)
-- Test: `api/test/carriers/lane.fixture.ts`, `api/test/carriers/domain.test.ts`, `api/test/routes/carriers.test.ts` (needs test database)
+- Create: `backend/api/src/modules/carriers/domain.ts`, `backend/api/src/modules/carriers/queries.ts`, `backend/api/src/modules/carriers/routes.ts`, `backend/db/migrations/300_carriers.sql`
+- Modify: `backend/api/src/modules/carriers/index.ts` (stub → real)
+- Test: `backend/api/test/carriers/lane.fixture.ts`, `backend/api/test/carriers/domain.test.ts`, `backend/api/test/routes/carriers.test.ts` (needs test database)
 
 **Interfaces:**
 - Consumes: tables `lane_scores`, `carrier_capacity`, `recommendations`.
@@ -424,7 +402,7 @@ describe.skipIf(!hasDb)('carrier routes (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** `npm test -w api -- test/carriers` — Expected: FAIL, cannot find `domain.js`.
+- [ ] **Step 2: Run.** `npm --prefix backend/api test -- test/carriers` — Expected: FAIL, cannot find `domain.js`.
 
 - [ ] **Step 3: Implement.** Migration and domain logic:
 
@@ -674,18 +652,18 @@ const routes: FastifyPluginAsync = async (app) => {
 export default routes;
 ```
 
-- [ ] **Step 4: Run.** `npm run migrate:test -w api && npm test -w api && npm run lint -w api` — Expected: domain tests 5 passed; route tests pass with the test database.
+- [ ] **Step 4: Run.** `npm run migrate:test && npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: domain tests 5 passed; route tests pass with the test database.
 
-- [ ] **Step 5: Commit and tell A** the real `carriersApi` is on `main`. `git add api db && git commit -m "feat(c): carrier recommender with capacity cap, overrides"`
+- [ ] **Step 5: Commit and tell A** the real `carriersApi` is on `main`. `git add backend/api backend/db && git commit -m "feat(c): carrier recommender with capacity cap, overrides"`
 
 ---
 
 ### Task C5: Backtest (C7)
 
 **Files:**
-- Create: `analytics/carriers/backtest.py`
-- Modify: `analytics/carriers/__init__.py`
-- Test: `analytics/tests/test_backtest.py`, `api/test/routes/backtest.test.ts` (needs test database)
+- Create: `backend/analytics/carriers/backtest.py`
+- Modify: `backend/analytics/carriers/__init__.py`
+- Test: `backend/analytics/tests/test_backtest.py`, `backend/api/test/routes/backtest.test.ts` (needs test database)
 
 **Interfaces:**
 - Produces: table `carrier_backtest` (`actual` vs `recommended`, Aug–Sep, with on-time and mean rate). Friday orders never go to D in the recommended plan. Prototype result: 71.3% → 78.2%, mean rate $15.23 → $13.03.
@@ -784,9 +762,9 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && python -m analytics.pipeline --test-db && npm test -w api -- test/routes/backtest` — Expected: pass.
+- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test -- test/routes/backtest` — Expected: pass.
 
-- [ ] **Step 5: Commit.** `git add analytics api && git commit -m "feat(c): Apr-Jul / Aug-Sep backtest of lane rules"`
+- [ ] **Step 5: Commit.** `git add backend/analytics backend/api && git commit -m "feat(c): Apr-Jul / Aug-Sep backtest of lane rules"`
 
 **Tuesday check-in:** `carriersApi` real; `/api/carriers?region=Northeast&commitment=next_day` returns the spec's reason string.
 
@@ -795,12 +773,12 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
 ### Task C6: Synthetic tracking feeds and adapters (SD-07, C8)
 
 **Files:**
-- Create: `analytics/carriers/tracking.py`, `synthetic-data/generators/sd07_tracking.py`
-- Modify: `analytics/carriers/__init__.py` (final)
-- Test: `analytics/tests/test_tracking.py`, `api/test/routes/tracking.test.ts` (needs test database)
+- Create: `backend/analytics/carriers/tracking.py`, `backend/synthetic-data/generators/sd07_tracking.py`
+- Modify: `backend/analytics/carriers/__init__.py` (final)
+- Test: `backend/analytics/tests/test_tracking.py`, `backend/api/test/routes/tracking.test.ts` (needs test database)
 
 **Interfaces:**
-- Produces: feed files in `synthetic-data/out/tracking/` (JSON lines for A–C, weekly portal HTML for D, weekly CSV for E–F; ~15 MB, gitignored); `events(d)`, `write_feeds(d, out)`, `read_feeds(out)`; table `carrier_events` (193,360 rows, `synthetic = true`). `/api/tracking?asOf=` (C4) now returns freshness per carrier and deliveries at risk.
+- Produces: feed files in `backend/synthetic-data/out/tracking/` (JSON lines for A–C, weekly portal HTML for D, weekly CSV for E–F; ~15 MB, gitignored); `events(d)`, `write_feeds(d, out)`, `read_feeds(out)`; table `carrier_events` (193,360 rows, `synthetic = true`). `/api/tracking?asOf=` (C4) now returns freshness per carrier and deliveries at risk.
 
 - [ ] **Step 1: Write the failing tests** (AC-TRK-01, AC-TRK-02):
 
@@ -857,8 +835,8 @@ from pathlib import Path
 
 import pandas as pd
 
-REPO = Path(__file__).resolve().parents[2]
-OUT = REPO / "synthetic-data" / "out" / "tracking"
+BACKEND = Path(__file__).resolve().parents[2]
+OUT = BACKEND / "synthetic-data" / "out" / "tracking"
 API, PORTAL, BATCH = ["A", "B", "C"], ["D"], ["E", "F"]
 
 
@@ -924,13 +902,13 @@ def read_feeds(out: Path = OUT) -> pd.DataFrame:
 ```python
 """SD-07: synthetic carrier tracking feeds in three formats (owner C). The pipeline also calls write_feeds().
 
-Run from the repo root:  python synthetic-data/generators/sd07_tracking.py
+Run from the repo root:  python backend/synthetic-data/generators/sd07_tracking.py
 """
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
+BACKEND = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(BACKEND))
 
 from analytics.carriers.tracking import write_feeds  # noqa: E402
 from analytics.core.load import load  # noqa: E402
@@ -940,7 +918,7 @@ if __name__ == "__main__":
     print(f"wrote feeds to {write_feeds(d)}")
 ```
 
-Final `analytics/carriers/__init__.py`:
+Final `backend/analytics/carriers/__init__.py`:
 
 ```python
 """Carriers pipeline step (owner C)."""
@@ -961,38 +939,38 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && python -m analytics.pipeline --test-db && npm test -w api -- test/routes/tracking` — Expected: pass (writing 193k events takes under a minute).
+- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test -- test/routes/tracking` — Expected: pass (writing 193k events takes under a minute).
 
-- [ ] **Step 5: Commit.** `git add analytics synthetic-data/generators api && git commit -m "feat(c): synthetic carrier tracking feeds and adapters (SD-07)"`
+- [ ] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/generators backend/api && git commit -m "feat(c): synthetic carrier tracking feeds and adapters (SD-07)"`
 
 ---
 
 ### Task C7: Carriers screen (C5)
 
 **Files:**
-- Create: `web/src/features/carriers/index.tsx`
-- Test: `web/src/features/carriers/carriers.test.tsx`
+- Create: `frontend/components/dashboard/carriers/CarriersScreen.tsx`, `frontend/app/dashboard/carriers/page.tsx`
+- Test: `frontend/components/dashboard/carriers/CarriersScreen.test.tsx`
 
 **Interfaces:**
-- Consumes: `/api/carriers`, `/api/carriers/backtest`, `/api/tracking`, `POST /api/overrides`.
-- Produces: screen `/carriers` (order 40): region / promise / SLA pickers, ranked carriers marked recommended / backup / blocked with reasons, backtest table, tracking panel with the synthetic badge, override form.
+- Consumes: `/api/carriers`, `/api/carriers/backtest`, `/api/tracking`, `POST /api/overrides`; `Segmented`, `Pill`, `Table`, `SyntheticBadge`, `postJSON` (B2).
+- Produces: `/dashboard/carriers`: region / promise / SLA pickers, ranked carriers marked recommended / backup / blocked with reasons, backtest table, tracking panel with the synthetic badge, override form.
 
 - [ ] **Step 1: Write the failing test:**
 
 ```tsx
 import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { mockApi, renderScreen } from '../../app/test-utils';
-import { CarriersScreen } from './index';
+import { mockApi, renderScreen } from '../test-utils';
+import { CarriersScreen } from './CarriersScreen';
 
 describe('Carriers', () => {
   it('shows the recommendation reason, a blocked carrier and the synthetic tracking badge', async () => {
     mockApi({
       '/api/carriers?region=Northeast&commitment=next_day&sla=false': { recommendation: {
-        carrier: 'E', backup: 'A', blocked: ['D', 'F'],
+        carrier: 'E', backup: 'A', blocked: ['F'],
         reason: 'Carrier E for Northeast next-day: 97% on time vs 55% for F; $1.62 more per shipment',
         options: [
-          { carrier: 'E', onTime: 0.968, meanRate: 12.84, n: 309, score: 98, status: 'recommended', reason: 'eligible' },
+          { carrier: 'E', onTime: 0.968, meanRate: 12.84, n: 309, score: 96, status: 'recommended', reason: 'eligible' },
           { carrier: 'F', onTime: 0.546, meanRate: 11.22, n: 445, score: null, status: 'blocked', reason: '45% late on fair data (limit 15%)' },
         ] } },
       '/api/carriers/backtest': { rows: [] },
@@ -1006,27 +984,30 @@ describe('Carriers', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** `npm test -w web` — Expected: FAIL, cannot resolve `./index`.
+- [ ] **Step 2: Run.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./CarriersScreen`.
 
-- [ ] **Step 3: Implement:**
+- [ ] **Step 3: Implement** the screen and its route:
 
 ```tsx
+'use client';
+
 import { useState } from 'react';
-import { postJSON } from '../../app/api';
-import type { Feature } from '../../app/features';
-import { int, pct, usd2 } from '../../app/format';
-import { Section, Status, SyntheticBadge, Table, useApi } from '../../app/ui';
+import { Pill, ScreenHead, Section, Segmented, Status, SyntheticBadge, Table, type Tone, ui } from '@/components/dashboard/ui';
+import { postJSON } from '@/lib/api';
+import { useApi } from '@/hooks/useApi';
+import { int, pct, usd2 } from '@/lib/metrics';
 
 interface Option { carrier: string; onTime: number; meanRate: number; n: number; score: number | null; status: string; reason: string }
 interface Rec { carrier: string; backup: string; reason: string; blocked: string[]; options: Option[] }
 interface Tracking { asOf: string; freshness: { carrier: string; source: string; lastEventAt: string }[]; atRisk: { deliveryId: string; carrier: string }[] }
 
-const REGIONS = ['Midwest', 'Northeast', 'Southeast', 'West'];
-const COMMITMENTS = [['same_day', 'Same day'], ['next_day', 'Next day'], ['standard', 'Standard']];
+const REGIONS = [['Midwest', 'Midwest'], ['Northeast', 'Northeast'], ['Southeast', 'Southeast'], ['West', 'West']] as const;
+const COMMITMENTS = [['same_day', 'Same day'], ['next_day', 'Next day'], ['standard', 'Standard']] as const;
+const STATUS_TONE: Record<string, Tone> = { recommended: 'good', backup: 'neutral', eligible: 'neutral', blocked: 'bad' };
 
 export function CarriersScreen() {
-  const [region, setRegion] = useState('Northeast');
-  const [commitment, setCommitment] = useState('next_day');
+  const [region, setRegion] = useState<(typeof REGIONS)[number][0]>('Northeast');
+  const [commitment, setCommitment] = useState<(typeof COMMITMENTS)[number][0]>('next_day');
   const [sla, setSla] = useState(false);
   const [override, setOverride] = useState({ orderRef: '', to: '', reason: '', user: '' });
   const [overrideMsg, setOverrideMsg] = useState('');
@@ -1046,13 +1027,15 @@ export function CarriersScreen() {
 
   return (
     <>
+      <ScreenHead title="Carrier choice by lane" />
+      <p className={ui.lede}>Scored on deliveries with no address, stock or cut-off problem. Five lanes fail every day and are blocked.
+        Carrier D is capped on Fridays, when it carries 39% of shipments and breaks; on other days it is a cheap, reliable option in the
+        Northeast and West.</p>
       <Section title="Which carrier for this lane?">
-        <div className="row">
-          <select aria-label="Region" value={region} onChange={(e) => setRegion(e.target.value)}>{REGIONS.map((r) => <option key={r}>{r}</option>)}</select>
-          <select aria-label="Delivery promise" value={commitment} onChange={(e) => setCommitment(e.target.value)}>
-            {COMMITMENTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-          <label><input type="checkbox" checked={sla} onChange={(e) => setSla(e.target.checked)} /> Client has an SLA penalty clause</label>
+        <div className={ui.row}>
+          <Segmented label="Region" value={region} options={REGIONS} onChange={setRegion} />
+          <Segmented label="Delivery promise" value={commitment} options={COMMITMENTS} onChange={setCommitment} />
+          <label className={ui.muted}><input type="checkbox" checked={sla} onChange={(e) => setSla(e.target.checked)} /> Client has an SLA penalty clause</label>
         </div>
         <Status loading={lane.loading} error={lane.error} />
         {rec && (
@@ -1060,7 +1043,7 @@ export function CarriersScreen() {
             <p><strong>{rec.reason}</strong> Backup: {rec.backup}.</p>
             <Table rows={rec.options} columns={[
               { key: 'c', label: 'Carrier', render: (o) => o.carrier },
-              { key: 's', label: 'Status', render: (o) => <span className={`status-${o.status}`}>{o.status}</span> },
+              { key: 's', label: 'Status', render: (o) => <Pill tone={STATUS_TONE[o.status] ?? 'neutral'}>{o.status}</Pill> },
               { key: 'o', label: 'On-time (fair data)', align: 'right', render: (o) => pct(o.onTime, 0) },
               { key: 'r', label: 'Mean rate', align: 'right', render: (o) => usd2(o.meanRate) },
               { key: 'n', label: 'Deliveries', align: 'right', render: (o) => int(o.n) },
@@ -1082,7 +1065,7 @@ export function CarriersScreen() {
         <Status loading={tr.loading} error={tr.error} />
         {tr.data && (
           <>
-            <p className="muted">As of {tr.data.asOf}: {int(tr.data.atRisk.length)} deliveries promised today have no delivered event.</p>
+            <p className={ui.muted}>As of {tr.data.asOf}: {int(tr.data.atRisk.length)} deliveries promised that day have no delivered event.</p>
             <Table rows={tr.data.freshness} columns={[
               { key: 'c', label: 'Carrier', render: (f) => f.carrier },
               { key: 's', label: 'Feed', render: (f) => f.source },
@@ -1092,25 +1075,34 @@ export function CarriersScreen() {
         )}
       </Section>
       <Section title="Override a recommendation">
-        <div className="row">
-          <input placeholder="Order ref" value={override.orderRef} onChange={(e) => setOverride({ ...override, orderRef: e.target.value })} />
-          <input placeholder="Use carrier" value={override.to} onChange={(e) => setOverride({ ...override, to: e.target.value })} />
-          <input placeholder="Reason" value={override.reason} onChange={(e) => setOverride({ ...override, reason: e.target.value })} />
-          <input placeholder="Your name" value={override.user} onChange={(e) => setOverride({ ...override, user: e.target.value })} />
-          <button onClick={saveOverride}>Log override</button>
+        <div className={ui.row}>
+          <input className={ui.input} aria-label="Order ref" placeholder="Order ref" value={override.orderRef} onChange={(e) => setOverride({ ...override, orderRef: e.target.value })} />
+          <input className={ui.input} aria-label="Use carrier" placeholder="Use carrier" value={override.to} onChange={(e) => setOverride({ ...override, to: e.target.value })} />
+          <input className={ui.input} aria-label="Reason" placeholder="Reason" value={override.reason} onChange={(e) => setOverride({ ...override, reason: e.target.value })} />
+          <input className={ui.input} aria-label="Your name" placeholder="Your name" value={override.user} onChange={(e) => setOverride({ ...override, user: e.target.value })} />
+          <button type="button" className={ui.button} onClick={saveOverride}>Log override</button>
         </div>
-        {overrideMsg && <p className="muted">{overrideMsg}</p>}
+        {overrideMsg && <p className={ui.muted}>{overrideMsg}</p>}
       </Section>
     </>
   );
 }
-
-export const feature: Feature = { path: '/carriers', label: 'Carriers', order: 40, element: <CarriersScreen /> };
 ```
 
-- [ ] **Step 4: Run.** Expected: PASS. In the browser, switch to West / standard: E must show as blocked; switch to Midwest: F must be eligible.
+```tsx
+import type { Metadata } from 'next';
+import { CarriersScreen } from '@/components/dashboard/carriers/CarriersScreen';
 
-- [ ] **Step 5: Commit.** `git add web && git commit -m "feat(c): Carriers screen"`
+export const metadata: Metadata = { title: 'Carriers' };
+
+export default function Page() {
+  return <CarriersScreen />;
+}
+```
+
+- [ ] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck` — Expected: PASS. In the browser: West / standard shows E blocked and D eligible; Midwest shows D blocked and F eligible.
+
+- [ ] **Step 5: Commit.** `git add frontend && git commit -m "feat(c): Carriers screen"`
 
 ---
 
@@ -1156,7 +1148,7 @@ AI_CONN=$(az monitor app-insights component create -g "$RG" -l "$LOC" --app "$NA
 # API on App Service (Linux, Node 22) reading secrets through Key Vault references
 az appservice plan create -g "$RG" -n "$NAME-plan" --is-linux --sku B1 -o none
 az webapp create -g "$RG" -p "$NAME-plan" -n "$NAME-api" --runtime "NODE:22-lts" -o none
-az webapp config set -g "$RG" -n "$NAME-api" --startup-file "node api/dist/index.js" -o none
+az webapp config set -g "$RG" -n "$NAME-api" --startup-file "node backend/api/dist/index.js" -o none
 PRINCIPAL=$(az webapp identity assign -g "$RG" -n "$NAME-api" --query principalId -o tsv)
 az keyvault set-policy -n "$NAME-kv" --object-id "$PRINCIPAL" --secret-permissions get list -o none
 KV="https://$NAME-kv.vault.azure.net/secrets"
@@ -1226,24 +1218,22 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: for g in synthetic-data/generators/*.py; do python "$g"; done
-        shell: bash
+      - run: npm run data
       - name: Fill computed tables
-        run: python -m analytics.pipeline
+        run: npm run pipeline
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-      - run: npm ci
-      - run: npm run migrate -w api
-      - run: npm run seed -w api
-      - name: Package the API
+      - run: npm --prefix backend/api ci
+      - run: npm run migrate
+      - run: npm run seed
+      - name: Package the API (keeps backend/ paths so the API finds synthetic-data/reference)
         run: |
-          npm run build -w api
-          mkdir -p deploy/api deploy/synthetic-data
-          cp -R api/dist api/package.json deploy/api/
-          cp -R synthetic-data/reference deploy/synthetic-data/
-          cd deploy/api && npm install --omit=dev --no-audit --no-fund
+          npm run build:api
+          mkdir -p deploy/backend/api deploy/backend/synthetic-data
+          cp -R backend/api/dist backend/api/package.json backend/api/package-lock.json deploy/backend/api/
+          cp -R backend/synthetic-data/reference deploy/backend/synthetic-data/
+          npm --prefix deploy/backend/api ci --omit=dev --no-audit --no-fund
       - uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -1253,17 +1243,16 @@ jobs:
         with:
           app-name: ${{ vars.API_APP_NAME }}
           package: deploy
-      - name: Build the web app
-        run: npm run build -w web
+      - name: Deploy the Next.js app (landing page + dashboard)
+        uses: Azure/static-web-apps-deploy@v1
         env:
-          VITE_API_URL: ${{ vars.API_URL }}
-          VITE_API_KEY: ${{ secrets.DEMO_API_KEY }}
-      - uses: Azure/static-web-apps-deploy@v1
+          NEXT_PUBLIC_API_URL: ${{ vars.API_URL }}
+          NEXT_PUBLIC_API_KEY: ${{ secrets.DEMO_API_KEY }}
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           action: upload
-          app_location: web/dist
-          skip_app_build: true
+          app_location: frontend
+          output_location: ""
       - name: Smoke check
         run: |
           for i in $(seq 1 30); do
@@ -1275,7 +1264,7 @@ jobs:
 
 - [ ] **Step 4: First deployment.** Merge to `main`, or run the workflow from the Actions tab. Expected: the "Smoke check" step finds `"db":"ok"`. Open the Static Web App URL: Overview shows 71.0%.
 
-- [ ] **Step 5: Check logs.** Process one email through the deployed Intake screen, then in Application Insights → Logs search for its `emailId`. Expected: the "intake email decided" line appears (AC-NFR-03).
+- [ ] **Step 5: Check logs.** Process one email through the deployed Order emails screen, then in Application Insights → Logs search for its `emailId`. Expected: the "intake email decided" line appears (AC-NFR-03).
 
 - [ ] **Step 6: Commit.** `git add infra .github/workflows/cd.yml && git commit -m "ci(c): Azure setup script and continuous deployment"`
 
@@ -1286,14 +1275,14 @@ jobs:
 ### Task C9 (stretch): "Ask LateLens" MCP server (D7)
 
 **Files:**
-- Create: `api/src/modules/mcp/routes.ts`
-- Test: `api/test/mcp.test.ts`, `api/test/routes/mcp.test.ts` (needs test database)
+- Create: `backend/api/src/modules/mcp/routes.ts`
+- Test: `backend/api/test/mcp.test.ts`, `backend/api/test/routes/mcp.test.ts` (needs test database)
 
 **Interfaces:**
 - Consumes: `q.overview/causes/replay` (B9), `laneRows` + `recommendFromLane` (C4), `checkPromise` (B8).
 - Produces: `POST /api/mcp` (Streamable HTTP, stateless, needs `x-api-key`) with read-only tools `overview`, `delivery_causes`, `scenario`, `lane_scores`, `check_promise`; `buildMcpServer()`.
 
-- [ ] **Step 1: Install.** `npm install @modelcontextprotocol/sdk -w api`
+- [ ] **Step 1: Install.** `npm --prefix backend/api install @modelcontextprotocol/sdk`
 
 - [ ] **Step 2: Write the failing tests** (AC-MCP-01, AC-MCP-02):
 
@@ -1388,28 +1377,28 @@ const routes: FastifyPluginAsync = async (app) => {
 export default routes;
 ```
 
-- [ ] **Step 5: Run and try it.** `npm test -w api -- test/mcp test/routes/mcp` — Expected: pass. Then connect an MCP client (for example Claude Desktop's custom connector) to `https://<NAME>-api.azurewebsites.net/api/mcp` with header `x-api-key`, and ask "What would LateLens as built achieve compared with the routing vendor?" — the answer must quote 92.0% for the full programme and 78.3% for the routing vendor.
+- [ ] **Step 5: Run and try it.** `npm --prefix backend/api test -- test/mcp test/routes/mcp` — Expected: pass. Then connect an MCP client (for example Claude Desktop's custom connector) to `https://<NAME>-api.azurewebsites.net/api/mcp` with header `x-api-key`, and ask "What would LateLens as built achieve compared with the routing vendor?" — the answer must quote 92.0% for the full programme and 78.3% for the routing vendor.
 
-- [ ] **Step 6: Commit.** `git add api && git commit -m "feat(c): read-only MCP server for Ask LateLens (D7)"`
+- [ ] **Step 6: Commit.** `git add backend/api && git commit -m "feat(c): read-only MCP server for Ask LateLens (D7)"`
 
 ---
 
 ### Task C10 (stretch): Playwright smoke test of every screen (P6)
 
 **Files:**
-- Create: `web/playwright.config.ts`, `web/e2e/smoke.spec.ts`
-- Modify: `web/package.json` (script)
+- Create: `frontend/playwright.config.ts`, `frontend/e2e/smoke.spec.ts`
+- Modify: `frontend/package.json` (script, dev package)
 
-- [ ] **Step 1: Install.** `npm install -D @playwright/test -w web && npx playwright install chromium`
+- [ ] **Step 1: Install.** `npm --prefix frontend install -D @playwright/test && npx --prefix frontend playwright install chromium` (install before creating the files, so `npm run typecheck` keeps passing).
 
-- [ ] **Step 2: Config and test** (AC-UI-01, AC-UI-03 at 375 px):
+- [ ] **Step 2: Config and test** (AC-UI-01, AC-UI-03 at 375 px; the Vitest config only picks up `components/` and `lib/`, so these never run under Vitest):
 
 ```ts
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: 'e2e',
-  use: { baseURL: process.env.WEB_URL ?? 'http://localhost:5173', viewport: { width: 375, height: 812 } },
+  use: { baseURL: process.env.WEB_URL ?? 'http://localhost:3000', viewport: { width: 375, height: 812 } },
 });
 ```
 
@@ -1417,7 +1406,7 @@ export default defineConfig({
 // P6 (stretch, owner C): every screen loads at phone width without horizontal scrolling (AC-UI-01, AC-UI-03).
 import { expect, test } from '@playwright/test';
 
-const SCREENS = ['/overview', '/intake', '/warehouses', '/carriers', '/replay'];
+const SCREENS = ['/dashboard/overview', '/dashboard/intake', '/dashboard/warehouses', '/dashboard/carriers', '/dashboard/replay'];
 
 for (const path of SCREENS) {
   test(`${path} renders at 375px`, async ({ page }) => {
@@ -1432,17 +1421,17 @@ for (const path of SCREENS) {
 }
 
 test('overview shows 71.0% on-time', async ({ page }) => {
-  await page.goto('/overview');
+  await page.goto('/dashboard/overview');
   await expect(page.getByText('71.0%')).toBeVisible();
 });
 ```
 
-Add to `web/package.json` scripts:
+Add to `frontend/package.json` scripts:
 
 ```json
 "e2e": "playwright test",
 ```
 
-- [ ] **Step 3: Run** against the deployed app: `WEB_URL=https://<static web app url> npm run e2e -w web` — Expected: 6 passed. Run it again after every deployment on Thursday.
+- [ ] **Step 3: Run** against the deployed app, from `frontend/`: `WEB_URL=https://<static web app url> npm run e2e` — Expected: 6 passed. Run it again after every deployment on Thursday.
 
-- [ ] **Step 4: Commit.** `git add web && git commit -m "test(c): Playwright smoke test at phone width"`
+- [ ] **Step 4: Commit.** `git add frontend && git commit -m "test(c): Playwright smoke test of the dashboard at phone width"`
