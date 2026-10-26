@@ -1,16 +1,19 @@
-// Public entry point of the Warehouse & promise area (CONTRACTS §2). STUB until Task B8.
+// Public entry point of the Warehouse & promise area (CONTRACTS §2). Other areas import only this file.
 import type { DiagnosisApi, Region, WarehouseApi, WarehouseId } from '../../core/contracts.js';
+import { checkPromise, chooseWarehouse } from './domain.js';
+import { clientNearest, deliveryCauses, milesToRegion } from './lookups.js';
 
 const NEAREST: Record<Region, WarehouseId> = { Midwest: 'W1', Northeast: 'W4', Southeast: 'W3', West: 'W5' };
 
-function plusOneDay(receivedAt: string): string {
-  return new Date(Date.parse(`${receivedAt.slice(0, 10)}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
-}
-
 export const warehouseApi: WarehouseApi = {
-  checkPromise: (commitment, receivedAt) => ({ promiseDate: plusOneDay(receivedAt), commitment, downgraded: false, reason: null }),
-  nearestWarehouse: async (_clientId, region) => NEAREST[region],
-  pickWarehouse: async (input) => ({ warehouseId: input.nearestWarehouseId, reason: 'stub', warnClient: false }),
+  checkPromise,
+  async nearestWarehouse(clientId, region) {
+    if (region !== 'Midwest') return NEAREST[region];
+    return (await clientNearest(clientId, region)) ?? NEAREST.Midwest;
+  },
+  async pickWarehouse(input) {
+    return chooseWarehouse(input, await milesToRegion(input.destinationRegion));
+  },
 };
 
-export const diagnosisApi: DiagnosisApi = { getDeliveryCauses: async () => null };
+export const diagnosisApi: DiagnosisApi = { getDeliveryCauses: deliveryCauses };
