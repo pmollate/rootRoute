@@ -1,4 +1,4 @@
-/* Replay & decision: page head, recommendation, assumptions, scenario chart, alternatives, at-risk accounts. */
+/* Replay: page head, recommendation, assumptions, scenario chart, alternatives, at-risk accounts. */
 .screen { --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace; --pad: clamp(16px, 1.8vw, 22px); display: grid; gap: 20px; }
 .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .right { text-align: right !important; }
@@ -15,34 +15,30 @@
   border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; cursor: pointer; white-space: nowrap; }
 .btn:disabled { opacity: 0.5; cursor: default; }
 .btnDark { background: var(--ink); border-color: var(--ink); color: var(--surface); }
-.btn:focus-visible, .go a:focus-visible, .tableFoot a:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.btn:focus-visible, .go a:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 
-/* Recommendation: a dark panel in both themes, so its colours are fixed rather than theme tokens. */
-.decision { --d-ink: #f7f5f0; --d-ink-2: rgb(247 245 240 / 0.62); --d-line: rgb(247 245 240 / 0.12); --d-good: #6fdc9c;
-  background: #1c1b19; color: var(--d-ink); border: 1px solid #1c1b19; border-radius: 14px; padding: clamp(18px, 2.2vw, 26px); }
-:global(:root[data-theme='dark']) .decision { border-color: #34322e; }
-@media (prefers-color-scheme: dark) { :global(:root:not([data-theme='light'])) .decision { border-color: #34322e; } }
+/* Replay summary: informative, so a soft orange wash; text and tiles stay neutral, never a status colour. */
+.decision { background: rgb(131 74 7 / 14%);
+  border: 1px solid rgb(var(--accent-rgb) / 0.16); border-radius: 14px; padding: clamp(18px, 2.2vw, 26px);
+  box-shadow: 0 1px 2px rgb(var(--shadow-rgb) / 0.06), 0 4px 14px rgb(var(--shadow-rgb) / 0.08); }
 .decisionTop { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px 24px; }
 .decisionTop > div:first-child { flex: 1 1 420px; max-width: 64ch; }
-.eyebrow { margin: 0 0 10px; font-size: 0.74rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--d-ink-2); }
-.verdict { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 4px 10px; border-radius: var(--pill); font-size: 0.8rem; font-weight: 700;
-  background: #ff8a5c; color: #1e1e1e; }
+.eyebrow { margin: 0 0 10px; font-size: 0.74rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
 .decisionText { margin: 0; font-size: 0.95rem; line-height: 1.55; }
 .decisionText b { font-weight: 700; }
 .decisionActions { display: flex; flex-wrap: wrap; gap: 8px; }
-.btnLight { background: var(--d-ink); border-color: var(--d-ink); color: #1e1e1e; }
-.btnLight[aria-pressed='true'] { background: var(--d-good); border-color: var(--d-good); }
-.btnGhost { background: transparent; border-color: rgb(247 245 240 / 0.28); color: var(--d-ink); }
-.btnGhost:hover { background: rgb(247 245 240 / 0.08); }
+.btnGhost { background: var(--surface); }
+.btnGhost:hover { background: rgb(var(--ink-rgb) / 0.05); }
 .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; margin: 22px 0 0; }
-.option { padding: 14px 16px; border-radius: 10px; background: rgb(247 245 240 / 0.06); border: 1px solid var(--d-line); }
-.option p { margin: 0 0 6px; font-size: 0.78rem; color: var(--d-ink-2); }
+.option { padding: 14px 16px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+.option p { margin: 0 0 6px; font-size: 0.78rem; color: var(--ink-2); }
 .option b { display: block; font-family: var(--mono); font-size: clamp(1.5rem, 2.4vw, 1.85rem); font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.option small { display: block; margin-top: 6px; font-size: 0.74rem; color: var(--d-ink-2); }
-.optionBest { background: rgb(52 194 122 / 0.14); border-color: rgb(111 220 156 / 0.45); }
-.optionBest b { color: var(--d-good); }
-.next { display: flex; align-items: flex-start; gap: 10px; margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--d-line); font-size: 0.86rem; }
-.next svg { flex: none; margin-top: 2px; color: #ff8a5c; }
+.option small { display: block; margin-top: 6px; font-size: 0.74rem; color: var(--ink-2); }
+.optionBest { border-color: rgb(var(--ink-rgb) / 0.55); box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.25); }
+/* Figure colours only: today is red below 50% on-time and amber above; the full programme is green. */
+.option .optionBad { color: var(--bad); }
+.option .optionWarn { color: var(--warn); }
+.optionBest b { color: var(--good); }
 
 /* Panels */
 /* Panels are query containers: the side nav eats width on tablets, so layouts switch on the card's width, not the viewport's. */
@@ -83,7 +79,6 @@
 .fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; transition: width 0.4s ease; }
 @media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
 .base { background: rgb(var(--ink-rgb) / 0.16); }
-.buy { background: rgb(var(--ink-rgb) / 0.68); }
 .build { background: var(--accent-text); }
 .full { background: var(--good); }
 .built { background: var(--accent); }
@@ -104,7 +99,7 @@
 .tagBad { background: var(--bad-soft); color: var(--bad); font-family: var(--mono); }
 
 /* At-risk accounts: header, rows and the footer run edge to edge of the card. */
-.tablePanel { padding-bottom: 0; overflow: hidden; }
+.tablePanel { padding-bottom: 0; overflow: hidden; scroll-margin-top: 88px; }
 .tableWrap { overflow-x: auto; margin: 0 calc(-1 * var(--pad)); }
 .table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
 .table th { text-align: left; padding: 10px 12px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-2);
@@ -128,7 +123,7 @@
 .tableFoot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 24px; margin: 0 calc(-1 * var(--pad)); padding: 12px var(--pad);
   background: rgb(var(--ink-rgb) / 0.03); font-size: 0.84rem; }
 .tableFoot p { margin: 0; color: var(--ink-2); }
-.tableFoot a { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font-weight: 600; text-underline-offset: 3px; }
+.pager { padding-inline: 0; }
 
 /* ───────────── Responsive ───────────── */
 
@@ -187,7 +182,6 @@
   .decisionActions { width: 100%; }
   .decisionActions .btn { flex: 1 1 160px; }
   .decisionText { font-size: 0.9rem; }
-  .next { font-size: 0.82rem; }
 }
 
 /* Phones: head actions share a row, then stack if they still don't fit. */

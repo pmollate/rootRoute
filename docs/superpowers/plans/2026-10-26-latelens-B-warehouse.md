@@ -1722,7 +1722,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
 
 ---
 
-### Task B6: Replay (D4, W6, D8) — full-fix and expected-adoption scenarios, cause attribution
+### Task B6: Replay (D4, W6, D8) — full-fix and expected-adoption scenarios, cause attribution - Done
 
 **Files:**
 - Create: `backend/analytics/core/ifixed.py`, `backend/analytics/core/scenarios.py`
@@ -1732,7 +1732,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
 **Interfaces:**
 - Produces: `if_fixed(d, fix, flags) -> Series` (raises if a combination has no baseline), `adopted(d, rates, flags) -> Series` (expected adoption; equals `if_fixed` at rate 1.0), `shapley(d, flags) -> dict` (points of on-time lost per cause), `paid_ratio(d, penalties)`, `cost_avoided(d, est, ratio) -> (late_avoided, usd)`, `SCENARIOS`, `ADOPTION`, `cause_attribution(d)`; tables `scenario_results` (23 scenarios × 4 segments = 92 rows), `cause_attribution` (5 rows), `cause_kpis` (7 rows).
 
-- [ ] **Step 1: Write the failing test** `backend/analytics/tests/test_scenarios.py` (AC-DIAG-04, AC-DIAG-07, AC-REP-01, -02, -04, -05, -06, AC-PRO-05):
+- [x] **Step 1: Write the failing test** `backend/analytics/tests/test_scenarios.py` (AC-DIAG-04, AC-DIAG-07, AC-REP-01, -02, -04, -05, -06, AC-PRO-05):
 
 ```python
 import pytest
@@ -1827,9 +1827,9 @@ def test_cause_attribution_sums_to_lateness(d):
     assert {f: 100 * a[f] for f in pdf} == pytest.approx(pdf, abs=0.06)
 ```
 
-- [ ] **Step 2: Run it.** Expected: FAIL, `ModuleNotFoundError: analytics.core.scenarios`.
+- [x] **Step 2: Run it.** Expected: FAIL, `ModuleNotFoundError: analytics.core.scenarios`.
 
-- [ ] **Step 3: Implement** `backend/analytics/core/ifixed.py` and `backend/analytics/core/scenarios.py`:
+- [x] **Step 3: Implement** `backend/analytics/core/ifixed.py` and `backend/analytics/core/scenarios.py`:
 
 ```python
 """'If fixed' estimate (SPEC §5.1), adoption-adjusted replay, cause attribution and cost avoided (SPEC §1.1)."""
@@ -2067,13 +2067,13 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest backend/analytics/tests/test_scenarios.py -v` — Expected: 35 passed (23 golden scenarios, 6 segment checks, the programme waterfall 71.0 → 92.0% with vendor 78.3%, adoption = full fix at 100%, attribution 7.6 / 7.0 / 5.6 / 5.6 / 3.2, and 3 others). If a golden value is off by 0.1, do not change the test: compare your flag sets with SPEC §2.4 "Flag sets".
+- [x] **Step 4: Run.** `python -m pytest backend/analytics/tests/test_scenarios.py -v` — Expected: 35 passed (23 golden scenarios, 6 segment checks, the programme waterfall 71.0 → 92.0% with vendor 78.3%, adoption = full fix at 100%, attribution 7.6 / 7.0 / 5.6 / 5.6 / 3.2, and 3 others). If a golden value is off by 0.1, do not change the test: compare your flag sets with SPEC §2.4 "Flag sets".
 
-- [ ] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(b): replay scenarios with golden tests (SPEC §2.4)"`
+- [x] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(b): replay scenarios with golden tests (SPEC §2.4)"`
 
 ---
 
-### Task B7: Warehouse tables (W4 data, W7) — distances, nearest per client, stats, unpaid penalties
+### Task B7: Warehouse tables (W4 data, W7) — distances, nearest per client, stats, unpaid penalties - Done
 
 **Files:**
 - Create: `backend/analytics/warehouse/tables.py`
@@ -2084,7 +2084,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
 - Consumes: `ctx.d` with flags (B3) and `unpaid_penalties` (B5).
 - Produces tables: `warehouse_region_distance` (20 rows), `client_region_nearest`, `warehouse_stats` (5 rows), `penalty_reconciliation` (2,002 rows).
 
-- [ ] **Step 1: Write the failing test** `backend/analytics/tests/test_warehouse.py` (includes AC-PEN-01):
+- [x] **Step 1: Write the failing test** `backend/analytics/tests/test_warehouse.py` (includes AC-PEN-01):
 
 ```python
 import pandas as pd
@@ -2117,9 +2117,9 @@ def test_ac_pen_01_unpaid(d, penalties):
     assert len(tables.penalty_reconciliation(d, penalties)) == 2002
 ```
 
-- [ ] **Step 2: Run it.** Expected: FAIL, `ImportError: cannot import name 'tables'`.
+- [x] **Step 2: Run it.** Expected: FAIL, `ImportError: cannot import name 'tables'`.
 
-- [ ] **Step 3: Implement** `backend/analytics/warehouse/tables.py`:
+- [x] **Step 3: Implement** `backend/analytics/warehouse/tables.py`:
 
 ```python
 """Warehouse & promise tables (owner B): W4, W6, W7 and lookups used by Node."""
@@ -2190,13 +2190,13 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test` — Expected: all pass; tables written.
+- [x] **Step 4: Run.** `python -m pytest && npm run pipeline:test` — Expected: all pass; tables written.
 
-- [ ] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(b): warehouse stats, nearest-warehouse lookup, unpaid penalties"`
+- [x] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(b): warehouse stats, nearest-warehouse lookup, unpaid penalties"`
 
 ---
 
-### Task B8: Promise and warehouse rules in Node (W1–W3) — replaces the stub A is using
+### Task B8: Promise and warehouse rules in Node (W1–W3) — replaces the stub A is using - Done
 
 **Files:**
 - Create: `backend/api/src/modules/warehouse/domain.ts`, `backend/api/src/modules/warehouse/lookups.ts`
@@ -2207,7 +2207,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
 - Consumes: tables `warehouse_region_distance`, `client_region_nearest`, `delivery_causes` (B5, B7).
 - Produces (CONTRACTS §1–3): `checkPromise(commitment, receivedAt)`, `chooseWarehouse(input, milesToRegion)`, `linkExpiry(createdAt, cutoffHour = 8)`, `addDays(date, n)`, `LEAD_DAYS`, `CUTOFF_HOUR`; real `warehouseApi` and `diagnosisApi` (`getDeliveryCauses`).
 
-- [ ] **Step 1: Write the failing test** `backend/api/test/warehouse/domain.test.ts` (AC-PRO-01 to -04):
+- [x] **Step 1: Write the failing test** `backend/api/test/warehouse/domain.test.ts` (AC-PRO-01 to -04):
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -2265,9 +2265,9 @@ describe('confirm-address link expiry', () => {
 });
 ```
 
-- [ ] **Step 2: Run it.** `npm --prefix backend/api test -- test/warehouse` — Expected: FAIL, cannot find `domain.js`.
+- [x] **Step 2: Run it.** `npm --prefix backend/api test -- test/warehouse` — Expected: FAIL, cannot find `domain.js`.
 
-- [ ] **Step 3: Implement** `backend/api/src/modules/warehouse/domain.ts`:
+- [x] **Step 3: Implement** `backend/api/src/modules/warehouse/domain.ts`:
 
 ```ts
 import type {
@@ -2410,15 +2410,15 @@ export const warehouseApi: WarehouseApi = {
 export const diagnosisApi: DiagnosisApi = { getDeliveryCauses: deliveryCauses };
 ```
 
-- [ ] **Step 4: Run.** `npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: domain tests pass (8), no type errors.
+- [x] **Step 4: Run.** `npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: domain tests pass (8), no type errors.
 
-- [ ] **Step 5: Commit and tell A** the real `warehouseApi` is on `main`. `git commit -am "feat(b): promise and warehouse rules (W1-W3), real warehouseApi"`
+- [x] **Step 5: Commit and tell A** the real `warehouseApi` is on `main`. `git commit -am "feat(b): promise and warehouse rules (W1-W3), real warehouseApi"`
 
 **Tuesday check-in:** golden scenario tests green (AC-REP-01); `warehouseApi` real; pipeline writes all B tables.
 
 ---
 
-### Task B9: Read API for the Overview, Warehouses and Replay screens
+### Task B9: Read API for the Overview, Warehouses and Replay screens - Done
 
 **Files:**
 - Create: `backend/api/src/modules/warehouse/queries.ts`, `backend/api/src/modules/warehouse/routes.ts`
@@ -2428,7 +2428,7 @@ export const diagnosisApi: DiagnosisApi = { getDeliveryCauses: deliveryCauses };
 - Consumes: tables `kpis`, `cause_summary`, `scenario_results`, `accounts`, `warehouse_stats`, `penalty_reconciliation`, `placement_suggestions`, `placement_impact`.
 - Produces endpoints (CONTRACTS §6): `GET /api/overview`, `/api/causes?segment=`, `/api/replay?segment=`, `/api/accounts`, `/api/attribution`, `/api/cause-kpis`, `/api/warehouses`, `/api/penalties/unpaid`, `/api/placement` (tables filled in B11). Also used by C's MCP server: `overview()`, `causes(segment)`, `replay(segment)`.
 
-- [ ] **Step 1: Write the failing test** `backend/api/test/routes/warehouse.test.ts` (AC-UI-01 data, AC-PEN-01 via API, AC-DIAG-06, AC-NFR-01, contract checks):
+- [x] **Step 1: Write the failing test** `backend/api/test/routes/warehouse.test.ts` (AC-UI-01 data, AC-PEN-01 via API, AC-DIAG-06, AC-NFR-01, contract checks):
 
 ```ts
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -2491,9 +2491,9 @@ describe.skipIf(!hasDb)('warehouse & diagnosis routes (needs test database)', ()
 });
 ```
 
-- [ ] **Step 2: Run it.** `npm run pipeline:test && npm --prefix backend/api test -- test/routes/warehouse` — Expected: FAIL, 404s on `/api/overview`.
+- [x] **Step 2: Run it.** `npm run pipeline:test && npm --prefix backend/api test -- test/routes/warehouse` — Expected: FAIL, 404s on `/api/overview`.
 
-- [ ] **Step 3: Implement** `backend/api/src/modules/warehouse/queries.ts` and `routes.ts`:
+- [x] **Step 3: Implement** `backend/api/src/modules/warehouse/queries.ts` and `routes.ts`:
 
 ```ts
 import { cached } from '../../core/cache.js';
@@ -2635,13 +2635,13 @@ const routes: FastifyPluginAsync = async (app) => {
 export default routes;
 ```
 
-- [ ] **Step 4: Run.** Expected: 6 passed. `curl localhost:3001/api/overview` shows `onTime: 0.70999…`; `curl localhost:3001/api/attribution` lists carrier lane first at 0.0763.
+- [x] **Step 4: Run.** Expected: 6 passed. `curl localhost:3001/api/overview` shows `onTime: 0.70999…`; `curl localhost:3001/api/attribution` lists carrier lane first at 0.0763.
 
-- [ ] **Step 5: Commit.** `git add backend/api && git commit -m "feat(b): overview, causes, replay, accounts, warehouse and penalty endpoints"`
+- [x] **Step 5: Commit.** `git add backend/api && git commit -m "feat(b): overview, causes, replay, accounts, warehouse and penalty endpoints"`
 
 ---
 
-### Task B10: Overview, Warehouses and Replay & decision screens (D3, D5, D6, D8, W4)
+### Task B10: Overview, Warehouses and Replay & decision screens (D3, D5, D6, D8, W4) - Done
 
 **Files:**
 - Create: `frontend/components/dashboard/overview/OverviewScreen.tsx`, `frontend/components/dashboard/warehouses/WarehousesScreen.tsx`, `frontend/components/dashboard/replay/ReplayScreen.tsx`
@@ -2652,7 +2652,7 @@ export default routes;
 - Consumes: B9 endpoints; `useApi`, `Table`, `Kpi`, `Bars`, `Segmented`, `Section`, `SyntheticBadge`, formatters (B2).
 - Produces: `/dashboard/overview` (KPIs, points lost per cause, one measure per cause, late rate by cause), `/dashboard/warehouses`, `/dashboard/replay` (expected-adoption programme vs routing vendor, full-fix bounds, recommendation, at-risk accounts).
 
-- [ ] **Step 1: Write the failing tests** (AC-UI-01/02, AC-UI-04, recommendation built from API numbers):
+- [x] **Step 1: Write the failing tests** (AC-UI-01/02, AC-UI-04, recommendation built from API numbers):
 
 ```tsx
 import { screen } from '@testing-library/react';
@@ -2727,9 +2727,9 @@ describe('Replay & decision', () => {
 });
 ```
 
-- [ ] **Step 2: Run them.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./OverviewScreen`.
+- [x] **Step 2: Run them.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./OverviewScreen`.
 
-- [ ] **Step 3: Implement the three screens** (client components) and their routes:
+- [x] **Step 3: Implement the three screens** (client components) and their routes:
 
 ```tsx
 'use client';
@@ -2988,13 +2988,13 @@ export default function Page() {
 }
 ```
 
-- [ ] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck && npm run build` — Expected: PASS; the build lists the three routes. With `npm run dev:all`, check each screen at 375 px wide in the browser's device toolbar: no sideways scrolling (AC-UI-03), in light and dark.
+- [x] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck && npm run build` — Expected: PASS; the build lists the three routes. With `npm run dev:all`, check each screen at 375 px wide in the browser's device toolbar: no sideways scrolling (AC-UI-03), in light and dark.
 
-- [ ] **Step 5: Commit.** `git add frontend && git commit -m "feat(b): Overview, Warehouses and Replay & decision screens"`
+- [x] **Step 5: Commit.** `git add frontend && git commit -m "feat(b): Overview, Warehouses and Replay & decision screens"`
 
 ---
 
-### Task B11: Synthetic stock (SD-05) and weekly placement suggestions (W5)
+### Task B11: Synthetic stock (SD-05) and weekly placement suggestions (W5) - Done
 
 **Files:**
 - Create: `backend/analytics/warehouse/stock.py`, `backend/synthetic-data/generators/sd05_stock.py`
@@ -3004,7 +3004,7 @@ export default function Page() {
 **Interfaces:**
 - Produces tables: `stock_daily` (43,164 rows, `synthetic = true`), `placement_suggestions`, `placement_impact`. `/api/placement` (B9) starts returning data.
 
-- [ ] **Step 1: Write the failing tests** (AC-STK-01 to -03, AC-NFR-05):
+- [x] **Step 1: Write the failing tests** (AC-STK-01 to -03, AC-NFR-05):
 
 ```python
 import pandas as pd
@@ -3058,9 +3058,9 @@ describe.skipIf(!hasDb)('placement route (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** `python -m pytest backend/analytics/tests/test_stock.py` — Expected: FAIL, `ImportError: cannot import name 'stock'`.
+- [x] **Step 2: Run.** `python -m pytest backend/analytics/tests/test_stock.py` — Expected: FAIL, `ImportError: cannot import name 'stock'`.
 
-- [ ] **Step 3: Implement** `backend/analytics/warehouse/stock.py`:
+- [x] **Step 3: Implement** `backend/analytics/warehouse/stock.py`:
 
 ```python
 """SD-05 synthetic stock and W5 weekly placement suggestions (SPEC §5.11).
@@ -3204,21 +3204,21 @@ if __name__ == "__main__":
     print(f"wrote {OUT / 'stock_daily.csv'}")
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && python backend/synthetic-data/generators/sd05_stock.py && npm run pipeline:test && npm --prefix backend/api test -- test/routes/placement` — Expected: all pass. The Warehouses screen now shows suggestions with the "Synthetic data" badge.
+- [x] **Step 4: Run.** `python -m pytest && python backend/synthetic-data/generators/sd05_stock.py && npm run pipeline:test && npm --prefix backend/api test -- test/routes/placement` — Expected: all pass. The Warehouses screen now shows suggestions with the "Synthetic data" badge.
 
-- [ ] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/generators && git commit -m "feat(b): synthetic stock (SD-05) and weekly placement suggestions (W5)"`
+- [x] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/generators && git commit -m "feat(b): synthetic stock (SD-05) and weekly placement suggestions (W5)"`
 
 **Wednesday check-in:** Overview, Warehouses, Replay screens on live data; deployed by C.
 
 ---
 
-### Task B12: Contract check and synthetic-data register (Thursday morning)
+### Task B12: Contract check and synthetic-data register (Thursday morning) - Pending (waiting on A and C tables; points-lost rounding to decide)
 
 **Files:**
 - Modify: `backend/analytics/tests/test_pipeline.py` (final contract check)
 - Create: `backend/synthetic-data/README.md`
 
-- [ ] **Step 1: Replace `backend/analytics/tests/test_pipeline.py`** with the full contract check (fails if any area forgot a table from CONTRACTS §4):
+- [x] **Step 1: Replace `backend/analytics/tests/test_pipeline.py`** with the full contract check (fails if any area forgot a table from CONTRACTS §4):
 
 ```python
 from analytics.pipeline import run
@@ -3240,11 +3240,14 @@ def test_pipeline_builds_every_contract_table():
 ```
 
 - [ ] **Step 2: Run.** `python -m pytest backend/analytics/tests/test_pipeline.py` — Expected: PASS once A, B and C have all merged. A failure names the missing table: tell its owner.
+  - **Pending (26 Oct):** fails as expected. 21 of 25 tables built, none empty. Missing: `carrier_backtest`, `carrier_events` (C, C6 / SD-07) and `complaints`, `risk_lookup` (A). Re-run once A and C merge.
 
-- [ ] **Step 3: Write `backend/synthetic-data/README.md`** — one section per SD-01 … SD-08 from SPEC §12.1 (built from, used by, generator command, what real data replaces it), plus the three rules (generated from supplied data, seeded, never in headline figures).
+- [x] **Step 3: Write `backend/synthetic-data/README.md`** — one section per SD-01 … SD-08 from SPEC §12.1 (built from, used by, generator command, what real data replaces it), plus the three rules (generated from supplied data, seeded, never in headline figures).
 
 - [ ] **Step 4: Number check.** Open every screen and compare each figure with SPEC §2 (on-time 71.0%; programme 92.0% vs routing vendor 78.3%; as built 85.9% expected / 88.5% full fix; route only 73.6%; points lost 7.6 / 7.0 / 5.6 / 5.6 / 3.2; penalties $872,460; 2,002 unpaid; 2,414 second-pick orders). Any mismatch is a bug, not a copy-edit.
+  - **Pending (26 Oct):** checked against the pipeline tables behind the screens; every figure matches except route points lost. Exact values are 7.626 / 7.047 / 5.610 / 5.569 / 3.149: SPEC rounds them to sum to 29.0 (route 3.2), the Overview rounds each with `toFixed(1)` (route 3.1, total 28.9). Decide: sum-preserving rounding on the Overview, or SPEC says 3.1. Screens still to be eyeballed.
 
-- [ ] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/README.md && git commit -m "test(b): full table contract check; synthetic data register"`
+- [x] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/README.md && git commit -m "test(b): full table contract check; synthetic data register"`
+  - Committed `4bff9c7` on `B12-contract-check-and-synthetic-data-register-thursday-morning`; not pushed.
 
 Then follow the overview plan §6 (submission).

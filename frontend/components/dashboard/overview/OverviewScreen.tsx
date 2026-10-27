@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { Segmented, Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
 import { int, pct, points, usdK, usdShort } from '@/lib/metrics';
@@ -66,7 +66,7 @@ const SEGMENTS = [['all', 'All orders'], ['email', 'Email orders'], ['at_risk', 
 type Segment = (typeof SEGMENTS)[number][0];
 const MODES = [['ceiling', 'Ceiling'], ['replay', 'Replay']] as const;
 type Mode = (typeof MODES)[number][0];
-const METHOD = 'Ceiling assumes each cause fully removed; Replay applies realistic fix rates.';
+const METHOD = 'Each fix replayed on the supplied deliveries at its expected adoption rate';
 
 /** The waterfall runs from 65% to 100% on-time. */
 const AXIS_MIN = 0.65;
@@ -116,9 +116,14 @@ const Marks = ({ benchmark }: { benchmark: number }) => (
   </>
 );
 
+/** Hover/focus readout pinned to the end of a waterfall bar. */
+const Tip = ({ to, children }: { to: number; children: ReactNode }) => (
+  <span className={s.tip} style={{ left: at(to) }} aria-hidden="true">{children}</span>
+);
+
 export function OverviewScreen() {
   const [segment, setSegment] = useState<Segment>('all');
-  const [mode, setMode] = useState<Mode>('ceiling');
+  const [mode, setMode] = useState<Mode>('replay');
   const o = useApi<Overview>('/api/overview');
   const a = useApi<{ causes: Attribution[] }>('/api/attribution');
   const k = useApi<{ kpis: CauseKpi[] }>('/api/cause-kpis');
@@ -175,11 +180,6 @@ export function OverviewScreen() {
       <div className={s.pageHead}>
         <div>
           <h1 className={s.title}>Delivery performance</h1>
-          {o.data && (
-            <p className={s.lede}>
-              Why {pct(o.data.late / o.data.deliveries, 0)} of shipments arrive late, and which fixes close the gap to {pct(TARGET, 0)}.
-            </p>
-          )}
         </div>
         <div className={s.actions}>
           <button type="button" className={s.btn} onClick={exportTable} disabled={attribution.length === 0}>
@@ -189,13 +189,13 @@ export function OverviewScreen() {
         </div>
       </div>
 
-      <Status loading={o.loading} error={o.error} />
+      <Status loading={o.loading} error={o.error} skeleton="cards" count={4} />
       {o.data && (
         <>
           <div className={s.alert} role="note">
             <Icon name="alert" />
-            <p><b>{o.data.atRiskAccounts} accounts are threatening to leave</b> — {usdShort(o.data.atRiskRevenueUsd)} in annual revenue at risk.</p>
-            <Link href="/dashboard/replay">View accounts <Icon name="arrow" size={14} /></Link>
+            <p><b>{o.data.atRiskAccounts} accounts at risk</b> · {usdShort(o.data.atRiskRevenueUsd)} combined annual revenue</p>
+            <Link href="/dashboard/replay#accounts">View accounts <Icon name="arrow" size={14} /></Link>
           </div>
 
           <div className={s.kpis}>
@@ -209,7 +209,7 @@ export function OverviewScreen() {
               {usdK(o.data.penaltiesUsd)} penalties · {usdK(o.data.handlingCostUsd)} handling
             </KpiCard>
             <KpiCard label="Revenue at risk" icon="users" value={usdShort(o.data.atRiskRevenueUsd)}>
-              <span className={s.tagBad}>{o.data.atRiskAccounts} accounts</span> threatening to leave
+              <span className={s.tagBad}>{o.data.atRiskAccounts} accounts</span> at risk
             </KpiCard>
           </div>
         </>
@@ -217,7 +217,7 @@ export function OverviewScreen() {
 
       <div className={s.split}>
         <section className={s.panel}>
-          <div className={s.head}>
+          <div className={`${s.head} ${s.headStack}`}>
             <div>
               <h2 className={s.h2}>
                 Path to {pct(TARGET, 0)} on-time
@@ -232,24 +232,26 @@ export function OverviewScreen() {
             <Segmented label="Waterfall" value={mode} onChange={setMode}
               options={MODES.map(([v, l]) => [v, v === 'replay' && programme != null ? `${l} · ${pct(programme, 0)}` : l] as const)} />
           </div>
-          <Status loading={a.loading} error={a.error} />
-          {mode === 'replay' && <Status loading={r.loading} error={r.error} />}
+          <Status loading={a.loading || (mode === 'replay' && r.loading)} error={a.error ?? (mode === 'replay' ? r.error : undefined)}
+            skeleton="bars" count={6} />
           {o.data && steps.length > 0 && (
             <div className={s.fall}>
               <div className={s.step}>
                 <span className={s.stepLabel}>Today</span>
-                <span className={s.track}>
-                  <span className={`${s.seg} ${s.base}`} style={span(AXIS_MIN, o.data.onTime)} />
+                <span className={s.track} tabIndex={0} role="img" aria-label={`${pct(o.data.onTime)} on-time today`}>
+                  <span className={`${s.seg} ${s.base}`} style={{ ...span(AXIS_MIN, o.data.onTime), '--i': 0 } as CSSProperties} />
                   <Marks benchmark={benchmark} />
+                  <Tip to={o.data.onTime}><b>{pct(o.data.onTime)}</b> on-time today</Tip>
                 </span>
                 <span className={s.stepValue}>{pct(o.data.onTime)}</span>
               </div>
               {steps.map((x, i) => (
                 <div key={x.cause} className={s.step}>
                   <span className={s.stepLabel}>{x.label}{x.note && <small>{x.note}</small>}</span>
-                  <span className={s.track} role="img" aria-label={`+${points(x.to - x.from)} points to ${pct(x.to)}`}>
-                    <span className={`${s.seg} ${x.pre ? s.pre : s.post}`} style={span(x.from, x.to)} />
+                  <span className={s.track} tabIndex={0} role="img" aria-label={`+${points(x.to - x.from)} points to ${pct(x.to)}`}>
+                    <span className={`${s.seg} ${x.pre ? s.pre : s.post}`} style={{ ...span(x.from, x.to), '--i': i + 1 } as CSSProperties} />
                     <Marks benchmark={benchmark} />
+                    <Tip to={Math.min(x.to, 1)}>{pct(x.from)} → <b>{pct(Math.min(x.to, 1))}</b> · +{points(x.to - x.from)}</Tip>
                   </span>
                   <span className={s.stepValue}>
                     <b>+{points(x.to - x.from)}</b> <span className={i === clears ? s.accent : undefined}>{pct(Math.min(x.to, 1))}</span>
@@ -286,7 +288,7 @@ export function OverviewScreen() {
             </div>
             {attribution.length > 0 && <span className={s.tagMuted}>{attribution.length} proposed</span>}
           </div>
-          <Status loading={a.loading} error={a.error} />
+          <Status loading={a.loading} error={a.error} skeleton="rows" count={5} />
           <ul className={s.fixes}>
             {attribution.map((x) => {
               const fix = FIXES[x.cause];
@@ -318,7 +320,7 @@ export function OverviewScreen() {
           </div>
           {lost > 0 && <p className={s.headNote}><b>{pct(lostPre / lost, 0)}</b> of lost points are decided before pickup</p>}
         </div>
-        <Status loading={all.loading} error={all.error} />
+        <Status loading={all.loading} error={all.error} skeleton="cards" count={5} />
         {all.data && (
           <ol className={s.stages}>
             {LIFECYCLE.map((f) => {
@@ -349,14 +351,14 @@ export function OverviewScreen() {
           </div>
           <Segmented label="Orders" value={segment} options={SEGMENTS} onChange={setSegment} />
         </div>
-        <Status loading={k.loading || a.loading} error={k.error ?? a.error} />
-        {segment !== 'all' && <Status loading={seg.loading} error={seg.error} />}
+        <Status loading={k.loading || a.loading || (segment !== 'all' && seg.loading)}
+          error={k.error ?? a.error ?? (segment !== 'all' ? seg.error : undefined)} skeleton="rows" count={6} />
         {kpis.length > 0 && attribution.length > 0 && (
           <div className={s.tableWrap}>
             <table className={s.table}>
               <thead>
                 <tr>
-                  <th>Cause</th><th>Impact (pts)</th><th>Late rate</th><th>Measure</th><th>Today → target</th><th>Owner</th><th>Status</th>
+                  <th>Cause</th><th>Impact (pts)</th><th className={s.lateRate}>Late rate</th><th>Measure</th><th>Today → target</th><th>Owner</th><th>Status</th>
                 </tr>
               </thead>
               <tbody>

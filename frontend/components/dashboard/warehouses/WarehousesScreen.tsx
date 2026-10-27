@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
-import { Pill, Segmented, Status, SyntheticBadge, ui } from '@/components/dashboard/ui';
+import { Pager, Pill, Segmented, Status, SyntheticBadge, ui, usePage } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
 import { int, pct, points, usd, usd2 } from '@/lib/metrics';
 import type { Overview } from '../overview/OverviewScreen';
@@ -104,6 +104,8 @@ export function WarehousesScreen() {
   const allSkip = sum(all, PROBLEMS[2].n);
   const stillLate = allCutoff - (pick?.movedOrders ?? 0);
   const tierTotal = u.data?.byTier.reduce((t, x) => t + x.n, 0) || 1;
+  const sitePage = usePage(rows);
+  const placementPage = usePage(p.data?.suggestions ?? [], 10);
 
   return (
     <div className={s.screen}>
@@ -113,10 +115,12 @@ export function WarehousesScreen() {
           <p className={s.lede}>Pre-pickup failures by site, and the fixes that remove them.</p>
         </div>
         <div className={s.tools}>
-          <select className={s.select} aria-label="Site" value={site} onChange={(e) => setSite(e.target.value)}>
-            <option value="all">All {all.length || ''} sites</option>
-            {all.map((r) => <option key={r.warehouseId} value={r.warehouseId}>{r.warehouseId} · {r.name}</option>)}
-          </select>
+          <span className={s.selectWrap}>
+            <select className={s.select} aria-label="Site" value={site} onChange={(e) => setSite(e.target.value)}>
+              <option value="all">All {all.length || ''} sites</option>
+              {all.map((r) => <option key={r.warehouseId} value={r.warehouseId}>{r.warehouseId} · {r.name}</option>)}
+            </select>
+          </span>
           <button type="button" className={s.button} disabled={rows.length === 0} onClick={() => exportSites(rows)}>
             <Icon>{ICON.download}</Icon>Export
           </button>
@@ -133,7 +137,7 @@ export function WarehousesScreen() {
         </div>
       )}
 
-      <Status loading={w.loading} error={w.error} />
+      <Status loading={w.loading} error={w.error} skeleton="cards" count={3} />
       {rows.length > 0 && (
         <>
           <div className={s.cards}>
@@ -204,7 +208,7 @@ export function WarehousesScreen() {
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((r) => (
+                      {sitePage.rows.map((r) => (
                         <tr key={r.warehouseId}>
                           <td><span className={s.code}>{r.warehouseId}</span>{r.name}</td>
                           <td className={`${ui.right} ${s.num}`} data-label="Orders">{int(r.orders)}</td>
@@ -228,6 +232,7 @@ export function WarehousesScreen() {
                     )}
                   </table>
                 </div>
+                <Pager p={sitePage} className={s.pager} />
               </div>
             )}
             {all.length > 1 && (
@@ -242,7 +247,6 @@ export function WarehousesScreen() {
             <div className={s.head}>
               <div>
                 <h2 className={s.h2}>Fixes to decide</h2>
-                <p className={s.sub}>Each targets one pre-pickup cause</p>
               </div>
             </div>
             <div className={s.options}>
@@ -322,13 +326,13 @@ export function WarehousesScreen() {
           </div>
           {p.data?.week && <span className={s.button}><Icon>{ICON.calendar}</Icon>Week of {p.data.week}</span>}
         </div>
-        <div className={s.pad}><Status loading={p.loading} error={p.error} /></div>
+        <div className={s.pad}><Status loading={p.loading} error={p.error} skeleton="rows" count={4} /></div>
         {p.data && (
           <div className={ui.tableWrap}>
             <table className={`${ui.table} ${s.table} ${s.placement} ${s.stack}`}>
               <thead><tr><th>Client</th><th>Move</th><th className={ui.right}>Units</th><th>Why</th></tr></thead>
               <tbody>
-                {p.data.suggestions.slice(0, 15).map((r, i) => (
+                {placementPage.rows.map((r, i) => (
                   <tr key={i}>
                     <td>{r.clientId}</td>
                     <td data-label="Move"><span className={s.code}>{r.from}</span>→ <span className={s.code}>{r.to}</span></td>
@@ -338,13 +342,14 @@ export function WarehousesScreen() {
                 ))}
               </tbody>
             </table>
+            <Pager p={placementPage} className={s.pager} />
           </div>
         )}
         {p.data && p.data.suggestions.length === 0 && (
           <div className={s.empty}>
             <span className={s.cardIcon}><Icon size={20}>{ICON.box}</Icon></span>
             <b>No placement suggestions yet</b>
-            <p>Run the weekly placement job (<code>npm run pipeline</code>) to see which SKUs to move between sites,
+            <p>Run the weekly placement job to see which SKUs to move between sites,
               with units and the stock-outs each move prevents.</p>
           </div>
         )}

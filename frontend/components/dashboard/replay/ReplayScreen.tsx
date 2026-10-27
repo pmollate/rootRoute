@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { Segmented, Status } from '@/components/dashboard/ui';
+import { useEffect, useRef, useState } from 'react';
+import { Pager, Segmented, Status, usePage } from '@/components/dashboard/ui';
 import { BRAND } from '@/config/copy';
 import { useApi } from '@/hooks/useApi';
 import { int, pct, points, usd, usdShort } from '@/lib/metrics';
@@ -16,6 +16,8 @@ const TARGET = 0.95;
 /** The chart runs from 60% to 100% on-time. */
 const AXIS_MIN = 0.6;
 const at = (v: number) => `${Math.max(0, Math.min(100, ((v - AXIS_MIN) / (1 - AXIS_MIN)) * 100))}%`;
+/** Today's on-time below this reads as danger (red), otherwise as a warning (amber). */
+const DANGER_BELOW = 0.5;
 /** A complaint count this high is flagged in the accounts table. */
 const MANY_COMPLAINTS = 5;
 
@@ -49,11 +51,10 @@ const FIXES = [
   { scenario: 'adopt_all', label: 'Last-mile watch', rate: 0.3, icon: 'route' },
 ] as const;
 
-type Tone = 'base' | 'buy' | 'build' | 'full' | 'built';
+type Tone = 'base' | 'build' | 'full' | 'built';
 interface Row { scenario: string; label: string; note?: string; tone: Tone }
 const GROUPS: { title: string; rows: Row[] }[] = [
   { title: 'Baseline', rows: [{ scenario: 'today', label: 'Today', tone: 'base' }] },
-  { title: 'Buy', rows: [{ scenario: 'adopt_vendor', label: 'Routing vendor only', note: 'All lanes + 30% of detours', tone: 'buy' }] },
   { title: 'Build · cumulative', rows: FIXES.map((f) => ({
     scenario: f.scenario, label: `+ ${f.label}`, tone: f.scenario === 'adopt_all' ? 'full' : 'build',
     note: f.scenario === 'adopt_all' ? 'Full programme' : `${pct(f.rate, 0)} effective`,
@@ -63,7 +64,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
 
 /** Full-fix reference scenarios: what each option reaches if it worked on every delivery. */
 const ALTERNATIVES = [
-  { scenario: 'vendor_best', label: 'Routing engine best case', note: 'Lanes + routes' },
+  { scenario: 'lanes_routes', label: 'Carrier lanes + routes', note: 'Full effect' },
   { scenario: 'as_built', label: `${BRAND} as built`, note: 'Full fix' },
   { scenario: 'all_but_route', label: 'Address + cut-off + stock + lanes', note: 'Four in-house fixes, full effect' },
 ];
@@ -95,7 +96,6 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
 
 export function ReplayScreen() {
   const [segment, setSegment] = useState<Segment>('all');
-  const [approved, setApproved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showHow, setShowHow] = useState(false);
   const all = useApi<{ scenarios: Scenario[] }>('/api/replay?segment=all');
@@ -103,17 +103,27 @@ export function ReplayScreen() {
   const chart = segment === 'all' ? all : seg;
   const a = useApi<{ accounts: Account[] }>('/api/accounts');
 
-  // The recommendation and alternatives always read all orders; the chart follows the segment.
+  // Overview's "View accounts" links to #accounts; scroll once the panels above have loaded and settled the layout.
+  const accountsRef = useRef<HTMLElement>(null);
+  const scrolled = useRef(false);
+  const loaded = Boolean(all.data && chart.data && a.data);
+  useEffect(() => {
+    if (!loaded || scrolled.current || window.location.hash !== '#accounts') return;
+    scrolled.current = true;
+    accountsRef.current?.scrollIntoView({ block: 'start' });
+  }, [loaded]);
+
+  // The summary and alternatives always read all orders; the chart follows the segment.
   const allBy = new Map((all.data?.scenarios ?? []).map((x) => [x.scenario, x]));
   const chartBy = new Map((chart.data?.scenarios ?? []).map((x) => [x.scenario, x]));
   const today = allBy.get('today');
-  const vendor = allBy.get('adopt_vendor');
   const full = allBy.get('adopt_all');
   const built = allBy.get('as_built_adopted');
   const route = allBy.get('route_only');
-  const ready = today && vendor && full && built && route;
+  const ready = today && full && built && route;
 
   const accounts = a.data?.accounts ?? [];
+  const accountPage = usePage(accounts);
   const revenue = accounts.reduce((t, x) => t + x.revenueUsd, 0);
   const rates = accounts.map((x) => x.onTime);
   const byCause = [...accounts.reduce((m, x) => {
@@ -126,12 +136,10 @@ export function ReplayScreen() {
     : `${g.fix} covers ${i === byCause.length - 1 && i > 0 ? 'the other ' : ''}${g.n}`).join('; ');
 
   const summary = ready ? [
-    `Recommendation on the $680K routing contract: do not sign as scoped.`,
-    `Routing vendor alone: ${pct(vendor.onTime)} on-time, ${usd(vendor.costAvoided)} avoided in 6 months.`,
+    `Today: ${pct(today.onTime)} on-time.`,
     `${BRAND} as built (expected adoption): ${pct(built.onTime)}, ${usd(built.costAvoided)} avoided.`,
     `Full five-cause programme: ${pct(full.onTime)}, ${usd(full.costAvoided)} avoided.`,
-    `Route detours, the one cause routing fixes directly, are worth ${points(route.onTime - today.onTime)} points on their own.`,
-    `Next step: pilot for 8 weeks with one measure per cause. If carrier and route causes still cost more than 3 points, pilot the vendor on the remaining lanes only.`,
+    `Route detours on their own are worth ${points(route.onTime - today.onTime)} points.`,
   ].join('\n') : '';
 
   const share = async () => {
@@ -151,49 +159,41 @@ export function ReplayScreen() {
     ...accounts.map((x) => [x.clientId, x.tier, x.revenueUsd, x.channel, pct(x.onTime), x.mainCause, x.complaints]),
   ]);
 
-  const notify = `mailto:?subject=${encodeURIComponent(`${accounts.length} accounts threatening to leave`)}&body=${encodeURIComponent(
-    [`${accounts.length} accounts (${usdShort(revenue)} annual revenue) are threatening to leave:`, '',
-      ...accounts.map((x) => `${x.clientId} (${x.tier}) · ${usd(x.revenueUsd)} · ${pct(x.onTime)} on-time · ${causeOf(x).short}`), '', `${coverage}.`].join('\n'))}`;
-
   return (
     <div className={s.screen}>
       <div className={s.pageHead}>
         <div>
-          <h1 className={s.title}>Replay &amp; decision</h1>
-          <p className={s.lede}>Every scenario replays all 48,340 deliveries. Fixes stack one at a time, each working on part of its cause.</p>
+          <h1 className={s.title}>Replay</h1>
+          <p className={s.lede}>Every scenario replays all your deliveries. Fixes stack one at a time, each working on part of its cause.</p>
         </div>
         <div className={s.actions}>
           <button type="button" className={s.btn} onClick={exportCsv} disabled={!chart.data}><Icon name="download" size={16} />Export</button>
           <button type="button" className={`${s.btn} ${s.btnDark}`} onClick={share} disabled={!ready} aria-live="polite">
-            <Icon name={copied ? 'check' : 'arrow'} size={16} />{copied ? 'Summary copied' : 'Share with leadership'}
+            <Icon name={copied ? 'check' : 'arrow'} size={16} />{copied ? 'Summary copied' : 'Copy summary'}
           </button>
         </div>
       </div>
 
-      <Status loading={all.loading} error={all.error} />
+      <Status loading={all.loading} error={all.error} skeleton="block" />
       {ready && (
         <section className={s.decision} aria-labelledby="decision-head">
           <div className={s.decisionTop}>
             <div>
-              <p id="decision-head" className={s.eyebrow}>Recommendation · $680K routing contract</p>
-              <p className={s.verdict}><Icon name="alert" size={14} />Do not sign as scoped</p>
+              <p id="decision-head" className={s.eyebrow}>Summary · all orders</p>
               <p className={s.decisionText}>
-                Route detours, the one cause routing fixes directly, are worth <b>{points(route.onTime - today.onTime)} points</b> on their own.
-                Fixing the five causes in-house beats the vendor by <b>{points(full.onTime - vendor.onTime)} points</b>.
+                The full five-cause programme lifts on-time by <b>{points(full.onTime - today.onTime)} points</b>.
+                Route detours on their own are worth <b>{points(route.onTime - today.onTime)} points</b>.
               </p>
             </div>
             <div className={s.decisionActions}>
-              <button type="button" className={`${s.btn} ${s.btnLight}`} onClick={() => setApproved((v) => !v)} aria-pressed={approved}>
-                <Icon name="check" size={16} />{approved ? 'Pilot approved' : 'Approve 8-week pilot'}
-              </button>
               <Link className={`${s.btn} ${s.btnGhost}`} href="/dashboard/overview">See evidence</Link>
             </div>
           </div>
           <div className={s.options}>
             <div className={s.option}>
-              <p>Routing vendor alone</p>
-              <b>{pct(vendor.onTime)}</b>
-              <small>{usd(vendor.costAvoided)} avoided · 6 mo</small>
+              <p>Today</p>
+              <b className={today.onTime < DANGER_BELOW ? s.optionBad : s.optionWarn}>{pct(today.onTime)}</b>
+              <small>All 48,340 deliveries</small>
             </div>
             <div className={s.option}>
               <p>Built this week · {BRAND}</p>
@@ -206,11 +206,6 @@ export function ReplayScreen() {
               <small>{usd(full.costAvoided)} avoided · 6 mo</small>
             </div>
           </div>
-          <p className={s.next}>
-            <Icon name="route" size={16} />
-            <span><b>Next step:</b> pilot for 8 weeks with one measure per cause. If carrier and route causes still cost more than 3 points,
-              pilot the vendor on the remaining lanes only.</span>
-          </p>
         </section>
       )}
 
@@ -218,7 +213,7 @@ export function ReplayScreen() {
         <div className={s.head}>
           <div>
             <h2 className={s.h2}>Assumptions</h2>
-            <p className={s.sub}>Share of each cause a fix removes. The vendor is assumed to fix every carrier issue and 30% of detours.</p>
+            <p className={s.sub}>Share of each cause a fix removes.</p>
           </div>
           <button type="button" className={s.btn} onClick={() => setShowHow((v) => !v)} aria-expanded={showHow} aria-controls="assumptions-how">
             <Icon name="sliders" size={16} />Edit assumptions
@@ -245,7 +240,7 @@ export function ReplayScreen() {
           </div>
           <Segmented label="Orders" value={segment} options={SEGMENTS} onChange={setSegment} />
         </div>
-        <Status loading={chart.loading} error={chart.error} />
+        <Status loading={chart.loading} error={chart.error} skeleton="bars" count={8} />
         {chart.data && (
           <div className={s.chartWrap}>
             <table className={s.chart}>
@@ -316,10 +311,10 @@ export function ReplayScreen() {
         </section>
       )}
 
-      <section className={`${s.panel} ${s.tablePanel}`}>
+      <section id="accounts" ref={accountsRef} className={`${s.panel} ${s.tablePanel}`}>
         <div className={s.head}>
           <div>
-            <h2 className={s.h2}>{accounts.length || 'The'} accounts threatening to leave</h2>
+            <h2 className={s.h2}>{accounts.length || 'The'} accounts at risk</h2>
             {accounts.length > 0 && (
               <p className={s.sub}>{usdShort(revenue)} annual revenue · all running {pct(Math.min(...rates))}–{pct(Math.max(...rates))} on-time</p>
             )}
@@ -330,7 +325,7 @@ export function ReplayScreen() {
             ))}
           </ul>
         </div>
-        <Status loading={a.loading} error={a.error} />
+        <Status loading={a.loading} error={a.error} skeleton="rows" count={6} />
         {accounts.length > 0 && (
           <>
             <div className={s.tableWrap}>
@@ -347,7 +342,7 @@ export function ReplayScreen() {
                   </tr>
                 </thead>
                 <tbody>
-                  {accounts.map((x) => {
+                  {accountPage.rows.map((x) => {
                     const c = causeOf(x);
                     return (
                       <tr key={x.clientId}>
@@ -378,9 +373,9 @@ export function ReplayScreen() {
                 </tbody>
               </table>
             </div>
+            <Pager p={accountPage} className={s.pager} />
             <div className={s.tableFoot}>
               <p>{coverage}.</p>
-              <a href={notify}>Notify account owners <Icon name="arrow" size={14} /></a>
             </div>
           </>
         )}

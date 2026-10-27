@@ -19,7 +19,7 @@
 .btn:focus-visible, .fix:focus-visible, .alert a:focus-visible, .cross a:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 
 /* At-risk alert */
-.alert { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 16px; border-radius: var(--radius); font-size: 0.9rem;
+.alert { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 16px; border-radius: 6px; font-size: 0.9rem;
   background: rgb(var(--accent-rgb) / 0.08); border: 1px solid rgb(var(--accent-rgb) / 0.3); color: var(--accent-text); }
 .alert p { margin: 0; flex: 1; min-width: 200px; color: var(--ink); }
 .alert b { color: var(--accent-text); }
@@ -27,7 +27,8 @@
 
 /* KPI cards */
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 16px; }
-.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; min-width: 0; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; min-width: 0;
+  box-shadow: 0 1px 2px rgb(var(--shadow-rgb) / 0.06), 0 4px 14px rgb(var(--shadow-rgb) / 0.08); }
 .kpiHead { display: flex; justify-content: space-between; align-items: center; margin: 0; font-size: 0.86rem; color: var(--ink-2); }
 .kpiIcon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgb(var(--ink-rgb) / 0.05); color: var(--ink-2); }
 .kpiValue { font-family: var(--mono); font-size: clamp(1.6rem, 2.4vw, 1.95rem); font-weight: 700; letter-spacing: -0.02em; margin: 10px 0 8px; font-variant-numeric: tabular-nums; }
@@ -42,6 +43,8 @@
 @media (max-width: 1080px) { .split { grid-template-columns: minmax(0, 1fr); } }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--pad); min-width: 0; }
 .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px 20px; margin-bottom: 20px; }
+/* Toggle always sits under the title, so switching modes doesn't move it. */
+.headStack { flex-direction: column; }
 .h2 { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 4px; }
 .sub { margin: 0; color: var(--ink-2); font-size: 0.84rem; }
 .headNote { margin: 24px 0 0; font-size: 0.84rem; color: var(--ink-2); }
@@ -60,8 +63,20 @@
 .stepValue b { color: var(--ink); }
 .stepValue .accent { font-weight: 700; }
 .track { position: relative; height: 18px; border-radius: 3px; background: rgb(var(--ink-rgb) / 0.05); }
-.seg { position: absolute; top: 0; bottom: 0; border-radius: 4px; transition: left 0.4s ease, width 0.4s ease; }
-@media (prefers-reduced-motion: reduce) { .seg { transition: none; } }
+/* On load each bar wipes in from its left edge, one after another down the waterfall (--i is the row index). */
+.seg { position: absolute; top: 0; bottom: 0; border-radius: 4px; transition: left 0.4s ease, width 0.4s ease, opacity 0.2s ease;
+  animation: segIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 110ms) both; }
+@keyframes segIn { from { clip-path: inset(0 100% 0 0 round 4px); } to { clip-path: inset(0 0 0 0 round 4px); } }
+.track:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
+/* Hovering a row dims the others and shows its percentages above the end of its bar. */
+.fall:hover .step:not(:hover) .seg { opacity: 0.4; }
+.tip { position: absolute; bottom: calc(100% + 8px); z-index: 2; transform: translate(-50%, 4px); padding: 5px 9px; border-radius: 6px;
+  background: var(--ink); color: var(--bg); font-family: var(--mono); font-size: 0.74rem; white-space: nowrap; font-variant-numeric: tabular-nums;
+  box-shadow: 0 4px 12px rgb(var(--shadow-rgb) / 0.18); opacity: 0; pointer-events: none; transition: opacity 0.15s ease, transform 0.15s ease; }
+.tip::after { content: ''; position: absolute; top: 100%; left: 50%; margin-left: -5px; border: 5px solid transparent; border-top-color: var(--ink); }
+.tip b { font-weight: 700; }
+.step:hover .tip, .track:focus-visible .tip { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { .seg { transition: none; animation: none; } .tip { transition: none; } }
 .base { background: rgb(var(--ink-rgb) / 0.16); }
 .pre { background: var(--accent-text); }
 .post { background: rgb(var(--ink-rgb) / 0.68); }
@@ -148,3 +163,5 @@
   .table td { padding-top: 16px; padding-bottom: 16px; }
   .cross { gap: 12px; padding-top: 14px; padding-bottom: 14px; }
 }
+/* Causes table: the Late rate header is the column to read first. */
+.table th.lateRate { color: var(--accent-text); font-weight: 700; }

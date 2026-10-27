@@ -11,8 +11,12 @@ benchmark. Leadership believes carrier routing is the cause and is two weeks fro
 $680K routing-engine contract. Our analysis of 48,340 deliveries shows 67% of late deliveries
 have a cause BEFORE pickup (incomplete address, same-day order after the 8am cut-off, shipped
 from a non-nearest warehouse). Carrier problems are real but lane-specific. We build LateLens, a
-delivery diagnostic and recommendation system, and recommend not signing the vendor contract as
-scoped: fix intake, promises, stock and carrier lanes, pilot for 8 weeks, then revisit routing (SPEC §1).
+delivery diagnostic and recommendation system (SPEC §1).
+
+Root Route is an external tool used by the customer company. The product shows what the company's own data says
+(causes, fixes, replayed outcomes) and stops there. It never makes the company's business decisions for them
+(no "sign / don't sign" verdicts on contracts, no approve-pilot buttons, no "share with leadership" framing), and
+never models other companies' products or internal data (no routing-vendor scenarios).
 
 ## Repo layout (target: folders under `backend/` and the dashboard are built by the plans in `docs/superpowers/plans/`)
 - `Halcyon-Hackathon-Dataset/` — the supplied synthetic dataset: CSVs, README, DATA_DICTIONARY (read-only; never edit)
@@ -56,5 +60,5 @@ On-time 71.0% · late 14,019 · penalties $872,460 (4,847 × $180) · late-deliv
 Five causes (SPEC §2.2), points of on-time lost: carrier lane / D on Friday 7.6 · address 7.0 · wrong warehouse 5.6 ·
 cut-off 5.6 · route >20% 3.2 = 29.0. No delivery without one of the five is late.
 Bad lanes: D→MW/SE, E→West, F→NE/SE; D on Fridays is a capacity problem (Friday cap), not a blocked lane.
-Expected-adoption programme: 71.0 → 76.2 → 82.5 → 87.3 → 91.0 → 92.0%; routing vendor only 78.3%; as built 85.9%.
+Expected-adoption programme: 71.0 → 76.2 → 82.5 → 87.3 → 91.0 → 92.0%; as built 85.9%.
 Full-fix upper bounds: route only 73.6% · lanes + routes 80.4% · as built 88.5% · all but routes 96.3%.
