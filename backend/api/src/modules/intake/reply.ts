@@ -96,7 +96,7 @@ export async function draftReply(llm: LLM, f: ReplyFacts): Promise<{ text: strin
     const user = JSON.stringify({ decision: f.decision, client_name: f.clientName, contact: f.contact, items: f.items,
       promise: f.promise, missing: f.missing.length ? missingLabels(f.missing) : [], candidates: f.candidates,
       address: f.address, address_problem: f.addressIssues.length ? issueSentences(f) : null, required_phrases: required });
-    const text = await llm.text({ system: REPLY_SYSTEM, user });
+    const text = await llm.text({ system: REPLY_SYSTEM, user, tag: 'reply' });
     if (text && required.every((p) => text.includes(p))) return { text, source: 'model' };
   } catch {
     // fall through to the template
