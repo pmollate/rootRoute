@@ -207,6 +207,8 @@ All numbers are numbers (not strings). Rates are 0..1; the UI formats them. Pane
 `AZURE_OPENAI_ENDPOINT` (v1 endpoint, ends `/openai/v1/`), `AZURE_OPENAI_API_KEY`,
 `AZURE_OPENAI_DEPLOYMENT` (the deployment name in Foundry), `PII_PROVIDER` (`azure-language` \| `recorded`),
 `AZURE_LANGUAGE_ENDPOINT`, `AZURE_LANGUAGE_KEY`, `RECORD` (`1` to save AI responses), `API_KEY`, `ALLOW_LIST` (comma-separated),
+`GMAIL_ACCOUNT` (the demo inbox; the Gmail scripts refuse any other account), `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`,
+`GMAIL_REFRESH_TOKEN` (from `npm --prefix backend/api run gmail:auth`; secret, reads the inbox),
 `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_KEY` (dashboard in `frontend/`; `next.config.mjs` loads the root `.env`; the demo key is visible in the browser, acceptable for synthetic data only).
 
 ## 8. Team rules

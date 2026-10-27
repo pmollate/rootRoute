@@ -9,6 +9,9 @@
     "migrate": "tsx src/core/db/migrate-cli.ts",
     "migrate:test": "tsx src/core/db/migrate-cli.ts --test",
     "seed": "tsx src/modules/intake/seed.ts",
+    "gmail:auth": "tsx scripts/gmail-auth.ts",
+    "gmail:seed": "tsx scripts/gmail-seed.ts",
+    "gmail:fetch": "tsx scripts/gmail-fetch.ts",
     "test": "vitest run",
     "lint": "tsc --noEmit -p tsconfig.json"
   },

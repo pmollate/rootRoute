@@ -16,6 +16,10 @@ const Env = z.object({
   AZURE_LANGUAGE_ENDPOINT: z.string().optional(), // https://<resource>.cognitiveservices.azure.com
   AZURE_LANGUAGE_KEY: z.string().optional(),
   RECORD: z.string().optional(),
+  GMAIL_ACCOUNT: z.string().optional(), // the demo inbox; scripts refuse to touch any other account
+  GMAIL_CLIENT_ID: z.string().optional(),
+  GMAIL_CLIENT_SECRET: z.string().optional(),
+  GMAIL_REFRESH_TOKEN: z.string().optional(),
   API_KEY: z.string().min(1),
   ALLOW_LIST: z.string().default(''),
 });
