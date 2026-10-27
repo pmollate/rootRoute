@@ -28,4 +28,7 @@ def test_warehouse_stats_totals(d):
 
 def test_ac_pen_01_unpaid(d, penalties):
     """AC-PEN-01: late deliveries with a penalty clause but no penalty row are listed."""
-    assert len(tables.penalty_reconciliation(d, penalties)) == 2002
+    rows = tables.penalty_reconciliation(d, penalties)
+    assert len(rows) == 2002
+    assert rows.warehouse_id.isin(["W1", "W2", "W3", "W4", "W5"]).all()
+    assert rows.days_late.is_monotonic_decreasing

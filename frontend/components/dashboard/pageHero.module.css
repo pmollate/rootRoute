@@ -1,0 +1,43 @@
+/* Page hero: always dark, over a photo set per screen through --hero-img (and optionally --hero-pos / --hero-size). */
+.hero { --hero-pad: clamp(22px, 3.4vw, 36px); position: relative; overflow: hidden; border-radius: 18px; padding: var(--hero-pad); color: #fff; min-height: 280px;
+  background: linear-gradient(90deg, var(--hero-ink) 0%, var(--hero-ink) 34%, rgb(26 36 64 / 0.88) 46%, rgb(26 36 64 / 0.5) 62%, rgb(26 36 64 / 0.12) 82%, rgb(26 36 64 / 0) 100%),
+    var(--hero-img) var(--hero-pos, right center) / var(--hero-size, cover) no-repeat, var(--hero-ink); }
+.body { position: relative; max-width: 520px; }
+.eyebrow { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: rgb(255 255 255 / 0.8); }
+.eyebrow i { flex: none; width: 8px; height: 8px; border: 1.5px solid #d4ab6a; border-radius: 2px; }
+.titleRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 10px 0 12px; }
+.titleRow:first-child { margin-top: 0; }
+.title { margin: 0; font-family: var(--font-display); font-size: clamp(2.2rem, 5.4vw, 3.4rem); font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+.metric { margin: -4px 0 0; font-family: var(--font-display); font-size: clamp(4rem, 9vw, 6rem); font-weight: 700; letter-spacing: -0.01em; line-height: 1; }
+.metric small { margin-left: 0.08em; font-size: 0.32em; font-weight: 500; letter-spacing: 0; color: rgb(255 255 255 / 0.7); }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 99px; border: 1px dashed rgb(255 255 255 / 0.35);
+  background: rgb(255 255 255 / 0.06); font-size: 0.66rem; font-weight: 500; color: rgb(255 255 255 / 0.85); white-space: nowrap; }
+.glyph { display: inline-block; width: 8px; height: 8px; border: 1.5px solid currentColor; border-radius: 2px; }
+.text { margin: 0 0 26px; max-width: 46ch; font-size: 0.9rem; line-height: 1.55; color: rgb(255 255 255 / 0.82); }
+.text b { color: #fff; }
+
+.chips { position: absolute; right: var(--hero-pad); bottom: 24px; display: flex; align-items: flex-end; gap: 10px; }
+.chipsTop { top: var(--hero-pad); bottom: auto; align-items: flex-start; }
+.chip { min-width: 84px; padding: 10px 14px; border-radius: 10px; color: #111; background: rgb(240 238 233 / 0.92); backdrop-filter: blur(6px); }
+.chip p { margin: 0 0 4px; font-size: 0.58rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #6a655e; }
+.chip b { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; color: #22345b; font-variant-numeric: tabular-nums; }
+.chip small { font-size: 0.66rem; color: #6a655e; }
+.chipIcon { display: flex; align-items: center; gap: 12px; padding-left: 10px; }
+.chipMark { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; background: #e8ecf5; color: #22345b; }
+.chipHot .chipMark { background: #ffe8de; color: #b03808; }
+.chipHot b { color: #b03808; }
+
+/* Tablets: the chips leave the corner so they never cover the text. Phones: the photo sits above the text. */
+@media (max-width: 900px) {
+  .chips, .chipsTop { position: static; flex-wrap: wrap; margin-top: 18px; }
+}
+@media (max-width: 760px) {
+  .hero { background: linear-gradient(180deg, rgb(26 36 64 / 0.1) 0, rgb(26 36 64 / 0.55) 34vw, var(--hero-ink) 54vw), var(--hero-img) center top / 100% auto no-repeat, var(--hero-ink);
+    padding-top: 42vw; }
+}
+@media (max-width: 520px) { .chips > * { flex: 1; } }
+
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.chip { animation: rise 0.6s ease 0.4s both; }
+.chip + .chip { animation-delay: 0.5s; }
+@media (prefers-reduced-motion: reduce) { .chip { animation: none; } }

@@ -1,88 +1,110 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pager, Segmented, Status, usePage } from '@/components/dashboard/ui';
 import { BRAND } from '@/config/copy';
 import { useApi } from '@/hooks/useApi';
 import { int, pct, points, usd, usdShort } from '@/lib/metrics';
+import type { Overview } from '../overview/OverviewScreen';
 import s from './replay.module.css';
 
 interface Scenario { scenario: string; label: string; grp: string; onTime: number; lateAvoided: number; costAvoided: number }
 interface Account { clientId: string; clientName: string; tier: string; revenueUsd: number; channel: string; onTime: number; mainCause: string; complaints: number }
+interface Attribution { cause: string; pointsLost: number }
 
 /** The on-time goal the team set (a target, not a computed figure); matches the Overview screen. */
 const TARGET = 0.95;
-/** The chart runs from 60% to 100% on-time. */
+/** Every on-time scale on this screen runs from 60% to 100%. */
 const AXIS_MIN = 0.6;
 const at = (v: number) => `${Math.max(0, Math.min(100, ((v - AXIS_MIN) / (1 - AXIS_MIN)) * 100))}%`;
-/** Today's on-time below this reads as danger (red), otherwise as a warning (amber). */
-const DANGER_BELOW = 0.5;
+const TICKS = [0.6, 0.7, 0.8, 0.9, 1];
 /** A complaint count this high is flagged in the accounts table. */
 const MANY_COMPLAINTS = 5;
+/** A fix removing less than this share of its cause reads as a weak lever (grey meter). */
+const WEAK_RATE = 0.7;
 
 /** 24px line icons, drawn with the current text colour. */
-const PATHS = {
-  download: <path d="M12 4v11M7 10l5 5 5-5M4 20h16" />,
-  arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+const ICON = {
+  csv: <><path d="M14 3H6v18h12V7l-4-4Z" /><path d="M14 3v4h4M9 12v6M12 12v6M15 12v6M8.5 15h7" /></>,
+  copy: <><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" /></>,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
-  alert: <><path d="M12 3 2 20h20z" /><path d="M12 10v4M12 17.5v.01" /></>,
+  checkCircle: <><circle cx="12" cy="12" r="9" /><path d="m8 12.5 3 3 5-6" /></>,
+  arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+  trendDown: <><path d="m3 7 6 6 4-4 8 8" /><path d="M15 17h6v-6" /></>,
+  trendUp: <><path d="m3 17 6-6 4 4 8-8" /><path d="M15 7h6v6" /></>,
+  chart: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   sliders: <path d="M6 4v6M6 14v6M12 4v2M12 10v10M18 4v10M18 18v2M4 12h4M10 8h4M16 16h4" />,
-  pin: <><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></>,
-  truck: <><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="18" r="2" /></>,
+  compare: <><circle cx="6" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="M6 8.5V15a3 3 0 0 0 3 3h6.5M18 15.5V9a3 3 0 0 0-3-3H8.5" /><path d="m13 15.5 2.5 2.5-2.5 2.5M11 3.5 8.5 6 11 8.5" /></>,
+  building: <><path d="M4 21V5l8-2v18M12 7h6a2 2 0 0 1 2 2v12M3 21h18" /><path d="M8 8h.01M8 12h.01M8 16h.01M16 12h.01M16 16h.01" /></>,
+  info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
+  flag: <><path d="M5 21V4" /><path d="M5 4h11l-2 4 2 4H5" /></>,
+  shield: <><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
+  pin: <><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z" /><circle cx="12" cy="9.5" r="2.5" /></>,
+  truck: <><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7" /><circle cx="7" cy="17.5" r="1.5" /><circle cx="17" cy="17.5" r="1.5" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
   warehouse: <><path d="M3 21V8l9-5 9 5v13" /><path d="M7 21v-8h10v8M7 17h10" /></>,
   route: <><circle cx="6" cy="19" r="2" /><circle cx="18" cy="5" r="2" /><path d="M8 19h8.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H16" /></>,
-  chevron: <path d="m9 6 6 6-6 6" />,
+  home: <><path d="M3 11 12 4l9 7" /><path d="M5 10v10h14V10M10 20v-5h4v5" /></>,
+  mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
+  plug: <><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8ZM12 17v4" /></>,
+  code: <path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />,
+  alert: <><path d="M12 3 2 20h20L12 3Z" /><path d="M12 10v4M12 17h.01" /></>,
 };
-type IconName = keyof typeof PATHS;
-const Icon = ({ name, size = 18 }: { name: IconName; size?: number }) => (
+type IconName = keyof typeof ICON;
+const Icon = ({ name, size = 16 }: { name: IconName; size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    {PATHS[name]}
+    {ICON[name]}
   </svg>
 );
 
-/** Each programme fix, its expected adoption rate (SPEC §2.4, set in analytics/core/scenarios.py) and the scenario it adds. */
+/** Each programme fix, its expected adoption rate (SPEC §2.4, set in analytics/core/scenarios.py), the cause it removes and the scenario it adds. */
 const FIXES = [
-  { scenario: 'adopt_address', label: 'Address check', rate: 0.85, icon: 'pin' },
-  { scenario: 'adopt_lanes', label: 'Lane rules + Friday cap', rate: 0.9, icon: 'truck' },
-  { scenario: 'adopt_cutoff', label: 'Cutoff-aware promise', rate: 0.85, icon: 'clock' },
-  { scenario: 'adopt_warehouse', label: 'Warehouse fallback', rate: 0.6, icon: 'warehouse' },
-  { scenario: 'adopt_all', label: 'Last-mile watch', rate: 0.3, icon: 'route' },
+  { scenario: 'adopt_address', label: 'Address check', rate: 0.85, cause: 'f_addr', causeLabel: 'Incomplete address' },
+  { scenario: 'adopt_lanes', label: 'Lane rules + Friday cap', rate: 0.9, cause: 'f_lane', causeLabel: 'Bad lanes, D on Fridays' },
+  { scenario: 'adopt_cutoff', label: 'Cut-off-aware promise', rate: 0.85, cause: 'f_cutoff', causeLabel: 'Orders after 08:00' },
+  { scenario: 'adopt_warehouse', label: 'Warehouse fallback', rate: 0.6, cause: 'f_stock', causeLabel: 'Non-nearest site' },
+  { scenario: 'adopt_all', label: 'Last-mile watch', rate: 0.3, cause: 'f_route', causeLabel: 'Route overrun >20%' },
 ] as const;
 
-type Tone = 'base' | 'build' | 'full' | 'built';
-interface Row { scenario: string; label: string; note?: string; tone: Tone }
+type Tone = 'base' | 'added' | 'full' | 'built';
+interface Row { scenario: string; label: string; tone: Tone; step: ReactNode; prev?: string }
 const GROUPS: { title: string; rows: Row[] }[] = [
-  { title: 'Baseline', rows: [{ scenario: 'today', label: 'Today', tone: 'base' }] },
-  { title: 'Build · cumulative', rows: FIXES.map((f) => ({
-    scenario: f.scenario, label: `+ ${f.label}`, tone: f.scenario === 'adopt_all' ? 'full' : 'build',
-    note: f.scenario === 'adopt_all' ? 'Full programme' : `${pct(f.rate, 0)} effective`,
+  { title: 'Today', rows: [{ scenario: 'today', label: 'Baseline', tone: 'base', step: '0' }] },
+  { title: 'Fixes added cumulatively', rows: FIXES.map((f, i) => ({
+    scenario: f.scenario, step: f.scenario === 'adopt_all' ? <Icon name="check" size={12} /> : String(i + 1),
+    label: f.scenario === 'adopt_all' ? `+ ${f.label} = full programme` : `+ ${f.label}`,
+    tone: f.scenario === 'adopt_all' ? 'full' : 'added', prev: i === 0 ? 'today' : FIXES[i - 1].scenario,
   })) },
-  { title: 'Built this week', rows: [{ scenario: 'as_built_adopted', label: `${BRAND} as built`, note: 'Expected adoption', tone: 'built' }] },
+  { title: 'As built this week', rows: [{ scenario: 'as_built_adopted', label: `${BRAND} as built`, tone: 'built', step: <Icon name="route" size={12} />, prev: 'today' }] },
 ];
 
 /** Full-fix reference scenarios: what each option reaches if it worked on every delivery. */
-const ALTERNATIVES = [
-  { scenario: 'lanes_routes', label: 'Carrier lanes + routes', note: 'Full effect' },
-  { scenario: 'as_built', label: `${BRAND} as built`, note: 'Full fix' },
-  { scenario: 'all_but_route', label: 'Address + cut-off + stock + lanes', note: 'Four in-house fixes, full effect' },
+const ALTERNATIVES: { scenario: string; kicker: string; label: string; icon: IconName; fixes: string[] }[] = [
+  { scenario: 'lanes_routes', kicker: 'Case A', label: 'Carrier lanes + routes', icon: 'truck', fixes: ['Lane rules', 'Friday cap', 'Last-mile watch'] },
+  { scenario: 'as_built', kicker: 'Case B', label: `${BRAND} as built`, icon: 'route', fixes: ['This week’s build', 'Full fix'] },
+  { scenario: 'all_but_route', kicker: 'Case C', label: 'The four in-house fixes', icon: 'home', fixes: ['Address', 'Cut-off', 'Stock', 'Lanes'] },
 ];
 
-const SEGMENTS = [['all', 'All'], ['email', 'Email orders'], ['at_risk', 'At-risk accounts'], ['aug_sep', 'Aug–Sep']] as const;
+const SEGMENTS = [['all', 'All orders'], ['email', 'Email orders'], ['at_risk', 'At-risk accounts'], ['aug_sep', 'Aug–Sep']] as const;
 type Segment = (typeof SEGMENTS)[number][0];
 
 /** Account main causes (analytics/core/diagnosis.py LABELS): short name, icon, the fix that protects them and where it lives. */
-const CAUSES: Record<string, { short: string; icon: IconName; fix: string; group: string; href: string }> = {
-  'Incomplete address at intake': { short: 'Incomplete address', icon: 'pin', fix: 'address validation', group: 'addresses', href: '/dashboard/intake' },
-  'Bad carrier lane or D on a Friday': { short: 'Bad lane / D on Friday', icon: 'truck', fix: 'lane rules', group: 'carrier lanes', href: '/dashboard/carriers' },
-  'Same-day order after 8am cut-off': { short: 'After 8am cut-off', icon: 'clock', fix: 'cutoff-aware promise', group: 'cut-off', href: '/dashboard/warehouses' },
-  'Shipped from a non-nearest warehouse': { short: 'Non-nearest warehouse', icon: 'warehouse', fix: 'warehouse fallback', group: 'warehouses', href: '/dashboard/warehouses' },
-  'Route >20% over plan': { short: 'Route overrun', icon: 'route', fix: 'last-mile watch', group: 'routes', href: '/dashboard/carriers' },
+const CAUSES: Record<string, { short: string; title: string; icon: IconName; fix: string; href: string }> = {
+  'Bad carrier lane or D on a Friday': { short: 'Lane / carrier D', title: 'Bad carrier lane or D on a Friday', icon: 'truck', fix: 'Lane rules + Friday cap', href: '/dashboard/carriers' },
+  'Incomplete address at intake': { short: 'Incomplete address', title: 'Incomplete address at intake', icon: 'pin', fix: 'Address check', href: '/dashboard/intake' },
+  'Same-day order after 8am cut-off': { short: 'After cut-off', title: 'Same-day order after the 08:00 cut-off', icon: 'clock', fix: 'Cut-off-aware promise', href: '/dashboard/warehouses' },
+  'Shipped from a non-nearest warehouse': { short: 'Non-nearest site', title: 'Shipped from a non-nearest warehouse', icon: 'warehouse', fix: 'Warehouse fallback', href: '/dashboard/warehouses' },
+  'Route >20% over plan': { short: 'Route overrun', title: 'Route more than 20% over plan', icon: 'route', fix: 'Last-mile watch', href: '/dashboard/carriers' },
 };
-const causeOf = (a: Account) => CAUSES[a.mainCause] ?? { short: a.mainCause, icon: 'alert' as IconName, fix: 'other fixes', group: 'other', href: '/dashboard/overview' };
+const causeOf = (a: Account) => CAUSES[a.mainCause] ?? { short: a.mainCause, title: a.mainCause, icon: 'alert' as IconName, fix: 'Other fixes', href: '/dashboard/overview' };
+const CHANNEL_ICON: Record<string, IconName> = { Email: 'mail', EDI: 'plug', API: 'code' };
 
-const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+/** "Northwind Apparel" → "NA"; single words and ids fall back to their first two characters. */
+const initials = (name: string) => {
+  const w = name.split(/\s+/).filter((x) => /^[A-Za-z]/.test(x));
+  return (w.length > 1 ? w[0][0] + w[1][0] : name.slice(0, 2)).toUpperCase();
+};
 
 function downloadCsv(name: string, rows: (string | number)[][]) {
   const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -94,6 +116,22 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
   URL.revokeObjectURL(url);
 }
 
+/** Section title beside a 36px tinted icon tile. */
+function SecHead({ icon, tint, title, sub, id, children }: { icon: IconName; tint: string; title: string; sub?: ReactNode; id?: string; children?: ReactNode }) {
+  return (
+    <div className={s.secHead}>
+      <div className={s.secTitle}>
+        <span className={`${s.secMark} ${s[tint]}`}><Icon name={icon} /></span>
+        <div>
+          <h2 id={id} className={s.h2}>{title}</h2>
+          {sub && <p className={s.sub}>{sub}</p>}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function ReplayScreen() {
   const [segment, setSegment] = useState<Segment>('all');
   const [copied, setCopied] = useState(false);
@@ -101,6 +139,8 @@ export function ReplayScreen() {
   const seg = useApi<{ scenarios: Scenario[] }>(segment === 'all' ? null : `/api/replay?segment=${segment}`);
   const chart = segment === 'all' ? all : seg;
   const a = useApi<{ accounts: Account[] }>('/api/accounts');
+  const o = useApi<Overview>('/api/overview');
+  const attr = useApi<{ causes: Attribution[] }>('/api/attribution');
 
   // Overview's "View accounts" links to #accounts; scroll once the panels above have loaded and settled the layout.
   const accountsRef = useRef<HTMLElement>(null);
@@ -120,32 +160,33 @@ export function ReplayScreen() {
   const built = allBy.get('as_built_adopted');
   const route = allBy.get('route_only');
   const ready = today && full && built && route;
+  const lost = o.data ? o.data.penaltiesUsd + o.data.handlingCostUsd : undefined;
+  const lostBy = new Map((attr.data?.causes ?? []).map((c) => [c.cause, c.pointsLost]));
 
   const accounts = a.data?.accounts ?? [];
-  const accountPage = usePage(accounts);
   const revenue = accounts.reduce((t, x) => t + x.revenueUsd, 0);
-  const rates = accounts.map((x) => x.onTime);
   const byCause = [...accounts.reduce((m, x) => {
     const c = causeOf(x);
-    const g = m.get(c.group) ?? { ...c, n: 0, revenue: 0 };
-    return m.set(c.group, { ...g, n: g.n + 1, revenue: g.revenue + x.revenueUsd });
+    const g = m.get(c.title) ?? { ...c, n: 0, revenue: 0 };
+    return m.set(c.title, { ...g, n: g.n + 1, revenue: g.revenue + x.revenueUsd });
   }, new Map<string, ReturnType<typeof causeOf> & { n: number; revenue: number }>()).values()].sort((p, q) => q.n - p.n || q.revenue - p.revenue);
-  const coverage = byCause.map((g, i) => i === 0
-    ? `${cap(g.fix)} protect${g.fix.endsWith('s') ? '' : 's'} ${g.n} of ${accounts.length} accounts`
-    : `${g.fix} covers ${i === byCause.length - 1 && i > 0 ? 'the other ' : ''}${g.n}`).join('; ');
+  // Rows run group by group (largest group first), worst-hit accounts first within each.
+  const order = new Map(byCause.map((g, i) => [g.title, i]));
+  const sorted = [...accounts].sort((p, q) => order.get(causeOf(p).title)! - order.get(causeOf(q).title)! || q.complaints - p.complaints || q.revenueUsd - p.revenueUsd);
+  const accountPage = usePage(sorted);
 
   const summary = ready ? [
-    `Today: ${pct(today.onTime)} on-time.`,
-    `${BRAND} as built (expected adoption): ${pct(built.onTime)}, ${usd(built.costAvoided)} avoided.`,
-    `Full five-cause programme: ${pct(full.onTime)}, ${usd(full.costAvoided)} avoided.`,
-    `Route detours on their own are worth ${points(route.onTime - today.onTime)} points.`,
+    `On-time today: ${pct(today.onTime)}${lost != null ? `, ${usdShort(lost)} lost to lateness over 6 months` : ''}`,
+    `${BRAND} as built: ${pct(built.onTime)} at expected adoption, ${usd(built.costAvoided)} avoided`,
+    `Full five-cause programme: ${pct(full.onTime)}, +${points(full.onTime - today.onTime)} pts, ${usd(full.costAvoided)} avoided`,
+    `Route detours alone: +${points(route.onTime - today.onTime)} pts, ${usd(route.costAvoided)} avoided`,
   ].join('\n') : '';
 
   const share = async () => {
     try {
       await navigator.clipboard.writeText(summary);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), 4000);
     } catch { /* clipboard blocked: leave the label as it is */ }
   };
 
@@ -154,221 +195,294 @@ export function ReplayScreen() {
     ...GROUPS.flatMap((g) => g.rows).map((r) => chartBy.get(r.scenario)).filter((x): x is Scenario => Boolean(x))
       .map((x) => [x.label, pct(x.onTime), x.lateAvoided, x.costAvoided]),
     [],
-    ['Client', 'Tier', 'Annual revenue', 'Channel', 'On-time', 'Main cause', 'Complaints'],
-    ...accounts.map((x) => [x.clientId, x.tier, x.revenueUsd, x.channel, pct(x.onTime), x.mainCause, x.complaints]),
+    ['Client', 'Name', 'Tier', 'Annual revenue', 'Channel', 'On-time', 'Main cause', 'Complaints'],
+    ...accounts.map((x) => [x.clientId, x.clientName, x.tier, x.revenueUsd, x.channel, pct(x.onTime), x.mainCause, x.complaints]),
   ]);
 
   return (
     <div className={s.screen}>
       <div className={s.pageHead}>
-        <div>
+        <div className={s.headText}>
           <h1 className={s.title}>Replay</h1>
-          <p className={s.lede}>Every scenario replays all your deliveries. Fixes stack one at a time, each working on part of its cause.</p>
+          <p className={s.lede}>Rerun every delivery under what-if scenarios to see how on-time performance and cost would change.</p>
         </div>
         <div className={s.actions}>
-          <button type="button" className={s.btn} onClick={exportCsv} disabled={!chart.data}><Icon name="download" size={16} />Export</button>
-          <button type="button" className={`${s.btn} ${s.btnDark}`} onClick={share} disabled={!ready} aria-live="polite">
-            <Icon name={copied ? 'check' : 'arrow'} size={16} />{copied ? 'Summary copied' : 'Copy summary'}
+          <button type="button" className={s.btn} onClick={exportCsv} disabled={!chart.data}><Icon name="csv" />Export CSV</button>
+          <button type="button" className={`${s.btn} ${s.btnSolid}`} onClick={share} disabled={!ready} aria-live="polite">
+            <Icon name={copied ? 'check' : 'copy'} />{copied ? 'Summary copied' : 'Copy summary'}
           </button>
+          {copied && (
+            <div className={s.copied} role="status">
+              <p><Icon name="checkCircle" />Summary copied to clipboard</p>
+              <pre>{summary}</pre>
+            </div>
+          )}
         </div>
       </div>
 
       <Status loading={all.loading} error={all.error} skeleton="block" />
       {ready && (
-        <section className={s.decision} aria-labelledby="decision-head">
-          <div className={s.decisionTop}>
-            <div>
-              <p id="decision-head" className={s.eyebrow}>Summary · all orders</p>
-              <p className={s.decisionText}>
-                The full five-cause programme lifts on-time by <b>{points(full.onTime - today.onTime)} points</b>.
-                Route detours on their own are worth <b>{points(route.onTime - today.onTime)} points</b>.
-              </p>
+        <section className={s.summary} aria-label="Replay summary">
+          <div className={s.sTop}>
+            <div className={s.sc}>
+              <p className={s.k}><i style={{ background: 'var(--stone-3)' }} />On-time today</p>
+              <p className={s.v}>{points(today.onTime)}<span>%</span></p>
+              {lost != null && <span className={`${s.cost} ${s.lost}`}><Icon name="trendDown" size={14} />{usdShort(lost)} lost to lateness</span>}
             </div>
-            <div className={s.decisionActions}>
-              <Link className={`${s.btn} ${s.btnGhost}`} href="/dashboard/overview">See evidence</Link>
+            <div className={s.sc}>
+              <p className={s.k}><i style={{ background: 'var(--sand)' }} />{BRAND} as built</p>
+              <p className={s.v}>{points(built.onTime)}<span>%</span></p>
+              <span className={`${s.cost} ${s.saved}`}><Icon name="trendUp" size={14} />{usd(built.costAvoided)} avoided</span>
             </div>
-          </div>
-          <div className={s.options}>
-            <div className={s.option}>
-              <p>Today</p>
-              <b className={today.onTime < DANGER_BELOW ? s.optionBad : s.optionWarn}>{pct(today.onTime)}</b>
-              <small>All 48,340 deliveries</small>
+            <div className={`${s.sc} ${s.scFull}`}>
+              <p className={s.k}><i style={{ background: 'var(--gain)' }} />Full five-cause programme</p>
+              <p className={s.v}>{points(full.onTime)}<span>%</span></p>
+              <span className={`${s.cost} ${s.saved}`}><Icon name="trendUp" size={14} />{usd(full.costAvoided)} avoided</span>
             </div>
-            <div className={s.option}>
-              <p>Built this week · {BRAND}</p>
-              <b>{pct(built.onTime)}</b>
-              <small>{usd(built.costAvoided)} avoided · expected adoption</small>
-            </div>
-            <div className={`${s.option} ${s.optionBest}`}>
-              <p>Full five-cause programme</p>
-              <b>{pct(full.onTime)}</b>
-              <small>{usd(full.costAvoided)} avoided · 6 mo</small>
+            <div className={s.sside}>
+              <div className={`${s.sstat} ${s.up}`}><p>Full programme adds</p><b>+{points(full.onTime - today.onTime)} pts<small>vs today</small></b></div>
+              <div className={s.sstat}><p>Route detours alone</p><b>+{points(route.onTime - today.onTime)} pts<small>{usd(route.costAvoided)} avoided</small></b></div>
             </div>
           </div>
+          <div className={s.scale} aria-hidden="true">
+            <div className={s.scaleLab}>{TICKS.map((t) => <span key={t}>{pct(t, 0)}</span>)}</div>
+            <div className={s.rail}>
+              <span className={s.seg} style={{ left: at(today.onTime), width: `calc(${at(built.onTime)} - ${at(today.onTime)})`, background: 'var(--sand-line)' }} />
+              <span className={s.seg} style={{ left: at(built.onTime), width: `calc(${at(full.onTime)} - ${at(built.onTime)})`, background: 'var(--gain-line)' }} />
+              {full.onTime < TARGET && <span className={s.seg} style={{ left: at(full.onTime), width: `calc(${at(TARGET)} - ${at(full.onTime)})`, background: 'var(--hot-soft)' }} />}
+              <span className={s.tgt} style={{ left: at(TARGET) }} />
+              <span className={s.pin} style={{ left: at(today.onTime), background: 'var(--stone-3)' }} />
+              <span className={s.pin} style={{ left: at(built.onTime), background: 'var(--sand)' }} />
+              <span className={s.pin} style={{ left: at(full.onTime), background: 'var(--gain)' }} />
+            </div>
+            <div className={s.plabels}>
+              <div style={{ left: at(today.onTime) }}><b>{pct(today.onTime)}</b>Today</div>
+              <div style={{ left: at(built.onTime) }}><b>{pct(built.onTime)}</b>{BRAND}</div>
+              <div style={{ left: at(full.onTime) }}><b className={s.gainText}>{pct(full.onTime)}</b>Full programme</div>
+              <div className={s.gapLabel} style={{ left: at(TARGET) }}>
+                {full.onTime < TARGET
+                  ? <><b className={s.hotText}>{points(TARGET - full.onTime)} pts gap</b>to {pct(TARGET, 0)} target</>
+                  : <><b className={s.gainText}>Clears</b>{pct(TARGET, 0)} target</>}
+              </div>
+            </div>
+          </div>
+          <p className={s.srOnly}>
+            Today {pct(today.onTime)}, {BRAND} as built {pct(built.onTime)}, full programme {pct(full.onTime)}, against a {pct(TARGET, 0)} target.
+          </p>
         </section>
       )}
 
-      <section className={s.panel}>
-        <div className={s.head}>
-          <div>
-            <h2 className={s.h2}>Assumptions</h2>
-            <p className={s.sub}>Share of each cause a fix removes.</p>
-          </div>
-        </div>
-        <ul className={s.chips}>
-          {FIXES.map((f) => (
-            <li key={f.scenario} className={s.chip}><Icon name={f.icon} size={15} />{f.label}<b>{pct(f.rate, 0)}</b></li>
-          ))}
-        </ul>
-      </section>
+      <div className={s.grid}>
+        <section className={`${s.card} ${s.chartCard}`} aria-labelledby="chart-head">
+          <SecHead icon="chart" tint="navy" id="chart-head" title="On-time delivery by scenario"
+            sub="Fixes stack from today’s baseline. Grey is the rate before each step, green is what that fix adds.">
+            <Segmented label="Orders" value={segment} options={SEGMENTS} onChange={setSegment} />
+          </SecHead>
+          <Status loading={chart.loading} error={chart.error} skeleton="bars" count={8} />
+          {chart.data && (
+            <>
+              <table className={s.chart}>
+                <thead>
+                  <tr>
+                    <th scope="col">Scenario</th>
+                    <th scope="col" className={s.axisHead}>
+                      <span className={s.axis} aria-hidden="true">{TICKS.map((t) => <span key={t}>{pct(t, 0)}</span>)}</span>
+                      <span className={s.srOnly}>On-time bar</span>
+                    </th>
+                    <th scope="col" className={s.right}>On-time</th>
+                    <th scope="col" className={s.right}>Gain</th>
+                    <th scope="col" className={s.right}>Late avoided</th>
+                    <th scope="col" className={s.right}>Cost avoided</th>
+                  </tr>
+                </thead>
+                {GROUPS.map((g) => (
+                  <tbody key={g.title}>
+                    <tr className={s.groupRow}><th scope="rowgroup" colSpan={6}><span>{g.title}</span></th></tr>
+                    {g.rows.map((r) => {
+                      const x = chartBy.get(r.scenario);
+                      if (!x) return null;
+                      const prev = r.prev ? chartBy.get(r.prev) : undefined;
+                      const gain = prev ? x.onTime - prev.onTime : undefined;
+                      return (
+                        <tr key={r.scenario} className={s[r.tone]}>
+                          <th scope="row" className={s.label}><span className={s.labelIn}><span className={s.step}>{r.step}</span>{r.label}</span></th>
+                          <td className={s.barCell}>
+                            <span className={s.track}>
+                              {TICKS.slice(1, -1).map((t) => <span key={t} className={s.gl} style={{ left: at(t) }} />)}
+                              <span className={s.bar} style={{ width: at(x.onTime) }} />
+                              {prev && r.tone !== 'built' && <span className={s.prev} style={{ width: at(prev.onTime) }} />}
+                              <span className={s.targetLine} style={{ left: at(TARGET) }} />
+                            </span>
+                          </td>
+                          <td className={`${s.num} ${s.right} ${s.rate}`}>{pct(x.onTime)}</td>
+                          <td className={`${s.num} ${s.right} ${s.gain}`} data-label="Gain">{gain != null ? `+${points(gain)}` : '–'}</td>
+                          <td className={`${s.num} ${s.right} ${s.late}`} data-label="Late avoided">{r.tone === 'base' ? '–' : int(x.lateAvoided)}</td>
+                          <td className={`${s.num} ${s.right} ${s.costCell}`} data-label="Cost avoided">{r.tone === 'base' ? '–' : usdShort(x.costAvoided)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                ))}
+              </table>
+              <div className={s.cfoot}>
+                <div className={s.legend}>
+                  <span><i style={{ background: 'var(--stone-3)' }} />Today</span>
+                  <span><i style={{ background: 'var(--stone-4)' }} />Before step</span>
+                  <span><i style={{ background: 'var(--gain)' }} />Gain from fix</span>
+                  <span><i style={{ background: 'var(--sand)' }} />{BRAND}</span>
+                  <span><i className={s.tg} />{pct(TARGET, 0)} target</span>
+                </div>
+                {segment === 'all' && o.data && <span>Replayed on <b>{int(o.data.deliveries)} orders</b></span>}
+              </div>
+            </>
+          )}
+        </section>
 
-      <section className={s.panel}>
-        <div className={s.head}>
-          <div>
-            <h2 className={s.h2}>On-time delivery by scenario</h2>
-            <p className={s.sub}>Late deliveries and cost avoided over 6 months vs today</p>
-          </div>
-          <Segmented label="Orders" value={segment} options={SEGMENTS} onChange={setSegment} />
-        </div>
-        <Status loading={chart.loading} error={chart.error} skeleton="bars" count={8} />
-        {chart.data && (
-          <div className={s.chartWrap}>
-            <table className={s.chart}>
-              <thead>
-                <tr>
-                  <th scope="col">Scenario</th>
-                  <th scope="col" className={s.axisHead}>
-                    <span className={s.axis} aria-hidden="true">
-                      <span style={{ left: 0 }}>{pct(AXIS_MIN, 0)}</span>
-                      <span className={s.axisTarget} style={{ left: at(TARGET) }}>{pct(TARGET, 0)} target</span>
-                      <span style={{ right: 0 }}>100%</span>
-                    </span>
-                    <span className={s.srOnly}>On-time bar</span>
-                  </th>
-                  <th scope="col" className={s.right}>On-time</th>
-                  <th scope="col" className={s.right}>Late avoided</th>
-                  <th scope="col" className={s.right}>Cost avoided</th>
-                </tr>
-              </thead>
-              {GROUPS.map((g) => (
-                <tbody key={g.title}>
-                  <tr className={s.groupRow}><th scope="rowgroup" colSpan={5}>{g.title}</th></tr>
-                  {g.rows.map((r) => {
-                    const x = chartBy.get(r.scenario);
-                    if (!x) return null;
-                    return (
-                      <tr key={r.scenario}>
-                        <th scope="row" className={s.label}>{r.label}{r.note && <small>{r.note}</small>}</th>
-                        <td className={s.barCell}>
-                          <span className={s.track}>
-                            <span className={`${s.fill} ${s[r.tone]}`} style={{ width: at(x.onTime) }} />
-                            <span className={s.targetLine} style={{ left: at(TARGET) }} />
-                          </span>
-                        </td>
-                        <td className={`${s.num} ${s.right} ${s.strong} ${s.rate} ${r.tone === 'full' ? s.good : ''}`}>{pct(x.onTime)}</td>
-                        <td className={`${s.num} ${s.right} ${s.late}`} data-label="Late avoided">{int(x.lateAvoided)}</td>
-                        <td className={`${s.num} ${s.right} ${s.cost}`} data-label="Cost avoided">{usd(x.costAvoided)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              ))}
-            </table>
-          </div>
-        )}
-      </section>
+        <section className={`${s.card} ${s.assume}`} aria-labelledby="assume-head">
+          <SecHead icon="sliders" tint="plum" id="assume-head" title="Assumptions" sub="Share of each cause a fix is expected to remove." />
+          <ul className={s.arows}>
+            {FIXES.map((f) => {
+              const pts = lostBy.get(f.cause);
+              return (
+                <li key={f.scenario} className={f.rate < WEAK_RATE ? s.low : undefined}>
+                  <div className={s.atop}><span>{f.label}</span><b>{pct(f.rate, 0)}</b></div>
+                  <div className={s.asub}>
+                    <span>{f.causeLabel}</span>
+                    {pts != null && <span>removes <b>{points(pts * f.rate)}</b> of {points(pts)} pts</span>}
+                  </div>
+                  <span className={s.meter}><i style={{ width: pct(f.rate, 0) }} /></span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className={s.anote}><Icon name="info" />Replayed gains can differ slightly from share × points lost, because some late deliveries have more than one cause.</p>
+        </section>
+      </div>
 
       {all.data && (
         <section aria-labelledby="alt-head">
-          <h2 id="alt-head" className={s.h2}>Alternative scenarios</h2>
-          <p className={s.sub}>On-time and 6-month cost avoided</p>
+          <SecHead icon="compare" tint="teal" id="alt-head" title="Alternative scenarios"
+            sub={`Three reference cases with their fixes fully in place, measured against the ${pct(TARGET, 0)} target.`} />
           <div className={s.alts}>
             {ALTERNATIVES.map((alt) => {
               const x = allBy.get(alt.scenario);
               if (!x) return null;
               const clears = x.onTime >= TARGET;
               return (
-                <div key={alt.scenario} className={`${s.alt} ${clears ? s.altBest : ''}`}>
-                  <p className={s.altHead}>
-                    <span><b>{alt.label}</b><small>{alt.note}</small></span>
-                    {clears && <span className={s.tagGood}>Clears {pct(TARGET, 0)}</span>}
-                  </p>
-                  <p className={s.altFoot}><b className={s.num}>{pct(x.onTime)}</b><span className={s.num}>{usd(x.costAvoided)}</span></p>
-                </div>
+                <article key={alt.scenario} className={`${s.card} ${s.alt} ${clears ? s.win : ''}`}>
+                  <div className={s.altTop}>
+                    <span className={s.altIc}><Icon name={alt.icon} size={18} /></span>
+                    {clears
+                      ? <span className={`${s.tag} ${s.clear}`}><Icon name="checkCircle" size={13} />Clears {pct(TARGET, 0)}</span>
+                      : <span className={`${s.tag} ${s.short}`}>{points(TARGET - x.onTime)} pts short</span>}
+                  </div>
+                  <div><p className={s.kicker}>{alt.kicker}</p><h3 className={s.h3}>{alt.label}</h3></div>
+                  <div className={s.altStats}>
+                    <div><b className={clears ? s.gainText : undefined}>{points(x.onTime)}<small>%</small></b><span>on-time</span></div>
+                    <div><b className={s.gainText}>{usdShort(x.costAvoided)}</b><span>cost avoided</span></div>
+                  </div>
+                  <div>
+                    <span className={s.mt} aria-hidden="true"><i style={{ width: at(x.onTime) }} /><b style={{ left: at(TARGET) }} /></span>
+                    <span className={s.mtl}><span>{pct(AXIS_MIN, 0)}</span><span>{pct(TARGET, 0)} target</span></span>
+                  </div>
+                  <p className={s.altFoot}>{alt.fixes.map((f) => <span key={f}>{f}</span>)}</p>
+                </article>
               );
             })}
           </div>
         </section>
       )}
 
-      <section id="accounts" ref={accountsRef} className={`${s.panel} ${s.tablePanel}`}>
-        <div className={s.head}>
-          <div>
-            <h2 className={s.h2}>{accounts.length || 'The'} accounts at risk</h2>
-            {accounts.length > 0 && (
-              <p className={s.sub}>{usdShort(revenue)} annual revenue · all running {pct(Math.min(...rates))}–{pct(Math.max(...rates))} on-time</p>
-            )}
-          </div>
-          <ul className={s.groups}>
-            {byCause.map((g) => (
-              <li key={g.group} className={s.chip}><Icon name={g.icon} size={15} /><b>{usdShort(g.revenue)}</b> · {g.n} accounts · {g.group}</li>
-            ))}
-          </ul>
+      <section id="accounts" ref={accountsRef} className={s.accounts} aria-labelledby="acc-head">
+        <SecHead icon="building" tint="sand" id="acc-head" title="Accounts at risk"
+          sub={`Client accounts grouped by their main late cause. ${MANY_COMPLAINTS} or more complaints is flagged.`} />
+        <div className={s.card}>
+          <Status loading={a.loading} error={a.error} skeleton="rows" count={6} />
+          {accounts.length > 0 && (
+            <>
+              <ul className={s.acchead}>
+                {byCause.map((g) => (
+                  <li key={g.title}>
+                    <p><Icon name={g.icon} size={14} />{g.short}</p>
+                    <b>{usdShort(g.revenue)}<small>{g.n} account{g.n === 1 ? '' : 's'}</small></b>
+                    <span className={s.shr}><i style={{ width: `${(g.revenue / revenue) * 100}%` }} /></span>
+                  </li>
+                ))}
+              </ul>
+              <div className={s.flush}>
+                <table className={s.table}>
+                  <thead>
+                    <tr>
+                      <th scope="col">Account</th>
+                      <th scope="col" className={s.right}>Revenue</th>
+                      <th scope="col">Tier</th>
+                      <th scope="col">Channel</th>
+                      <th scope="col" className={s.right}>On-time</th>
+                      <th scope="col">Main late cause</th>
+                      <th scope="col" className={s.right}>Complaints</th>
+                      <th scope="col" className={s.right}>Protecting fix</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {accountPage.rows.map((x, i) => {
+                      const c = causeOf(x);
+                      const g = byCause.find((b) => b.title === c.title)!;
+                      const first = i === 0 || causeOf(accountPage.rows[i - 1]).title !== c.title;
+                      return (
+                        <Fragment key={x.clientId}>
+                          {first && (
+                            <tr className={s.gh}>
+                              <td colSpan={8}>
+                                <div className={s.ghin}>
+                                  <b><span><Icon name={c.icon} size={14} /></span>{c.title}</b>
+                                  <span>{g.n} account{g.n === 1 ? '' : 's'} · revenue at stake<strong>{usdShort(g.revenue)}</strong></span>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          <tr className={s.acc}>
+                            <td className={s.clientCell}>
+                              <span className={s.client}><span className={s.avatar}>{initials(x.clientName)}</span>
+                                <span>{x.clientName}<small>{x.clientId}</small></span></span>
+                            </td>
+                            <td className={`${s.num} ${s.right} ${s.revenue}`} data-label="Revenue">{usdShort(x.revenueUsd)}</td>
+                            <td className={s.tierCell}><span className={/1/.test(x.tier) ? `${s.tier} ${s.tierTop}` : s.tier}>{x.tier}</span></td>
+                            <td className={s.channelCell}><span className={s.channel}><Icon name={CHANNEL_ICON[x.channel] ?? 'mail'} size={14} />{x.channel}</span></td>
+                            <td className={`${s.right} ${s.onTimeCell}`} data-label="On-time">
+                              <span className={s.otr}><em><i style={{ width: at(x.onTime) }} /></em><span className={s.num}>{pct(x.onTime)}</span></span>
+                            </td>
+                            <td className={s.causeCell}>{c.short}</td>
+                            <td className={`${s.right} ${s.complaints}`} data-label="Complaints">
+                              {x.complaints >= MANY_COMPLAINTS
+                                ? <span className={s.flag}><Icon name="flag" size={12} />{x.complaints}</span>
+                                : <span className={s.cmp}>{x.complaints}</span>}
+                            </td>
+                            <td className={`${s.right} ${s.go}`}>
+                              <Link className={s.fixl} href={c.href} aria-label={`${x.clientName}: open the ${c.fix} screen`}>{c.fix}<Icon name="arrow" size={12} /></Link>
+                            </td>
+                          </tr>
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className={s.pagerRow}>
+                <span>Showing {accountPage.rows.length} of {accounts.length} accounts · {usdShort(revenue)} revenue at stake</span>
+                <Pager p={accountPage} className={s.pager} />
+              </div>
+              <p className={s.closing} data-testid="coverage">
+                <Icon name="shield" />
+                <span>{byCause.map((g, i) => (
+                  <Fragment key={g.title}>
+                    {i > 0 && (i === byCause.length - 1 ? ' and ' : ', ')}
+                    <b>{g.fix}</b> {i === 0 ? `protects ${g.n} account${g.n === 1 ? '' : 's'}` : g.n}
+                  </Fragment>
+                ))}.</span>
+              </p>
+            </>
+          )}
         </div>
-        <Status loading={a.loading} error={a.error} skeleton="rows" count={6} />
-        {accounts.length > 0 && (
-          <>
-            <div className={s.tableWrap}>
-              <table className={s.table}>
-                <thead>
-                  <tr>
-                    <th scope="col">Client</th>
-                    <th scope="col" className={s.right}>Revenue</th>
-                    <th scope="col">Channel</th>
-                    <th scope="col" className={s.right}>On-time</th>
-                    <th scope="col">Main cause</th>
-                    <th scope="col" className={s.right}>Complaints</th>
-                    <th scope="col"><span className={s.srOnly}>Fix</span></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accountPage.rows.map((x) => {
-                    const c = causeOf(x);
-                    return (
-                      <tr key={x.clientId}>
-                        <td className={s.clientCell}>
-                          <span className={s.client}>
-                            <span className={s.num} title={x.clientName}>{x.clientId}</span>
-                            <span className={/1/.test(x.tier) ? s.tierTop : s.tier}>{x.tier}</span>
-                          </span>
-                        </td>
-                        <td className={`${s.num} ${s.right} ${s.revenue}`}>{usd(x.revenueUsd)}</td>
-                        <td className={s.channelCell}><span className={s.channel}>{x.channel}</span></td>
-                        <td className={`${s.right} ${s.onTimeCell}`}>
-                          <span className={s.onTime}>
-                            <span className={s.mini}><span style={{ width: pct(x.onTime) }} /></span>
-                            <span className={s.num}>{pct(x.onTime)}</span>
-                          </span>
-                        </td>
-                        <td className={s.causeCell}><span className={s.cause}><Icon name={c.icon} size={15} />{c.short}</span></td>
-                        <td className={`${s.num} ${s.right} ${s.complaints}`} data-label="Complaints">
-                          {x.complaints >= MANY_COMPLAINTS ? <span className={s.tagBad}>{x.complaints}</span> : x.complaints}
-                        </td>
-                        <td className={s.go}>
-                          <Link href={c.href} aria-label={`${x.clientId}: open the ${c.fix} screen`}><Icon name="chevron" size={16} /></Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <Pager p={accountPage} className={s.pager} />
-            <div className={s.tableFoot}>
-              <p>{coverage}.</p>
-            </div>
-          </>
-        )}
       </section>
     </div>
   );

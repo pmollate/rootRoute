@@ -42,8 +42,8 @@ describe('Carriers', () => {
     mockApi(ROUTES);
     renderScreen(<CarriersScreen />);
     expect(await screen.findByText(/5 carrier lanes are blocked/)).toBeTruthy();
-    for (const l of ['D → Midwest', 'D → Southeast', 'E → West', 'F → Northeast', 'F → Southeast']) {
-      expect(screen.getByText(l)).toBeTruthy();
+    for (const l of ['D to Midwest', 'D to Southeast', 'E to West', 'F to Northeast', 'F to Southeast']) {
+      expect(screen.getByLabelText(`Carrier ${l}`)).toBeTruthy();
     }
   });
 
