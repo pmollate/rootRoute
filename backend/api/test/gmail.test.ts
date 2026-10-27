@@ -38,6 +38,15 @@ describe('Gmail client', () => {
     expect(labelIds).toEqual(['INBOX', 'UNREAD']);
   });
 
+  it('sends a message in a thread', async () => {
+    const { calls, gmail } = fakeGoogle([{ body: { id: 's1' } }]);
+    expect(await gmail.sendMessage('To: a@b.example\n\nhi', 't7')).toBe('s1');
+    expect(calls[1].url).toMatch(/\/messages\/send$/);
+    const { raw, threadId } = JSON.parse(calls[1].body) as { raw: string; threadId: string };
+    expect(Buffer.from(raw, 'base64url').toString()).toBe('To: a@b.example\r\n\r\nhi');
+    expect(threadId).toBe('t7');
+  });
+
   it('explains an expired refresh token', async () => {
     const fetch = async () => new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 });
     const gmail = new GmailClient({ clientId: 'id', clientSecret: 's', refreshToken: 'old' }, fetch);

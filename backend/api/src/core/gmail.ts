@@ -91,6 +91,16 @@ export class GmailClient {
     return this.call(`/messages/${id}?format=full`);
   }
 
+  /** Sends an RFC 822 message, in a thread when threadId is set. Call only through sendReply (allow-list, SEC-03). */
+  async sendMessage(rfc822: string, threadId: string | null = null): Promise<string> {
+    const raw = Buffer.from(rfc822.replace(/\r?\n/g, '\r\n'), 'utf8').toString('base64url');
+    const msg = await this.call<{ id: string }>('/messages/send', {
+      method: 'POST',
+      body: JSON.stringify(threadId ? { raw, threadId } : { raw }),
+    });
+    return msg.id;
+  }
+
   /** Adds an RFC 822 message to the mailbox without sending it; its Date header becomes the arrival time. */
   async insertMessage(rfc822: string, labelIds = ['INBOX', 'UNREAD']): Promise<string> {
     const raw = Buffer.from(rfc822.replace(/\r?\n/g, '\r\n'), 'utf8').toString('base64url');

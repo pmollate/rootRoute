@@ -1372,6 +1372,8 @@ Expected: last line `N/50 decisions match gold`, N ≥ 48. Look at every `MISS` 
 
 ### Task A6: Reply drafting (E6)
 
+**Built 27 Oct.** Beyond the steps below: `ReplyFacts` also carries `contact` (a PII tag such as `[PERSON_1]`, filled in by `restore()` only after approval) and, for an address the map could not confirm, `address`, `addressIssues` and `suggestion`; the model gets the problem as a plain sentence, never a code, and is never offered a different street. Sending: `GmailClient.sendMessage()` and `mailbox.ts` `replyMessage()` (same thread, `In-Reply-To`/`References`) and `sendReply()`, which refuses any address not on `ALLOW_LIST` (SEC-03). Checked live with gpt-5-mini on a ZIP-mismatch draft.
+
 **Files:**
 - Create: `backend/api/src/modules/intake/prompts/reply.md`, `backend/api/src/modules/intake/reply.ts`
 - Test: `backend/api/test/intake/reply.test.ts`
@@ -1380,7 +1382,7 @@ Expected: last line `N/50 decisions match gold`, N ≥ 48. Look at every `MISS` 
 - Consumes: `checkPromise` from B (the test imports B8's `domain.ts`; until B8 merges, write the expected strings by hand).
 - Produces: `ReplyFacts`, `formatDate(iso)` → `25 Oct 2026`, `missingLabels(missing)`, `requiredPhrases(facts)`, `templateReply(facts)`, `draftReply(llm, facts) -> { text, source: 'model' | 'template' }`.
 
-- [ ] **Step 1: Write the failing test** (AC-INT-03, AC-INT-06):
+- [x] **Step 1: Write the failing test** (AC-INT-03, AC-INT-06):
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1429,9 +1431,9 @@ describe('reply drafting', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL, cannot find `reply.js`.
+- [x] **Step 2: Run.** Expected: FAIL, cannot find `reply.js`.
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
 
 ```markdown
 You write short, friendly replies from Halcyon Logistics to clients who emailed an order.
@@ -1524,7 +1526,7 @@ export async function draftReply(llm: LLM, f: ReplyFacts): Promise<{ text: strin
 }
 ```
 
-- [ ] **Step 4: Run.** Expected: 5 passed.
+- [x] **Step 4: Run.** Expected: 5 passed.
 
 - [ ] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): reply drafts from checked facts with template fallback"`
 

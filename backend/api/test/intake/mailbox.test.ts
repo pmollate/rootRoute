@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GmailMessage } from '../../src/core/gmail.js';
-import { parseGmailMessage, toLocalTimestamp } from '../../src/modules/intake/mailbox.js';
+import { parseGmailMessage, replyMessage, sendReply, toLocalTimestamp } from '../../src/modules/intake/mailbox.js';
 
 const b64 = (s: string) => Buffer.from(s).toString('base64url');
 const headers = [
@@ -34,5 +34,30 @@ describe('mailbox', () => {
 
   it('converts across the daylight-saving change', () => {
     expect(toLocalTimestamp(Date.UTC(2026, 10, 2, 13, 0), 'America/New_York')).toBe('2026-11-02 08:00');
+  });
+});
+
+describe('sending a reply', () => {
+  const reply = { to: 'Orders@Client190.example', subject: '[SYNTHETIC] Order 34', body: 'Hello,\nplease confirm.',
+    threadId: 't1', inReplyTo: '<sd02-34@latelens.synthetic>' };
+
+  it('builds a reply in the same thread with In-Reply-To and References', () => {
+    const eml = replyMessage(reply);
+    expect(eml).toContain('To: Orders@Client190.example');
+    expect(eml).toContain('Subject: Re: [SYNTHETIC] Order 34');
+    expect(eml).toContain('In-Reply-To: <sd02-34@latelens.synthetic>');
+    expect(eml).toContain('References: <sd02-34@latelens.synthetic>');
+    expect(eml.endsWith('\n\nHello,\nplease confirm.')).toBe(true);
+    expect(replyMessage({ ...reply, subject: 'Re: x' })).toContain('Subject: Re: x\n');
+  });
+
+  it('AC-SEC-03 (unit): sends only to the allow-list', async () => {
+    const sent: { raw: string; threadId: string | null }[] = [];
+    const gmail = { sendMessage: async (raw: string, threadId: string | null) => { sent.push({ raw, threadId }); return 'm9'; } };
+    const allow = new Set(['orders@client190.example']);
+    expect(await sendReply(gmail, reply, allow)).toBe('m9');
+    expect(sent[0].threadId).toBe('t1');
+    await expect(sendReply(gmail, { ...reply, to: 'someone@else.example' }, allow)).rejects.toThrow(/allow-list/);
+    expect(sent).toHaveLength(1);
   });
 });

@@ -80,3 +80,26 @@ export async function fetchRecentEmails(gmail: GmailClient, query = DEFAULT_QUER
   for (const id of await gmail.listMessageIds(query, max)) out.push(parseGmailMessage(await gmail.getMessage(id)));
   return out;
 }
+
+export interface OutboundReply {
+  to: string;
+  subject: string;           // the client's subject; "Re: " is added once
+  body: string;              // plain text, with names already restored after approval
+  threadId: string | null;   // Gmail thread of the client's email
+  inReplyTo: string | null;  // the client's Message-ID
+}
+
+/** An RFC 822 reply that Gmail and the client's mail program file in the same conversation. */
+export function replyMessage(r: OutboundReply): string {
+  const subject = /^re:/i.test(r.subject) ? r.subject : `Re: ${r.subject}`;
+  const headers = [`To: ${r.to}`, `Subject: ${subject}`, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=utf-8'];
+  if (r.inReplyTo) headers.push(`In-Reply-To: ${r.inReplyTo}`, `References: ${r.inReplyTo}`);
+  return `${headers.join('\n')}\n\n${r.body}`;
+}
+
+/** SEC-03: outbound email goes only to addresses on ALLOW_LIST; anything else is refused before Gmail is called. */
+export async function sendReply(gmail: Pick<GmailClient, 'sendMessage'>, r: OutboundReply, allow: Set<string>): Promise<string> {
+  const to = senderAddress(r.to);
+  if (!allow.has(to)) throw new Error(`${to} is not on the allow-list (ALLOW_LIST): reply not sent`);
+  return gmail.sendMessage(replyMessage(r), r.threadId);
+}
