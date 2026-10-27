@@ -1,0 +1,40 @@
+{
+  "id": "11",
+  "layout": 11,
+  "from": "orders@client085.example",
+  "received_at": "2026-10-22 08:45",
+  "message_id": "<sd02-11@latelens.synthetic>",
+  "client_id": "C085",
+  "items": [
+    {
+      "sku": "HX-645",
+      "qty": 108
+    },
+    {
+      "sku": "HX-963",
+      "qty": 68
+    },
+    {
+      "sku": "HX-352",
+      "qty": 18
+    }
+  ],
+  "address": {
+    "line1": "1 Public Sq",
+    "line2": "Dock 4",
+    "city": "Nashville",
+    "state": "TN",
+    "zip": "37201"
+  },
+  "requested_commitment": "next_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Owen Brennan",
+    "(615) 555-0124",
+    "owen.brennan@client085.example"
+  ]
+}

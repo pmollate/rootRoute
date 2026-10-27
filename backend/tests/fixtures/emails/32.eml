@@ -1,0 +1,25 @@
+From: orders@client178.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 32
+Date: Tue, 27 Oct 2026 07:18:00 -0400
+Message-ID: <sd02-32@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+New order
+1. 7 x HX-114
+2. 41 x HX-620
+3. 38 x HX-856
+
+Deliver to
+1437 Bannock St
+Dock 8
+Denver, CO 80202
+Need it same day.
+Thanks,
+Sam Kowalski
+(303) 555-0112
+sam.kowalski@client178.example
+
+-- SYNTHETIC test email, not a real order --

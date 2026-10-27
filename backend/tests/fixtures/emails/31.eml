@@ -1,0 +1,22 @@
+From: orders@client172.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 31
+Date: Mon, 26 Oct 2026 06:14:00 -0400
+Message-ID: <sd02-31@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+Order below.
+| SKU | Qty |
+|-----|-----|
+| HX-313 | 23 |
+| HX-784 | 69 |
+Service: next day
+Address: 2 Woodward Ave / Dock 2 / Detroit, MI 48226
+Thanks,
+Grace Liu
+(313) 555-0146
+grace.liu@client172.example
+
+-- SYNTHETIC test email, not a real order --

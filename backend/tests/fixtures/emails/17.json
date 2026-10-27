@@ -1,0 +1,40 @@
+{
+  "id": "17",
+  "layout": 3,
+  "from": "orders@client102.example",
+  "received_at": "2026-10-20 12:45",
+  "message_id": "<sd02-17@latelens.synthetic>",
+  "client_id": "C102",
+  "items": [
+    {
+      "sku": "HX-917",
+      "qty": 119
+    },
+    {
+      "sku": "HX-235",
+      "qty": 50
+    },
+    {
+      "sku": "HX-939",
+      "qty": 37
+    }
+  ],
+  "address": {
+    "line1": "415 Summer St",
+    "line2": "Dock 7",
+    "city": "Boston",
+    "state": "MA",
+    "zip": "02210"
+  },
+  "requested_commitment": "same_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Sam Kowalski",
+    "(617) 555-0181",
+    "sam.kowalski@client102.example"
+  ]
+}

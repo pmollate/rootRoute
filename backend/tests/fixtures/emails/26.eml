@@ -1,0 +1,16 @@
+From: orders@client155.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 26
+Date: Wed, 21 Oct 2026 14:24:00 -0400
+Message-ID: <sd02-26@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+pls ship 11x HX-671 & 88x HX-265 same day -> 600 4th Ave Dock 6 Seattle, WA 98104
+Thanks,
+Dana Whitfield
+(206) 555-0176
+dana.whitfield@client155.example
+
+-- SYNTHETIC test email, not a real order --

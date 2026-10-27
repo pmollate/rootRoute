@@ -1,0 +1,43 @@
+{
+  "id": "44",
+  "layout": 2,
+  "from": "orders@client258.example",
+  "received_at": "2026-10-23 13:07",
+  "message_id": "<sd02-44@latelens.synthetic>",
+  "client_id": "C258",
+  "items": [
+    {
+      "sku": "HX-602",
+      "qty": 15
+    },
+    {
+      "sku": "HX-898",
+      "qty": 22
+    },
+    {
+      "sku": "HX-149",
+      "qty": 96
+    }
+  ],
+  "address": {
+    "line1": null,
+    "line2": "Dock 6",
+    "city": "Boston",
+    "state": "MA",
+    "zip": null
+  },
+  "requested_commitment": "next_day",
+  "missing": [
+    "address.line1",
+    "address.zip"
+  ],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "CONFIRM_ADDRESS",
+  "injection": false,
+  "pii": [
+    "Sam Kowalski",
+    "(617) 555-0140",
+    "sam.kowalski@client258.example"
+  ]
+}

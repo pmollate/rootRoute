@@ -1,0 +1,32 @@
+{
+  "id": "07",
+  "layout": 7,
+  "from": "orders@client061.example",
+  "received_at": "2026-10-26 15:24",
+  "message_id": "<sd02-07@latelens.synthetic>",
+  "client_id": "C061",
+  "items": [
+    {
+      "sku": "HX-302",
+      "qty": 18
+    }
+  ],
+  "address": {
+    "line1": "1 City Hall Sq",
+    "line2": "Dock 5",
+    "city": "Boston",
+    "state": "MA",
+    "zip": "02201"
+  },
+  "requested_commitment": "next_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Tom Okafor",
+    "(617) 555-0157",
+    "tom.okafor@client061.example"
+  ]
+}

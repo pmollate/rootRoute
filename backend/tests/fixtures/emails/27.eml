@@ -1,0 +1,12 @@
+From: orders@client159.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 27
+Date: Thu, 22 Oct 2026 16:53:00 -0400
+Message-ID: <sd02-27@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+X-Synthetic: true
+
+<p>Order (standard delivery)</p><ul><li>HX-856: 14</li><li>HX-925: 109</li><li>HX-723: 96</li></ul><p>Ship to: 100 N 3rd St<br>Dock 7</p><p>Thanks,<br>Elena Ruiz<br>(602) 555-0181<br>elena.ruiz@client159.example</p>
+
+-- SYNTHETIC test email, not a real order --

@@ -1,0 +1,39 @@
+{
+  "regions": {
+    "Northeast": ["CT", "DC", "DE", "MA", "MD", "ME", "NH", "NJ", "NY", "PA", "RI", "VT"],
+    "Southeast": ["AL", "AR", "FL", "GA", "KY", "LA", "MS", "NC", "SC", "TN", "VA", "WV"],
+    "Midwest": ["IA", "IL", "IN", "KS", "MI", "MN", "MO", "ND", "NE", "OH", "SD", "WI"],
+    "West": ["AK", "AZ", "CA", "CO", "HI", "ID", "MT", "NM", "NV", "OK", "OR", "TX", "UT", "WA", "WY"]
+  },
+  "addresses_note": "Real public buildings (city halls, convention centres), used so an address validator can confirm them. No private homes. Check each one with the chosen validator before the demo (plan Task A2 Step 6).",
+  "addresses": {
+    "Northeast": [
+      {"line1": "24 Eagle St", "city": "Albany", "state": "NY", "zip": "12207", "place": "Albany City Hall"},
+      {"line1": "1 City Hall Sq", "city": "Boston", "state": "MA", "zip": "02201", "place": "Boston City Hall"},
+      {"line1": "415 Summer St", "city": "Boston", "state": "MA", "zip": "02210", "place": "Boston Convention and Exhibition Center"},
+      {"line1": "1101 Arch St", "city": "Philadelphia", "state": "PA", "zip": "19107", "place": "Pennsylvania Convention Center"},
+      {"line1": "920 Broad St", "city": "Newark", "state": "NJ", "zip": "07102", "place": "Newark City Hall"}
+    ],
+    "Southeast": [
+      {"line1": "55 Trinity Ave SW", "city": "Atlanta", "state": "GA", "zip": "30303", "place": "Atlanta City Hall"},
+      {"line1": "400 S Orange Ave", "city": "Orlando", "state": "FL", "zip": "32801", "place": "Orlando City Hall"},
+      {"line1": "9800 International Dr", "city": "Orlando", "state": "FL", "zip": "32819", "place": "Orange County Convention Center"},
+      {"line1": "600 E 4th St", "city": "Charlotte", "state": "NC", "zip": "28202", "place": "Charlotte-Mecklenburg Government Center"},
+      {"line1": "1 Public Sq", "city": "Nashville", "state": "TN", "zip": "37201", "place": "Historic Metro Courthouse"}
+    ],
+    "Midwest": [
+      {"line1": "600 E Grand Ave", "city": "Chicago", "state": "IL", "zip": "60611", "place": "Navy Pier"},
+      {"line1": "90 W Broad St", "city": "Columbus", "state": "OH", "zip": "43215", "place": "Columbus City Hall"},
+      {"line1": "400 N High St", "city": "Columbus", "state": "OH", "zip": "43215", "place": "Greater Columbus Convention Center"},
+      {"line1": "2 Woodward Ave", "city": "Detroit", "state": "MI", "zip": "48226", "place": "Coleman A. Young Municipal Center"},
+      {"line1": "350 S 5th St", "city": "Minneapolis", "state": "MN", "zip": "55415", "place": "Minneapolis City Hall"}
+    ],
+    "West": [
+      {"line1": "915 I St", "city": "Sacramento", "state": "CA", "zip": "95814", "place": "Sacramento City Hall"},
+      {"line1": "600 4th Ave", "city": "Seattle", "state": "WA", "zip": "98104", "place": "Seattle City Hall"},
+      {"line1": "705 Pike St", "city": "Seattle", "state": "WA", "zip": "98101", "place": "Seattle Convention Center Arch"},
+      {"line1": "100 N 3rd St", "city": "Phoenix", "state": "AZ", "zip": "85004", "place": "Phoenix Convention Center"},
+      {"line1": "1437 Bannock St", "city": "Denver", "state": "CO", "zip": "80202", "place": "Denver City and County Building"}
+    ]
+  }
+}

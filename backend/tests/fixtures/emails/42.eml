@@ -1,0 +1,27 @@
+From: orders@client246.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 42
+Date: Wed, 21 Oct 2026 15:32:00 -0400
+Message-ID: <sd02-42@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+ORDER DETAILS
+Requested delivery: same day
+
+SHIP TO BLOCK
+600 4th Ave
+Dock 6
+Seattle, WA
+
+ITEMS
+- HX-695 x 87
+
+BILLING: on account
+Thanks,
+Grace Liu
+(206) 555-0185
+grace.liu@client246.example
+
+-- SYNTHETIC test email, not a real order --

@@ -1,0 +1,32 @@
+{
+  "id": "20",
+  "layout": 6,
+  "from": "orders@client127.example",
+  "received_at": "2026-10-23 08:58",
+  "message_id": "<sd02-20@latelens.synthetic>",
+  "client_id": "C127",
+  "items": [
+    {
+      "sku": "HX-955",
+      "qty": 27
+    }
+  ],
+  "address": {
+    "line1": "24 Eagle St",
+    "line2": "Dock 3",
+    "city": "Albany",
+    "state": "NY",
+    "zip": "12207"
+  },
+  "requested_commitment": "next_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Marcus Bell",
+    "(518) 555-0151",
+    "marcus.bell@client127.example"
+  ]
+}

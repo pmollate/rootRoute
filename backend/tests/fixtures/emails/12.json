@@ -1,0 +1,32 @@
+{
+  "id": "12",
+  "layout": 12,
+  "from": "orders@client087.example",
+  "received_at": "2026-10-23 13:35",
+  "message_id": "<sd02-12@latelens.synthetic>",
+  "client_id": "C087",
+  "items": [
+    {
+      "sku": "HX-439",
+      "qty": 106
+    }
+  ],
+  "address": {
+    "line1": "415 Summer St",
+    "line2": "Dock 1",
+    "city": "Boston",
+    "state": "MA",
+    "zip": "02210"
+  },
+  "requested_commitment": "standard",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Elena Ruiz",
+    "(617) 555-0106",
+    "elena.ruiz@client087.example"
+  ]
+}

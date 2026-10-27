@@ -1,0 +1,21 @@
+From: orders@client114.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 19
+Date: Thu, 22 Oct 2026 16:34:00 -0400
+Message-ID: <sd02-19@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+sku,qty
+HX-426,13
+HX-261,47
+HX-411,37
+delivery=standard delivery
+ship_to=2009 Quillfeather Ln; Dock 2; Orlando, FL 32801
+Thanks,
+Owen Brennan
+(407) 555-0134
+owen.brennan@client114.example
+
+-- SYNTHETIC test email, not a real order --

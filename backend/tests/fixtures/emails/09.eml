@@ -1,0 +1,21 @@
+From: orders@client067.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 09
+Date: Tue, 20 Oct 2026 10:58:00 -0400
+Message-ID: <sd02-09@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+URGENT ORDER
+HX-461 QTY 99
+SAME DAY
+9800 INTERNATIONAL DR
+DOCK 3
+ORLANDO, FL 19107
+Thanks,
+Owen Brennan
+(407) 555-0121
+owen.brennan@client067.example
+
+-- SYNTHETIC test email, not a real order --

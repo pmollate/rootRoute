@@ -1,0 +1,16 @@
+From: orders@client004.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 02
+Date: Wed, 21 Oct 2026 15:55:00 -0400
+Message-ID: <sd02-02@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+Hi team, please send 116 units of HX-562 for next day. Deliver to 705 Pike St, Dock 1, Seattle, WA 98101. Thanks!
+Thanks,
+Grace Liu
+(206) 555-0162
+grace.liu@client004.example
+
+-- SYNTHETIC test email, not a real order --

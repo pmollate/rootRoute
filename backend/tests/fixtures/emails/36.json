@@ -1,0 +1,38 @@
+{
+  "id": "36",
+  "layout": 8,
+  "from": "orders@client200.example",
+  "received_at": "2026-10-23 13:56",
+  "message_id": "<sd02-36@latelens.synthetic>",
+  "client_id": "C200",
+  "items": [
+    {
+      "sku": "HX-685",
+      "qty": 79
+    },
+    {
+      "sku": "HX-292",
+      "qty": 20
+    }
+  ],
+  "address": {
+    "line1": null,
+    "line2": "Dock 3",
+    "city": "Chicago",
+    "state": "IL",
+    "zip": "60611"
+  },
+  "requested_commitment": "next_day",
+  "missing": [
+    "address.line1"
+  ],
+  "matched_saved": true,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Owen Brennan",
+    "(312) 555-0137",
+    "owen.brennan@client200.example"
+  ]
+}

@@ -1,0 +1,24 @@
+From: orders@client085.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 11
+Date: Thu, 22 Oct 2026 08:45:00 -0400
+Message-ID: <sd02-11@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+Line items:
+1. 108 x HX-645
+2. 68 x HX-963
+3. 18 x HX-352
+Delivery address:
+1 Public Sq
+Dock 4
+Nashville, TN 37201
+Delivery speed: next day
+Thanks,
+Owen Brennan
+(615) 555-0124
+owen.brennan@client085.example
+
+-- SYNTHETIC test email, not a real order --

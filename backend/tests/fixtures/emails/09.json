@@ -1,0 +1,32 @@
+{
+  "id": "09",
+  "layout": 9,
+  "from": "orders@client067.example",
+  "received_at": "2026-10-20 10:58",
+  "message_id": "<sd02-09@latelens.synthetic>",
+  "client_id": "C067",
+  "items": [
+    {
+      "sku": "HX-461",
+      "qty": 99
+    }
+  ],
+  "address": {
+    "line1": "9800 International Dr",
+    "line2": "Dock 3",
+    "city": "Orlando",
+    "state": "FL",
+    "zip": "19107"
+  },
+  "requested_commitment": "same_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": "zip_mismatch",
+  "decision": "CONFIRM_ADDRESS",
+  "injection": false,
+  "pii": [
+    "Owen Brennan",
+    "(407) 555-0121",
+    "owen.brennan@client067.example"
+  ]
+}

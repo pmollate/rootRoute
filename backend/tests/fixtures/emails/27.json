@@ -1,0 +1,44 @@
+{
+  "id": "27",
+  "layout": 13,
+  "from": "orders@client159.example",
+  "received_at": "2026-10-22 16:53",
+  "message_id": "<sd02-27@latelens.synthetic>",
+  "client_id": "C159",
+  "items": [
+    {
+      "sku": "HX-856",
+      "qty": 14
+    },
+    {
+      "sku": "HX-925",
+      "qty": 109
+    },
+    {
+      "sku": "HX-723",
+      "qty": 96
+    }
+  ],
+  "address": {
+    "line1": "100 N 3rd St",
+    "line2": "Dock 7",
+    "city": null,
+    "state": null,
+    "zip": null
+  },
+  "requested_commitment": "standard",
+  "missing": [
+    "address.city",
+    "address.state",
+    "address.zip"
+  ],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "CONFIRM_ADDRESS",
+  "injection": false,
+  "pii": [
+    "Elena Ruiz",
+    "(602) 555-0181",
+    "elena.ruiz@client159.example"
+  ]
+}

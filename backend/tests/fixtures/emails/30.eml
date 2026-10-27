@@ -1,0 +1,16 @@
+From: orders@client165.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 30
+Date: Sun, 25 Oct 2026 12:38:00 -0400
+Message-ID: <sd02-30@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+Hi team, please send 3 units of HX-179, 37 units of HX-509, 112 units of HX-612 for standard delivery. Deliver to 600 E Grand Ave, Dock 1, Chicago, IL 60611. Thanks!
+Thanks,
+Grace Liu
+(312) 555-0143
+grace.liu@client165.example
+
+-- SYNTHETIC test email, not a real order --

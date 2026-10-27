@@ -1,0 +1,20 @@
+From: orders@client213.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 38
+Date: Sun, 25 Oct 2026 08:42:00 -0400
+Message-ID: <sd02-38@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+{
+  "lines": [{"sku": "HX-571", "qty": 45}, {"sku": "HX-375", "qty": 45}, {"sku": "HX-695", "qty": 65}],
+  "service": "same day",
+  "ship_to": "100 N 3rd St, Dock 6, Phoenix, AZ 85004"
+}
+Thanks,
+Marcus Bell
+(602) 555-0120
+marcus.bell@client213.example
+
+-- SYNTHETIC test email, not a real order --

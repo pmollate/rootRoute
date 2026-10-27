@@ -1,0 +1,23 @@
+From: orders@client163.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 29
+Date: Sat, 24 Oct 2026 06:18:00 -0400
+Message-ID: <sd02-29@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+PURCHASE ORDER
+Delivery: same day
+Ship to:
+1 City Hall Sq
+Dock 8
+Boston, MA 02201
+Items:
+- HX-973 x 68
+Thanks,
+Elena Ruiz
+(617) 555-0110
+elena.ruiz@client163.example
+
+-- SYNTHETIC test email, not a real order --
