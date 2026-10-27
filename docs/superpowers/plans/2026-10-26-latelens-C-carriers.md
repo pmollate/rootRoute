@@ -196,7 +196,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test` — Expected: 3 new tests pass; `lane_scores` written.
+- [x] **Step 4: Run.** `python -m pytest && npm run pipeline:test` — Expected: 3 new tests pass; `lane_scores` written.
 
 - [x] **Step 5: Commit.** `git add backend/analytics && git commit -m "feat(c): lane scores and block rules on fair data"`
 
@@ -652,7 +652,7 @@ const routes: FastifyPluginAsync = async (app) => {
 export default routes;
 ```
 
-- [ ] **Step 4: Run.** `npm run migrate:test && npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: domain tests 5 passed; route tests pass with the test database.
+- [x] **Step 4: Run.** `npm run migrate:test && npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: domain tests 5 passed; route tests pass with the test database.
 
 - [x] **Step 5: Commit and tell A** the real `carriersApi` is on `main`. `git add backend/api backend/db && git commit -m "feat(c): carrier recommender with capacity cap, overrides"`
 
@@ -668,7 +668,7 @@ export default routes;
 **Interfaces:**
 - Produces: table `carrier_backtest` (`actual` vs `recommended`, Aug–Sep, with on-time and mean rate). Friday orders never go to D in the recommended plan. Prototype result: 71.3% → 78.2%, mean rate $15.23 → $13.03.
 
-- [ ] **Step 1: Write the failing tests** (AC-CAR-05):
+- [x] **Step 1: Write the failing tests** (AC-CAR-05):
 
 ```python
 from analytics.carriers import backtest
@@ -699,9 +699,9 @@ describe.skipIf(!hasDb)('backtest route (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL, `ImportError`.
+- [x] **Step 2: Run.** Expected: FAIL, `ImportError`.
 
-- [ ] **Step 3: Implement:**
+- [x] **Step 3: Implement:**
 
 ```python
 """C7 backtest: lane rules trained on Apr-Jul, tested on Aug-Sep (SPEC §5.2).
@@ -762,9 +762,9 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test -- test/routes/backtest` — Expected: pass.
+- [x] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test -- test/routes/backtest` — Expected: pass.
 
-- [ ] **Step 5: Commit.** `git add backend/analytics backend/api && git commit -m "feat(c): Apr-Jul / Aug-Sep backtest of lane rules"`
+- [x] **Step 5: Commit.** `git add backend/analytics backend/api && git commit -m "feat(c): Apr-Jul / Aug-Sep backtest of lane rules"`
 
 **Tuesday check-in:** `carriersApi` real; `/api/carriers?region=Northeast&commitment=next_day` returns the spec's reason string.
 
@@ -955,7 +955,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
 - Consumes: `/api/carriers`, `/api/carriers/backtest`, `/api/tracking`, `POST /api/overrides`; `Segmented`, `Pill`, `Table`, `SyntheticBadge`, `postJSON` (B2).
 - Produces: `/dashboard/carriers`: region / promise / SLA pickers, ranked carriers marked recommended / backup / blocked with reasons, backtest table, tracking panel with the synthetic badge, override form.
 
-- [ ] **Step 1: Write the failing test:**
+- [x] **Step 1: Write the failing test:**
 
 ```tsx
 import { screen } from '@testing-library/react';
@@ -984,9 +984,9 @@ describe('Carriers', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./CarriersScreen`.
+- [x] **Step 2: Run.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./CarriersScreen`.
 
-- [ ] **Step 3: Implement** the screen and its route:
+- [x] **Step 3: Implement** the screen and its route:
 
 ```tsx
 'use client';
@@ -1100,9 +1100,9 @@ export default function Page() {
 }
 ```
 
-- [ ] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck` — Expected: PASS. In the browser: West / standard shows E blocked and D eligible; Midwest shows D blocked and F eligible.
+- [x] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck` — Expected: PASS. In the browser: West / standard shows E blocked and D eligible; Midwest shows D blocked and F eligible.
 
-- [ ] **Step 5: Commit.** `git add frontend && git commit -m "feat(c): Carriers screen"`
+- [x] **Step 5: Commit.** `git add frontend && git commit -m "feat(c): Carriers screen"`
 
 ---
 
