@@ -1,0 +1,36 @@
+{
+  "id": "08",
+  "layout": 8,
+  "from": "orders@client066.example",
+  "received_at": "2026-10-27 14:57",
+  "message_id": "<sd02-08@latelens.synthetic>",
+  "client_id": "C066",
+  "items": [
+    {
+      "sku": "HX-495",
+      "qty": 73
+    },
+    {
+      "sku": "HX-500",
+      "qty": 76
+    }
+  ],
+  "address": {
+    "line1": "920 Broad St",
+    "line2": "Dock 4",
+    "city": "Newark",
+    "state": "NJ",
+    "zip": "07102"
+  },
+  "requested_commitment": "next_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Marcus Bell",
+    "(973) 555-0156",
+    "marcus.bell@client066.example"
+  ]
+}

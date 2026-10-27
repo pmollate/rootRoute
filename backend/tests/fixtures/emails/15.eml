@@ -1,0 +1,23 @@
+From: orders@client098.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 15
+Date: Mon, 26 Oct 2026 06:31:00 -0400
+Message-ID: <sd02-15@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+PURCHASE ORDER
+Delivery: next day
+Ship to:
+415 Summer St
+Dock 8
+Boston, MA 02210
+Items:
+- HX-691 x 87
+Thanks,
+Tom Okafor
+(617) 555-0187
+tom.okafor@client098.example
+
+-- SYNTHETIC test email, not a real order --

@@ -1,0 +1,23 @@
+From: orders@client142.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 23
+Date: Mon, 26 Oct 2026 17:17:00 -0400
+Message-ID: <sd02-23@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+URGENT ORDER
+HX-711 QTY 81
+HX-378 QTY 86
+HX-221 QTY 75
+STANDARD DELIVERY
+600 4TH AVE
+DOCK 7
+SEATTLE, WA 98104
+Thanks,
+Priya Natarajan
+(206) 555-0161
+priya.natarajan@client142.example
+
+-- SYNTHETIC test email, not a real order --

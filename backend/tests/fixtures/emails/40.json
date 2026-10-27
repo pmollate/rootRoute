@@ -1,0 +1,40 @@
+{
+  "id": "40",
+  "layout": 12,
+  "from": "orders@client225.example",
+  "received_at": "2026-10-27 14:54",
+  "message_id": "<sd02-40@latelens.synthetic>",
+  "client_id": "C225",
+  "items": [
+    {
+      "sku": "HX-217",
+      "qty": 60
+    },
+    {
+      "sku": "HX-219",
+      "qty": 101
+    },
+    {
+      "sku": "HX-217",
+      "qty": 77
+    }
+  ],
+  "address": {
+    "line1": "915 I St",
+    "line2": "Dock 2",
+    "city": "Sacramento",
+    "state": "CA",
+    "zip": "43215"
+  },
+  "requested_commitment": "same_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": "zip_mismatch",
+  "decision": "CONFIRM_ADDRESS",
+  "injection": false,
+  "pii": [
+    "Sam Kowalski",
+    "(916) 555-0126",
+    "sam.kowalski@client225.example"
+  ]
+}

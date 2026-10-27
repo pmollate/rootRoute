@@ -1,0 +1,40 @@
+{
+  "id": "25",
+  "layout": 11,
+  "from": "orders@client148.example",
+  "received_at": "2026-10-20 07:57",
+  "message_id": "<sd02-25@latelens.synthetic>",
+  "client_id": "C148",
+  "items": [
+    {
+      "sku": "HX-530",
+      "qty": 21
+    },
+    {
+      "sku": "HX-634",
+      "qty": 55
+    },
+    {
+      "sku": "HX-692",
+      "qty": 45
+    }
+  ],
+  "address": {
+    "line1": "7491 Brindlewick Way",
+    "line2": "Dock 1",
+    "city": "Seattle",
+    "state": "WA",
+    "zip": "98101"
+  },
+  "requested_commitment": "same_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": "street_not_found",
+  "decision": "CONFIRM_ADDRESS",
+  "injection": false,
+  "pii": [
+    "Grace Liu",
+    "(206) 555-0146",
+    "grace.liu@client148.example"
+  ]
+}

@@ -1,0 +1,16 @@
+From: orders@client225.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 40
+Date: Tue, 27 Oct 2026 14:54:00 -0400
+Message-ID: <sd02-40@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+pls ship 60x HX-217 & 101x HX-219 & 77x HX-217 same day -> 915 I St Dock 2 Sacramento, CA 43215
+Thanks,
+Sam Kowalski
+(916) 555-0126
+sam.kowalski@client225.example
+
+-- SYNTHETIC test email, not a real order --

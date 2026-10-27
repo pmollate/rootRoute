@@ -1,0 +1,40 @@
+{
+  "id": "38",
+  "layout": 10,
+  "from": "orders@client213.example",
+  "received_at": "2026-10-25 08:42",
+  "message_id": "<sd02-38@latelens.synthetic>",
+  "client_id": "C213",
+  "items": [
+    {
+      "sku": "HX-571",
+      "qty": 45
+    },
+    {
+      "sku": "HX-375",
+      "qty": 45
+    },
+    {
+      "sku": "HX-695",
+      "qty": 65
+    }
+  ],
+  "address": {
+    "line1": "100 N 3rd St",
+    "line2": "Dock 6",
+    "city": "Phoenix",
+    "state": "AZ",
+    "zip": "85004"
+  },
+  "requested_commitment": "same_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Marcus Bell",
+    "(602) 555-0120",
+    "marcus.bell@client213.example"
+  ]
+}

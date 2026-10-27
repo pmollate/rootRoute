@@ -1,0 +1,32 @@
+{
+  "id": "29",
+  "layout": 1,
+  "from": "orders@client163.example",
+  "received_at": "2026-10-24 06:18",
+  "message_id": "<sd02-29@latelens.synthetic>",
+  "client_id": "C163",
+  "items": [
+    {
+      "sku": "HX-973",
+      "qty": 68
+    }
+  ],
+  "address": {
+    "line1": "1 City Hall Sq",
+    "line2": "Dock 8",
+    "city": "Boston",
+    "state": "MA",
+    "zip": "02201"
+  },
+  "requested_commitment": "same_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Elena Ruiz",
+    "(617) 555-0110",
+    "elena.ruiz@client163.example"
+  ]
+}

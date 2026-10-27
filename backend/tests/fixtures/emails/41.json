@@ -1,0 +1,40 @@
+{
+  "id": "41",
+  "layout": 13,
+  "from": "orders@client232.example",
+  "received_at": "2026-10-20 08:53",
+  "message_id": "<sd02-41@latelens.synthetic>",
+  "client_id": "C232",
+  "items": [
+    {
+      "sku": "HX-848",
+      "qty": 58
+    },
+    {
+      "sku": "HX-657",
+      "qty": 102
+    },
+    {
+      "sku": "HX-268",
+      "qty": 3
+    }
+  ],
+  "address": {
+    "line1": "1 Public Sq",
+    "line2": "Dock 3",
+    "city": "Nashville",
+    "state": "TN",
+    "zip": "37201"
+  },
+  "requested_commitment": "next_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Grace Liu",
+    "(615) 555-0137",
+    "grace.liu@client232.example"
+  ]
+}

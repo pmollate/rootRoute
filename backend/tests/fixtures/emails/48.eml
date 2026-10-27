@@ -1,0 +1,24 @@
+From: orders@client265.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 48
+Date: Tue, 27 Oct 2026 15:55:00 -0400
+Message-ID: <sd02-48@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+---------- Forwarded message ----------
+From: buyer
+Please process:
+- HX-326 x 110
+- HX-426 x 47
+- HX-813 x 17
+Ship same day to:
+Dock 4
+Detroit, MI 48226
+Thanks,
+Owen Brennan
+(313) 555-0112
+owen.brennan@client265.example
+
+-- SYNTHETIC test email, not a real order --

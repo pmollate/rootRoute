@@ -1,0 +1,20 @@
+From: orders@client038.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 05
+Date: Sat, 24 Oct 2026 14:28:00 -0400
+Message-ID: <sd02-05@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+sku,qty
+HX-944,101
+HX-736,77
+delivery=same day
+ship_to=1 Public Sq; Dock 2; Nashville, TN 37201
+Thanks,
+Dana Whitfield
+(615) 555-0124
+dana.whitfield@client038.example
+
+-- SYNTHETIC test email, not a real order --

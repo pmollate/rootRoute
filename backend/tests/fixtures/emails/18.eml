@@ -1,0 +1,25 @@
+From: orders@client112.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 18
+Date: Wed, 21 Oct 2026 17:30:00 -0400
+Message-ID: <sd02-18@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+New order
+1. 116 x HX-832
+2. 104 x HX-112
+3. 58 x HX-664
+
+Deliver to
+8485 Brindlewick Way
+Dock 2
+Detroit, MI 48226
+Need it standard delivery.
+Thanks,
+Dana Whitfield
+(313) 555-0172
+dana.whitfield@client112.example
+
+-- SYNTHETIC test email, not a real order --

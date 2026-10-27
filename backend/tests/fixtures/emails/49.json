@@ -1,0 +1,40 @@
+{
+  "id": "49",
+  "layout": 7,
+  "from": "orders@client268.example",
+  "received_at": "2026-10-20 07:40",
+  "message_id": "<sd02-49@latelens.synthetic>",
+  "client_id": "C268",
+  "items": [
+    {
+      "sku": "HX-920",
+      "qty": 99
+    },
+    {
+      "sku": "HX-436",
+      "qty": 110
+    },
+    {
+      "sku": "HX-330",
+      "qty": 15
+    }
+  ],
+  "address": {
+    "line1": "915 I St",
+    "line2": "Dock 3",
+    "city": "Sacramento",
+    "state": "CA",
+    "zip": "95814"
+  },
+  "requested_commitment": "next_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Owen Brennan",
+    "(916) 555-0110",
+    "owen.brennan@client268.example"
+  ]
+}

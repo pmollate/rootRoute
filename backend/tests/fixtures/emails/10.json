@@ -1,0 +1,34 @@
+{
+  "id": "10",
+  "layout": 10,
+  "from": "orders@client070.example",
+  "received_at": "2026-10-21 13:31",
+  "message_id": "<sd02-10@latelens.synthetic>",
+  "client_id": "C070",
+  "items": [
+    {
+      "sku": "HX-546",
+      "qty": 105
+    }
+  ],
+  "address": {
+    "line1": null,
+    "line2": "Dock 6",
+    "city": "Chicago",
+    "state": "IL",
+    "zip": "60611"
+  },
+  "requested_commitment": "same_day",
+  "missing": [
+    "address.line1"
+  ],
+  "matched_saved": true,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Marcus Bell",
+    "(312) 555-0184",
+    "marcus.bell@client070.example"
+  ]
+}

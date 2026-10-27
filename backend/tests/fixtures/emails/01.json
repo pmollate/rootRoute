@@ -1,0 +1,36 @@
+{
+  "id": "01",
+  "layout": 1,
+  "from": "orders@client003.example",
+  "received_at": "2026-10-20 16:36",
+  "message_id": "<sd02-01@latelens.synthetic>",
+  "client_id": "C003",
+  "items": [
+    {
+      "sku": "HX-989",
+      "qty": 56
+    },
+    {
+      "sku": "HX-293",
+      "qty": 101
+    }
+  ],
+  "address": {
+    "line1": "2 Woodward Ave",
+    "line2": "Dock 5",
+    "city": "Detroit",
+    "state": "MI",
+    "zip": "48226"
+  },
+  "requested_commitment": "same_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Dana Whitfield",
+    "(313) 555-0104",
+    "dana.whitfield@client003.example"
+  ]
+}

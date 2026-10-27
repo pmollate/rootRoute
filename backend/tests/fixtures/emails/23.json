@@ -1,0 +1,40 @@
+{
+  "id": "23",
+  "layout": 9,
+  "from": "orders@client142.example",
+  "received_at": "2026-10-26 17:17",
+  "message_id": "<sd02-23@latelens.synthetic>",
+  "client_id": "C142",
+  "items": [
+    {
+      "sku": "HX-711",
+      "qty": 81
+    },
+    {
+      "sku": "HX-378",
+      "qty": 86
+    },
+    {
+      "sku": "HX-221",
+      "qty": 75
+    }
+  ],
+  "address": {
+    "line1": "600 4th Ave",
+    "line2": "Dock 7",
+    "city": "Seattle",
+    "state": "WA",
+    "zip": "98104"
+  },
+  "requested_commitment": "standard",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Priya Natarajan",
+    "(206) 555-0161",
+    "priya.natarajan@client142.example"
+  ]
+}

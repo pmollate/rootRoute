@@ -1,0 +1,32 @@
+{
+  "id": "50",
+  "layout": 8,
+  "from": "buyer@unknown-co.example",
+  "received_at": "2026-10-21 11:55",
+  "message_id": "<sd02-50@latelens.synthetic>",
+  "client_id": null,
+  "items": [
+    {
+      "sku": "HX-580",
+      "qty": 69
+    }
+  ],
+  "address": {
+    "line1": "24 Eagle St",
+    "line2": "Dock 2",
+    "city": "Albany",
+    "state": "NY",
+    "zip": "12207"
+  },
+  "requested_commitment": "standard",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "MISSING_INFO",
+  "injection": false,
+  "pii": [
+    "Grace Liu",
+    "(518) 555-0185",
+    "grace.liu@unknown-co.example"
+  ]
+}

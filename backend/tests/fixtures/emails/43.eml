@@ -1,0 +1,25 @@
+From: orders@client253.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 43
+Date: Thu, 22 Oct 2026 09:15:00 -0400
+Message-ID: <sd02-43@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+PURCHASE ORDER
+Delivery: same day
+Ship to:
+600 E 4th St
+Dock 3
+Charlotte, NC
+Items:
+- HX-157 x 28
+- HX-566 x 113
+- HX-780 x 98
+Thanks,
+Sam Kowalski
+(704) 555-0153
+sam.kowalski@client253.example
+
+-- SYNTHETIC test email, not a real order --

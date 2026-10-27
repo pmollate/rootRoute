@@ -1,0 +1,27 @@
+From: orders@client161.example
+To: orders@halcyon.example
+Subject: [SYNTHETIC] Order 28
+Date: Fri, 23 Oct 2026 06:15:00 -0400
+Message-ID: <sd02-28@latelens.synthetic>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+X-Synthetic: true
+
+ORDER DETAILS
+Requested delivery: next day
+
+SHIP TO BLOCK
+920 Broad St
+Dock 3
+Newark, NJ 07102
+
+ITEMS
+- HX-253 x 4
+
+BILLING: on account
+Thanks,
+Priya Natarajan
+(973) 555-0170
+priya.natarajan@client161.example
+
+-- SYNTHETIC test email, not a real order --

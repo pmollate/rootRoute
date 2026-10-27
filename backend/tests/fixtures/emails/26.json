@@ -1,0 +1,36 @@
+{
+  "id": "26",
+  "layout": 12,
+  "from": "orders@client155.example",
+  "received_at": "2026-10-21 14:24",
+  "message_id": "<sd02-26@latelens.synthetic>",
+  "client_id": "C155",
+  "items": [
+    {
+      "sku": "HX-671",
+      "qty": 11
+    },
+    {
+      "sku": "HX-265",
+      "qty": 88
+    }
+  ],
+  "address": {
+    "line1": "600 4th Ave",
+    "line2": "Dock 6",
+    "city": "Seattle",
+    "state": "WA",
+    "zip": "98104"
+  },
+  "requested_commitment": "same_day",
+  "missing": [],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "ALL_CLEAR",
+  "injection": false,
+  "pii": [
+    "Dana Whitfield",
+    "(206) 555-0176",
+    "dana.whitfield@client155.example"
+  ]
+}

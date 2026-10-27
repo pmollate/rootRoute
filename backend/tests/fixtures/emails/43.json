@@ -1,0 +1,42 @@
+{
+  "id": "43",
+  "layout": 1,
+  "from": "orders@client253.example",
+  "received_at": "2026-10-22 09:15",
+  "message_id": "<sd02-43@latelens.synthetic>",
+  "client_id": "C253",
+  "items": [
+    {
+      "sku": "HX-157",
+      "qty": 28
+    },
+    {
+      "sku": "HX-566",
+      "qty": 113
+    },
+    {
+      "sku": "HX-780",
+      "qty": 98
+    }
+  ],
+  "address": {
+    "line1": "600 E 4th St",
+    "line2": "Dock 3",
+    "city": "Charlotte",
+    "state": "NC",
+    "zip": null
+  },
+  "requested_commitment": "same_day",
+  "missing": [
+    "address.zip"
+  ],
+  "matched_saved": false,
+  "address_issue": null,
+  "decision": "CONFIRM_ADDRESS",
+  "injection": false,
+  "pii": [
+    "Sam Kowalski",
+    "(704) 555-0153",
+    "sam.kowalski@client253.example"
+  ]
+}

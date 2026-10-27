@@ -1,0 +1,4 @@
+{
+  "timezone": "America/New_York",
+  "note": "[HALCYON_TIMEZONE]: the dataset has no time zone (CONTRACTS §1). Fixture Date headers and Gmail arrival times are read in this zone. Confirm with the team; listed in SPEC §12."
+}
