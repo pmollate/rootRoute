@@ -1169,6 +1169,8 @@ export function decide(clientId: string | null, extraction: Extraction | null, a
 
 ### Task A5: Extraction (E3) and the fixture eval
 
+**Built 27 Oct with the A1–A3 changes.** `readOrder()` in `modules/intake/read.ts` runs the whole chain for one email (redact subject and body in one PII call → extract → ground against the redacted text → map → decide); the eval and A7's pipeline both use it. A transport error is thrown (the email waits) instead of becoming MISSING_INFO. The eval also checks that no gold PII value reaches the model (AC-SEC-05) and allows a Prompt Shields refusal on fixture 03. Record with `RECORD=1 LLM_PROVIDER=azure-openai PII_PROVIDER=azure-language ADDRESS_PROVIDER=azure-maps npm run eval:intake`.
+
 **Files:**
 - Create: `backend/api/src/modules/intake/prompts/extract.md`, `backend/api/src/modules/intake/extract.ts`, `backend/api/scripts/eval-intake.ts`
 - Create (recorded): `backend/api/test/recordings/*.json`
@@ -1179,7 +1181,7 @@ export function decide(clientId: string | null, extraction: Extraction | null, a
 - Consumes: `LLM` (A1), `ExtractionSchema` (A4).
 - Produces: `EXTRACT_SYSTEM`, `extractUserPrompt(subject, body)`, `extractOrder(llm, subject, body): Promise<Extraction | null>` (one retry on invalid output; `null` → MISSING_INFO).
 
-- [ ] **Step 1: Write the failing tests** (AC-INT-01; the eval covers AC-INT-02, -04, -05 and AC-SEC-02 and is skipped until recordings exist):
+- [x] **Step 1: Write the failing tests** (AC-INT-01; the eval covers AC-INT-02, -04, -05 and AC-SEC-02 and is skipped until recordings exist):
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1273,9 +1275,9 @@ describe.skipIf(!hasRecordings)('intake eval on 50 fixtures (recorded model resp
 });
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL, cannot find `extract.js`.
+- [x] **Step 2: Run.** Expected: FAIL, cannot find `extract.js`.
 
-- [ ] **Step 3: Implement.** The prompt (treats the email as untrusted data) and the extractor:
+- [x] **Step 3: Implement.** The prompt (treats the email as untrusted data) and the extractor:
 
 ```markdown
 You read purchase-order emails sent to Halcyon Logistics and return the order as JSON.
@@ -1351,7 +1353,7 @@ In `backend/api/package.json` replace `build` and add `eval:intake`:
 "eval:intake": "tsx scripts/eval-intake.ts",
 ```
 
-- [ ] **Step 4: Run unit tests.** `npm --prefix backend/api test -- test/intake/extract.test.ts` — Expected: 4 passed.
+- [x] **Step 4: Run unit tests.** `npm --prefix backend/api test -- test/intake/extract.test.ts` — Expected: 4 passed.
 
 - [ ] **Step 5: Run the real eval and record responses** (spends model credit: 50 calls).
 
