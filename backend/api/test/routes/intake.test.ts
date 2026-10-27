@@ -65,4 +65,32 @@ describe.skipIf(!hasDb)('intake routes (needs test database)', () => {
     expect((await post(`/api/intake/${own.id}/action`, { action: 'send_reply', user: 'ops' })).statusCode).toBe(503);
     expect((await post('/api/intake/email', {}, 'wrong')).statusCode).toBe(401);
   });
+
+  it('AC-INT-08: "Fetch from Gmail" runs the poll: stores new mail once, records each check, and the list shows the last one', async () => {
+    await query('TRUNCATE intake_polls RESTART IDENTITY');
+    expect((await post('/api/intake/fetch', {})).statusCode).toBe(503); // Gmail not set up
+    const f = fx['29'];
+    const msg = { id: 'g-29', threadId: 't-29', internalDate: String(Date.UTC(2026, 9, 28, 13, 0)), payload: {
+      mimeType: 'text/plain', headers: [{ name: 'From', value: f.gold.from }, { name: 'Subject', value: f.subject },
+        { name: 'Message-ID', value: '<g-29@client.example>' }], body: { data: Buffer.from(f.body).toString('base64url') } } };
+    const queries: string[] = [];
+    setDeps({ gmail: { listMessageIds: async (q: string) => { queries.push(q); return ['g-29']; }, getMessage: async () => msg,
+      sendMessage: async () => 'out' } });
+    try {
+      const first = (await post('/api/intake/fetch', {})).json();
+      expect(first).toMatchObject({ fetched: 1, processed: 1, ok: true });
+      const again = (await post('/api/intake/fetch', {})).json();
+      expect(again).toMatchObject({ fetched: 1, processed: 0, ok: true });
+      expect(queries[1]).toMatch(/^in:inbox -from:me after:\d+$/);
+      const stored = await query('SELECT id FROM intake_emails WHERE gmail_id = $1', ['g-29']);
+      expect(stored).toHaveLength(1);
+      const polls = await query<{ trigger: string; ok: boolean }>('SELECT trigger, ok FROM intake_polls ORDER BY id');
+      expect(polls).toEqual([{ trigger: 'button', ok: true }, { trigger: 'button', ok: true }]);
+      const list = (await app.inject({ method: 'GET', url: '/api/intake' })).json();
+      expect(list.pollMinutes).toBe(0); // INTAKE_POLL_MINUTES=0 in tests
+      expect(list.lastPoll).toMatchObject({ trigger: 'button', processed: 0, ok: true });
+    } finally {
+      setDeps({ gmail: null });
+    }
+  });
 });

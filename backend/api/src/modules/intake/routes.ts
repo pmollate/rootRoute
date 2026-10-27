@@ -1,27 +1,35 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { allowList } from '../../core/config.js';
+import { allowList, config } from '../../core/config.js';
 import { restore } from '../../core/pii/redact.js';
 import { requireApiKey } from '../../core/auth.js';
 import { applyAction } from './actions.js';
 import { getDeps } from './deps.js';
-import { fetchRecentEmails } from './mailbox.js';
 import { processEmail } from './pipeline.js';
+import { POLL_MAX, runPoll } from './poll.js';
 
 const EmailBody = z.object({
   from: z.string().min(3), subject: z.string(), body: z.string().min(1),
   receivedAt: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/), inReplyTo: z.number().int().optional(),
 });
 const ActionBody = z.object({ action: z.enum(['approve', 'send_reply', 'send_to_wms']), user: z.string().min(1) });
-const FetchBody = z.object({ query: z.string().optional(), max: z.number().int().min(1).max(50).default(20) });
+const FetchBody = z.object({ query: z.string().optional(), max: z.number().int().min(1).max(POLL_MAX).default(POLL_MAX) });
 
 const routes: FastifyPluginAsync = async (app) => {
-  app.get('/intake', async () => ({
-    emails: (await getDeps().repo.listEmails()).map((e) => ({
-      id: e.id, source: e.source, from: e.from_addr, subject: e.subject, receivedAt: e.received_at, clientId: e.client_id,
-      status: e.status, decision: e.decision, inReplyTo: e.in_reply_to, priority: e.priority,
-    })),
-  }));
+  app.get('/intake', async () => {
+    const { repo, gmail } = getDeps();
+    const last = await repo.lastPoll();
+    return {
+      emails: (await repo.listEmails()).map((e) => ({
+        id: e.id, source: e.source, from: e.from_addr, subject: e.subject, receivedAt: e.received_at, clientId: e.client_id,
+        status: e.status, decision: e.decision, inReplyTo: e.in_reply_to, priority: e.priority,
+      })),
+      // E15: how often the API checks Gmail by itself (0 = not at all), and how the last check went.
+      pollMinutes: gmail ? config.INTAKE_POLL_MINUTES : 0,
+      lastPoll: last && { trigger: last.trigger, startedAt: last.started_at, finishedAt: last.finished_at,
+        processed: last.processed, retried: last.retried, failed: last.failed, ok: last.ok },
+    };
+  });
 
   app.get<{ Params: { id: string } }>('/intake/:id', async (req, reply) => {
     const { repo } = getDeps();
@@ -47,20 +55,17 @@ const routes: FastifyPluginAsync = async (app) => {
     return result;
   });
 
-  /** "Fetch from Gmail": new order emails in the demo inbox, oldest first so a client's reply follows our question. */
+  /** "Fetch from Gmail": the same check the timer runs every INTAKE_POLL_MINUTES (E15), started by hand. */
   app.post('/intake/fetch', { preHandler: requireApiKey }, async (req, reply) => {
     const body = FetchBody.safeParse(req.body ?? {});
     if (!body.success) return reply.code(400).send({ error: body.error.message });
     const deps = getDeps();
     if (!deps.gmail) return reply.code(503).send({ error: 'Gmail is not set up (GMAIL_* in .env)' });
-    const emails = (await fetchRecentEmails(deps.gmail, body.data.query, body.data.max)).reverse();
-    const results = [];
-    for (const e of emails) {
-      results.push(await processEmail({ from: e.from, subject: e.subject, body: e.body, receivedAt: e.receivedAt,
-        source: 'gmail', gmailId: e.gmailId, threadId: e.threadId, messageId: e.messageId }, deps));
-    }
-    req.log.info({ fetched: emails.length }, 'intake fetched from Gmail');
-    return { fetched: emails.length, results };
+    const r = await runPoll(deps, 'button', body.data);
+    if (!r) return reply.code(409).send({ error: 'Another Gmail check is running: try again in a minute' });
+    req.log.info({ pollId: r.pollId, fetched: r.fetched, processed: r.processed, retried: r.retried, ok: r.ok },
+      'intake fetched from Gmail');
+    return r;
   });
 
   app.post<{ Params: { id: string } }>('/intake/:id/action', { preHandler: requireApiKey }, async (req, reply) => {

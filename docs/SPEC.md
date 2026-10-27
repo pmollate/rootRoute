@@ -794,12 +794,12 @@ score_default, score_sla, blocked, reason) · `carrier_capacity` (carrier, regio
 `intake_emails` (id, source, gmail_id, thread_id, message_id, from_addr, subject, body, redacted_body, pii_map,
 received_at, in_reply_to, hash, client_id, status, auth_result, auto_submitted) ·
 `intake_extractions` (email_id, extraction, decision, checks incl. map confidence and issues, reply_draft, reply_source) ·
-`intake_polls` (started_at, finished_at, after_ts, fetched, ok) · `outbound_messages` (email_id unique, to_addr, body,
+`intake_polls` (trigger, query, started_at, finished_at, fetched, processed, retried, failed, ok, error; migration 101) · `outbound_messages` (email_id unique, to_addr, body,
 gmail_id, status, sent_by = user or `auto`) ·
 `inbound_orders` (channel, payload, status, missing) · `saved_addresses` · `client_domains` · `audit_log` (approvals, rejections with reason, and actions) ·
 `recommendations` · `alerts` · `override_log` · `complaint_triage`.
-Intake statuses: RECEIVED | WAITING | AWAITING_APPROVAL | APPROVED | SENT | ENTERED | REJECTED. The v0.7 intake
-columns and `intake_polls` come in a new 1xx migration; `override_log` stays written by the Carriers module.
+Intake statuses: RECEIVED | WAITING | AWAITING_APPROVAL | APPROVED | SENT | ENTERED | REJECTED. The other v0.7 intake
+columns come in a later 1xx migration; `override_log` stays written by the Carriers module.
 Tables holding synthetic data carry a `synthetic boolean` column set to true.
 
 ## 7. API (Node)
