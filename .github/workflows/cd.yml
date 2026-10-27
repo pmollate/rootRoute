@@ -81,6 +81,32 @@ jobs:
           cp -R frontend/.next frontend/public frontend/package.json frontend/package-lock.json frontend/next.config.mjs deploy-web/
           npm --prefix deploy-web ci --omit=dev --no-audit --no-fund
           rm -rf deploy-web/.next/cache
+      - name: Give the API its AI, map and Gmail settings (from the demo environment's secrets; empty ones are left as they are)
+        env:
+          LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
+          PII_PROVIDER: ${{ secrets.PII_PROVIDER }}
+          AZURE_LANGUAGE_ENDPOINT: ${{ secrets.AZURE_LANGUAGE_ENDPOINT }}
+          AZURE_LANGUAGE_KEY: ${{ secrets.AZURE_LANGUAGE_KEY }}
+          ADDRESS_PROVIDER: ${{ secrets.ADDRESS_PROVIDER }}
+          AZURE_MAPS_KEY: ${{ secrets.AZURE_MAPS_KEY }}
+          GMAIL_ACCOUNT: ${{ secrets.GMAIL_ACCOUNT || vars.GMAIL_ACCOUNT }}
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+          ALLOW_LIST: ${{ secrets.ALLOW_LIST || vars.ALLOW_LIST }}
+        run: |
+          settings=()
+          for k in LLM_PROVIDER AZURE_OPENAI_ENDPOINT AZURE_OPENAI_API_KEY AZURE_OPENAI_DEPLOYMENT PII_PROVIDER \
+                   AZURE_LANGUAGE_ENDPOINT AZURE_LANGUAGE_KEY ADDRESS_PROVIDER AZURE_MAPS_KEY \
+                   GMAIL_ACCOUNT GMAIL_CLIENT_ID GMAIL_CLIENT_SECRET GMAIL_REFRESH_TOKEN ALLOW_LIST; do
+            if [ -n "${!k}" ]; then settings+=("$k=${!k}"); echo "set $k"; else echo "skip $k (no secret)"; fi
+          done
+          if [ ${#settings[@]} -gt 0 ]; then
+            az webapp config appsettings set -g "${{ vars.AZURE_RG }}" -n "${{ vars.NAME }}-api" -o none --settings "${settings[@]}"
+          fi
       - uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ vars.NAME }}-api
