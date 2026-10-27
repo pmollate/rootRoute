@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-790\",\"qty\":89},{\"sku\":\"HX-618\",\"qty\":70},{\"sku\":\"HX-847\",\"qty\":51}],\"address\":{\"line1\":\"920 Broad St\",\"line2\":\"Dock 5\",\"city\":\"Newark\",\"state\":\"NJ\",\"zip\":\"85004\",\"raw\":\"920 Broad St\\nDock 5\\nNewark, NJ 85004\"},\"requested_commitment\":\"standard\",\"confidence\":{\"items\":0.9,\"address\":0.8}}"
+}

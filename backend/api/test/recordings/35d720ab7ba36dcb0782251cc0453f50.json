@@ -1,0 +1,4 @@
+{
+  "kind": "pii",
+  "text": "[{\"category\":\"Person\",\"offset\":149,\"length\":14,\"text\":\"Dana Whitfield\"},{\"category\":\"PhoneNumber\",\"offset\":164,\"length\":14,\"text\":\"(313) 555-0104\"},{\"category\":\"Email\",\"offset\":179,\"length\":32,\"text\":\"dana.whitfield@client003.example\"}]"
+}

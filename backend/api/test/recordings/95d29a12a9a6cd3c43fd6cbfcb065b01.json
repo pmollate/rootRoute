@@ -1,0 +1,8 @@
+{
+  "kind": "json",
+  "text": "",
+  "error": {
+    "kind": "refusal",
+    "message": "blocked by the Azure content filter"
+  }
+}

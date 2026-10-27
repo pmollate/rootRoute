@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-580\",\"qty\":69}],\"address\":{\"line1\":\"24 Eagle St\",\"line2\":\"Dock 2\",\"city\":\"Albany\",\"state\":\"NY\",\"zip\":\"12207\",\"raw\":\"24 Eagle St\\nDock 2\\nAlbany, NY 12207\"},\"requested_commitment\":\"standard\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

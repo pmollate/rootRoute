@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-917\",\"qty\":119},{\"sku\":\"HX-235\",\"qty\":50},{\"sku\":\"HX-939\",\"qty\":37}],\"address\":{\"line1\":\"415 Summer St\",\"line2\":\"Dock 7\",\"city\":\"Boston\",\"state\":\"MA\",\"zip\":\"02210\",\"raw\":\"415 Summer St / Dock 7 / Boston, MA 02210\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.95,\"address\":0.9}}"
+}

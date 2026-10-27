@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-326\",\"qty\":110},{\"sku\":\"HX-426\",\"qty\":47},{\"sku\":\"HX-813\",\"qty\":17}],\"address\":{\"line1\":\"Dock 4\",\"line2\":null,\"city\":\"Detroit\",\"state\":\"MI\",\"zip\":\"48226\",\"raw\":\"Dock 4\\nDetroit, MI 48226\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.9,\"address\":0.8}}"
+}

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { AzureOpenAILLM } from '../src/core/llm/azureOpenai.js';
 import { RecordedLLM, RecordingLLM } from '../src/core/llm/recorded.js';
-import type { LLM } from '../src/core/llm/types.js';
+import { type LLM, LLMError } from '../src/core/llm/types.js';
 
 const Schema = z.object({ answer: z.number() });
 const fake: LLM = { name: 'fake', json: async () => ({ answer: 42 }) as never, text: async () => 'hello' };
@@ -19,6 +19,22 @@ describe('recorded LLM', () => {
     const replay = new RecordedLLM(dir);
     expect(await replay.json(req)).toEqual({ answer: 42 });
     expect(await replay.text({ system: 's', user: 'u' })).toBe('hello');
+  });
+
+  it('replays a refusal as a refusal (Prompt Shields on the injection email)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rec-'));
+    const refusing: LLM = { name: 'refusing', json: async () => { throw new LLMError('blocked', 'refusal'); }, text: async () => '' };
+    const req = { system: 's', user: 'inject', schema: Schema };
+    await expect(new RecordingLLM(refusing, dir).json(req)).rejects.toMatchObject({ kind: 'refusal' });
+    await expect(new RecordedLLM(dir).json(req)).rejects.toMatchObject({ kind: 'refusal', message: 'blocked' });
+  });
+
+  it('does not record a transport error', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rec-'));
+    const down: LLM = { name: 'down', json: async () => { throw new LLMError('timeout', 'transport'); }, text: async () => '' };
+    const req = { system: 's', user: 'u', schema: Schema };
+    await expect(new RecordingLLM(down, dir).json(req)).rejects.toMatchObject({ kind: 'transport' });
+    await expect(new RecordedLLM(dir).json(req)).rejects.toMatchObject({ kind: 'missing_recording' });
   });
 
   it('fails with missing_recording for an unseen prompt', async () => {

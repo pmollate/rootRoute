@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-989\",\"qty\":56},{\"sku\":\"HX-293\",\"qty\":101}],\"address\":{\"line1\":\"2 Woodward Ave\",\"line2\":\"Dock 5\",\"city\":\"Detroit\",\"state\":\"MI\",\"zip\":\"48226\",\"raw\":\"2 Woodward Ave\\nDock 5\\nDetroit, MI 48226\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

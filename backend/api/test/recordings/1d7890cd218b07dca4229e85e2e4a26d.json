@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-716\",\"qty\":96},{\"sku\":\"HX-425\",\"qty\":39},{\"sku\":\"HX-175\",\"qty\":86}],\"address\":{\"line1\":\"1101 Arch St\",\"line2\":\"Dock 8\",\"city\":\"Philadelphia\",\"state\":\"PA\",\"zip\":\"19107\",\"raw\":\"1101 Arch St\\nDock 8\\nPhiladelphia, PA 19107\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-495\",\"qty\":73},{\"sku\":\"HX-500\",\"qty\":76}],\"address\":{\"line1\":\"920 Broad St\",\"line2\":\"Dock 4\",\"city\":\"Newark\",\"state\":\"NJ\",\"zip\":\"07102\",\"raw\":\"920 Broad St\\nDock 4\\nNewark, NJ 07102\"},\"requested_commitment\":\"next_day\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

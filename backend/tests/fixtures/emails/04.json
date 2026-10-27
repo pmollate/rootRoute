@@ -16,11 +16,11 @@
     }
   ],
   "address": {
-    "line1": "1 City Hall Sq",
+    "line1": "700 Boylston St",
     "line2": "Dock 6",
     "city": "Boston",
     "state": "MA",
-    "zip": "02201"
+    "zip": "02116"
   },
   "requested_commitment": "next_day",
   "missing": [],

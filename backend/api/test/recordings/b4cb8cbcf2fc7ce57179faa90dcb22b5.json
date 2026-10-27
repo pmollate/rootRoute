@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-546\",\"qty\":105}],\"address\":{\"line1\":\"Dock 6\",\"line2\":null,\"city\":\"Chicago\",\"state\":\"IL\",\"zip\":\"60611\",\"raw\":\"Dock 6, Chicago, IL 60611\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.9,\"address\":0.8}}"
+}

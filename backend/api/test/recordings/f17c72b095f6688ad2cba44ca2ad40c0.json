@@ -1,0 +1,4 @@
+{
+  "kind": "address",
+  "text": "{\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[-83.04981231689453,42.3308219909668]},\"bbox\":[-83.06594848632812,42.317726135253906,-83.0256118774414,42.34204864501953],\"properties\":{\"type\":\"Postcode1\",\"confidence\":\"Medium\",\"matchCodes\":[\"UpHierarchy\"],\"geocodePoints\":[{\"calculationMethod\":\"\",\"usageTypes\":[\"Display\"],\"geometry\":{\"type\":\"Point\",\"coordinates\":[-83.04981231689453,42.3308219909668]}}],\"address\":{\"postalCode\":\"48226\",\"locality\":\"Detroit\",\"countryRegion\":{\"name\":\"United States\",\"ISO\":\"US\"},\"adminDistricts\":[{\"shortName\":\"MI\"},{\"shortName\":\"Wayne Co.\"}],\"formattedAddress\":\"48226, MI\"}}}]}"
+}

@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-461\",\"qty\":99}],\"address\":{\"line1\":\"9800 INTERNATIONAL DR\",\"line2\":\"DOCK 3\",\"city\":\"ORLANDO\",\"state\":\"FL\",\"zip\":\"19107\",\"raw\":\"9800 INTERNATIONAL DR\\nDOCK 3\\nORLANDO, FL 19107\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.95,\"address\":0.8}}"
+}
