@@ -1,0 +1,35 @@
+/* Carriers screen. Follows the Warehouses screen's layout and tokens. */
+.screen { width: 100%; max-width: 1112px; margin: 0 auto; display: grid; gap: 24px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: clamp(18px, 2.4vw, 24px); min-width: 0; display: grid; gap: 14px; }
+.title { font-family: var(--font-sans); font-size: clamp(1.5rem, 2.6vw, 1.75rem); font-weight: 650; letter-spacing: -0.015em; line-height: 1.2; margin: 0 0 6px; }
+.lede { color: var(--ink-2); margin: 0; font-size: 0.92rem; }
+.intro { margin-top: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.h2 { font-family: var(--font-sans); font-size: 1.05rem; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sub { color: var(--ink-2); margin: 0; font-size: 0.84rem; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; }
+.big { margin: 0; font-size: clamp(1.4rem, 2.6vw, 1.7rem); font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+
+/* Buttons and controls */
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.button, .dark { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 0.86rem; font-weight: 500; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; cursor: pointer; white-space: nowrap; }
+.button:disabled { opacity: 0.5; cursor: default; }
+.dark { background: var(--ink); border-color: var(--ink); color: var(--surface); font-weight: 600; }
+.button:focus-visible, .dark:focus-visible, .input:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 0.86rem; color: var(--ink-2); }
+.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 8px; }
+.input { font: inherit; font-size: 0.86rem; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); min-width: 0; }
+
+/* Blocked-lanes alert */
+.alert { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 16px; border-radius: var(--radius); border: 1px solid rgb(var(--accent-rgb) / 0.3); background: rgb(var(--accent-rgb) / 0.06); color: var(--accent-text); font-size: 0.88rem; }
+.alert p { margin: 0; flex: 1 1 320px; color: var(--ink); }
+.alert p b { color: var(--accent-text); }
+.lanes { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
+.lanes li { font-size: 0.78rem; font-weight: 600; padding: 2px 10px; border-radius: var(--pill); background: rgb(var(--accent-rgb) / 0.12); color: var(--accent-text); }
+
+/* Recommendation cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+.card { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
+.cardLabel { margin: 0 0 8px; font-size: 0.82rem; color: var(--ink-2); }
+.cardNote { margin: 8px 0 0; font-size: 0.78rem; color: var(--ink-2); }
+.reason { margin: 0; font-weight: 600; }
