@@ -79,8 +79,9 @@ export function templateReply(f: ReplyFacts): string {
       : '';
     const ask = f.missing.length
       ? `Before we ship, please send the ${missingLabels(f.missing).join(', ')} for the delivery address.`
-      : `Before we ship, please check the delivery address you gave: ${f.address}. ${issueSentences(f)} `
-        + `Please reply with the correct ${[...new Set(f.addressIssues.map((i) => ISSUE_LABEL[i]))].join(', ')}.`;
+      : `Before we ship, please check the delivery address you gave: ${f.address}. `
+        + `${issueSentences(f) || 'We could not confirm it on the map.'} Please reply with the correct `
+        + `${f.addressIssues.length ? [...new Set(f.addressIssues.map((i) => ISSUE_LABEL[i]))].join(', ') : 'street address and ZIP code'}.`;
     return `${hello}\n\nThank you for your order:\n${items}\n\n${ask}${options}\n\n${promise}\n\nHalcyon Logistics`;
   }
   return `${hello}\n\nYour order is confirmed:\n${items}\n\n${promise}\n\nHalcyon Logistics`;

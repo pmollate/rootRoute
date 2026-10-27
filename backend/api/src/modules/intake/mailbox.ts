@@ -75,7 +75,8 @@ export function parseGmailMessage(m: GmailMessage, timeZone = MAILBOX_TIMEZONE):
 }
 
 /** One at a time, to stay well inside Gmail's per-user rate limit. */
-export async function fetchRecentEmails(gmail: GmailClient, query = DEFAULT_QUERY, max = 50): Promise<InboundEmail[]> {
+export async function fetchRecentEmails(gmail: Pick<GmailClient, 'listMessageIds' | 'getMessage'>, query = DEFAULT_QUERY,
+  max = 50): Promise<InboundEmail[]> {
   const out: InboundEmail[] = [];
   for (const id of await gmail.listMessageIds(query, max)) out.push(parseGmailMessage(await gmail.getMessage(id)));
   return out;

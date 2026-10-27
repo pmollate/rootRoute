@@ -1,0 +1,4 @@
+{
+  "kind": "text",
+  "text": "Hello [PERSON_1],\n\nThanks for your order. We’re missing the delivery street address and ZIP code. Please confirm those.\n\nYou can also choose one of your saved addresses:\n- Main DC: 55 Trinity Ave SW, Dock 1, Atlanta, GA 30303\n- Riverside store: 400 S Orange Ave, Dock 2, Orlando, FL 32801\n\nOnce you confirm the address we’ll schedule delivery for 25 Oct 2026.\n\nHalcyon Logistics"
+}

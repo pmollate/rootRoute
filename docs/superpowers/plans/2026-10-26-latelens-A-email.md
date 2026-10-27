@@ -1534,6 +1534,8 @@ export async function draftReply(llm: LLM, f: ReplyFacts): Promise<{ text: strin
 
 ### Task A7: Intake pipeline, approvals, priority and routes (E1, E2, E7, E8, E14)
 
+**Built 27 Oct with the A1–A6 changes.** `processEmail` runs `readOrder()` (PII → model → grounding → Azure Maps → decide); a reply is merged into the email it answers (pasted `inReplyTo`, or the last email in the same Gmail thread, since Gmail may rewrite our Message-ID). If redaction or the model is unreachable the email is `WAITING` and posting or fetching it again retries. Dedupe by `gmail_id`, then hash. `send_reply` restores names and sends through Gmail in the thread, allow-list first (403), 503 without Gmail. New `POST /api/intake/fetch`. Route test against the test DB with B's and C's real APIs. The C190 conversation (fixture 34 + an answer giving 400 S Orange Ave, 32801) is recorded, so it runs offline: CONFIRM_ADDRESS → ALL_CLEAR, W3, carrier C, 25 Oct.
+
 **Files:**
 - Create: `backend/api/src/modules/intake/priority.ts`, `repo.ts`, `pipeline.ts`, `actions.ts`, `deps.ts`, `routes.ts`
 - Test: `backend/api/test/intake/priority.test.ts`, `backend/api/test/intake/memoryRepo.ts`, `backend/api/test/intake/pipeline.test.ts`
@@ -1542,7 +1544,7 @@ export async function draftReply(llm: LLM, f: ReplyFacts): Promise<{ text: strin
 - Consumes: `warehouseApi`, `carriersApi` (CONTRACTS §2; stubs until B8/C4 land), `createLLM()` (A1), all of A4–A6.
 - Produces: `isPriority(accountTier, atRisk)`, `byPriority(items, priority)` (stable, priority first), `processEmail(input, deps) -> { id, status, decision }`, `mergeExtraction(base, next)`, `emailHash(e)`, `applyAction(repo, id, action, user)`, `repo` (type `Repo`), `getDeps()` / `setDeps()`; endpoints `GET /api/intake` (priority clients first, each email marked `priority`), `GET /api/intake/:id`, `POST /api/intake/email`, `POST /api/intake/:id/action` (CONTRACTS §6).
 
-- [ ] **Step 1: Write the failing tests** (AC-PRI-01, AC-PRI-02, AC-INT-07, AC-SEC-03, AC-SEC-04, dedupe, unknown sender), with an in-memory repo so no database is needed:
+- [x] **Step 1: Write the failing tests** (AC-PRI-01, AC-PRI-02, AC-INT-07, AC-SEC-03, AC-SEC-04, dedupe, unknown sender), with an in-memory repo so no database is needed:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1692,9 +1694,9 @@ describe('actions', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL, cannot find `actions.js`.
+- [x] **Step 2: Run.** Expected: FAIL, cannot find `actions.js`.
 
-- [ ] **Step 3: Implement** the priority rule, repo, pipeline, actions and deps:
+- [x] **Step 3: Implement** the priority rule, repo, pipeline, actions and deps:
 
 ```ts
 // REQ-PRI-01/02: Tier 1 and at-risk clients are served first (7 of the 9 accounts threatening to leave are Tier 1).
@@ -1983,9 +1985,9 @@ const routes: FastifyPluginAsync = async (app) => {
 export default routes;
 ```
 
-- [ ] **Step 4: Run.** `npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: priority 2 and pipeline 6 passed; everything else still green.
+- [x] **Step 4: Run.** `npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: priority 2 and pipeline 6 passed; everything else still green.
 
-- [ ] **Step 5: Try it end to end.**
+- [x] **Step 5: Try it end to end.**
 
 ```bash
 npm run dev:api
