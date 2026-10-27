@@ -215,21 +215,12 @@ export function ReplayScreen() {
             <h2 className={s.h2}>Assumptions</h2>
             <p className={s.sub}>Share of each cause a fix removes.</p>
           </div>
-          <button type="button" className={s.btn} onClick={() => setShowHow((v) => !v)} aria-expanded={showHow} aria-controls="assumptions-how">
-            <Icon name="sliders" size={16} />Edit assumptions
-          </button>
         </div>
         <ul className={s.chips}>
           {FIXES.map((f) => (
             <li key={f.scenario} className={s.chip}><Icon name={f.icon} size={15} />{f.label}<b>{pct(f.rate, 0)}</b></li>
           ))}
         </ul>
-        {showHow && (
-          <p id="assumptions-how" className={s.how}>
-            These rates come from the diagnostic deck (SPEC §2.4) and are set in <code>backend/analytics/core/scenarios.py</code>.
-            Change them there and run <code>npm run pipeline</code> to replay every scenario with the new rates.
-          </p>
-        )}
       </section>
 
       <section className={s.panel}>

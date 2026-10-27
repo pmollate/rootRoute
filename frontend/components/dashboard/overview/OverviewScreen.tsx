@@ -98,15 +98,36 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
 
 interface Step { cause: string; label: string; note?: string; pre: boolean; from: number; to: number }
 
-function KpiCard({ label, icon, value, children }: { label: string; icon: IconName; value: string; children: ReactNode }) {
+function KpiCard({ label, icon, value, chart, children }: { label: string; icon: IconName; value: string; chart?: ReactNode; children: ReactNode }) {
   return (
     <section className={s.kpi}>
       <p className={s.kpiHead}>{label}<span className={s.kpiIcon}><Icon name={icon} /></span></p>
       <div className={s.kpiValue}>{value}</div>
       <p className={s.kpiNote}>{children}</p>
+      {chart}
     </section>
   );
 }
+
+/** A 0–100% bar split into parts; optional ticks mark reference values (e.g. benchmark, target). */
+function KpiBar({ parts, ticks = [], label }: { parts: [number, string][]; ticks?: [number, string][]; label: string }) {
+  const total = parts.reduce((t, [v]) => t + v, 0) || 1;
+  return (
+    <div className={s.kpiBar} role="img" aria-label={label}>
+      <span className={s.kpiTrack}>
+        {parts.map(([v, cls], i) => <span key={i} className={cls} style={{ flexGrow: v / total }} />)}
+        {ticks.map(([v, cls], i) => <span key={i} className={`${s.kpiTick} ${cls}`} style={{ left: `${v * 100}%` }} />)}
+      </span>
+    </div>
+  );
+}
+
+/** One dot per at-risk account, so the count reads at a glance. */
+const KpiDots = ({ n }: { n: number }) => (
+  <div className={s.kpiDots} role="img" aria-label={`${n} accounts at risk`}>
+    {Array.from({ length: Math.min(n, 40) }, (_, i) => <span key={i} />)}
+  </div>
+);
 
 /** The 94% benchmark (dashed) and the 95% target (solid) drawn across a waterfall track. */
 const Marks = ({ benchmark }: { benchmark: number }) => (
@@ -199,16 +220,24 @@ export function OverviewScreen() {
           </div>
 
           <div className={s.kpis}>
-            <KpiCard label="On-time delivery" icon="check" value={pct(o.data.onTime)}>
+            <KpiCard label="On-time delivery" icon="check" value={pct(o.data.onTime)}
+              chart={<KpiBar label={`${pct(o.data.onTime)} on-time; benchmark ${pct(o.data.benchmark, 0)}, target ${pct(TARGET, 0)}`}
+                parts={[[o.data.onTime, s.kpiFill], [1 - o.data.onTime, s.kpiRest]]}
+                ticks={[[o.data.benchmark, s.kpiTickBench], [TARGET, s.kpiTickTarget]]} />}>
               <span className={s.tagBad}>−{Math.round((o.data.benchmark - o.data.onTime) * 100)} pts</span> vs {pct(o.data.benchmark, 0)} industry benchmark
             </KpiCard>
-            <KpiCard label="Late deliveries" icon="box" value={int(o.data.late)}>
+            <KpiCard label="Late deliveries" icon="box" value={int(o.data.late)}
+              chart={<KpiBar label={`${int(o.data.late)} late of ${int(o.data.deliveries)} shipments`}
+                parts={[[o.data.late, s.kpiBad], [o.data.deliveries - o.data.late, s.kpiRest]]} />}>
               <span className={s.tagMuted}>{pct(o.data.late / o.data.deliveries)}</span> of {int(o.data.deliveries)} shipments
             </KpiCard>
-            <KpiCard label="Cost of lateness" icon="dollar" value={usdShort(o.data.penaltiesUsd + o.data.handlingCostUsd)}>
+            <KpiCard label="Cost of lateness" icon="dollar" value={usdShort(o.data.penaltiesUsd + o.data.handlingCostUsd)}
+              chart={<KpiBar label={`${usdK(o.data.penaltiesUsd)} penalties, ${usdK(o.data.handlingCostUsd)} handling`}
+                parts={[[o.data.penaltiesUsd, s.kpiBad], [o.data.handlingCostUsd, s.kpiDark]]} />}>
               {usdK(o.data.penaltiesUsd)} penalties · {usdK(o.data.handlingCostUsd)} handling
             </KpiCard>
-            <KpiCard label="Revenue at risk" icon="users" value={usdShort(o.data.atRiskRevenueUsd)}>
+            <KpiCard label="Revenue at risk" icon="users" value={usdShort(o.data.atRiskRevenueUsd)}
+              chart={<KpiDots n={o.data.atRiskAccounts} />}>
               <span className={s.tagBad}>{o.data.atRiskAccounts} accounts</span> at risk
             </KpiCard>
           </div>

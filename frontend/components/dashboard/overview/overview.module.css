@@ -33,6 +33,18 @@
 .kpiIcon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgb(var(--ink-rgb) / 0.05); color: var(--ink-2); }
 .kpiValue { font-family: var(--mono); font-size: clamp(1.6rem, 2.4vw, 1.95rem); font-weight: 700; letter-spacing: -0.02em; margin: 10px 0 8px; font-variant-numeric: tabular-nums; }
 .kpiNote { margin: 0; font-size: 0.78rem; color: var(--ink-2); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.kpiBar { margin-top: 14px; }
+.kpiTrack { position: relative; display: flex; gap: 2px; height: 8px; }
+.kpiTrack > span:not(.kpiTick) { border-radius: var(--pill); min-width: 2px; }
+.kpiFill { background: var(--ink); }
+.kpiBad { background: var(--accent); }
+.kpiDark { background: rgb(var(--ink-rgb) / 0.55); }
+.kpiRest { background: rgb(var(--ink-rgb) / 0.08); }
+.kpiTick { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; }
+.kpiTickBench { background: var(--ink-2); opacity: 0.6; }
+.kpiTickTarget { background: var(--live-ink); }
+.kpiDots { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 14px; }
+.kpiDots > span { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 .tagBad, .tagMuted, .tagGood { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: var(--pill); font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
 .tagBad { background: var(--bad-soft); color: var(--bad); }
 .tagGood { background: var(--good-soft); color: var(--good); }
