@@ -194,6 +194,18 @@ describe('actions', () => {
     expect(mem.outbound[0]).toMatchObject({ status: 'sent', gmailId: 'out1' });
   });
 
+  it('an ALL_CLEAR order can go to the WMS and get its confirmation, in either order', async () => {
+    const { mem, id } = await awaiting('orders@client190.example');
+    const { gmail } = fakeGmail();
+    await applyAction(mem.repo, id, 'approve', 'ops');
+    expect(await applyAction(mem.repo, id, 'send_to_wms', 'ops')).toMatchObject({ code: 200, status: 'ENTERED' });
+    expect(await applyAction(mem.repo, id, 'send_reply', 'ops', { gmail, allow })).toMatchObject({ code: 200, status: 'ENTERED' });
+    const other = await awaiting('orders@client190.example');
+    await applyAction(other.mem.repo, other.id, 'approve', 'ops');
+    expect(await applyAction(other.mem.repo, other.id, 'send_reply', 'ops', { gmail, allow })).toMatchObject({ code: 200, status: 'SENT' });
+    expect(await applyAction(other.mem.repo, other.id, 'send_to_wms', 'ops')).toMatchObject({ code: 200, status: 'ENTERED' });
+  });
+
   it('says so when Gmail is not set up, without marking the reply sent', async () => {
     const { mem, id } = await awaiting('orders@client190.example');
     await applyAction(mem.repo, id, 'approve', 'ops');

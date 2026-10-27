@@ -23,7 +23,9 @@ export async function applyAction(repo: Repo, id: number, action: Action, user: 
     await repo.logApproval(id, 'approve', user);
     return { code: 200, status: 'APPROVED' };
   }
-  if (email.status !== 'APPROVED') return { code: 409, error: `${action} needs an approved email (status ${email.status})` };
+  // After approval both can happen, in either order: an ALL_CLEAR order goes to the WMS and gets its confirmation.
+  const ready = action === 'send_reply' ? ['APPROVED', 'ENTERED'] : ['APPROVED', 'SENT'];
+  if (!ready.includes(email.status)) return { code: 409, error: `${action} needs an approved email (status ${email.status})` };
   if (action === 'send_reply') {
     const to = senderAddress(email.from_addr);
     if (!outbox.allow.has(to)) {
@@ -35,9 +37,10 @@ export async function applyAction(repo: Repo, id: number, action: Action, user: 
     const gmailId = await sendReply(outbox.gmail,
       { to, subject: email.subject, body, threadId: email.thread_id, inReplyTo: email.message_id }, outbox.allow);
     await repo.logOutbound(id, to, body, 'sent', gmailId);
-    await repo.setStatus(id, 'SENT');
+    const status = email.status === 'ENTERED' ? 'ENTERED' : 'SENT';
+    await repo.setStatus(id, status);
     await repo.logApproval(id, 'send_reply', user);
-    return { code: 200, status: 'SENT' };
+    return { code: 200, status };
   }
   if (x?.decision !== 'ALL_CLEAR') return { code: 409, error: 'only ALL_CLEAR orders go to the WMS' };
   await repo.setStatus(id, 'ENTERED');

@@ -2005,6 +2005,8 @@ Expected (with `LLM_PROVIDER=azure-openai`): `"decision":"CONFIRM_ADDRESS"`. The
 
 ### Task A8: Order emails screen (E9)
 
+**Built 27 Oct against the A7 API.** Beyond the steps below: Synthetic data badge, "Fetch from Gmail", the email next to "What the AI saw" (redacted), the map result, warehouse and carrier, decision pills, buttons enabled by status, and fixed messages for refusals (allow-list, Gmail not connected). A7 change: after approval an ALL_CLEAR order can go to the WMS and get its confirmation in either order. Rehearsed in Chrome with recorded answers: fixture 34 → CONFIRM_ADDRESS → pasted answer (400 S Orange Ave, 32801) → ALL_CLEAR, W3, carrier C → approved → in WMS.
+
 **Files:**
 - Create: `frontend/components/dashboard/intake/IntakeScreen.tsx`, `frontend/app/dashboard/intake/page.tsx`
 - Test: `frontend/components/dashboard/intake/IntakeScreen.test.tsx`
@@ -2013,7 +2015,7 @@ Expected (with `LLM_PROVIDER=azure-openai`): `"decision":"CONFIRM_ADDRESS"`. The
 - Consumes: A7 endpoints; `useApi`, `postJSON`, `Table`, `Section`, `Pill`, `ui` (B2).
 - Produces: `/dashboard/intake`: inbox (priority clients marked), detail with checks and reply draft, Approve / Send reply / Send to WMS buttons, and a paste-an-email form (a reply to an email waiting for an address is linked to it).
 
-- [ ] **Step 1: Write the failing test:**
+- [x] **Step 1: Write the failing test:**
 
 ```tsx
 import { fireEvent, screen } from '@testing-library/react';
@@ -2040,9 +2042,9 @@ describe('Intake', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./IntakeScreen`.
+- [x] **Step 2: Run.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./IntakeScreen`.
 
-- [ ] **Step 3: Implement** the screen and its route:
+- [x] **Step 3: Implement** the screen and its route:
 
 ```tsx
 'use client';
@@ -2159,7 +2161,7 @@ export default function Page() {
 }
 ```
 
-- [ ] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck` — Expected: PASS. Rehearse the demo with `npm run dev:all` at `http://localhost:3000/dashboard/intake`: paste fixture 34's body, process, approve, then paste a reply that gives the street and ZIP of one of the saved addresses offered in the draft → ALL_CLEAR.
+- [x] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck` — Expected: PASS. Rehearse the demo with `npm run dev:all` at `http://localhost:3000/dashboard/intake`: paste fixture 34's body, process, approve, then paste a reply that gives the street and ZIP of one of the saved addresses offered in the draft → ALL_CLEAR.
 
 - [ ] **Step 5: Commit.** `git add frontend && git commit -m "feat(a): Order emails screen"`
 

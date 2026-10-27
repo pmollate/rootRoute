@@ -55,9 +55,11 @@ describe.skipIf(!hasDb)('intake routes (needs test database)', () => {
   });
 
   it('AC-SEC-03: no reply to an address off the allow-list; writes need the key', async () => {
-    const r = (await paste('02')).json();
-    await post(`/api/intake/${r.id}/action`, { action: 'approve', user: 'ops' });
-    expect((await post(`/api/intake/${r.id}/action`, { action: 'send_reply', user: 'ops' })).statusCode).toBe(409);
+    const r = (await paste('02')).json(); // client004: approved and in the WMS above, not on the allow-list
+    const refused = await post(`/api/intake/${r.id}/action`, { action: 'send_reply', user: 'ops' });
+    expect(refused.statusCode).toBe(403);
+    const log = await query<{ status: string }>('SELECT status FROM outbound_messages WHERE email_id = $1', [r.id]);
+    expect(log.map((x) => x.status)).toEqual(['refused']);
     const own = (await paste('34')).json();
     await post(`/api/intake/${own.id}/action`, { action: 'approve', user: 'ops' });
     expect((await post(`/api/intake/${own.id}/action`, { action: 'send_reply', user: 'ops' })).statusCode).toBe(503);
