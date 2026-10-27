@@ -66,6 +66,14 @@ describe('azure openai LLM', () => {
     expect(sent[0]).not.toHaveProperty('temperature');
   });
 
+  it('stores every call in Foundry, tagged by step', async () => {
+    const { sent, llm } = fakeAzure({ body: completion('hi') });
+    await llm.text({ system: 's', user: 'u', tag: 'reply' });
+    await llm.text({ system: 's', user: 'u' });
+    expect(sent[0]).toMatchObject({ store: true, metadata: { app: 'latelens', step: 'reply' } });
+    expect(sent[1]).toMatchObject({ store: true, metadata: { step: 'untagged' } });
+  });
+
   it('maps a content-filter block to refusal and cut-off output to invalid', async () => {
     const blocked = fakeAzure({ status: 400, body: { error: { code: 'content_filter', message: 'filtered' } } }).llm;
     await expect(blocked.text({ system: 's', user: 'u' })).rejects.toMatchObject({ kind: 'refusal' });

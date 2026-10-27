@@ -1,14 +1,14 @@
 import type { z } from 'zod';
 
-export interface JsonRequest<T> {
-  system: string;
-  user: string;
-  schema: z.ZodType<T>;
-}
-
 export interface TextRequest {
   system: string;
   user: string;
+  /** Which step made the call (e.g. extract, reply); shown on stored completions in Azure AI Foundry. */
+  tag?: string;
+}
+
+export interface JsonRequest<T> extends TextRequest {
+  schema: z.ZodType<T>;
 }
 
 /** The only way the app talks to an AI model. Implementations: azure-openai, recorded. */
