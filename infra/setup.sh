@@ -2,6 +2,7 @@
 # Create the LateLens demo environment (owner C). Safe to re-run: each step skips what already exists.
 # Requires: az login with Owner on the resource group, and permission to create app registrations.
 # Usage: NAME=rootroute01 GITHUB_REPO=saiprasad-37/root-route ./infra/setup.sh
+# Optional: GITHUB_OIDC_SUBJECT='repo:saiprasad-37@347358253/root-route@1432108396:environment:demo' (see the OIDC step).
 # Optional: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, AZURE_OPENAI_DEPLOYMENT (stored in Key Vault; without them the
 # API replays recorded AI answers, LLM_PROVIDER=recorded).
 set -euo pipefail
@@ -81,9 +82,17 @@ APP_ID=$(az ad app list --display-name "$NAME-github" --query "[0].appId" -o tsv
 if [ -z "$APP_ID" ]; then
   APP_ID=$(az ad app create --display-name "$NAME-github" --query appId -o tsv)
   az ad sp create --id "$APP_ID" -o none
-  az ad app federated-credential create --id "$APP_ID" -o none --parameters \
-    "{\"name\":\"demo\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"repo:${GITHUB_REPO}:environment:demo\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
 fi
+# GitHub sends either repo:owner/name:environment:demo or, on repos using immutable ids,
+# repo:owner@<id>/name@<id>:environment:demo. Register the first always and the second when given:
+# copy it from the "subject claim" line of a failed azure/login step into GITHUB_OIDC_SUBJECT.
+fed() {
+  az ad app federated-credential show --id "$APP_ID" --federated-credential-id "$1" -o none 2>/dev/null \
+    || az ad app federated-credential create --id "$APP_ID" -o none --parameters \
+      "{\"name\":\"$1\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"$2\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
+}
+fed demo "repo:${GITHUB_REPO}:environment:demo"
+if [ -n "${GITHUB_OIDC_SUBJECT:-}" ]; then fed demo-ids "$GITHUB_OIDC_SUBJECT"; fi
 SP=$(az ad sp show --id "$APP_ID" --query id -o tsv)
 az role assignment create --assignee-object-id "$SP" --assignee-principal-type ServicePrincipal --role Contributor \
   --scope "$(az group show -n "$RG" --query id -o tsv)" -o none
