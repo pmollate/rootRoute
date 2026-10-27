@@ -920,7 +920,7 @@ Expected: tests pass; `100` files. Open three `.eml` files of different layouts 
 
 ### Task A4: Address check and decision (E4, E5)
 
-**Built with the Azure Maps validator (27 Oct).** Differences from the steps below: `AddressValidator` in `core/maps/` (azure-maps | recorded); `verifyAddress()` and status `unverified` for a complete address the map disagrees with; rules in `modules/intake/validate.ts`; the oracle uses a map of the 20 reference buildings (32/17/1); `validator-eval.test.ts` replays real answers once recorded with `ADDRESS_PROVIDER=azure-maps RECORD=1 npm run maps:check`. Saved-address matching is by ZIP only, as in `matches_saved` (A3); matching by street alone was dropped.
+**Built with the Azure Maps validator (27 Oct).** Differences from the steps below: `AddressValidator` in `core/maps/` (azure-maps | recorded); `verifyAddress()` and status `unverified` for a complete address the map disagrees with; rules in `modules/intake/validate.ts` (match type, street name — Azure swaps a made-up street for a similar real one — state, ZIP area); the oracle uses a map of the 20 reference buildings (32/17/1); `validator-eval.test.ts` replays 56 real Azure Maps answers (recorded 27 Oct, all as expected; rerecord with `ADDRESS_PROVIDER=azure-maps RECORD=1 npm run maps:check`). Saved-address matching is by ZIP only, as in `matches_saved` (A3); matching by street alone was dropped.
 
 **Files:**
 - Create: `backend/api/src/modules/intake/schema.ts`, `backend/api/src/modules/intake/address.ts`, `backend/api/src/modules/intake/decide.ts`

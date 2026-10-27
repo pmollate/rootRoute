@@ -1102,7 +1102,7 @@ npm run migrate && npm run migrate:test && npm run seed && npm run seed:test
 
 Expected: 4 passed; `saved_addresses.csv` has 567 rows; `seeded client_domains and saved_addresses` twice.
 
-- [ ] **Step 6: Check the reference addresses.** Search each of the 20 addresses in `state_regions.json` on Google Maps (or with the chosen validator, once A4 picks one), and confirm two things:
+- [x] **Step 6: Check the reference addresses.** Done 27 Oct with Azure Maps (`npm run maps:check`): 19 of 20 confirmed; Boston City Hall (unique ZIP 02201, which Azure Maps resolves to City Sq, Charlestown) replaced by the Boston Public Library, 700 Boylston St, 02116. The fictional streets are not found (the map swaps them for real streets, which the street comparison flags). Search each of the 20 addresses in `state_regions.json` on Google Maps (or with the chosen validator, once A4 picks one), and confirm two things:
   - the building is at that address and ZIP;
   - none of the `FICTIONAL_STREETS` exists in the fixture cities.
 

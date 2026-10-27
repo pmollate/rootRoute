@@ -87,6 +87,23 @@ describe('address validator (Azure Maps result)', () => {
     expect(none).toMatchObject({ status: 'unverified', validation: { issues: ['street_not_found'] } });
   });
 
+  it('flags a street the map swapped for a similar real one (it tolerates typos)', async () => {
+    const swapped = feature('Address', 'High', '43215');
+    swapped.features[0].properties.address.addressLine = '9903 Harbor View Rd';
+    const check = await verifyAddress(complete(), SAVED, answering(swapped));
+    expect(check).toMatchObject({ status: 'unverified', validation: { issues: ['street_not_found'], suggestion: null } });
+  });
+
+  it('treats spelled-out and abbreviated street names as the same street', async () => {
+    const said = { ...FULL, line1: '9903 North Harbor Boulevard' };
+    const check = checkAddress(said, SAVED, 'Ship to: 9903 North Harbor Boulevard, Dock 4, Columbus, OH 43215');
+    const map = feature('Address', 'High', '43215');
+    map.features[0].properties.address.addressLine = '9903 Harbor Blvd';
+    expect((await verifyAddress(check, SAVED, answering(map))).validation).toMatchObject({ confidence: 'high', issues: [] });
+    map.features[0].properties.address.addressLine = '9903 S Harbor Blvd';
+    expect((await verifyAddress(check, SAVED, answering(map))).validation?.issues).toEqual(['street_not_found']);
+  });
+
   it('falls back to the format rules when the service is unavailable', async () => {
     const check = await verifyAddress(complete(), SAVED, answering(new Error('timeout')));
     expect(check).toMatchObject({ status: 'complete', validation: { confidence: 'unavailable' } });
