@@ -57,8 +57,6 @@
 .chips .chip b { font-family: var(--mono); color: var(--accent-text); font-size: 0.8rem; }
 .groups .chip { background: rgb(var(--ink-rgb) / 0.04); border-color: transparent; color: var(--ink-2); }
 .groups .chip b { color: var(--ink); }
-.how { margin: 14px 0 0; padding: 10px 14px; border-radius: 8px; background: rgb(var(--ink-rgb) / 0.04); font-size: 0.84rem; color: var(--ink-2); }
-.how code { font-family: var(--mono); font-size: 0.8rem; color: var(--ink); }
 
 /* Scenario chart: a table, so each bar lines up with its figures. */
 .chartWrap { overflow-x: auto; }

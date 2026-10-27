@@ -97,7 +97,6 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
 export function ReplayScreen() {
   const [segment, setSegment] = useState<Segment>('all');
   const [copied, setCopied] = useState(false);
-  const [showHow, setShowHow] = useState(false);
   const all = useApi<{ scenarios: Scenario[] }>('/api/replay?segment=all');
   const seg = useApi<{ scenarios: Scenario[] }>(segment === 'all' ? null : `/api/replay?segment=${segment}`);
   const chart = segment === 'all' ? all : seg;
