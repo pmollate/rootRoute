@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-157\",\"qty\":28},{\"sku\":\"HX-566\",\"qty\":113},{\"sku\":\"HX-780\",\"qty\":98}],\"address\":{\"line1\":\"600 E 4th St\",\"line2\":\"Dock 3\",\"city\":\"Charlotte\",\"state\":\"NC\",\"zip\":null,\"raw\":\"600 E 4th St\\nDock 3\\nCharlotte, NC\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

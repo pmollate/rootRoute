@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-832\",\"qty\":116},{\"sku\":\"HX-112\",\"qty\":104},{\"sku\":\"HX-664\",\"qty\":58}],\"address\":{\"line1\":\"8485 Brindlewick Way\",\"line2\":\"Dock 2\",\"city\":\"Detroit\",\"state\":\"MI\",\"zip\":\"48226\",\"raw\":\"8485 Brindlewick Way\\nDock 2\\nDetroit, MI 48226\"},\"requested_commitment\":\"standard\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

@@ -1171,6 +1171,9 @@ export function decide(clientId: string | null, extraction: Extraction | null, a
 
 **Built 27 Oct with the A1–A3 changes.** `readOrder()` in `modules/intake/read.ts` runs the whole chain for one email (redact subject and body in one PII call → extract → ground against the redacted text → map → decide); the eval and A7's pipeline both use it. A transport error is thrown (the email waits) instead of becoming MISSING_INFO. The eval also checks that no gold PII value reaches the model (AC-SEC-05) and allows a Prompt Shields refusal on fixture 03. Record with `RECORD=1 LLM_PROVIDER=azure-openai PII_PROVIDER=azure-language ADDRESS_PROVIDER=azure-maps npm run eval:intake`.
 
+
+**Recorded 27 Oct (gpt-5-mini): 49/50 decisions match gold.** The miss is fixture 03 (Prompt Shields refusal → MISSING_INFO, never ALL_CLEAR). Fixes found by the live run: the model put a dock in the street line (fixtures 10, 24, 26, 36), so `splitUnit()` moves `Dock 6` / `Suite 200` out of line1; refusals are now recorded and replayed; the eval reads HTML fixtures as plain text, as the Gmail reader does (Azure Language missed a name inside `<br>` tags in raw HTML). Re-record one fixture with `npm run eval:intake -- 03`.
+
 **Files:**
 - Create: `backend/api/src/modules/intake/prompts/extract.md`, `backend/api/src/modules/intake/extract.ts`, `backend/api/scripts/eval-intake.ts`
 - Create (recorded): `backend/api/test/recordings/*.json`
@@ -1355,7 +1358,7 @@ In `backend/api/package.json` replace `build` and add `eval:intake`:
 
 - [x] **Step 4: Run unit tests.** `npm --prefix backend/api test -- test/intake/extract.test.ts` — Expected: 4 passed.
 
-- [ ] **Step 5: Run the real eval and record responses** (spends model credit: 50 calls).
+- [x] **Step 5: Run the real eval and record responses** (spends model credit: 50 calls).
 
 ```bash
 cd backend/api && RECORD=1 LLM_PROVIDER=azure-openai npm run eval:intake

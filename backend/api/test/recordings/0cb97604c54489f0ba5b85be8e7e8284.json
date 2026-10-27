@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-691\",\"qty\":87}],\"address\":{\"line1\":\"415 Summer St\",\"line2\":\"Dock 8\",\"city\":\"Boston\",\"state\":\"MA\",\"zip\":\"02210\",\"raw\":\"415 Summer St\\nDock 8\\nBoston, MA 02210\"},\"requested_commitment\":\"next_day\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

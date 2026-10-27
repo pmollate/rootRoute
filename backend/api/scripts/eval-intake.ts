@@ -2,6 +2,7 @@
 // the responses for CI. Spends model credit: 50 model calls and 50 PII calls.
 // Usage (from backend/api, keys in the repo-root .env):
 //   RECORD=1 LLM_PROVIDER=azure-openai PII_PROVIDER=azure-language ADDRESS_PROVIDER=azure-maps npm run eval:intake
+// Pass fixture ids to run only those, e.g. npm run eval:intake -- 03 26
 import { createLLM } from '../src/core/llm/index.js';
 import { createAddressValidator } from '../src/core/maps/index.js';
 import { createPiiDetector } from '../src/core/pii/index.js';
@@ -10,7 +11,8 @@ import { loadFixtures, loadSavedAddresses } from '../test/intake/fixtures.js';
 
 const deps = { llm: createLLM(), pii: createPiiDetector(), maps: createAddressValidator() };
 const saved = loadSavedAddresses();
-const fixtures = loadFixtures();
+const only = process.argv.slice(2);
+const fixtures = loadFixtures().filter((fx) => only.length === 0 || only.includes(fx.gold.id));
 let right = 0;
 for (const fx of fixtures) {
   const g = fx.gold;

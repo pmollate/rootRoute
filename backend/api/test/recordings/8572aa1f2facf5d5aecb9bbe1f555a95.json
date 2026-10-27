@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-920\",\"qty\":99},{\"sku\":\"HX-436\",\"qty\":110},{\"sku\":\"HX-330\",\"qty\":15}],\"address\":{\"line1\":\"915 I St\",\"line2\":\"Dock 3\",\"city\":\"Sacramento\",\"state\":\"CA\",\"zip\":\"95814\",\"raw\":\"915 I St\\nDock 3\\nSacramento, CA 95814\"},\"requested_commitment\":\"next_day\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

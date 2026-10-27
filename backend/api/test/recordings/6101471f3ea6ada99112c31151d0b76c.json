@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-179\",\"qty\":3},{\"sku\":\"HX-509\",\"qty\":37},{\"sku\":\"HX-612\",\"qty\":112}],\"address\":{\"line1\":\"600 E Grand Ave\",\"line2\":\"Dock 1\",\"city\":\"Chicago\",\"state\":\"IL\",\"zip\":\"60611\",\"raw\":\"600 E Grand Ave, Dock 1, Chicago, IL 60611.\"},\"requested_commitment\":\"standard\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

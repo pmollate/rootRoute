@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-812\",\"qty\":101},{\"sku\":\"HX-179\",\"qty\":93},{\"sku\":\"HX-642\",\"qty\":48}],\"address\":{\"line1\":\"1 Public Sq\",\"line2\":\"Dock 6\",\"city\":\"Nashville\",\"state\":\"TN\",\"zip\":\"37201\",\"raw\":\"1 Public Sq / Dock 6 / Nashville, TN 37201\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.98,\"address\":0.95}}"
+}

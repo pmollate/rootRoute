@@ -27,6 +27,18 @@ export function grounded(addr: ExtractedAddress, source: string): ExtractedAddre
     zip: keep(addr.zip), raw: addr.raw };
 }
 
+// A secondary unit at the end of the street line: "Dock 6", "Suite 200", "Unit B". The identifier must be a number or a
+// single letter, so a street named "Dock St" is left alone.
+const UNIT = /(?:^|\s+)((?:dock|suite|ste|unit|bldg|building|floor|room|rm|apt)\.?\s*#?\s*(?:\d[\w-]*|[a-z]))$/i;
+
+/** Moves a dock or suite out of line1 (into line2 if that is empty); a line1 that is only a dock becomes null. */
+export function splitUnit(addr: ExtractedAddress): ExtractedAddress {
+  const m = addr.line1 ? UNIT.exec(addr.line1) : null;
+  if (!m) return addr;
+  const street = addr.line1!.slice(0, m.index).trim();
+  return { ...addr, line1: street || null, line2: addr.line2 ?? m[1] };
+}
+
 function valid(field: Field, v: string | null): boolean {
   if (!v) return false;
   if (field === 'zip') return ZIP.test(v);
@@ -36,7 +48,7 @@ function valid(field: Field, v: string | null): boolean {
 
 /** E4 format rules: complete, or matched to a saved address, or incomplete with the missing fields named. */
 export function checkAddress(extracted: ExtractedAddress, saved: SavedAddress[], source: string): AddressCheck {
-  const a = grounded(extracted, source);
+  const a = splitUnit(grounded(extracted, source));
   const missing = REQUIRED.filter((f) => !valid(f, a[f])).map((f) => `address.${f}`);
   if (missing.length === 0) {
     return { status: 'complete', address: { line1: a.line1!, line2: a.line2, city: a.city!, state: a.state!.toUpperCase(), zip: a.zip! },

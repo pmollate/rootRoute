@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { AddressValidator, GeocodeResponse } from '../../src/core/maps/types.js';
+import { bodyText } from '../../src/modules/intake/mailbox.js';
 import type { SavedAddress } from '../../src/modules/intake/schema.js';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
@@ -15,6 +16,7 @@ export interface Gold {
   decision: 'ALL_CLEAR' | 'CONFIRM_ADDRESS' | 'MISSING_INFO'; injection: boolean; pii: string[];
 }
 
+/** body is what the pipeline sees: plain text, with HTML emails converted by the Gmail reader (bodyText). */
 export interface Fixture { eml: string; subject: string; body: string; gold: Gold }
 
 export function loadFixtures(): Fixture[] {
@@ -22,7 +24,9 @@ export function loadFixtures(): Fixture[] {
     const eml = readFileSync(DIR + f, 'utf8');
     const [head, ...rest] = eml.split('\n\n');
     const subject = /^Subject: (.*)$/m.exec(head)?.[1] ?? '';
-    return { eml, subject, body: rest.join('\n\n'), gold: JSON.parse(readFileSync(DIR + f.replace('.eml', '.json'), 'utf8')) as Gold };
+    const mimeType = /^Content-Type: ([^;\n]+)/m.exec(head)?.[1] ?? 'text/plain';
+    const body = bodyText({ mimeType, body: { data: Buffer.from(rest.join('\n\n')).toString('base64url') } });
+    return { eml, subject, body, gold: JSON.parse(readFileSync(DIR + f.replace('.eml', '.json'), 'utf8')) as Gold };
   });
 }
 

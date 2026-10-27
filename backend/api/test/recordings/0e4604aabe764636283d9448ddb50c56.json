@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-634\",\"qty\":10},{\"sku\":\"HX-409\",\"qty\":90}],\"address\":{\"line1\":\"400 S Orange Ave\",\"line2\":\"Dock 7\",\"city\":\"Orlando\",\"state\":\"FL\",\"zip\":\"32801\",\"raw\":\"400 S Orange Ave\\nDock 7\\nOrlando, FL 32801\"},\"requested_commitment\":\"standard\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

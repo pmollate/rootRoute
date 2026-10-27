@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-571\",\"qty\":45},{\"sku\":\"HX-375\",\"qty\":45},{\"sku\":\"HX-695\",\"qty\":65}],\"address\":{\"line1\":\"100 N 3rd St\",\"line2\":\"Dock 6\",\"city\":\"Phoenix\",\"state\":\"AZ\",\"zip\":\"85004\",\"raw\":\"100 N 3rd St, Dock 6, Phoenix, AZ 85004\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

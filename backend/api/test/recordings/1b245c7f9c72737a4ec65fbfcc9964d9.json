@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-711\",\"qty\":81},{\"sku\":\"HX-378\",\"qty\":86},{\"sku\":\"HX-221\",\"qty\":75}],\"address\":{\"line1\":\"600 4TH AVE\",\"line2\":\"DOCK 7\",\"city\":\"SEATTLE\",\"state\":\"WA\",\"zip\":\"98104\",\"raw\":\"600 4TH AVE\\nDOCK 7\\nSEATTLE, WA 98104\"},\"requested_commitment\":\"standard\",\"confidence\":{\"items\":0.95,\"address\":0.9}}"
+}

@@ -12,13 +12,37 @@ export function recordingKey(kind: RecordingKind, system: string, user: string):
   return createHash('sha256').update(JSON.stringify({ kind, system, user })).digest('hex').slice(0, 32);
 }
 
-/** The saved response, or null when there is none. */
-export function readRecording(dir: string, kind: RecordingKind, system: string, user: string): string | null {
-  const file = join(dir, `${recordingKey(kind, system, user)}.json`);
-  return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as { text: string }).text : null;
+/** A saved failure the service gave as its answer (e.g. a refusal), replayed as the same error. */
+export interface RecordedError {
+  kind: string;
+  message: string;
 }
 
-export function writeRecording(dir: string, kind: RecordingKind, system: string, user: string, text: string): void {
+interface Entry {
+  kind: RecordingKind;
+  text: string;
+  error?: RecordedError;
+}
+
+function readEntry(dir: string, kind: RecordingKind, system: string, user: string): Entry | null {
+  const file = join(dir, `${recordingKey(kind, system, user)}.json`);
+  return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Entry) : null;
+}
+
+/** The saved response, or null when there is none (or when the saved answer was an error). */
+export function readRecording(dir: string, kind: RecordingKind, system: string, user: string): string | null {
+  const entry = readEntry(dir, kind, system, user);
+  return entry && !entry.error ? entry.text : null;
+}
+
+/** The saved error for this prompt, if its recorded answer was one. */
+export function readRecordedError(dir: string, kind: RecordingKind, system: string, user: string): RecordedError | null {
+  return readEntry(dir, kind, system, user)?.error ?? null;
+}
+
+export function writeRecording(dir: string, kind: RecordingKind, system: string, user: string, text: string,
+  error?: RecordedError): void {
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, `${recordingKey(kind, system, user)}.json`), JSON.stringify({ kind, text }, null, 2));
+  const entry: Entry = error ? { kind, text, error } : { kind, text };
+  writeFileSync(join(dir, `${recordingKey(kind, system, user)}.json`), JSON.stringify(entry, null, 2));
 }

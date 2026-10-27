@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-651\",\"qty\":104},{\"sku\":\"HX-716\",\"qty\":43}],\"address\":{\"line1\":\"400 N High St\",\"line2\":\"Dock 6\",\"city\":\"Columbus\",\"state\":\"OH\",\"zip\":\"43215\",\"raw\":\"400 N High St\\nDock 6\\nColumbus, OH 43215\"},\"requested_commitment\":\"next_day\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}
