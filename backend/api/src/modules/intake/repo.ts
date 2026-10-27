@@ -1,4 +1,4 @@
-import { query } from '../../core/db/pool.js';
+import { pool, query } from '../../core/db/pool.js';
 import type { AddressCheck } from './address.js';
 import type { Decision } from './decide.js';
 import type { Extraction, SavedAddress } from './schema.js';
@@ -33,6 +33,22 @@ export interface ExtractionRow {
   reply_source: 'model' | 'template';
 }
 
+export interface PollRow {
+  id: number;
+  trigger: 'schedule' | 'button';
+  query: string;
+  started_at: Date;
+  finished_at: Date | null;
+  fetched: number;
+  processed: number;
+  retried: number;
+  failed: number;
+  ok: boolean | null;
+  error: string | null;
+}
+
+export type PollResult = Pick<PollRow, 'fetched' | 'processed' | 'retried' | 'failed' | 'ok' | 'error'>;
+
 export interface ClientRow {
   client_id: string; client_name: string; sla_penalty_clause: string; region: string; account_tier: string; account_status: string;
 }
@@ -53,7 +69,18 @@ export interface Repo {
   listEmails(): Promise<(EmailRow & { decision: Decision | null; priority: boolean })[]>;
   logApproval(emailId: number, action: string, user: string): Promise<void>;
   logOutbound(emailId: number, to: string, body: string, status: 'sent' | 'refused', gmailId?: string | null): Promise<void>;
+  /** Emails parked because PII detection, the model or the map could not be reached; the next poll runs them again. */
+  waitingEmails(): Promise<EmailRow[]>;
+  /** Start of the last successful Gmail check, in seconds since the epoch; null before the first one. */
+  lastPollStart(): Promise<number | null>;
+  lastPoll(): Promise<PollRow | null>;
+  startPoll(trigger: PollRow['trigger'], query: string): Promise<number>;
+  finishPoll(id: number, result: PollResult): Promise<void>;
+  /** Runs fn only if no other Gmail check holds the lock (another click, timer or app instance); else null. */
+  withPollLock<T>(fn: () => Promise<T>): Promise<T | null>;
 }
+
+const POLL_LOCK = 7_301_015; // any fixed number, shared by every instance of the API
 
 const one = async <T extends object>(sql: string, params: unknown[]): Promise<T | null> => (await query<T>(sql, params))[0] ?? null;
 
@@ -103,5 +130,37 @@ export const repo: Repo = {
   async logOutbound(emailId, to, body, status, gmailId = null) {
     await query('INSERT INTO outbound_messages (email_id, to_addr, body, gmail_id, status) VALUES ($1,$2,$3,$4,$5)',
       [emailId, to, body, gmailId, status]);
+  },
+  waitingEmails: () => query<EmailRow>("SELECT * FROM intake_emails WHERE status = 'WAITING' ORDER BY id", []),
+  async lastPollStart() {
+    const row = await one<{ s: number }>(
+      'SELECT extract(epoch FROM started_at)::float8 AS s FROM intake_polls WHERE ok ORDER BY started_at DESC LIMIT 1', []);
+    return row ? Math.floor(row.s) : null;
+  },
+  lastPoll: () => one<PollRow>(
+    `SELECT id, trigger, query, started_at, finished_at, fetched, processed, retried, failed, ok, error
+       FROM intake_polls ORDER BY id DESC LIMIT 1`, []),
+  async startPoll(trigger, q) {
+    return (await query<{ id: number }>('INSERT INTO intake_polls (trigger, query) VALUES ($1,$2) RETURNING id', [trigger, q]))[0].id;
+  },
+  async finishPoll(id, r) {
+    await query(
+      `UPDATE intake_polls SET finished_at = now(), fetched = $2, processed = $3, retried = $4, failed = $5, ok = $6, error = $7
+        WHERE id = $1`, [id, r.fetched, r.processed, r.retried, r.failed, r.ok, r.error]);
+  },
+  // A session lock lives on one connection, so it is taken and released on a dedicated client.
+  async withPollLock(fn) {
+    const client = await pool.connect();
+    try {
+      const { rows } = await client.query<{ ok: boolean }>('SELECT pg_try_advisory_lock($1) AS ok', [POLL_LOCK]);
+      if (!rows[0].ok) return null;
+      try {
+        return await fn();
+      } finally {
+        await client.query('SELECT pg_advisory_unlock($1)', [POLL_LOCK]);
+      }
+    } finally {
+      client.release();
+    }
   },
 };

@@ -11,6 +11,9 @@ interface EmailItem {
   id: number; source: string; from: string; subject: string; receivedAt: string; clientId: string | null; status: string;
   decision: Decision | null; inReplyTo: number | null; priority: boolean;
 }
+interface LastPoll { trigger: 'schedule' | 'button'; startedAt: string; processed: number; retried: number; ok: boolean | null }
+interface Inbox { emails: EmailItem[]; pollMinutes?: number; lastPoll?: LastPoll | null }
+interface PollResult { processed: number; retried: number; ok: boolean }
 interface Address { line1: string; line2: string | null; city: string; state: string; zip: string }
 interface Detail {
   email: { id: number; from: string; subject: string; body: string; redactedBody: string | null; receivedAt: string; status: string; inReplyTo: number | null };
@@ -46,7 +49,21 @@ function refusal(e: unknown): string {
   const m = e instanceof Error ? e.message : '';
   if (m.includes('allow-list')) return 'Not sent: this address is not on the test allow-list.';
   if (m.includes('Gmail is not set up')) return 'Not sent: Gmail is not connected yet.';
+  if (m.includes('check is running')) return 'A Gmail check is already running. Try again in a minute.';
   return 'Could not do that. Refresh and try again.';
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+/** E15: how often the API checks Gmail by itself, and how the last check went. */
+function PollState({ minutes, last }: { minutes: number; last: LastPoll | null }) {
+  const every = minutes > 0 ? `Gmail is checked every ${minutes} min.` : 'Automatic Gmail check is off.';
+  if (!last) return <span className={s.muted}>{every}</span>;
+  const how = last.trigger === 'schedule' ? 'automatic' : 'by hand';
+  const result = last.ok === false ? 'failed, the next check covers it'
+    : `${plural(last.processed, 'new email')}${last.retried ? `, ${last.retried} retried` : ''}`;
+  return <span className={s.muted}>{every} Last check {clock(last.startedAt)} ({how}): {result}.</span>;
 }
 
 function DecisionPill({ decision }: { decision: Decision | null }) {
@@ -69,7 +86,7 @@ function AddressCheck({ a }: { a: NonNullable<Detail['checks']>['address'] }) {
 }
 
 export function IntakeScreen() {
-  const list = useApi<{ emails: EmailItem[] }>('/api/intake');
+  const list = useApi<Inbox>('/api/intake');
   const [selected, setSelected] = useState<number | null>(null);
   const detail = useApi<Detail>(selected ? `/api/intake/${selected}` : null);
   const [message, setMessage] = useState('');
@@ -97,8 +114,9 @@ export function IntakeScreen() {
   });
 
   const fetchGmail = () => run(async () => {
-    const r = await postJSON<{ fetched: number }>('/api/intake/fetch', {});
-    return `Fetched ${r.fetched} email${r.fetched === 1 ? '' : 's'} from Gmail.`;
+    const r = await postJSON<PollResult>('/api/intake/fetch', {});
+    if (!r.ok) return 'The Gmail check did not finish. The next check will cover it.';
+    return `Checked Gmail: ${plural(r.processed, 'new email')}${r.retried ? `, ${r.retried} retried` : ''}.`;
   });
 
   const submit = () => run(async () => {
@@ -126,6 +144,7 @@ export function IntakeScreen() {
             <button type="button" className={`${ui.button} ${ui.primary}`} onClick={fetchGmail} disabled={busy}>Fetch from Gmail</button>
             <span className={s.muted}>Priority clients (Tier 1 or at risk) are listed first.</span>
           </div>
+          {list.data && <p className={s.poll}><PollState minutes={list.data.pollMinutes ?? 0} last={list.data.lastPoll ?? null} /></p>}
           <Status loading={list.loading && !list.data} error={list.error} />
           {list.data && (list.data.emails.length === 0
             ? <p className={s.muted}>No order emails yet. Fetch from Gmail or paste one below.</p>

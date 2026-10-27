@@ -162,7 +162,7 @@ module exposes `build(ctx) -> dict[str, DataFrame]`; later modules may read earl
 | Range | Owner | Tables |
 |---|---|---|
 | `001–099` | B | `audit_log` |
-| `100–199` | A | `client_domains`, `saved_addresses`, `intake_emails`, `intake_extractions`, `outbound_messages`, `inbound_orders`, `alerts`, `complaint_triage` |
+| `100–199` | A | `client_domains`, `saved_addresses`, `intake_emails`, `intake_extractions`, `outbound_messages`, `inbound_orders`, `alerts`, `complaint_triage`, `intake_polls` (101: one row per Gmail check — trigger `schedule` \| `button`, query, started_at, finished_at, fetched, processed, retried, failed, ok, error) |
 | `200–299` | B | (none planned) |
 | `300–399` | C | `recommendations`, `override_log` |
 
@@ -190,10 +190,10 @@ All numbers are numbers (not strings). Rates are 0..1; the UI formats them. Pane
 | `GET /api/tracking?asOf=YYYY-MM-DD` | C | `{ synthetic: true, asOf, freshness: [{ carrier, source, lastEventAt }], atRisk: [{ deliveryId, carrier, promisedDate }] }` |
 | `POST /api/recommend` | C | body `RecommendInput` → `CarrierRecommendation` |
 | `POST /api/overrides` | C | body `{ orderRef, from, to, reason, user }` → `{ id }` (needs `x-api-key`) |
-| `GET /api/intake` | A | `{ emails: [{ id, source, from, subject, receivedAt, clientId, status, decision, inReplyTo, priority }] }` — priority clients first; `status` RECEIVED \| WAITING \| AWAITING_APPROVAL \| APPROVED \| SENT \| ENTERED |
+| `GET /api/intake` | A | `{ emails: [{ id, source, from, subject, receivedAt, clientId, status, decision, inReplyTo, priority }], pollMinutes, lastPoll: { trigger, startedAt, finishedAt, processed, retried, failed, ok } \| null }` — priority clients first; `pollMinutes` is 0 when the automatic check is off or Gmail is not set up; `status` RECEIVED \| WAITING \| AWAITING_APPROVAL \| APPROVED \| SENT \| ENTERED |
 | `GET /api/intake/:id` | A | `{ email: { id, source, from, subject, body, redactedBody, receivedAt, clientId, status, inReplyTo }, extraction, decision, checks: { address, promise, warehouse, carrier }, replyDraft, replySource }` — `redactedBody` is what the AI model saw; `replyDraft` has names put back (what would be sent) |
 | `POST /api/intake/email` | A | body `{ from, subject, body, receivedAt, inReplyTo? }` → `{ id, status, decision, reason? }` (needs `x-api-key`); `status: WAITING`, `decision: null` when PII redaction or the model is unreachable (posting again retries) |
-| `POST /api/intake/fetch` | A | body `{ query?, max? }` → `{ fetched, results: [{ id, status, decision }] }` — new emails from the Gmail demo inbox; a message in a thread we hold is the client's answer (needs `x-api-key`; 503 without `GMAIL_*`) |
+| `POST /api/intake/fetch` | A | body `{ query?, max? }` → `{ pollId, query, fetched, processed, retried, failed, ok, error, results: [{ id, status, decision }] }` — runs the same Gmail check as the timer (E15): waiting emails again, then new mail since the last successful check less 2 minutes; a message in a thread we hold is the client's answer (needs `x-api-key`; 503 without `GMAIL_*`; 409 while another check runs) |
 | `POST /api/intake/:id/action` | A | body `{ action: "approve" \| "send_reply" \| "send_to_wms", user }` → `{ status }` (needs `x-api-key`); `send_reply` 403 off the allow-list, 503 without Gmail |
 | `POST /api/orders` | A | API order JSON `{ order_ref, client_id, ship_to, items }` → `201 { id, status, address }` or `422 { id, missing }` (needs `x-api-key`) |
 | `POST /api/orders/edi` | A | text/plain body (simplified EDI 850) → `{ id, status: "accepted" \| "held", missing }` (needs `x-api-key`) |
@@ -211,6 +211,7 @@ All numbers are numbers (not strings). Rates are 0..1; the UI formats them. Pane
 `RECORD` (`1` to save AI and map responses), `API_KEY`, `ALLOW_LIST` (comma-separated),
 `GMAIL_ACCOUNT` (the demo inbox; the Gmail scripts refuse any other account), `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`,
 `GMAIL_REFRESH_TOKEN` (from `npm --prefix backend/api run gmail:auth`; secret, reads the inbox),
+`INTAKE_POLL_MINUTES` (default 10; how often the API checks Gmail by itself, 0 = off; tests set 0),
 `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_KEY` (dashboard in `frontend/`; `next.config.mjs` loads the root `.env`; the demo key is visible in the browser, acceptable for synthetic data only).
 
 ## 8. Team rules

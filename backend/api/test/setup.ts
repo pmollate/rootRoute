@@ -8,4 +8,5 @@ process.env.LLM_PROVIDER = 'recorded';
 process.env.PII_PROVIDER = 'recorded';
 process.env.ADDRESS_PROVIDER = 'recorded';
 process.env.API_KEY = 'test-key';
+process.env.INTAKE_POLL_MINUTES = '0';
 process.env.ALLOW_LIST = 'ops-test@latelens.example,orders@client190.example';

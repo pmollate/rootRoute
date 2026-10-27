@@ -22,6 +22,7 @@ const Env = z.object({
   GMAIL_CLIENT_ID: z.string().optional(),
   GMAIL_CLIENT_SECRET: z.string().optional(),
   GMAIL_REFRESH_TOKEN: z.string().optional(),
+  INTAKE_POLL_MINUTES: z.coerce.number().int().min(0).max(60).default(10), // E15: Gmail poll interval; 0 = off
   API_KEY: z.string().min(1),
   ALLOW_LIST: z.string().default(''),
 });
