@@ -920,6 +920,8 @@ Expected: tests pass; `100` files. Open three `.eml` files of different layouts 
 
 ### Task A4: Address check and decision (E4, E5)
 
+**Built with the Azure Maps validator (27 Oct).** Differences from the steps below: `AddressValidator` in `core/maps/` (azure-maps | recorded); `verifyAddress()` and status `unverified` for a complete address the map disagrees with; rules in `modules/intake/validate.ts`; the oracle uses a map of the 20 reference buildings (32/17/1); `validator-eval.test.ts` replays real answers once recorded with `ADDRESS_PROVIDER=azure-maps RECORD=1 npm run maps:check`. Saved-address matching is by ZIP only, as in `matches_saved` (A3); matching by street alone was dropped.
+
 **Files:**
 - Create: `backend/api/src/modules/intake/schema.ts`, `backend/api/src/modules/intake/address.ts`, `backend/api/src/modules/intake/decide.ts`
 - Test: `backend/api/test/intake/address.test.ts`, `backend/api/test/intake/fixtures.ts` (loader), `backend/api/test/intake/oracle.test.ts`
@@ -927,7 +929,7 @@ Expected: tests pass; `100` files. Open three `.eml` files of different layouts 
 **Interfaces:**
 - Produces: `ExtractionSchema`, `Extraction`, `ExtractedAddress`, `SavedAddress`; `grounded(addr, source)`; `checkAddress(extracted, saved, source) -> AddressCheck { status: 'complete' | 'matched' | 'incomplete', address, missing, candidates }`; `decide(clientId, extraction, address) -> 'ALL_CLEAR' | 'CONFIRM_ADDRESS' | 'MISSING_INFO'`; test helpers `loadFixtures()`, `loadSavedAddresses()`.
 
-- [ ] **Step 1: Write the failing tests.** Unit tests (AC-INT-02, AC-INT-04, AC-SEC-02 at unit level):
+- [x] **Step 1: Write the failing tests.** Unit tests (AC-INT-02, AC-INT-04, AC-SEC-02 at unit level):
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1054,9 +1056,9 @@ describe('fixture oracle', () => {
 });
 ```
 
-- [ ] **Step 2: Run them.** `npm --prefix backend/api test -- test/intake` — Expected: FAIL, cannot find `address.js`.
+- [x] **Step 2: Run them.** `npm --prefix backend/api test -- test/intake` — Expected: FAIL, cannot find `address.js`.
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
 
 ```ts
 import { z } from 'zod';
@@ -1159,7 +1161,7 @@ export function decide(clientId: string | null, extraction: Extraction | null, a
 }
 ```
 
-- [ ] **Step 4: Run.** Expected: address tests 7 passed; oracle 50 passed. If an oracle case fails, the Python `matches_saved` and Node `checkAddress` rules have drifted — fix the code, not the fixture.
+- [x] **Step 4: Run.** Expected: address tests 7 passed; oracle 50 passed. If an oracle case fails, the Python `matches_saved` and Node `checkAddress` rules have drifted — fix the code, not the fixture.
 
 - [ ] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): grounded address check and decision rules"`
 

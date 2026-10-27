@@ -3,10 +3,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** Saved responses from the AI services, replayed in tests and CI (LLM_PROVIDER / PII_PROVIDER = recorded). */
+/** Saved responses from the AI and map services, replayed in tests and CI (LLM_PROVIDER / PII_PROVIDER / ADDRESS_PROVIDER = recorded). */
 export const RECORDINGS_DIR = fileURLToPath(new URL('../../test/recordings/', import.meta.url));
 
-export type RecordingKind = 'json' | 'text' | 'pii';
+export type RecordingKind = 'json' | 'text' | 'pii' | 'address';
 
 export function recordingKey(kind: RecordingKind, system: string, user: string): string {
   return createHash('sha256').update(JSON.stringify({ kind, system, user })).digest('hex').slice(0, 32);

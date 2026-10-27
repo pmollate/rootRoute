@@ -41,7 +41,7 @@ The 50 fixtures from A3 test every box: their gold answers say what each step mu
 | MCP | Not used by the app | The claude.ai Gmail connector serves Claude in a dev session, not the Node service. The app calls the Gmail API directly. |
 | Loading the fixtures | `messages.insert` (adds to the inbox, never sends), dated by each fixture's `Date` header | Fixtures keep their `orders@clientNNN.example` sender, so the client lookup by sender domain works. |
 | WMS gate | Operator approval stays (SEC-04) | Sender domains can be spoofed; it is one click in the demo. |
-| Address validator | Still open: Azure Maps Geocoding (map match, Azure-native) or Google Address Validation (USPS deliverability) | Decide before A4. A2 and A3 work with either: valid fixture addresses are real public buildings, and 6 fixtures carry deliberate errors. |
+| Address validator | Azure Maps Get Geocoding (decided 27 Oct), structured US address, best match only. Built in A4: `core/maps/`, rules in `modules/intake/validate.ts` | Azure-native, key in Key Vault. It does not check USPS deliverability, so the rules read the match type, state and ZIP area instead. Valid fixture addresses are real public buildings; 6 fixtures carry deliberate errors. |
 | Mailbox time zone | `America/New_York`, marked `[HALCYON_TIMEZONE]` | The dataset has no time zone (CONTRACTS §1). It is needed to turn Gmail arrival times into local order times. Confirm with the team. |
 
 ## Global constraints

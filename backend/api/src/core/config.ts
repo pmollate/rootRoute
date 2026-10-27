@@ -15,6 +15,8 @@ const Env = z.object({
   PII_PROVIDER: z.enum(['azure-language', 'recorded']).default('recorded'),
   AZURE_LANGUAGE_ENDPOINT: z.string().optional(), // https://<resource>.cognitiveservices.azure.com
   AZURE_LANGUAGE_KEY: z.string().optional(),
+  ADDRESS_PROVIDER: z.enum(['azure-maps', 'recorded']).default('recorded'),
+  AZURE_MAPS_KEY: z.string().optional(), // Azure Maps account shared key (Authentication tab)
   RECORD: z.string().optional(),
   GMAIL_ACCOUNT: z.string().optional(), // the demo inbox; scripts refuse to touch any other account
   GMAIL_CLIENT_ID: z.string().optional(),
