@@ -668,7 +668,7 @@ export default routes;
 **Interfaces:**
 - Produces: table `carrier_backtest` (`actual` vs `recommended`, Aug–Sep, with on-time and mean rate). Friday orders never go to D in the recommended plan. Prototype result: 71.3% → 78.2%, mean rate $15.23 → $13.03.
 
-- [ ] **Step 1: Write the failing tests** (AC-CAR-05):
+- [x] **Step 1: Write the failing tests** (AC-CAR-05):
 
 ```python
 from analytics.carriers import backtest
@@ -699,9 +699,9 @@ describe.skipIf(!hasDb)('backtest route (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL, `ImportError`.
+- [x] **Step 2: Run.** Expected: FAIL, `ImportError`.
 
-- [ ] **Step 3: Implement:**
+- [x] **Step 3: Implement:**
 
 ```python
 """C7 backtest: lane rules trained on Apr-Jul, tested on Aug-Sep (SPEC §5.2).
@@ -762,9 +762,9 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test -- test/routes/backtest` — Expected: pass.
+- [x] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test -- test/routes/backtest` — Expected: pass.
 
-- [ ] **Step 5: Commit.** `git add backend/analytics backend/api && git commit -m "feat(c): Apr-Jul / Aug-Sep backtest of lane rules"`
+- [x] **Step 5: Commit.** `git add backend/analytics backend/api && git commit -m "feat(c): Apr-Jul / Aug-Sep backtest of lane rules"`
 
 **Tuesday check-in:** `carriersApi` real; `/api/carriers?region=Northeast&commitment=next_day` returns the spec's reason string.
 
