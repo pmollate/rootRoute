@@ -377,7 +377,9 @@ db/ llm/  pg queries · AI model interface (claude | azure-openai | recorded)
 - **Agents in how we build** (not just code assist): each area works spec → plan → build → review with agents in
   separate roles — spec writer (`spec-writing` skill, this document), planner (`writing-plans`, the plans in
   `docs/superpowers/plans/`), implementer subagents working test-first task by task (`subagent-driven-development`),
-  and a reviewer agent plus a teammate on every PR (`code-review`). Evidence: the plans with ticked steps, and one PR per task.
+  and a reviewer agent plus a teammate on every PR (`code-review`). The roles are defined as agents in `.claude/agents/`
+  (`spec-writer`, `planner`, `implementer`, `reviewer`, `numbers-auditor`, `qa-evidence`, `discovery-recorder`); each
+  writes a run record to `docs/agent-runs/`. Evidence: the plans with ticked steps, one PR per task, and the run records.
 - **Shared contracts** between areas (fixed Mon 26 in `docs/CONTRACTS.md`; stubs return fixed values until real):
   ```ts
   checkPromise(commitment, receivedAt): { promiseDate, reason }                       // Warehouse
@@ -967,7 +969,7 @@ a missed deadline, a major deviation from the problem statement, or non-complian
 | Must-have | How LateLens meets it | Evidence for judges | Owner |
 |---|---|---|---|
 | Discovery: questions asked and answers applied | Questions to sponsors, organisers, team and data, each with what it changed | §14.1 discovery log; §12 open questions; §14 sponsor questions | All |
-| Agent pipeline: agents across roles, not just code assist | Intake (order desk), complaint triage (customer success), Ask LateLens (leadership); spec, plan, build and review agents in delivery | §4.4 agents by role; the plans with ticked steps; one PR per task | A, C |
+| Agent pipeline: agents across roles, not just code assist | Intake (order desk), complaint triage (customer success), Ask LateLens (leadership); spec, plan, build and review agents in delivery | §4.4 agents by role; `.claude/agents/` and their run records in `docs/agent-runs/`; the plans with ticked steps; one PR per task | A, C |
 | AI services inside the solution | The model reads order emails into validated JSON, drafts replies and complaint responses, and answers leadership questions through tools | Live C190 email in the demo (§11); extraction eval ≥ 48/50 (AC-INT-04/05) | A |
 | Live app demo: working, deployed prototype | Azure App Service + Static Web Apps + Postgres; first deploy Tue 27 | Deployed URL in the README; smoke test on that URL | C |
 | UI: usable front end for the flow | Landing page and five dashboard screens; approval flow for emails | `/dashboard/*` on the deployed app; AC-UI-* | B, A, C |
