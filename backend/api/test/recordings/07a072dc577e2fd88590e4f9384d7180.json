@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-992\",\"qty\":79},{\"sku\":\"HX-635\",\"qty\":13}],\"address\":{\"line1\":\"55 TRINITY AVE SW\",\"line2\":\"DOCK 3\",\"city\":null,\"state\":null,\"zip\":null,\"raw\":\"55 TRINITY AVE SW\\nDOCK 3\"},\"requested_commitment\":\"next_day\",\"confidence\":{\"items\":0.9,\"address\":0.8}}"
+}

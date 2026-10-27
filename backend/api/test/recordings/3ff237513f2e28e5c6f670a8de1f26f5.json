@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-671\",\"qty\":11},{\"sku\":\"HX-265\",\"qty\":88}],\"address\":{\"line1\":\"600 4th Ave Dock 6\",\"line2\":null,\"city\":\"Seattle\",\"state\":\"WA\",\"zip\":\"98104\",\"raw\":\"600 4th Ave Dock 6 Seattle, WA 98104\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

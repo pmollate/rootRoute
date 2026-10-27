@@ -41,7 +41,7 @@ The 50 fixtures from A3 test every box: their gold answers say what each step mu
 | MCP | Not used by the app | The claude.ai Gmail connector serves Claude in a dev session, not the Node service. The app calls the Gmail API directly. |
 | Loading the fixtures | `messages.insert` (adds to the inbox, never sends), dated by each fixture's `Date` header | Fixtures keep their `orders@clientNNN.example` sender, so the client lookup by sender domain works. |
 | WMS gate | Operator approval stays (SEC-04) | Sender domains can be spoofed; it is one click in the demo. |
-| Address validator | Still open: Azure Maps Geocoding (map match, Azure-native) or Google Address Validation (USPS deliverability) | Decide before A4. A2 and A3 work with either: valid fixture addresses are real public buildings, and 6 fixtures carry deliberate errors. |
+| Address validator | Azure Maps Get Geocoding (decided 27 Oct), structured US address, best match only. Built in A4: `core/maps/`, rules in `modules/intake/validate.ts` | Azure-native, key in Key Vault. It does not check USPS deliverability, so the rules read the match type, state and ZIP area instead. Valid fixture addresses are real public buildings; 6 fixtures carry deliberate errors. |
 | Mailbox time zone | `America/New_York`, marked `[HALCYON_TIMEZONE]` | The dataset has no time zone (CONTRACTS §1). It is needed to turn Gmail arrival times into local order times. Confirm with the team. |
 
 ## Global constraints
@@ -1102,7 +1102,7 @@ npm run migrate && npm run migrate:test && npm run seed && npm run seed:test
 
 Expected: 4 passed; `saved_addresses.csv` has 567 rows; `seeded client_domains and saved_addresses` twice.
 
-- [ ] **Step 6: Check the reference addresses.** Search each of the 20 addresses in `state_regions.json` on Google Maps (or with the chosen validator, once A4 picks one), and confirm two things:
+- [x] **Step 6: Check the reference addresses.** Done 27 Oct with Azure Maps (`npm run maps:check`): 19 of 20 confirmed; Boston City Hall (unique ZIP 02201, which Azure Maps resolves to City Sq, Charlestown) replaced by the Boston Public Library, 700 Boylston St, 02116. The fictional streets are not found (the map swaps them for real streets, which the street comparison flags). Search each of the 20 addresses in `state_regions.json` on Google Maps (or with the chosen validator, once A4 picks one), and confirm two things:
   - the building is at that address and ZIP;
   - none of the `FICTIONAL_STREETS` exists in the fixture cities.
 
@@ -1442,7 +1442,7 @@ Expected: all Python tests pass (10 of them are intake tests); `100` files. Open
 - Produces: `InboundEmail { gmailId, threadId, messageId, inReplyTo, from, subject, body, receivedAt }`; `fetchRecentEmails(gmail, query?, max?)`; `parseGmailMessage(message, timeZone?)`; `toLocalTimestamp(ms, tz)`; `senderAddress(from)`; `bodyText(payload)`; `DEFAULT_QUERY`; `MAILBOX_TIMEZONE`.
 - Produces: `npm run gmail:auth | gmail:seed | gmail:fetch` (from `backend/api`).
 
-- [ ] **Step 1: Write the failing tests.** `backend/api/test/gmail.test.ts`:
+- [x] **Step 1: Write the failing tests.** `backend/api/test/gmail.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1563,9 +1563,9 @@ describe('fixtures as Gmail returns them', () => {
 });
 ```
 
-- [ ] **Step 2: Run them.** `npm --prefix backend/api test -- test/gmail.test.ts test/intake/mailbox.test.ts test/intake/fixtures-roundtrip.test.ts` — Expected: FAIL, cannot find `gmail.js`.
+- [x] **Step 2: Run them.** `npm --prefix backend/api test -- test/gmail.test.ts test/intake/mailbox.test.ts test/intake/fixtures-roundtrip.test.ts` — Expected: FAIL, cannot find `gmail.js`.
 
-- [ ] **Step 3: Implement.** `backend/api/src/core/gmail.ts`:
+- [x] **Step 3: Implement.** `backend/api/src/core/gmail.ts`:
 
 ```ts
 import { config } from './config.js';
@@ -1851,7 +1851,7 @@ for (const e of emails) console.log(`${e.receivedAt}  ${e.from.padEnd(32)}  ${e.
 console.log(`\n${emails.length} emails for query: ${query}`);
 ```
 
-- [ ] **Step 4: Configuration.** Add to the `Env` object in `backend/api/src/core/config.ts`:
+- [x] **Step 4: Configuration.** Add to the `Env` object in `backend/api/src/core/config.ts`:
 
 ```ts
   GMAIL_ACCOUNT: z.string().optional(), // the demo inbox; scripts refuse to touch any other account
@@ -1884,7 +1884,7 @@ In `docs/SPEC.md`:
 - **§12:** add a row for `[HALCYON_TIMEZONE]`: "the dataset has no time zone. Gmail arrival times and fixture `Date` headers use `America/New_York` (`backend/synthetic-data/reference/mailbox.json`) until confirmed".
 - **§12.1, SD-08:** change "Mock mailbox" to "Gmail demo inbox loaded with the SD-02 fixtures (insert, never sent) + mock WMS form".
 
-- [ ] **Step 5: Run.** `npm --prefix backend/api test -- test/gmail.test.ts test/intake && npm --prefix backend/api run lint` — Expected: 56 passed (3 Gmail, 3 mailbox, 50 fixtures), no type errors.
+- [x] **Step 5: Run.** `npm --prefix backend/api test -- test/gmail.test.ts test/intake && npm --prefix backend/api run lint` — Expected: 56 passed (3 Gmail, 3 mailbox, 50 fixtures), no type errors.
 
 - [ ] **Step 6: Google Cloud setup (once, about 20 minutes, signed in as the demo account).**
   1. Create a project at console.cloud.google.com and enable the **Gmail API**.

@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-875\",\"qty\":52},{\"sku\":\"HX-816\",\"qty\":37}],\"address\":{\"line1\":\"100 N 3rd St\",\"line2\":\"Dock 3\",\"city\":\"Phoenix\",\"state\":\"AZ\",\"zip\":null,\"raw\":\"100 N 3rd St; Dock 3; Phoenix, AZ\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.9,\"address\":0.8}}"
+}

@@ -883,6 +883,8 @@ Assumptions (how we would test each):
 - Penalty savings assume 70.8% of penalty-eligible late deliveries are paid, as in the data. Test: ask the CFO.
 - Email timestamps are probably keying times, not arrival times (78% of email orders are stamped after 08:00 vs 55% for
   API/EDI). We use them as given; the intake agent records true arrival time going forward. Test: ask the VP Customer Success.
+- `[HALCYON_TIMEZONE]`: the dataset has no time zone. Gmail arrival times and fixture `Date` headers use `America/New_York`
+  (`backend/synthetic-data/reference/mailbox.json`) until confirmed. Test: ask which time zone the 08:00 cut-off is in.
 - The 450 "delivered before shipped" same-day orders are kept and flagged; leaving them out would lower on-time slightly
   (they are all marked on time). Test: ask what happened to them.
 
@@ -910,7 +912,7 @@ screens using synthetic data show a badge (REQ-UI-04).
 | SD-05 | SKUs, daily stock per warehouse × SKU | Real deliveries; out of stock exactly where flagged | W5 | Warehouse | WMS inventory |
 | SD-06 | Carrier capacity contracts | Observed daily volume p95 per carrier and region | C4, C10 | Carriers | Procurement contracts |
 | SD-07 | Carrier tracking events (JSON, HTML, CSV) | Real `shipped_ts`, `delivered_date`, carrier | C8 | Carriers | Carrier feeds |
-| SD-08 | Mock mailbox + mock WMS form | — | E13 | Email | Outlook, WMS |
+| SD-08 | Gmail demo inbox loaded with the SD-02 fixtures (insert, never sent) + mock WMS form | — | E13 | Email | Outlook, WMS |
 
 ## 13. Related artifacts
 - Deck: https://claude.ai/artifact/FHzG4eA9c79H8sfrjtUpSp

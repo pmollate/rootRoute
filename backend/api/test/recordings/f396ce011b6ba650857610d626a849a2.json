@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-145\",\"qty\":56}],\"address\":{\"line1\":\"Dock 6\",\"line2\":null,\"city\":\"Boston\",\"state\":\"MA\",\"zip\":\"02116\",\"raw\":\"Dock 6, Boston, MA 02116\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.9,\"address\":0.8}}"
+}

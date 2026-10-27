@@ -190,10 +190,11 @@ All numbers are numbers (not strings). Rates are 0..1; the UI formats them. Pane
 | `GET /api/tracking?asOf=YYYY-MM-DD` | C | `{ synthetic: true, asOf, freshness: [{ carrier, source, lastEventAt }], atRisk: [{ deliveryId, carrier, promisedDate }] }` |
 | `POST /api/recommend` | C | body `RecommendInput` → `CarrierRecommendation` |
 | `POST /api/overrides` | C | body `{ orderRef, from, to, reason, user }` → `{ id }` (needs `x-api-key`) |
-| `GET /api/intake` | A | `{ emails: [{ id, from, subject, receivedAt, clientId, status, decision, inReplyTo, priority }] }` — priority clients first |
-| `GET /api/intake/:id` | A | `{ email, extraction, decision, checks: { address, promise, warehouse, carrier }, replyDraft, replySource }` |
-| `POST /api/intake/email` | A | body `{ from, subject, body, receivedAt, inReplyTo? }` → `{ id, status, decision }` (needs `x-api-key`) |
-| `POST /api/intake/:id/action` | A | body `{ action: "approve" \| "send_reply" \| "send_to_wms", user }` → `{ status }` (needs `x-api-key`) |
+| `GET /api/intake` | A | `{ emails: [{ id, source, from, subject, receivedAt, clientId, status, decision, inReplyTo, priority }] }` — priority clients first; `status` RECEIVED \| WAITING \| AWAITING_APPROVAL \| APPROVED \| SENT \| ENTERED |
+| `GET /api/intake/:id` | A | `{ email: { id, source, from, subject, body, redactedBody, receivedAt, clientId, status, inReplyTo }, extraction, decision, checks: { address, promise, warehouse, carrier }, replyDraft, replySource }` — `redactedBody` is what the AI model saw; `replyDraft` has names put back (what would be sent) |
+| `POST /api/intake/email` | A | body `{ from, subject, body, receivedAt, inReplyTo? }` → `{ id, status, decision, reason? }` (needs `x-api-key`); `status: WAITING`, `decision: null` when PII redaction or the model is unreachable (posting again retries) |
+| `POST /api/intake/fetch` | A | body `{ query?, max? }` → `{ fetched, results: [{ id, status, decision }] }` — new emails from the Gmail demo inbox; a message in a thread we hold is the client's answer (needs `x-api-key`; 503 without `GMAIL_*`) |
+| `POST /api/intake/:id/action` | A | body `{ action: "approve" \| "send_reply" \| "send_to_wms", user }` → `{ status }` (needs `x-api-key`); `send_reply` 403 off the allow-list, 503 without Gmail |
 | `POST /api/orders` | A | API order JSON `{ order_ref, client_id, ship_to, items }` → `201 { id, status, address }` or `422 { id, missing }` (needs `x-api-key`) |
 | `POST /api/orders/edi` | A | text/plain body (simplified EDI 850) → `{ id, status: "accepted" \| "held", missing }` (needs `x-api-key`) |
 | `GET /api/complaints` | A | `{ complaints: [{ complaintId, clientId, deliveryId, category, date, text, atRisk, tier }] }` |
@@ -206,7 +207,10 @@ All numbers are numbers (not strings). Rates are 0..1; the UI formats them. Pane
 `DATABASE_URL`, `TEST_DATABASE_URL`, `PORT` (3001), `LLM_PROVIDER` (`azure-openai` \| `recorded`),
 `AZURE_OPENAI_ENDPOINT` (v1 endpoint, ends `/openai/v1/`), `AZURE_OPENAI_API_KEY`,
 `AZURE_OPENAI_DEPLOYMENT` (the deployment name in Foundry), `PII_PROVIDER` (`azure-language` \| `recorded`),
-`AZURE_LANGUAGE_ENDPOINT`, `AZURE_LANGUAGE_KEY`, `RECORD` (`1` to save AI responses), `API_KEY`, `ALLOW_LIST` (comma-separated),
+`AZURE_LANGUAGE_ENDPOINT`, `AZURE_LANGUAGE_KEY`, `ADDRESS_PROVIDER` (`azure-maps` \| `recorded`), `AZURE_MAPS_KEY`,
+`RECORD` (`1` to save AI and map responses), `API_KEY`, `ALLOW_LIST` (comma-separated),
+`GMAIL_ACCOUNT` (the demo inbox; the Gmail scripts refuse any other account), `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`,
+`GMAIL_REFRESH_TOKEN` (from `npm --prefix backend/api run gmail:auth`; secret, reads the inbox),
 `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_KEY` (dashboard in `frontend/`; `next.config.mjs` loads the root `.env`; the demo key is visible in the browser, acceptable for synthetic data only).
 
 ## 8. Team rules

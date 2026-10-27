@@ -920,6 +920,8 @@ Expected: tests pass; `100` files. Open three `.eml` files of different layouts 
 
 ### Task A4: Address check and decision (E4, E5)
 
+**Built with the Azure Maps validator (27 Oct).** Differences from the steps below: `AddressValidator` in `core/maps/` (azure-maps | recorded); `verifyAddress()` and status `unverified` for a complete address the map disagrees with; rules in `modules/intake/validate.ts` (match type, street name — Azure swaps a made-up street for a similar real one — state, ZIP area); the oracle uses a map of the 20 reference buildings (32/17/1); `validator-eval.test.ts` replays 56 real Azure Maps answers (recorded 27 Oct, all as expected; rerecord with `ADDRESS_PROVIDER=azure-maps RECORD=1 npm run maps:check`). Saved-address matching is by ZIP only, as in `matches_saved` (A3); matching by street alone was dropped.
+
 **Files:**
 - Create: `backend/api/src/modules/intake/schema.ts`, `backend/api/src/modules/intake/address.ts`, `backend/api/src/modules/intake/decide.ts`
 - Test: `backend/api/test/intake/address.test.ts`, `backend/api/test/intake/fixtures.ts` (loader), `backend/api/test/intake/oracle.test.ts`
@@ -927,7 +929,7 @@ Expected: tests pass; `100` files. Open three `.eml` files of different layouts 
 **Interfaces:**
 - Produces: `ExtractionSchema`, `Extraction`, `ExtractedAddress`, `SavedAddress`; `grounded(addr, source)`; `checkAddress(extracted, saved, source) -> AddressCheck { status: 'complete' | 'matched' | 'incomplete', address, missing, candidates }`; `decide(clientId, extraction, address) -> 'ALL_CLEAR' | 'CONFIRM_ADDRESS' | 'MISSING_INFO'`; test helpers `loadFixtures()`, `loadSavedAddresses()`.
 
-- [ ] **Step 1: Write the failing tests.** Unit tests (AC-INT-02, AC-INT-04, AC-SEC-02 at unit level):
+- [x] **Step 1: Write the failing tests.** Unit tests (AC-INT-02, AC-INT-04, AC-SEC-02 at unit level):
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1054,9 +1056,9 @@ describe('fixture oracle', () => {
 });
 ```
 
-- [ ] **Step 2: Run them.** `npm --prefix backend/api test -- test/intake` — Expected: FAIL, cannot find `address.js`.
+- [x] **Step 2: Run them.** `npm --prefix backend/api test -- test/intake` — Expected: FAIL, cannot find `address.js`.
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
 
 ```ts
 import { z } from 'zod';
@@ -1159,13 +1161,18 @@ export function decide(clientId: string | null, extraction: Extraction | null, a
 }
 ```
 
-- [ ] **Step 4: Run.** Expected: address tests 7 passed; oracle 50 passed. If an oracle case fails, the Python `matches_saved` and Node `checkAddress` rules have drifted — fix the code, not the fixture.
+- [x] **Step 4: Run.** Expected: address tests 7 passed; oracle 50 passed. If an oracle case fails, the Python `matches_saved` and Node `checkAddress` rules have drifted — fix the code, not the fixture.
 
 - [ ] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): grounded address check and decision rules"`
 
 ---
 
 ### Task A5: Extraction (E3) and the fixture eval
+
+**Built 27 Oct with the A1–A3 changes.** `readOrder()` in `modules/intake/read.ts` runs the whole chain for one email (redact subject and body in one PII call → extract → ground against the redacted text → map → decide); the eval and A7's pipeline both use it. A transport error is thrown (the email waits) instead of becoming MISSING_INFO. The eval also checks that no gold PII value reaches the model (AC-SEC-05) and allows a Prompt Shields refusal on fixture 03. Record with `RECORD=1 LLM_PROVIDER=azure-openai PII_PROVIDER=azure-language ADDRESS_PROVIDER=azure-maps npm run eval:intake`.
+
+
+**Recorded 27 Oct (gpt-5-mini): 49/50 decisions match gold.** The miss is fixture 03 (Prompt Shields refusal → MISSING_INFO, never ALL_CLEAR). Fixes found by the live run: the model put a dock in the street line (fixtures 10, 24, 26, 36), so `splitUnit()` moves `Dock 6` / `Suite 200` out of line1; refusals are now recorded and replayed; the eval reads HTML fixtures as plain text, as the Gmail reader does (Azure Language missed a name inside `<br>` tags in raw HTML). Re-record one fixture with `npm run eval:intake -- 03`.
 
 **Files:**
 - Create: `backend/api/src/modules/intake/prompts/extract.md`, `backend/api/src/modules/intake/extract.ts`, `backend/api/scripts/eval-intake.ts`
@@ -1177,7 +1184,7 @@ export function decide(clientId: string | null, extraction: Extraction | null, a
 - Consumes: `LLM` (A1), `ExtractionSchema` (A4).
 - Produces: `EXTRACT_SYSTEM`, `extractUserPrompt(subject, body)`, `extractOrder(llm, subject, body): Promise<Extraction | null>` (one retry on invalid output; `null` → MISSING_INFO).
 
-- [ ] **Step 1: Write the failing tests** (AC-INT-01; the eval covers AC-INT-02, -04, -05 and AC-SEC-02 and is skipped until recordings exist):
+- [x] **Step 1: Write the failing tests** (AC-INT-01; the eval covers AC-INT-02, -04, -05 and AC-SEC-02 and is skipped until recordings exist):
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1271,9 +1278,9 @@ describe.skipIf(!hasRecordings)('intake eval on 50 fixtures (recorded model resp
 });
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL, cannot find `extract.js`.
+- [x] **Step 2: Run.** Expected: FAIL, cannot find `extract.js`.
 
-- [ ] **Step 3: Implement.** The prompt (treats the email as untrusted data) and the extractor:
+- [x] **Step 3: Implement.** The prompt (treats the email as untrusted data) and the extractor:
 
 ```markdown
 You read purchase-order emails sent to Halcyon Logistics and return the order as JSON.
@@ -1349,9 +1356,9 @@ In `backend/api/package.json` replace `build` and add `eval:intake`:
 "eval:intake": "tsx scripts/eval-intake.ts",
 ```
 
-- [ ] **Step 4: Run unit tests.** `npm --prefix backend/api test -- test/intake/extract.test.ts` — Expected: 4 passed.
+- [x] **Step 4: Run unit tests.** `npm --prefix backend/api test -- test/intake/extract.test.ts` — Expected: 4 passed.
 
-- [ ] **Step 5: Run the real eval and record responses** (spends model credit: 50 calls).
+- [x] **Step 5: Run the real eval and record responses** (spends model credit: 50 calls).
 
 ```bash
 cd backend/api && RECORD=1 LLM_PROVIDER=azure-openai npm run eval:intake
@@ -1365,6 +1372,8 @@ Expected: last line `N/50 decisions match gold`, N ≥ 48. Look at every `MISS` 
 
 ### Task A6: Reply drafting (E6)
 
+**Built 27 Oct.** Beyond the steps below: `ReplyFacts` also carries `contact` (a PII tag such as `[PERSON_1]`, filled in by `restore()` only after approval) and, for an address the map could not confirm, `address`, `addressIssues` and `suggestion`; the model gets the problem as a plain sentence, never a code, and is never offered a different street. Sending: `GmailClient.sendMessage()` and `mailbox.ts` `replyMessage()` (same thread, `In-Reply-To`/`References`) and `sendReply()`, which refuses any address not on `ALLOW_LIST` (SEC-03). Checked live with gpt-5-mini on a ZIP-mismatch draft.
+
 **Files:**
 - Create: `backend/api/src/modules/intake/prompts/reply.md`, `backend/api/src/modules/intake/reply.ts`
 - Test: `backend/api/test/intake/reply.test.ts`
@@ -1373,7 +1382,7 @@ Expected: last line `N/50 decisions match gold`, N ≥ 48. Look at every `MISS` 
 - Consumes: `checkPromise` from B (the test imports B8's `domain.ts`; until B8 merges, write the expected strings by hand).
 - Produces: `ReplyFacts`, `formatDate(iso)` → `25 Oct 2026`, `missingLabels(missing)`, `requiredPhrases(facts)`, `templateReply(facts)`, `draftReply(llm, facts) -> { text, source: 'model' | 'template' }`.
 
-- [ ] **Step 1: Write the failing test** (AC-INT-03, AC-INT-06):
+- [x] **Step 1: Write the failing test** (AC-INT-03, AC-INT-06):
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1422,9 +1431,9 @@ describe('reply drafting', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL, cannot find `reply.js`.
+- [x] **Step 2: Run.** Expected: FAIL, cannot find `reply.js`.
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
 
 ```markdown
 You write short, friendly replies from Halcyon Logistics to clients who emailed an order.
@@ -1517,13 +1526,15 @@ export async function draftReply(llm: LLM, f: ReplyFacts): Promise<{ text: strin
 }
 ```
 
-- [ ] **Step 4: Run.** Expected: 5 passed.
+- [x] **Step 4: Run.** Expected: 5 passed.
 
 - [ ] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): reply drafts from checked facts with template fallback"`
 
 ---
 
 ### Task A7: Intake pipeline, approvals, priority and routes (E1, E2, E7, E8, E14)
+
+**Built 27 Oct with the A1–A6 changes.** `processEmail` runs `readOrder()` (PII → model → grounding → Azure Maps → decide); a reply is merged into the email it answers (pasted `inReplyTo`, or the last email in the same Gmail thread, since Gmail may rewrite our Message-ID). If redaction or the model is unreachable the email is `WAITING` and posting or fetching it again retries. Dedupe by `gmail_id`, then hash. `send_reply` restores names and sends through Gmail in the thread, allow-list first (403), 503 without Gmail. New `POST /api/intake/fetch`. Route test against the test DB with B's and C's real APIs. The C190 conversation (fixture 34 + an answer giving 400 S Orange Ave, 32801) is recorded, so it runs offline: CONFIRM_ADDRESS → ALL_CLEAR, W3, carrier C, 25 Oct.
 
 **Files:**
 - Create: `backend/api/src/modules/intake/priority.ts`, `repo.ts`, `pipeline.ts`, `actions.ts`, `deps.ts`, `routes.ts`
@@ -1533,7 +1544,7 @@ export async function draftReply(llm: LLM, f: ReplyFacts): Promise<{ text: strin
 - Consumes: `warehouseApi`, `carriersApi` (CONTRACTS §2; stubs until B8/C4 land), `createLLM()` (A1), all of A4–A6.
 - Produces: `isPriority(accountTier, atRisk)`, `byPriority(items, priority)` (stable, priority first), `processEmail(input, deps) -> { id, status, decision }`, `mergeExtraction(base, next)`, `emailHash(e)`, `applyAction(repo, id, action, user)`, `repo` (type `Repo`), `getDeps()` / `setDeps()`; endpoints `GET /api/intake` (priority clients first, each email marked `priority`), `GET /api/intake/:id`, `POST /api/intake/email`, `POST /api/intake/:id/action` (CONTRACTS §6).
 
-- [ ] **Step 1: Write the failing tests** (AC-PRI-01, AC-PRI-02, AC-INT-07, AC-SEC-03, AC-SEC-04, dedupe, unknown sender), with an in-memory repo so no database is needed:
+- [x] **Step 1: Write the failing tests** (AC-PRI-01, AC-PRI-02, AC-INT-07, AC-SEC-03, AC-SEC-04, dedupe, unknown sender), with an in-memory repo so no database is needed:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1683,9 +1694,9 @@ describe('actions', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL, cannot find `actions.js`.
+- [x] **Step 2: Run.** Expected: FAIL, cannot find `actions.js`.
 
-- [ ] **Step 3: Implement** the priority rule, repo, pipeline, actions and deps:
+- [x] **Step 3: Implement** the priority rule, repo, pipeline, actions and deps:
 
 ```ts
 // REQ-PRI-01/02: Tier 1 and at-risk clients are served first (7 of the 9 accounts threatening to leave are Tier 1).
@@ -1974,9 +1985,9 @@ const routes: FastifyPluginAsync = async (app) => {
 export default routes;
 ```
 
-- [ ] **Step 4: Run.** `npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: priority 2 and pipeline 6 passed; everything else still green.
+- [x] **Step 4: Run.** `npm --prefix backend/api test && npm --prefix backend/api run lint` — Expected: priority 2 and pipeline 6 passed; everything else still green.
 
-- [ ] **Step 5: Try it end to end.**
+- [x] **Step 5: Try it end to end.**
 
 ```bash
 npm run dev:api
@@ -1994,6 +2005,8 @@ Expected (with `LLM_PROVIDER=azure-openai`): `"decision":"CONFIRM_ADDRESS"`. The
 
 ### Task A8: Order emails screen (E9)
 
+**Built 27 Oct against the A7 API.** Beyond the steps below: Synthetic data badge, "Fetch from Gmail", the email next to "What the AI saw" (redacted), the map result, warehouse and carrier, decision pills, buttons enabled by status, and fixed messages for refusals (allow-list, Gmail not connected). A7 change: after approval an ALL_CLEAR order can go to the WMS and get its confirmation in either order. Rehearsed in Chrome with recorded answers: fixture 34 → CONFIRM_ADDRESS → pasted answer (400 S Orange Ave, 32801) → ALL_CLEAR, W3, carrier C → approved → in WMS.
+
 **Files:**
 - Create: `frontend/components/dashboard/intake/IntakeScreen.tsx`, `frontend/app/dashboard/intake/page.tsx`
 - Test: `frontend/components/dashboard/intake/IntakeScreen.test.tsx`
@@ -2002,7 +2015,7 @@ Expected (with `LLM_PROVIDER=azure-openai`): `"decision":"CONFIRM_ADDRESS"`. The
 - Consumes: A7 endpoints; `useApi`, `postJSON`, `Table`, `Section`, `Pill`, `ui` (B2).
 - Produces: `/dashboard/intake`: inbox (priority clients marked), detail with checks and reply draft, Approve / Send reply / Send to WMS buttons, and a paste-an-email form (a reply to an email waiting for an address is linked to it).
 
-- [ ] **Step 1: Write the failing test:**
+- [x] **Step 1: Write the failing test:**
 
 ```tsx
 import { fireEvent, screen } from '@testing-library/react';
@@ -2029,9 +2042,9 @@ describe('Intake', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./IntakeScreen`.
+- [x] **Step 2: Run.** `npm --prefix frontend test` — Expected: FAIL, cannot resolve `./IntakeScreen`.
 
-- [ ] **Step 3: Implement** the screen and its route:
+- [x] **Step 3: Implement** the screen and its route:
 
 ```tsx
 'use client';
@@ -2148,7 +2161,7 @@ export default function Page() {
 }
 ```
 
-- [ ] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck` — Expected: PASS. Rehearse the demo with `npm run dev:all` at `http://localhost:3000/dashboard/intake`: paste fixture 34's body, process, approve, then paste a reply that gives the street and ZIP of one of the saved addresses offered in the draft → ALL_CLEAR.
+- [x] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck` — Expected: PASS. Rehearse the demo with `npm run dev:all` at `http://localhost:3000/dashboard/intake`: paste fixture 34's body, process, approve, then paste a reply that gives the street and ZIP of one of the saved addresses offered in the draft → ALL_CLEAR.
 
 - [ ] **Step 5: Commit.** `git add frontend && git commit -m "feat(a): Order emails screen"`
 

@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-114\",\"qty\":7},{\"sku\":\"HX-620\",\"qty\":41},{\"sku\":\"HX-856\",\"qty\":38}],\"address\":{\"line1\":\"1437 Bannock St\",\"line2\":\"Dock 8\",\"city\":\"Denver\",\"state\":\"CO\",\"zip\":\"80202\",\"raw\":\"1437 Bannock St\\nDock 8\\nDenver, CO 80202\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

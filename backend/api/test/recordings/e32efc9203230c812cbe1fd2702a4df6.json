@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-695\",\"qty\":87}],\"address\":{\"line1\":\"600 4th Ave\",\"line2\":\"Dock 6\",\"city\":\"Seattle\",\"state\":\"WA\",\"zip\":null,\"raw\":\"600 4th Ave\\nDock 6\\nSeattle, WA\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.9,\"address\":0.8}}"
+}

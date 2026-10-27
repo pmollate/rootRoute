@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-302\",\"qty\":18}],\"address\":{\"line1\":\"700 Boylston St\",\"line2\":\"Dock 5\",\"city\":\"Boston\",\"state\":\"MA\",\"zip\":\"02116\",\"raw\":\"700 Boylston St\\nDock 5\\nBoston, MA 02116\"},\"requested_commitment\":\"next_day\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-748\",\"qty\":25}],\"address\":{\"line1\":\"1101 Arch St\",\"line2\":\"Dock 5\",\"city\":null,\"state\":null,\"zip\":null,\"raw\":\"1101 Arch St\\nDock 5\"},\"requested_commitment\":\"next_day\",\"confidence\":{\"items\":0.95,\"address\":0.6}}"
+}

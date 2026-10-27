@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[],\"address\":{\"line1\":\"400 S Orange Ave\",\"line2\":null,\"city\":null,\"state\":null,\"zip\":\"32801\",\"raw\":\"Riverside store: 400 S Orange Ave, ZIP 32801.\"},\"requested_commitment\":null,\"confidence\":{\"items\":0.9,\"address\":0.7}}"
+}

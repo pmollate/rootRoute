@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-426\",\"qty\":13},{\"sku\":\"HX-261\",\"qty\":47},{\"sku\":\"HX-411\",\"qty\":37}],\"address\":{\"line1\":\"2009 Quillfeather Ln\",\"line2\":\"Dock 2\",\"city\":\"Orlando\",\"state\":\"FL\",\"zip\":\"32801\",\"raw\":\"2009 Quillfeather Ln; Dock 2; Orlando, FL 32801\"},\"requested_commitment\":\"standard\",\"confidence\":{\"items\":0.9,\"address\":0.8}}"
+}

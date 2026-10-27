@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-447\",\"qty\":77},{\"sku\":\"HX-336\",\"qty\":73}],\"address\":{\"line1\":\"Dock 2\",\"line2\":null,\"city\":\"Orlando\",\"state\":\"FL\",\"zip\":null,\"raw\":\"Dock 2\\nOrlando, FL\"},\"requested_commitment\":\"standard\",\"confidence\":{\"items\":0.9,\"address\":0.8}}"
+}

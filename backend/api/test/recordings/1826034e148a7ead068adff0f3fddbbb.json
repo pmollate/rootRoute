@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-944\",\"qty\":101},{\"sku\":\"HX-736\",\"qty\":77}],\"address\":{\"line1\":\"1 Public Sq\",\"line2\":\"Dock 2\",\"city\":\"Nashville\",\"state\":\"TN\",\"zip\":\"37201\",\"raw\":\"1 Public Sq; Dock 2; Nashville, TN 37201\"},\"requested_commitment\":\"same_day\",\"confidence\":{\"items\":0.9,\"address\":0.9}}"
+}

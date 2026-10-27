@@ -5,11 +5,11 @@
     "Midwest": ["IA", "IL", "IN", "KS", "MI", "MN", "MO", "ND", "NE", "OH", "SD", "WI"],
     "West": ["AK", "AZ", "CA", "CO", "HI", "ID", "MT", "NM", "NV", "OK", "OR", "TX", "UT", "WA", "WY"]
   },
-  "addresses_note": "Real public buildings (city halls, convention centres), used so an address validator can confirm them. No private homes. Check each one with the chosen validator before the demo (plan Task A2 Step 6).",
+  "addresses_note": "Real public buildings (city halls, convention centres), used so an address validator can confirm them. No private homes. Checked 27 Oct with Azure Maps (npm run maps:check): all 20 confirmed; Boston City Hall (1 City Hall Sq, 02201) replaced because Azure Maps resolves it to City Sq, Charlestown.",
   "addresses": {
     "Northeast": [
       {"line1": "24 Eagle St", "city": "Albany", "state": "NY", "zip": "12207", "place": "Albany City Hall"},
-      {"line1": "1 City Hall Sq", "city": "Boston", "state": "MA", "zip": "02201", "place": "Boston City Hall"},
+      {"line1": "700 Boylston St", "city": "Boston", "state": "MA", "zip": "02116", "place": "Boston Public Library, Central Library"},
       {"line1": "415 Summer St", "city": "Boston", "state": "MA", "zip": "02210", "place": "Boston Convention and Exhibition Center"},
       {"line1": "1101 Arch St", "city": "Philadelphia", "state": "PA", "zip": "19107", "place": "Pennsylvania Convention Center"},
       {"line1": "920 Broad St", "city": "Newark", "state": "NJ", "zip": "07102", "place": "Newark City Hall"}

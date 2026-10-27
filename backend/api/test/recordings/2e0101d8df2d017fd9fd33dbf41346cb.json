@@ -1,0 +1,4 @@
+{
+  "kind": "json",
+  "text": "{\"items\":[{\"sku\":\"HX-775\",\"qty\":7},{\"sku\":\"HX-122\",\"qty\":86}],\"address\":{\"line1\":\"705 Pike St\",\"line2\":\"Dock 4\",\"city\":\"Seattle\",\"state\":\"WA\",\"zip\":null,\"raw\":\"705 Pike St\\nDock 4\\nSeattle, WA\"},\"requested_commitment\":\"next_day\",\"confidence\":{\"items\":0.95,\"address\":0.8}}"
+}
