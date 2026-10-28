@@ -10,9 +10,10 @@ describe('dashboard basics', () => {
     expect(points(0.0763)).toBe('7.6');
   });
 
-  it('lists the five screens under /dashboard', () => {
+  it('lists the six screens under /dashboard', () => {
     expect(SCREENS.map((s) => s.href)).toEqual([
-      '/dashboard/overview', '/dashboard/intake', '/dashboard/warehouses', '/dashboard/carriers', '/dashboard/replay',
+      '/dashboard/overview', '/dashboard/intake', '/dashboard/warehouses', '/dashboard/carriers', '/dashboard/journey',
+      '/dashboard/replay',
     ]);
   });
 });

@@ -4,6 +4,7 @@ export const SCREENS = [
   { href: '/dashboard/intake', label: 'Order emails', owner: 'A' },
   { href: '/dashboard/warehouses', label: 'Warehouses', owner: 'B' },
   { href: '/dashboard/carriers', label: 'Carriers', owner: 'C' },
+  { href: '/dashboard/journey', label: 'Order journey', owner: 'C' },
   { href: '/dashboard/replay', label: 'Replay & decision', owner: 'B' },
 ] as const;
 
