@@ -228,18 +228,24 @@ jobs:
         with:
           app-name: ${{ env.WEB_APP }}
           package: deploy-web
+      # The deploy replaces the files, but a running Next.js server keeps serving the build it loaded at start-up
+      # (the API restarts anyway, from the app-settings change above).
+      - name: Restart the web app so it serves the new build
+        run: az webapp restart -g "$RG" -n "$WEB_APP" -o none
       - name: Smoke check (the new API and web builds are live and the database answers)
         run: |
+          page="$RUNNER_TEMP/dashboard.html"
           for i in $(seq 1 40); do
             health=$(curl -sS --max-time 15 "$API_URL/api/health" || true)
             api=$(jq -r 'if .db == "ok" then .version else "db:\(.db)" end' <<<"$health" 2>/dev/null || echo unreachable)
-            web=$(curl -s -o /dev/null --max-time 15 -w '%{http_code}' "$WEB_URL/_next/static/$BUILD_ID/_buildManifest.js" || true)
-            page=$(curl -sL -o /dev/null --max-time 30 -w '%{http_code}' "$WEB_URL/dashboard" || true)
-            echo "try $i: api=$api web-build=$web dashboard=$page"
-            if [ "$api" = "$SHA" ] && [ "$web" = 200 ] && [ "$page" = 200 ]; then exit 0; fi
+            # The served HTML names the build id the server is running, so this fails while an old server answers.
+            code=$(curl -sL -o "$page" --max-time 30 -w '%{http_code}' "$WEB_URL/dashboard" || true)
+            if grep -qF "$BUILD_ID" "$page" 2>/dev/null; then web=new; else web=old; fi
+            echo "try $i: api=$api dashboard=$code web-build=$web"
+            if [ "$api" = "$SHA" ] && [ "$code" = 200 ] && [ "$web" = new ]; then exit 0; fi
             sleep 10
           done
-          echo "::error::Smoke check failed: expected API version $SHA with db ok, web build $BUILD_ID and /dashboard 200"
+          echo "::error::Smoke check failed: expected API version $SHA with db ok, and /dashboard 200 serving web build $BUILD_ID"
           exit 1
       - name: Close the Postgres firewall if a step above failed
         if: always()
