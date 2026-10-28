@@ -11,9 +11,10 @@ export interface Outbox { gmail: Pick<GmailClient, 'sendMessage'> | null; allow:
 /**
  * E8 / SEC-03 / SEC-04: nothing leaves without an operator's approval; replies go only to allow-listed addresses,
  * and the names (PII tags) are put back into the reply only now, just before it is sent.
+ * `edited` is the operator's own text from the reading pane (names already in place); it replaces the draft.
  */
 export async function applyAction(repo: Repo, id: number, action: Action, user: string,
-  outbox: Outbox = { gmail: null, allow: allowList }): Promise<ActionResult> {
+  outbox: Outbox = { gmail: null, allow: allowList }, edited?: string): Promise<ActionResult> {
   const email = await repo.getEmail(id);
   if (!email) return { code: 404, error: 'not found' };
   const x = await repo.latestExtraction(id);
@@ -29,11 +30,11 @@ export async function applyAction(repo: Repo, id: number, action: Action, user: 
   if (action === 'send_reply') {
     const to = senderAddress(email.from_addr);
     if (!outbox.allow.has(to)) {
-      await repo.logOutbound(id, to, x?.reply_draft ?? '', 'refused');
+      await repo.logOutbound(id, to, edited ?? x?.reply_draft ?? '', 'refused');
       return { code: 403, error: `${to} is not on the allow-list` };
     }
     if (!outbox.gmail) return { code: 503, error: 'Gmail is not set up (GMAIL_* in .env): reply not sent' };
-    const body = restore(x?.reply_draft ?? '', email.pii_map ?? {});
+    const body = edited ?? restore(x?.reply_draft ?? '', email.pii_map ?? {});
     const gmailId = await sendReply(outbox.gmail,
       { to, subject: email.subject, body, threadId: email.thread_id, inReplyTo: email.message_id }, outbox.allow);
     await repo.logOutbound(id, to, body, 'sent', gmailId);

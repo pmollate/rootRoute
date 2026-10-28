@@ -96,6 +96,6 @@ test.describe('figures match the SPEC', () => {
   test('Order emails: the inbox lists emails, priority clients first', async ({ page }) => {
     await open(page, '/dashboard/intake');
     await expect(page.getByText('Priority clients (Tier 1 or at risk) are listed first.')).toBeVisible();
-    await expect(page.locator('main table tbody tr').first()).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Emails' }).getByRole('button', { name: /^Open email/ }).first()).toBeVisible();
   });
 });

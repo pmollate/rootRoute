@@ -29,11 +29,11 @@ describe('Order journey', () => {
   it('AC-JRN-07 / AC-JRN-08: shows the failed stages with the LateLens rule beside them, and marks synthetic stages', async () => {
     mockApi({ '/api/journey/delivery:D000213': D000213, '/api/intake': INBOX });
     renderScreen(<JourneyScreen initialRef="delivery:D000213" />);
-    expect(await screen.findByText('4 days late')).toBeTruthy();
+    expect((await screen.findAllByText('4 days late')).length).toBeGreaterThan(0);
     expect(screen.getByText(/96% on time vs 57% for F/)).toBeTruthy();
     expect(screen.getByText(/CONFIRM_ADDRESS/)).toBeTruthy();
     expect(screen.getAllByText('Went wrong here')).toHaveLength(3);
-    expect(screen.getAllByText('Synthetic data').length).toBeGreaterThan(1);
+    expect(screen.getAllByText('Synthetic data')).toHaveLength(1);
   });
 
   it('opens another ref from the box, and lists recent order emails as shortcuts', async () => {

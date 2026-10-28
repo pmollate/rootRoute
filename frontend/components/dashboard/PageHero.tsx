@@ -18,8 +18,8 @@ interface PageHeroProps {
   badge?: ReactNode;
   text?: ReactNode;
   chips?: HeroChip[];
-  /** Where the chips sit on wide screens; on phones they always follow the body. */
-  chipsAt?: 'top' | 'bottom';
+  /** Where the chips sit on wide screens: top or bottom right, or bottom left under the text. On phones they always follow the body. */
+  chipsAt?: 'top' | 'bottom' | 'bottomLeft';
   /** Anything below the text: controls, a progress bar. */
   children?: ReactNode;
 }
@@ -28,6 +28,19 @@ interface PageHeroProps {
 export function PageHero({ image, imagePosition, imageSize, eyebrow, title, variant = 'page', badge, text, chips, chipsAt = 'bottom', children }: PageHeroProps) {
   const Title = variant === 'page' ? 'h1' : 'p';
   const style = { '--hero-img': `url('${image}')`, '--hero-pos': imagePosition, '--hero-size': imageSize } as CSSProperties;
+  const chipRow = chips && chips.length > 0 && (
+    <div className={`${s.chips} ${chipsAt === 'top' ? s.chipsTop : chipsAt === 'bottomLeft' ? s.chipsLeft : ''}`}>
+      {chips.map((c) => (
+        <div key={c.label} className={`${s.chip} ${c.icon ? s.chipIcon : ''} ${c.tone === 'hot' ? s.chipHot : ''}`} title={c.title}>
+          {c.icon && <span className={s.chipMark} aria-hidden="true">{c.icon}</span>}
+          <div>
+            <p>{c.label}</p>
+            <b>{c.value}</b>{c.note && <> <small>{c.note}</small></>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
   return (
     <section className={s.hero} style={style}>
       <div className={s.body}>
@@ -38,20 +51,9 @@ export function PageHero({ image, imagePosition, imageSize, eyebrow, title, vari
         </div>
         {text && <p className={s.text}>{text}</p>}
         {children}
+        {chipsAt === 'bottomLeft' && chipRow}
       </div>
-      {chips && chips.length > 0 && (
-        <div className={`${s.chips} ${chipsAt === 'top' ? s.chipsTop : ''}`}>
-          {chips.map((c) => (
-            <div key={c.label} className={`${s.chip} ${c.icon ? s.chipIcon : ''} ${c.tone === 'hot' ? s.chipHot : ''}`} title={c.title}>
-              {c.icon && <span className={s.chipMark} aria-hidden="true">{c.icon}</span>}
-              <div>
-                <p>{c.label}</p>
-                <b>{c.value}</b>{c.note && <> <small>{c.note}</small></>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {chipsAt !== 'bottomLeft' && chipRow}
     </section>
   );
 }
