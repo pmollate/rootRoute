@@ -780,7 +780,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
 **Interfaces:**
 - Produces: feed files in `backend/synthetic-data/out/tracking/` (JSON lines for A–C, weekly portal HTML for D, weekly CSV for E–F; ~15 MB, gitignored); `events(d)`, `write_feeds(d, out)`, `read_feeds(out)`; table `carrier_events` (193,360 rows, `synthetic = true`). `/api/tracking?asOf=` (C4) now returns freshness per carrier and deliveries at risk.
 
-- [ ] **Step 1: Write the failing tests** (AC-TRK-01, AC-TRK-02):
+- [x] **Step 1: Write the failing tests** (AC-TRK-01, AC-TRK-02):
 
 ```python
 from analytics.carriers import tracking
@@ -819,9 +819,9 @@ describe.skipIf(!hasDb)('tracking route (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL, `ImportError`.
+- [x] **Step 2: Run.** Expected: FAIL, `ImportError`.
 
-- [ ] **Step 3: Implement:**
+- [x] **Step 3: Implement:**
 
 ```python
 """SD-07 synthetic carrier tracking feeds and adapters (SPEC §5.13, C8).
@@ -939,9 +939,9 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test -- test/routes/tracking` — Expected: pass (writing 193k events takes under a minute).
+- [x] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test -- test/routes/tracking` — Expected: pass (writing 193k events takes under a minute).
 
-- [ ] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/generators backend/api && git commit -m "feat(c): synthetic carrier tracking feeds and adapters (SD-07)"`
+- [x] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/generators backend/api && git commit -m "feat(c): synthetic carrier tracking feeds and adapters (SD-07)"`
 
 ---
 
