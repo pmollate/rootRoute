@@ -56,7 +56,8 @@ test.describe('figures match the SPEC', () => {
   test('Overview: 71.0% on time, 14,019 late, $872k penalties, 9 accounts at risk', async ({ page }) => {
     await open(page, '/dashboard/overview');
     const main = page.locator('main');
-    for (const t of ['71.0%', '14,019', '$872k penalties', '9 accounts']) await expect(main.getByText(t).first()).toBeVisible();
+    for (const t of ['71.0%', '14,019', 'Penalties $872k']) await expect(main.getByText(t).first()).toBeVisible();
+    await expect(main.locator('section', { hasText: 'Accounts at risk' }).getByText('9', { exact: true })).toBeVisible();
   });
 
   test('Warehouses: 4,826 after cut-off, 6,009 out of stock, 691 skipped the nearest site', async ({ page }) => {
@@ -67,8 +68,9 @@ test.describe('figures match the SPEC', () => {
   test('Carriers: the five blocked lanes and the Northeast next-day recommendation', async ({ page }) => {
     await open(page, '/dashboard/carriers');
     const main = page.locator('main');
-    for (const lane of ['D → Midwest', 'D → Southeast', 'E → West', 'F → Northeast', 'F → Southeast']) {
-      await expect(main.getByText(lane, { exact: true }).first()).toBeVisible();
+    // Each blocked lane is drawn with an arrow icon; its accessible name spells it out.
+    for (const lane of ['D to Midwest', 'D to Southeast', 'E to West', 'F to Northeast', 'F to Southeast']) {
+      await expect(main.getByLabel(`Carrier ${lane}`, { exact: true })).toBeVisible();
     }
     await expect(main.getByText(/Carrier E for Northeast next-day: 97% on time vs 55% for F/)).toBeVisible();
   });
