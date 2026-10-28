@@ -1,8 +1,15 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { pool } from '../../src/core/db/pool.js';
 import { buildApp } from '../../src/server.js';
 import { hasDb } from '../db.js';
+import { logRecommendation } from '../../src/modules/carriers/queries.js';
+
+// Spy on the one function that writes `recommendations`; other test files write that table in parallel, so counting
+// rows would be racy.
+vi.mock('../../src/modules/carriers/queries.js', async (original) => ({
+  ...(await original<typeof import('../../src/modules/carriers/queries.js')>()), logRecommendation: vi.fn(),
+}));
 
 const HEADERS = { accept: 'application/json, text/event-stream', 'content-type': 'application/json' };
 const auth = { ...HEADERS, authorization: `Bearer ${process.env.MCP_TOKEN}` };
@@ -45,7 +52,6 @@ describe.skipIf(!hasDb)('MCP route (needs test database)', () => {
     expect((await tool('overview')).deliveries).toBe(48340);
     const rec = await tool('recommend_carrier', { region: 'Northeast', commitment: 'next_day', slaClause: false });
     expect(rec.reason).toMatch(/^Carrier E for Northeast next-day/);
-    const n = Number((await pool.query("SELECT count(*) FROM recommendations WHERE reason LIKE 'Carrier E for Northeast next-day%' AND created_at > now() - interval '5 seconds'")).rows[0].count);
-    expect(n).toBe(0);
+    expect(logRecommendation).not.toHaveBeenCalled();
   });
 });
