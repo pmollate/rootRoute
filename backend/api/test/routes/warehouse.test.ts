@@ -29,6 +29,7 @@ describe.skipIf(!hasDb)('warehouse & diagnosis routes (needs test database)', ()
     const w = await get('/api/warehouses');
     expect(w.secondPick.movedOrders).toBe(2414);
     expect(w.secondPick.onTime).toBeCloseTo(0.734, 3);
+    expect(w.distances).toContainEqual({ warehouseId: 'W5', region: 'Midwest', miles: 1600 });
   });
 
   it('AC-DIAG-06: attribution sums to the late rate; one KPI per cause', async () => {

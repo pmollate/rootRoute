@@ -1,6 +1,6 @@
 :root {
   /* palette: base colours as RGB channels, so every translucent variant derives from them */
-  --bg-rgb: 247 245 240;
+  --bg-rgb: 244 244 244; /* #f4f4f4 */
   --cream-rgb: 247 245 240; /* light text on footage; unlike --bg it never flips with the theme */
   --shadow-rgb: 30 30 30;
   --dark-rgb: 18 18 17;
@@ -35,6 +35,35 @@
   --warn-soft: rgb(234 179 8 / 0.18);
   --synthetic: #6d3fc0;
   --synthetic-soft: rgb(124 58 237 / 0.12);
+  /* dashboard data colours: navy for primary marks and buttons, teal for "after the fix", blue for cool rates */
+  --navy-rgb: 34 52 91; /* #22345b */
+  --navy: rgb(var(--navy-rgb));
+  --navy-2: #4a6397;
+  --navy-soft: #e8ecf5;
+  --on-navy: #ffffff;
+  --teal-rgb: 22 90 94; /* #165a5e */
+  --teal: rgb(var(--teal-rgb));
+  --teal-2: #3f8789;
+  --teal-soft: #e2f0ef;
+  --slate: #45535b;
+  --slate-soft: #e9edef;
+  --plum: #573d66;
+  --plum-soft: #f0e9f4;
+  --line-strong: #c9c3b6;
+  --muted: #64605a;
+  /* late-rate heat and on-time gains */
+  --hot-bg: #ffe8de;
+  --hot-ink: #b03808;
+  --warm-bg: #fbefd9;
+  --warm-ink: #7a4706;
+  --warm-bar: #e0a54a;
+  --cool-bg: #edf0f3;
+  --cool: #36475a;
+  --gain: #34c27a;
+  --gain-ink: #17703f;
+  --gain-soft: #dcf3e6;
+  --hero-ink: #1a2440; /* page-hero shade, navy in both themes */
+  --paper: #f7f5f0; /* warm fill for chips, icon tiles and summary cards on white */
 
   /* text and rules on dark footage */
   --on-dark: rgb(var(--cream-rgb) / 0.82);
@@ -82,6 +111,28 @@
     --bad: #f87171;
     --warn: #facc15;
     --synthetic: #b39bff;
+  --navy-rgb: 150 174 226;
+  --navy-2: #aebfe6;
+  --navy-soft: rgb(150 174 226 / 0.14);
+  --paper: #23221f;
+  --on-navy: #0e1424;
+  --teal-rgb: 108 195 192;
+  --teal-2: #8fd3d1;
+  --teal-soft: rgb(108 195 192 / 0.14);
+  --slate: #a9b6bd;
+  --slate-soft: rgb(169 182 189 / 0.14);
+  --plum: #c9a8dc;
+  --plum-soft: rgb(201 168 220 / 0.14);
+  --line-strong: #46443f;
+  --muted: #9a958c;
+  --hot-bg: rgb(255 90 31 / 0.16);
+  --hot-ink: #ff8050;
+  --warm-bg: rgb(224 165 74 / 0.16);
+  --warm-ink: #f0c27a;
+  --cool-bg: rgb(255 255 255 / 0.07);
+  --cool: #b8c4d0;
+  --gain-ink: #4ade80;
+  --gain-soft: rgb(52 194 122 / 0.16);
     color-scheme: dark;
   }
 }
@@ -99,6 +150,28 @@
   --bad: #f87171;
   --warn: #facc15;
   --synthetic: #b39bff;
+  --navy-rgb: 150 174 226;
+  --navy-2: #aebfe6;
+  --navy-soft: rgb(150 174 226 / 0.14);
+  --paper: #23221f;
+  --on-navy: #0e1424;
+  --teal-rgb: 108 195 192;
+  --teal-2: #8fd3d1;
+  --teal-soft: rgb(108 195 192 / 0.14);
+  --slate: #a9b6bd;
+  --slate-soft: rgb(169 182 189 / 0.14);
+  --plum: #c9a8dc;
+  --plum-soft: rgb(201 168 220 / 0.14);
+  --line-strong: #46443f;
+  --muted: #9a958c;
+  --hot-bg: rgb(255 90 31 / 0.16);
+  --hot-ink: #ff8050;
+  --warm-bg: rgb(224 165 74 / 0.16);
+  --warm-ink: #f0c27a;
+  --cool-bg: rgb(255 255 255 / 0.07);
+  --cool: #b8c4d0;
+  --gain-ink: #4ade80;
+  --gain-soft: rgb(52 194 122 / 0.16);
   color-scheme: dark;
 }
 

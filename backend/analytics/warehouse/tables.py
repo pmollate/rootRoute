@@ -46,6 +46,7 @@ def warehouse_stats(d: pd.DataFrame, warehouses: pd.DataFrame) -> pd.DataFrame:
 
 def penalty_reconciliation(d: pd.DataFrame, penalties: pd.DataFrame) -> pd.DataFrame:
     rows = unpaid_penalties(d, penalties)
-    out = rows[["delivery_id", "client_id", "account_tier", "days_late", "promised_date"]].copy()
+    out = rows[["delivery_id", "client_id", "account_tier", "fulfilment_warehouse_id", "days_late", "promised_date"]].copy()
+    out = out.rename(columns={"fulfilment_warehouse_id": "warehouse_id"})
     out["promised_date"] = out.promised_date.dt.strftime("%Y-%m-%d")
-    return out.sort_values(["account_tier", "days_late"], ascending=[True, False]).reset_index(drop=True)
+    return out.sort_values(["days_late", "account_tier"], ascending=[False, True]).reset_index(drop=True)

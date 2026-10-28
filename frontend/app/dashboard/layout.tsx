@@ -5,7 +5,7 @@ import { BRAND } from '@/config/copy';
 
 export const metadata: Metadata = {
   title: { template: `%s · ${BRAND}`, default: BRAND },
-  description: 'Why Halcyon deliveries are late, what fixes them, and the case for the routing decision.',
+  description: 'Why Halcyon deliveries are late, and what each fix is worth.',
 };
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {

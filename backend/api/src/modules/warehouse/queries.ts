@@ -60,6 +60,9 @@ export const warehouses = () => cached('warehouses', async () => {
   const pick = await query<{ on_time: number }>(
     "SELECT on_time FROM scenario_results WHERE scenario = 'second_pick' AND segment = 'all'",
   );
+  const distances = await query<{ warehouse_id: string; region: string; miles: number }>(
+    'SELECT warehouse_id, region, miles FROM warehouse_region_distance ORDER BY warehouse_id, region',
+  );
   return {
     warehouses: rows.map((r) => ({
       warehouseId: r.warehouse_id, name: r.warehouse_name, orders: r.orders, cutoffMisses: r.cutoff_misses,
@@ -71,6 +74,8 @@ export const warehouses = () => cached('warehouses', async () => {
       nearest: avgFreight(rows, 'nearest_freight_usd', 'nearest_shipped'),
       otherSite: avgFreight(rows, 'other_freight_usd', 'other_shipped'),
     },
+    /** Miles from each site to each customer region (supplied warehouse_region_distance_miles.csv). */
+    distances: distances.map((d) => ({ warehouseId: d.warehouse_id, region: d.region, miles: Number(d.miles) })),
   };
 });
 
@@ -91,14 +96,15 @@ export const unpaidPenalties = () => cached('unpaid', async () => {
   const byTier = await query<{ tier: string; n: number }>(
     'SELECT account_tier AS tier, count(*) AS n FROM penalty_reconciliation GROUP BY account_tier ORDER BY account_tier',
   );
-  const rows = await query<{ delivery_id: string; client_id: string; account_tier: string; days_late: number; promised_date: string }>(
-    'SELECT * FROM penalty_reconciliation ORDER BY account_tier, days_late DESC LIMIT 200',
+  // warehouse_id is absent until the pipeline has been re-run with it, so SELECT * and fall back to null.
+  const rows = await query<{ delivery_id: string; client_id: string; account_tier: string; warehouse_id?: string; days_late: number; promised_date: string }>(
+    'SELECT * FROM penalty_reconciliation ORDER BY days_late DESC, account_tier LIMIT 200',
   );
   return {
     count: byTier.reduce((a, r) => a + r.n, 0),
     byTier,
-    rows: rows.map((r) => ({ deliveryId: r.delivery_id, clientId: r.client_id, tier: r.account_tier, daysLate: r.days_late,
-      promisedDate: r.promised_date })),
+    rows: rows.map((r) => ({ deliveryId: r.delivery_id, clientId: r.client_id, tier: r.account_tier, warehouseId: r.warehouse_id ?? null,
+      daysLate: r.days_late, promisedDate: r.promised_date })),
   };
 });
 

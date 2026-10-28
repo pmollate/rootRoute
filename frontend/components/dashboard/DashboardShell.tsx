@@ -6,12 +6,13 @@ import type { ReactNode } from 'react';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { BrandMark } from '@/components/ui/BrandMark';
+import h from '@/components/layout/SiteHeader.module.css';
 import { BRAND } from '@/config/copy';
 import { SCREENS } from '@/config/dashboard';
 import { Pill } from './ui';
 import s from './shell.module.css';
 
-/** 18px line icons for the side nav, keyed by screen href. */
+/** 18px line icons for the mobile drawer, keyed by screen href. */
 const ICONS: Record<string, ReactNode> = {
   '/dashboard/overview': <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
   '/dashboard/intake': <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
@@ -24,14 +25,14 @@ const Icon = ({ children }: { children: ReactNode }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
 );
 
-/** Chrome for every /dashboard screen: side nav, breadcrumb bar with period and theme toggle. */
+/** Chrome for every /dashboard screen: the landing page's floating pill bar (brand, screen links, theme toggle); pages run full width. */
 export function DashboardShell({ children }: { children: ReactNode }) {
   const path = usePathname();
   const current = SCREENS.find((sc) => path.startsWith(sc.href));
   const brand = (
-    <Link className={s.brand} href="/">
-      <BrandMark className={s.glyph} />
-      <span>{BRAND}<small>Halcyon logistics</small></span>
+    <Link className={h.mark} href="/" aria-label={`${BRAND} home`}>
+      <BrandMark className={h.glyph} />
+      {BRAND.toUpperCase()}
     </Link>
   );
   const dataset = (
@@ -43,41 +44,24 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   );
   return (
     <div className={s.page}>
-      <aside className={s.side}>
-        {brand}
-        <p className={s.group}>Delivery intelligence</p>
-        <nav className={s.nav} aria-label="Dashboard">
-          {SCREENS.map((sc) => (
-            <Link key={sc.href} className={s.link} href={sc.href} aria-current={sc === current ? 'page' : undefined}>
-              <Icon>{ICONS[sc.href]}</Icon>
-              {sc.label}
-            </Link>
-          ))}
-        </nav>
-        {dataset}
-      </aside>
-      <div className={s.body}>
-        <header className={s.header}>
-          <div className={s.lead}>
-            <MobileNav label="Dashboard" brand={brand} footer={dataset}
-              items={SCREENS.map((sc) => ({ href: sc.href, label: sc.label, icon: <Icon>{ICONS[sc.href]}</Icon>, current: sc === current }))} />
-            <nav className={s.crumbs} aria-label="Breadcrumb">
-              <ol>
-                <li><Link href="/dashboard/overview">Halcyon</Link></li>
-                {current && <li aria-current="page">{current.label}</li>}
-              </ol>
-            </nav>
-          </div>
-          <div className={s.tools}>
+      <header className={s.header}>
+        <div className={h.bar}>
+          <MobileNav label="Dashboard" brand={brand} footer={dataset}
+            items={SCREENS.map((sc) => ({ href: sc.href, label: sc.label, icon: <Icon>{ICONS[sc.href]}</Icon>, current: sc === current }))} />
+          {brand}
+          <nav className={`${h.nav} ${s.nav}`} aria-label="Dashboard">
+            {SCREENS.map((sc) => (
+              <Link key={sc.href} className={h.navLink} href={sc.href} aria-current={sc === current ? 'page' : undefined}>{sc.label}</Link>
+            ))}
             <ThemeToggle />
-          </div>
-        </header>
-        <main className={s.main}>{children}</main>
-        <footer className={s.foot}>
-          <p>Computed from the supplied Halcyon dataset · 48,340 deliveries · Apr–Sep 2026.</p>
-          <p><Pill tone="synthetic">Synthetic</Pill> marks panels using generated data</p>
-        </footer>
-      </div>
+          </nav>
+        </div>
+      </header>
+      <main className={s.main}>{children}</main>
+      <footer className={s.foot}>
+        <p>Computed from the supplied Halcyon dataset · 48,340 deliveries · Apr–Sep 2026 · 5 sites · 6 carriers.</p>
+        <p><Pill tone="synthetic">Synthetic</Pill> marks panels using generated data</p>
+      </footer>
     </div>
   );
 }

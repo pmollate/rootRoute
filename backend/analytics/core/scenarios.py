@@ -38,9 +38,9 @@ def _waterfall() -> list[Scenario]:
 
 SCENARIOS = [
     Scenario("today", "Today", "reference", FLAGS),
-    Scenario("route_only", "Routing engine: route overruns only", "reference", FLAGS, ["f_route"]),
+    Scenario("route_only", "Route overruns only", "reference", FLAGS, ["f_route"]),
     Scenario("carrier_only", "Carrier lanes only", "reference", FLAGS, ["f_lane"]),
-    Scenario("vendor_best", "Routing engine best case (lanes + routes)", "reference", FLAGS, ["f_lane", "f_route"]),
+    Scenario("lanes_routes", "Carrier lanes + routes", "reference", FLAGS, ["f_lane", "f_route"]),
     Scenario("address_only", "Address only", "reference", FLAGS, ["f_addr"]),
     Scenario("address_lanes", "Address + lanes", "reference", FLAGS, ["f_addr", "f_lane"]),
     Scenario("addr_cut_stock", "Address + cut-off + stock", "reference", FLAGS, ["f_addr", "f_cutoff", "f_stock"]),
@@ -55,8 +55,6 @@ SCENARIOS = [
     Scenario("as_built_oos", "As built + out-of-stock fixed", "phase2", AREA_FLAGS, [*AS_BUILT, "f_stock_out"]),
     Scenario("as_built_phase2", "As built + both", "phase2", AREA_FLAGS, [*AS_BUILT, "f_addr_other", "f_stock_out"]),
     *_waterfall(),
-    Scenario("adopt_vendor", "Routing vendor only (all lanes, 30% of detours)", "adoption", FLAGS,
-             rates={"f_lane": 1.0, "f_route": ADOPTION["f_route"]}),
 ]
 
 
