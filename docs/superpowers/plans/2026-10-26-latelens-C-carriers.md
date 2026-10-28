@@ -1511,3 +1511,16 @@ Add to `frontend/package.json` scripts:
 - [ ] **Step 6 (synthetic, not started):** simulated stages 10–13 for new orders (`order_events`, `journey_timing`,
   REQ-JRN-05/-06/-10), and the "Order journey" link on the Intake detail (REQ-JRN-09) once A's open changes are merged.
 
+### Task C12: UI automation of the order-to-delivery workflow only (replaces C10's every-screen smoke test)
+
+Decision (28 Oct): Playwright automates the Order journey workflow only; other screens rely on their unit tests.
+- [x] `frontend/e2e/journey.spec.ts` replaces `e2e/smoke.spec.ts`, against the deployed app, read-only:
+  - past deliveries: D000213 (14 stages; address, carrier and delivery fail; CONFIRM_ADDRESS and lane notes; synthetic
+    tracking; approval and confirmation "not done today") and D000559 (cut-off: next-day promise with its reason);
+  - moving through it: example buttons, the ref box (button and Enter), unknown and malformed refs;
+  - new orders read from the live inbox: shortcuts open an order journey with a link to Order emails and no `@` on the
+    page; an all-clear order awaiting approval (checks done, approval in progress, nothing shipped); an order waiting
+    on its address (warehouse and carrier not reached). Skipped when the inbox has no such email;
+  - phone width: all 14 stages, no sideways scrolling.
+- [x] CD job `e2e` runs it after each deployment. First run against the live app: 8 passed.
+

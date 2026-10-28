@@ -127,7 +127,7 @@ jobs:
         if: always()
         run: if [ -n "${FW_RULE:-}" ]; then az resource delete --id "$FW_RULE" --api-version 2024-08-01 || true; fi
 
-  # P6 (owner C): Playwright smoke test of the deployed app, every screen at phone and desktop width, read-only.
+  # Owner C: Playwright UI automation of the order-to-delivery workflow (Order journey) on the deployed app, read-only.
   # Its own job, so a failing check is visible without marking the deployment itself as failed.
   e2e:
     needs: deploy
@@ -148,7 +148,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm --prefix frontend ci --no-audit --no-fund
       - run: npx --prefix frontend playwright install --with-deps chromium
-      - name: Smoke test every screen
+      - name: UI automation of the order-to-delivery workflow
         working-directory: frontend
         run: npm run e2e
       - uses: actions/upload-artifact@v4
