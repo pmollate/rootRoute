@@ -81,7 +81,17 @@ test.describe('new orders from the inbox', () => {
   test.skip(({ viewport }) => (viewport?.width ?? 0) < 768, 'checked once, at desktop width');
   type Inbox = { emails: { id: number; status: string; decision: string | null }[] };
   let inbox: Inbox['emails'] = [];
-  test.beforeAll(async ({ request }) => { inbox = ((await (await request.get(`${API_URL}/api/intake`)).json()) as Inbox).emails; });
+  // The only call made outside a page: retry it, since one dropped request would otherwise skip every inbox test.
+  test.beforeAll(async ({ request }) => {
+    for (let attempt = 1; ; attempt++) {
+      const res = await request.get(`${API_URL}/api/intake`, { timeout: 30_000 }).catch((e: Error) => e);
+      if (!(res instanceof Error) && res.ok()) { inbox = ((await res.json()) as Inbox).emails; return; }
+      if (attempt === 3) {
+        throw new Error(`Could not load the inbox from ${API_URL}/api/intake: ${res instanceof Error ? res.message : res.status()}`);
+      }
+      await new Promise((r) => setTimeout(r, 2_000));
+    }
+  });
 
   test('the latest order emails are shortcuts, and open as an order journey with a link back', async ({ page }) => {
     test.skip(inbox.length === 0, 'the inbox is empty');
