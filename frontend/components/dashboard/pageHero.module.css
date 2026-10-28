@@ -3,6 +3,12 @@
   background: linear-gradient(90deg, var(--hero-ink) 0%, var(--hero-ink) 34%, rgb(26 36 64 / 0.88) 46%, rgb(26 36 64 / 0.5) 62%, rgb(26 36 64 / 0.12) 82%, rgb(26 36 64 / 0) 100%),
     var(--hero-img) var(--hero-pos, right center) / var(--hero-size, cover) no-repeat, var(--hero-ink); }
 .body { position: relative; max-width: 520px; }
+/* Wide screens: every screen's hero is as tall as the Overview one (big metric plus gauge); controls under the text sit at the bottom. */
+@media (min-width: 901px) {
+  .hero { display: flex; min-height: 360px; }
+  .body { display: flex; flex-direction: column; flex: 1; }
+  .text + * { margin-top: auto; }
+}
 .eyebrow { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: rgb(255 255 255 / 0.8); }
 .eyebrow i { flex: none; width: 8px; height: 8px; border: 1.5px solid #d4ab6a; border-radius: 2px; }
 .titleRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 10px 0 12px; }

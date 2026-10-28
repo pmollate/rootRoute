@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { PageHero } from '@/components/dashboard/PageHero';
 import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
@@ -106,6 +106,14 @@ interface AssistantProps {
 function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, loading, error }: AssistantProps) {
   const [picked, setPicked] = useState(0);
   const [asked, setAsked] = useState<string[]>([]);
+  /** Up to 1000px the assistant is a side popup behind a floating icon. Wider screens ignore this. */
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
   const [draft, setDraft] = useState('');
   const [copied, setCopied] = useState(false);
   const final = steps.at(-1)?.to;
@@ -134,10 +142,19 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
   };
 
   return (
-    <section className={`${s.panel} ${s.assistant}`}>
+    <>
+    <button type="button" className={`${s.bot} ${s.launcher}`} aria-expanded={open} aria-controls="assistant" aria-label="Open Halcyon Assistant"
+      onClick={() => setOpen(true)}>
+      <Glyph /><i /><span className={s.launcherTip} aria-hidden="true">Ask Halcyon Assistant</span>
+    </button>
+    <div className={s.scrim} data-open={open} aria-hidden="true" onClick={() => setOpen(false)} />
+    <section id="assistant" className={`${s.panel} ${s.assistant}`} data-open={open} aria-label="Halcyon Assistant">
       <div className={s.chatHead}>
         <span className={s.bot}><Glyph /><i /></span>
         <div><b>Halcyon Assistant</b>{deliveries != null && <small>Analysed {int(deliveries)} deliveries</small>}</div>
+        <button type="button" className={s.close} aria-label="Close assistant" onClick={() => setOpen(false)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+        </button>
       </div>
       <div className={s.thread}>
         <p className={s.day}>Today</p>
@@ -207,6 +224,7 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
         </button>
       </form>
     </section>
+    </>
   );
 }
 
@@ -331,132 +349,132 @@ export function OverviewScreen() {
         </>
       )}
 
-      <section className={s.panel}>
-        <div className={s.head}>
-          <div>
-            <h2 className={s.h2}>Path to target</h2>
-            <p className={s.sub}>
-              Each fix replayed on the supplied deliveries at its expected adoption rate.
-              {o.data && final != null && <> On-time rises step by step from {pct(o.data.onTime)} to {pct(final)}.</>}
-            </p>
+      <div className={s.row2}>
+        <section className={`${s.panel} ${s.pathPanel}`}>
+          <div className={s.head}>
+            <div>
+              <h2 className={s.h2}>Path to target</h2>
+              <p className={s.sub}>
+                Each fix replayed on the supplied deliveries at its expected adoption rate.
+                {o.data && final != null && <> On-time rises step by step from {pct(o.data.onTime)} to {pct(final)}.</>}
+              </p>
+            </div>
+            <div className={s.chips}>
+              {o.data && final != null && <span className={s.tagGood}><Glyph />+{points(final - o.data.onTime)} pts</span>}
+              {ceiling != null && <span className={s.tagMuted}>Ceiling {ceiling > TARGET ? `> ${pct(TARGET, 0)}` : pct(ceiling)}</span>}
+            </div>
           </div>
-          <div className={s.chips}>
-            {o.data && final != null && <span className={s.tagGood}><Glyph />+{points(final - o.data.onTime)} pts</span>}
-            {ceiling != null && <span className={s.tagMuted}>Ceiling {ceiling > TARGET ? `> ${pct(TARGET, 0)}` : pct(ceiling)}</span>}
-          </div>
-        </div>
-        <Status loading={a.loading || r.loading} error={a.error ?? r.error} skeleton="bars" count={6} />
-        {o.data && final != null && (
-          <div className={s.pathGrid}>
-            <div className={s.chartScroll}>
-              <div className={s.chart}>
-                <div className={s.plot}>
-                  {[0.7, 0.8, 0.9, 1].map((v) => <span key={v} className={s.grid} style={{ bottom: at(v) }}><em>{pct(v, 0)}</em></span>)}
-                  <span className={s.targetLine} style={{ bottom: at(TARGET) }}><em>Target {pct(TARGET, 0)}</em></span>
-                  <span className={s.benchLine} style={{ bottom: at(benchmark) }}><em>Benchmark {pct(benchmark, 0)}</em></span>
-                  <div className={s.cols}>
-                    <div className={s.col}>
-                      <span className={`${s.bar} ${s.barBase}`} style={{ ...col(AXIS_MIN, o.data.onTime), '--i': 0 } as CSSProperties}>
-                        <em>{(o.data.onTime * 100).toFixed(1)}</em>
-                      </span>
-                    </div>
-                    {steps.map((x, i) => (
-                      <div key={x.cause} className={s.col}>
-                        <span className={`${s.bar} ${x.cause === largest ? s.barHot : s.barStep}`} title={`${pct(x.from)} → ${pct(x.to)}`}
-                          style={{ ...col(x.from, x.to), '--i': i + 1 } as CSSProperties}>
-                          <em>+{points(x.to - x.from)}</em>
-                          <small>{(x.to * 100).toFixed(1)}</small>
+          <Status loading={a.loading || r.loading} error={a.error ?? r.error} skeleton="bars" count={6} />
+          {o.data && final != null && (
+            <div className={s.pathGrid}>
+              <div className={s.chartScroll}>
+                <div className={s.chart}>
+                  <div className={s.plot}>
+                    {[0.7, 0.8, 0.9, 1].map((v) => <span key={v} className={s.grid} style={{ bottom: at(v) }}><em>{pct(v, 0)}</em></span>)}
+                    <span className={s.targetLine} style={{ bottom: at(TARGET) }}><em>Target {pct(TARGET, 0)}</em></span>
+                    <span className={s.benchLine} style={{ bottom: at(benchmark) }}><em>Benchmark {pct(benchmark, 0)}</em></span>
+                    <div className={s.cols}>
+                      <div className={s.col}>
+                        <span className={`${s.bar} ${s.barBase}`} style={{ ...col(AXIS_MIN, o.data.onTime), '--i': 0 } as CSSProperties}>
+                          <em>{(o.data.onTime * 100).toFixed(1)}</em>
                         </span>
                       </div>
-                    ))}
-                    <div className={s.col}>
-                      {ceiling != null && <span className={s.ceiling} style={col(final, Math.min(ceiling, 1))}><em>Ceiling {ceiling > TARGET ? `>${pct(TARGET, 0)}` : pct(ceiling)}</em></span>}
-                      <span className={`${s.bar} ${s.barFinal}`} style={{ ...col(AXIS_MIN, final), '--i': steps.length + 1 } as CSSProperties}>
-                        <b>{(final * 100).toFixed(1)}</b>
-                      </span>
+                      {steps.map((x, i) => (
+                        <div key={x.cause} className={s.col}>
+                          <span className={`${s.bar} ${x.cause === largest ? s.barHot : s.barStep}`} title={`${pct(x.from)} → ${pct(x.to)}`}
+                            style={{ ...col(x.from, x.to), '--i': i + 1 } as CSSProperties}>
+                            <em>+{points(x.to - x.from)}</em>
+                            <small>{(x.to * 100).toFixed(1)}</small>
+                          </span>
+                        </div>
+                      ))}
+                      <div className={s.col}>
+                        {ceiling != null && <span className={s.ceiling} style={col(final, Math.min(ceiling, 1))}><em>Ceiling {ceiling > TARGET ? `>${pct(TARGET, 0)}` : pct(ceiling)}</em></span>}
+                        <span className={`${s.bar} ${s.barFinal}`} style={{ ...col(AXIS_MIN, final), '--i': steps.length + 1 } as CSSProperties}>
+                          <b>{(final * 100).toFixed(1)}</b>
+                        </span>
+                      </div>
                     </div>
                   </div>
+                  <div className={s.colLabels}>
+                    <span><b>Today</b></span>
+                    {steps.map((x) => <span key={x.cause}>{FIXES[x.cause]?.[2] ?? x.cause}</span>)}
+                    <span className={s.good}>With fixes</span>
+                  </div>
                 </div>
-                <div className={s.colLabels}>
-                  <span><b>Today</b></span>
-                  {steps.map((x) => <span key={x.cause}>{FIXES[x.cause]?.[2] ?? x.cause}</span>)}
-                  <span className={s.good}>With fixes</span>
-                </div>
+              </div>
+              <aside className={s.stepTable}>
+                <p className={s.stepHead}><span>Step</span><span>On-time</span></p>
+                <ol>
+                  <li style={{ '--i': 0 } as CSSProperties}><i className={s.dark} /><span>Today</span><small /><b>{pct(o.data.onTime)}</b></li>
+                  {steps.map((x, i) => (
+                    <li key={x.cause} className={x.cause === largest ? s.stepHot : undefined} style={{ '--i': i + 1 } as CSSProperties}>
+                      <i /><span>{FIXES[x.cause]?.[2] ?? x.cause}</span><small>+{points(x.to - x.from)}</small><b>{pct(x.to)}</b>
+                    </li>
+                  ))}
+                </ol>
+                <p className={s.short}>
+                  <span>{final < TARGET ? `${points(TARGET - final)} pts short of the ${pct(TARGET, 0)} target` : `Clears the ${pct(TARGET, 0)} target`}</span>
+                  <b>{pct(final)}</b>
+                </p>
+              </aside>
+            </div>
+          )}
+        </section>
+
+        <section className={s.panel}>
+          <h2 className={s.h2}>Where the loss starts</h2>
+          <p className={s.sub}>Each cause is tied to one stage of the shipment lifecycle.</p>
+          {o.data && (
+            <div className={s.callout}>
+              <Donut value={o.data.prePickupShare} />
+              <div>
+                <b>of late deliveries start before pickup</b>
+                <p>At intake, the delivery promise or fulfilment, not with the carrier.</p>
               </div>
             </div>
-            <aside className={s.stepTable}>
-              <p className={s.stepHead}><span>Step</span><span>On-time</span></p>
-              <ol>
-                <li style={{ '--i': 0 } as CSSProperties}><i className={s.dark} /><span>Today</span><small /><b>{pct(o.data.onTime)}</b></li>
-                {steps.map((x, i) => (
-                  <li key={x.cause} className={x.cause === largest ? s.stepHot : undefined} style={{ '--i': i + 1 } as CSSProperties}>
-                    <i /><span>{FIXES[x.cause]?.[2] ?? x.cause}</span><small>+{points(x.to - x.from)}</small><b>{pct(x.to)}</b>
-                  </li>
-                ))}
-              </ol>
-              <p className={s.short}>
-                <span>{final < TARGET ? `${points(TARGET - final)} pts short of the ${pct(TARGET, 0)} target` : `Clears the ${pct(TARGET, 0)} target`}</span>
-                <b>{pct(final)}</b>
-              </p>
-            </aside>
-          </div>
-        )}
-      </section>
+          )}
+          <Status loading={a.loading} error={a.error} skeleton="rows" count={5} />
+          <ol className={s.stages}>
+            {LIFECYCLE.map((f, i) => {
+              const c = byCause.get(f);
+              if (!c) return null;
+              const [stage, text] = LIFECYCLE_TEXT[f];
+              const pre = PRE_PICKUP.has(c.stage);
+              const firstPost = !pre && LIFECYCLE.slice(0, i).every((g) => PRE_PICKUP.has(byCause.get(g)?.stage ?? ''));
+              return (
+                <li key={f} className={pre ? s.stagePre : undefined} style={{ '--i': i } as CSSProperties}>
+                  {firstPost && <span className={s.pickup}>Pickup</span>}
+                  <span className={s.stage}>
+                    <span className={s.num}>{i + 1}</span>
+                    <span><b>{stage}</b> · {text}</span>
+                    <span className={s.pts}>{points(c.pointsLost)}</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      </div>
 
       <div className={s.row3}>
-        <div className={s.stack}>
-          <section className={s.panel}>
-            <h2 className={s.h2}>Five causes of lost on-time</h2>
-            <p className={s.sub}>Points lost to each cause. No shipment without one of these causes arrived late.</p>
-            <Status loading={a.loading} error={a.error} skeleton="rows" count={5} />
-            <ul className={s.causes}>
-              {attribution.map((x, i) => (
-                <li key={x.cause}>
-                  <span className={s.causeHead}>
-                    <span><b>{measure(x.cause)?.label ?? x.label}</b><small>{x.stage}{i === 0 && ' · largest cause'}</small></span>
-                    <span className={s.causePts}>{points(x.pointsLost)} <small>pts</small></span>
-                  </span>
-                  <span className={s.causeBar}><span className={i === 0 ? s.hot : undefined} style={{ width: `${(x.pointsLost / maxLost) * 100}%`, '--i': i } as CSSProperties} /></span>
-                </li>
-              ))}
-            </ul>
-            {lost > 0 && <p className={s.total}><span>Together, all five causes</span><b>{points(lost)} pts</b></p>}
-          </section>
-
-          <section className={s.panel}>
-            <h2 className={s.h2}>Where the loss starts</h2>
-            <p className={s.sub}>Each cause is tied to one stage of the shipment lifecycle.</p>
-            {o.data && (
-              <div className={s.callout}>
-                <Donut value={o.data.prePickupShare} />
-                <div>
-                  <b>of late deliveries start before pickup</b>
-                  <p>At intake, the delivery promise or fulfilment, not with the carrier.</p>
-                </div>
-              </div>
-            )}
-            <Status loading={a.loading} error={a.error} skeleton="rows" count={5} />
-            <ol className={s.stages}>
-              {LIFECYCLE.map((f, i) => {
-                const c = byCause.get(f);
-                if (!c) return null;
-                const [stage, text] = LIFECYCLE_TEXT[f];
-                const pre = PRE_PICKUP.has(c.stage);
-                const firstPost = !pre && LIFECYCLE.slice(0, i).every((g) => PRE_PICKUP.has(byCause.get(g)?.stage ?? ''));
-                return (
-                  <li key={f} className={pre ? s.stagePre : undefined} style={{ '--i': i } as CSSProperties}>
-                    {firstPost && <span className={s.pickup}>Pickup</span>}
-                    <span className={s.stage}>
-                      <span className={s.num}>{i + 1}</span>
-                      <span><b>{stage}</b> · {text}</span>
-                      <span className={s.pts}>{points(c.pointsLost)}</span>
-                    </span>
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        </div>
+        <section className={s.panel}>
+          <h2 className={s.h2}>Five causes of lost on-time</h2>
+          <p className={s.sub}>Points lost to each cause. No shipment without one of these causes arrived late.</p>
+          <Status loading={a.loading} error={a.error} skeleton="rows" count={5} />
+          <ul className={s.causes}>
+            {attribution.map((x, i) => (
+              <li key={x.cause}>
+                <span className={s.causeHead}>
+                  <span><b>{measure(x.cause)?.label ?? x.label}</b><small>{x.stage}{i === 0 && ' · largest cause'}</small></span>
+                  <span className={s.causePts}>{points(x.pointsLost)} <small>pts</small></span>
+                </span>
+                <span className={s.causeBar}><span className={i === 0 ? s.hot : undefined} style={{ width: `${(x.pointsLost / maxLost) * 100}%`, '--i': i } as CSSProperties} /></span>
+              </li>
+            ))}
+          </ul>
+          {lost > 0 && <p className={s.total}><span>Together, all five causes</span><b>{points(lost)} pts</b></p>}
+        </section>
 
         <Assistant deliveries={o.data?.deliveries} onTime={o.data?.onTime} steps={steps} lost={lost} ceiling={ceiling}
           largest={largest} owners={Object.fromEntries(attribution.map((x) => [x.cause, measure(x.cause)?.owner ?? '']))}

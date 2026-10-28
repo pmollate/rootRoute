@@ -192,6 +192,11 @@ function SectionHead({ icon, title, sub, tone, children }: { icon: ReactNode; ti
  * pin last selected); a line runs to it from every other site, labelled with the miles that site ships to reach the
  * focus site's customer region (warehouse_region_distance_miles.csv). Site-to-site miles are not in the data.
  */
+/** Where the map sits beside `n` cards: rows it spans next to 3 columns, columns left over in the last row of 5. */
+function cardSlots(n: number): CSSProperties {
+  return { '--rows3': Math.max(1, Math.ceil(n / 3)), '--rest5': 5 - (n % 5) } as CSSProperties;
+}
+
 function SiteMap({ sites, distances, active }: { sites: WarehouseRow[]; distances: Distance[]; active: string }) {
   const [picked, setPicked] = useState<string | null>(null);
   const max = Math.max(1, ...sites.map((r) => r.orders));
@@ -465,8 +470,7 @@ export function WarehousesScreen() {
               </div>
               {view === 'cards' ? (
                 <div className={s.sitesBody}>
-                  <SiteMap sites={all} distances={w.data?.distances ?? []} active={site} />
-                  <div className={s.siteGrid}>
+                  <div className={s.siteGrid} style={cardSlots(rows.length + (rows.length > 1 ? 1 : 0))}>
                     {rows.map((r, i) => {
                       const pair = pairOf(r.warehouseId);
                       return (
@@ -503,6 +507,7 @@ export function WarehousesScreen() {
                         </ul>
                       </article>
                     )}
+                    <SiteMap sites={all} distances={w.data?.distances ?? []} active={site} />
                   </div>
                 </div>
               ) : (

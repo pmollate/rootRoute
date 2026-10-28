@@ -53,23 +53,26 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
 .tagMuted { background: rgb(var(--ink-rgb) / 0.06); color: var(--ink-2); border: 1px solid var(--line); }
 
 /* Panels */
-.row3 { display: grid; grid-template-columns: minmax(0, 0.75fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
-.stack { display: grid; gap: 16px; align-content: start; min-width: 0; }
-@media (max-width: 1000px) { .row3 { grid-template-columns: minmax(0, 1fr); } }
+.row2 { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.row3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+@media (max-width: 1000px) { .row2, .row3 { grid-template-columns: minmax(0, 1fr); } }
 .panel { padding: var(--pad); }
 .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px 20px; margin-bottom: 18px; }
 .head > div:first-child { flex: 1; min-width: 220px; }
 .h2 { font-family: var(--font-display); font-size: 1.08rem; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; }
 .sub { margin: 0; color: var(--ink-2); font-size: 0.76rem; line-height: 1.5; max-width: 52ch; }
 
-/* Path to target: vertical waterfall, with the step table beside it (below it on narrower screens). */
-.pathGrid { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 28px; }
-@media (max-width: 900px) { .pathGrid { grid-template-columns: minmax(0, 1fr); } }
+/* Path to target: vertical waterfall, with the step table beside it (below it when the panel is narrow). */
+.pathPanel { container: path / inline-size; min-width: 0; }
+.pathGrid { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 24px; }
+@container path (max-width: 820px) {
+  .pathGrid { grid-template-columns: minmax(0, 1fr); }
+  .stepTable { padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+}
 /* Phones: the chart keeps a readable width and scrolls sideways inside the card. */
 .chartScroll { overflow-x: auto; min-width: 0; }
 .chartScroll > .chart { min-width: 540px; }
 .stepTable { display: flex; flex-direction: column; padding-left: 24px; border-left: 1px solid var(--line); font-size: 0.74rem; }
-@media (max-width: 900px) { .stepTable { padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--line); } }
 .stepHead { display: flex; justify-content: space-between; margin: 0 0 6px; font-size: 0.6rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
 .stepTable ol { list-style: none; margin: 0 0 16px; padding: 0; }
 .stepTable li { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto 48px; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
@@ -167,9 +170,10 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
 @media (max-width: 600px) { .fixBar { display: none; } .fixDetail { grid-template-columns: 1fr; margin-left: 0; } }
 
 /* Assistant: fills the height of the column beside it on wide screens; the thread scrolls. */
-.assistant { --chat-bg: #d9d6d642; position: relative; display: flex; flex-direction: column; padding: 0; overflow: hidden; min-height: 560px; }
-@media (min-width: 1001px) { .assistant > * { flex: none; } .assistant .thread { flex: 1 1 0; contain: size; } }
-@media (max-width: 1000px) { .thread { max-height: 680px; } }
+.assistant { --chat-bg: #d9d6d642; position: relative; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+/* Side by side, the Five causes panel sets the height (as a popup, the screen does) and the thread scrolls inside it. */
+.assistant > * { flex: none; }
+.assistant .thread { flex: 1 1 0; contain: size; }
 .chatHead { display: flex; align-items: center; gap: 12px; padding: 14px var(--pad); border-bottom: 1px solid var(--line); }
 .chatHead b { display: block; font-size: 0.82rem; }
 .chatHead small { font-size: 0.66rem; color: var(--ink-2); }
@@ -201,6 +205,31 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
 .ask button { display: grid; place-items: center; flex: none; width: 40px; border: 0; border-radius: 8px; background: var(--ink); color: var(--surface); cursor: pointer; }
 .ask button:disabled { opacity: 0.4; cursor: default; }
 @media (max-width: 600px) { .fixDetail { margin-left: 0; } .reply .botSmall { display: none; } .you { max-width: 100%; } }
+/* Up to 1000px: a floating icon opens the assistant as a side popup; tapping the scrim, the close button or Esc shuts it. */
+.launcher, .scrim, .close { display: none; }
+@media (max-width: 1000px) {
+  .launcher { display: grid; position: fixed; right: 16px; bottom: 16px; z-index: calc(var(--z-header) + 2); width: 52px; height: 52px; border: 0; border-radius: 50%;
+    box-shadow: 0 10px 28px -8px rgb(0 0 0 / 0.45); cursor: pointer; transition: transform 0.2s ease; }
+  .launcher .glyph { width: 12px; height: 12px; }
+  .launcher i { right: 2px; bottom: 2px; }
+  .launcher:hover { transform: translateY(-2px); }
+  .launcher:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
+  .launcherTip { position: absolute; right: calc(100% + 10px); top: 50%; transform: translateY(-50%); padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink); font-size: 0.72rem; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+  .launcher:hover .launcherTip, .launcher:focus-visible .launcherTip { opacity: 1; }
+  .scrim { display: block; position: fixed; inset: 0; z-index: calc(var(--z-header) + 3); background: rgb(0 0 0 / 0.35); opacity: 0; visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0s 0.3s; }
+  .scrim[data-open='true'] { opacity: 1; visibility: visible; transition: opacity 0.3s ease; }
+  .assistant { position: fixed; top: 16px; right: 16px; bottom: 16px; z-index: calc(var(--z-header) + 4); width: min(420px, calc(100vw - 32px));
+    box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.5); transform: translateX(calc(100% + 24px)); visibility: hidden;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s 0.3s; }
+  .assistant[data-open='true'] { transform: none; visibility: visible; transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+  .close { display: grid; place-items: center; margin-left: auto; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink-2); cursor: pointer; }
+  .close:hover { color: var(--ink); }
+  .close:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+}
+@media (max-width: 1000px) and (prefers-reduced-motion: reduce) { .launcher, .scrim, .assistant { transition: none; } }
 
 /* Causes and measures */
 .tableWrap { overflow-x: auto; }
