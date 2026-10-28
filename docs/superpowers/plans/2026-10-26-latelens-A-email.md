@@ -73,7 +73,7 @@ frontend/public/mock-wms.html  frontend/bots/wms-entry.ts (stretch)
 
 **Status:** not run on the planning machine (no Azure deployment there). Step 4 checks the request shape and error mapping against a fake endpoint; Step 5 checks the real deployment.
 
-- [ ] **Step 1: Write the failing test** `backend/api/test/llm.test.ts`:
+- [x] **Step 1: Write the failing test** `backend/api/test/llm.test.ts`:
 
 ```ts
 import { mkdtempSync } from 'node:fs';
@@ -137,9 +137,9 @@ describe('azure openai LLM', () => {
 });
 ```
 
-- [ ] **Step 2: Run it.** `npm --prefix backend/api test -- test/llm.test.ts` — Expected: FAIL, cannot find `azureOpenai.js`.
+- [x] **Step 2: Run it.** `npm --prefix backend/api test -- test/llm.test.ts` — Expected: FAIL, cannot find `azureOpenai.js`.
 
-- [ ] **Step 3: Implement.** Swap the SDK first (its `openai/helpers/zod` must support zod 4, which the repo uses):
+- [x] **Step 3: Implement.** Swap the SDK first (its `openai/helpers/zod` must support zod 4, which the repo uses):
 
 ```bash
 npm --prefix backend/api uninstall @anthropic-ai/sdk && npm --prefix backend/api install openai@latest
@@ -347,9 +347,9 @@ In `docs/CONTRACTS.md` §7 drop `LLM_MODEL` and `ANTHROPIC_API_KEY`, and make th
 
 Schemas sent to the model must fit Azure's strict mode: every field required (use `.nullable()`, never `.optional()`), and no `.min()`, `.max()`, `.regex()` or array length limits. Check those in code after `parseJson`. `ExtractionSchema` (A4) already fits.
 
-- [ ] **Step 4: Run.** `npm --prefix backend/api test -- test/llm.test.ts && npm --prefix backend/api run lint` — Expected: 4 passed, no type errors.
+- [x] **Step 4: Run.** `npm --prefix backend/api test -- test/llm.test.ts && npm --prefix backend/api run lint` — Expected: 4 passed, no type errors.
 
-- [ ] **Step 5: Live smoke check (needs the key).** With `LLM_PROVIDER=azure-openai` and the three `AZURE_OPENAI_*` values in `.env`:
+- [x] **Step 5: Live smoke check (needs the key).** With `LLM_PROVIDER=azure-openai` and the three `AZURE_OPENAI_*` values in `.env`:
 
 ```bash
 cd backend/api && npx tsx -e "import('./src/core/llm/index.js').then(async m => console.log(await m.createLLM().text({system:'Reply with one word.', user:'Say OK'})))"
@@ -360,7 +360,7 @@ Expected: `OK` (or similar), then `{ sku: 'HX-553', qty: 70 }`. If it fails with
 
 Note for A5: Azure's default content filter includes Prompt Shields, so the prompt-injection fixture may come back as a `refusal` (extraction `null`, decision `MISSING_INFO`) instead of `CONFIRM_ADDRESS`. Both are safe (not `ALL_CLEAR`); count it as a known miss in the eval, not a bug.
 
-- [ ] **Step 6: Commit.** `git add backend/api .env.example docs/CONTRACTS.md && git commit -m "feat(a): AI model layer on Azure OpenAI with recorded replay"`
+- [x] **Step 6: Commit.** `git add backend/api .env.example docs/CONTRACTS.md && git commit -m "feat(a): AI model layer on Azure OpenAI with recorded replay"`
 
 ---
 
@@ -377,7 +377,7 @@ Note for A5: Azure's default content filter includes Prompt Shields, so the prom
 **Interfaces:**
 - Produces: `STATE_REGION`, `CITIES`, `client_domain(client_id)` → `clientNNN.example`, `client_sender(client_id)` → `orders@clientNNN.example`; `client_domains(clients)`, `saved_addresses(clients)` (C190 always has exactly 2); `backend/synthetic-data/out/{client_domains,saved_addresses}.csv`; Node `regionOfState(state)`, `isUsState(state)`; Postgres tables of CONTRACTS §5 range 100; `npm run seed [-- --test]`.
 
-- [ ] **Step 1: Write the failing test** `backend/analytics/tests/test_intake_sd04.py`:
+- [x] **Step 1: Write the failing test** `backend/analytics/tests/test_intake_sd04.py`:
 
 ```python
 import pandas as pd
@@ -408,9 +408,9 @@ def test_nfr_05_sd04_reproducible(clients):
     pd.testing.assert_frame_equal(synthetic.saved_addresses(clients), synthetic.saved_addresses(clients))
 ```
 
-- [ ] **Step 2: Run it.** `python -m pytest backend/analytics/tests/test_intake_sd04.py` — Expected: FAIL, `ModuleNotFoundError: analytics.intake.reference`.
+- [x] **Step 2: Run it.** `python -m pytest backend/analytics/tests/test_intake_sd04.py` — Expected: FAIL, `ModuleNotFoundError: analytics.intake.reference`.
 
-- [ ] **Step 3: Implement.** `backend/synthetic-data/reference/state_regions.json` (also read by Node; CONTRACTS §3):
+- [x] **Step 3: Implement.** `backend/synthetic-data/reference/state_regions.json` (also read by Node; CONTRACTS §3):
 
 ```json
 {
@@ -511,7 +511,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Node side.** `backend/db/migrations/100_intake.sql`:
+- [x] **Step 4: Node side.** `backend/db/migrations/100_intake.sql`:
 
 ```sql
 -- Owner A. Intake tables (CONTRACTS §5).
@@ -671,7 +671,7 @@ Add to the `scripts` in `backend/api/package.json`:
 "seed": "tsx src/modules/intake/seed.ts",
 ```
 
-- [ ] **Step 5: Run.**
+- [x] **Step 5: Run.**
 
 ```bash
 python -m pytest backend/analytics/tests/test_intake_sd04.py && python backend/synthetic-data/generators/sd02_sd04_intake.py
@@ -680,7 +680,7 @@ npm run migrate && npm run migrate:test && npm run seed && npm run seed:test
 
 Expected: 3 passed; `seeded client_domains and saved_addresses` twice.
 
-- [ ] **Step 6: Commit.** `git add backend/synthetic-data backend/analytics/intake backend/analytics/tests backend/db/migrations/100_intake.sql backend/api && git commit -m "feat(a): SD-04 client domains and saved addresses, intake tables"`
+- [x] **Step 6: Commit.** `git add backend/synthetic-data backend/analytics/intake backend/analytics/tests backend/db/migrations/100_intake.sql backend/api && git commit -m "feat(a): SD-04 client domains and saved addresses, intake tables"`
 
 ---
 
@@ -697,7 +697,7 @@ Expected: 3 passed; `seeded client_domains and saved_addresses` twice.
 **Interfaces:**
 - Produces: `make_fixtures(clients, saved) -> list[(eml_text, gold)]`; `matches_saved(address, client_saved)` (same rule as Node `checkAddress`); gold fields `id, layout, from, received_at, client_id, items, address, requested_commitment, missing, matched_saved, decision, injection`. Result: 36 ALL_CLEAR (1 via saved address), 13 CONFIRM_ADDRESS (includes C190 and the prompt-injection email), 1 MISSING_INFO; 14 layouts; 11 same-day orders after 08:00.
 
-- [ ] **Step 1: Write the failing test** `backend/analytics/tests/test_intake_fixtures.py` (includes AC-SEC-05):
+- [x] **Step 1: Write the failing test** `backend/analytics/tests/test_intake_fixtures.py` (includes AC-SEC-05):
 
 ```python
 import pytest
@@ -736,9 +736,9 @@ def test_fixture_bodies_contain_gold_values(fx):
                 assert v.upper() in body, (g["id"], k, v)
 ```
 
-- [ ] **Step 2: Run it.** Expected: FAIL, `ImportError: cannot import name 'fixtures'`.
+- [x] **Step 2: Run it.** Expected: FAIL, `ImportError: cannot import name 'fixtures'`.
 
-- [ ] **Step 3: Implement** `backend/analytics/intake/fixtures.py`:
+- [x] **Step 3: Implement** `backend/analytics/intake/fixtures.py`:
 
 ```python
 """SD-02: 50 synthetic intake emails in 14 layouts, each with a gold answer (SPEC §5.3)."""
@@ -909,10 +909,10 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Run and inspect.** `python -m pytest backend/analytics/tests && python backend/synthetic-data/generators/sd02_sd04_intake.py && ls backend/tests/fixtures/emails | wc -l`
+- [x] **Step 4: Run and inspect.** `python -m pytest backend/analytics/tests && python backend/synthetic-data/generators/sd02_sd04_intake.py && ls backend/tests/fixtures/emails | wc -l`
 Expected: tests pass; `100` files. Open three `.eml` files of different layouts and the C190 one; check they read like real order emails.
 
-- [ ] **Step 5: Commit** (fixtures are committed so Node tests and the eval use the same files). `git add backend/analytics backend/synthetic-data/generators backend/tests/fixtures && git commit -m "feat(a): 50 synthetic intake emails with gold answers (SD-02)"`
+- [x] **Step 5: Commit** (fixtures are committed so Node tests and the eval use the same files). `git add backend/analytics backend/synthetic-data/generators backend/tests/fixtures && git commit -m "feat(a): 50 synthetic intake emails with gold answers (SD-02)"`
 
 **Monday check-in:** model key works (A1 step 5); fixtures committed.
 
@@ -1163,7 +1163,7 @@ export function decide(clientId: string | null, extraction: Extraction | null, a
 
 - [x] **Step 4: Run.** Expected: address tests 7 passed; oracle 50 passed. If an oracle case fails, the Python `matches_saved` and Node `checkAddress` rules have drifted — fix the code, not the fixture.
 
-- [ ] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): grounded address check and decision rules"`
+- [x] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): grounded address check and decision rules"`
 
 ---
 
@@ -1366,7 +1366,7 @@ cd backend/api && RECORD=1 LLM_PROVIDER=azure-openai npm run eval:intake
 
 Expected: last line `N/50 decisions match gold`, N ≥ 48. Look at every `MISS` line: if the model filled an address part that is not in the email, `grounded()` should have removed it; if it missed an item, improve `extract.md` and rerun. Then `npm --prefix backend/api test -- test/intake/eval.test.ts` — Expected: PASS with recorded responses (≥ 90% fields, ≥ 95% incomplete-address recall, injection email not ALL_CLEAR).
 
-- [ ] **Step 6: Commit** (recordings included, so CI can replay them). `git add backend/api && git commit -m "feat(a): order extraction, fixture eval with recorded responses"`
+- [x] **Step 6: Commit** (recordings included, so CI can replay them). `git add backend/api && git commit -m "feat(a): order extraction, fixture eval with recorded responses"`
 
 ---
 
@@ -1528,7 +1528,7 @@ export async function draftReply(llm: LLM, f: ReplyFacts): Promise<{ text: strin
 
 - [x] **Step 4: Run.** Expected: 5 passed.
 
-- [ ] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): reply drafts from checked facts with template fallback"`
+- [x] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): reply drafts from checked facts with template fallback"`
 
 ---
 
@@ -1997,7 +1997,7 @@ curl -s -X POST localhost:3001/api/intake/email -H 'content-type: application/js
 
 Expected (with `LLM_PROVIDER=azure-openai`): `"decision":"CONFIRM_ADDRESS"`. Then `curl localhost:3001/api/intake/<id>` shows a reply offering both saved C190 addresses.
 
-- [ ] **Step 6: Commit.** `git add backend/api && git commit -m "feat(a): intake pipeline, approvals, allow-listed sending, routes"`
+- [x] **Step 6: Commit.** `git add backend/api && git commit -m "feat(a): intake pipeline, approvals, allow-listed sending, routes"`
 
 **Tuesday check-in:** C190 demo works through the API: CONFIRM_ADDRESS → client reply → ALL_CLEAR.
 
@@ -2163,7 +2163,7 @@ export default function Page() {
 
 - [x] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck` — Expected: PASS. Rehearse the demo with `npm run dev:all` at `http://localhost:3000/dashboard/intake`: paste fixture 34's body, process, approve, then paste a reply that gives the street and ZIP of one of the saved addresses offered in the draft → ALL_CLEAR.
 
-- [ ] **Step 5: Commit.** `git add frontend && git commit -m "feat(a): Order emails screen"`
+- [x] **Step 5: Commit.** `git add frontend && git commit -m "feat(a): Order emails screen"`
 
 ---
 
