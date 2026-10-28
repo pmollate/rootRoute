@@ -758,6 +758,11 @@ carrier's style: API JSON (A, B, C), portal HTML pages (D), batch CSV files (E, 
 An MCP endpoint (`/mcp`, Streamable HTTP, `@modelcontextprotocol/sdk`) inside the Node API exposing the same read-only
 tools the agents use, so leadership can ask LateLens questions from Claude Desktop or another MCP client. The model
 picks the tools and answers from their results; this is the third agent role (§4.4).
+As built (C9): `POST /api/mcp`, stateless, JSON responses, SDK pinned to 1.32.1. Six tools, all annotated read-only:
+`overview`, `delivery_causes`, `scenario`, `lane_scores` (no arguments: the blocked lanes with reasons), `recommend_carrier`,
+`check_promise`. `recommend_carrier` uses the lane rules directly, so asking never adds a `recommendations` row. The token is
+`MCP_TOKEN` as `Authorization: Bearer …` (Key Vault secret `mcp-token`), not the dashboard's API key, which browsers see;
+with no token set the endpoint answers 503 rather than opening up.
 
 | ID | Requirement |
 |---|---|
@@ -815,7 +820,7 @@ Tables holding synthetic data carry a `synthetic boolean` column set to true.
 `GET /api/intake/review` (`ALL_CLEAR` orders awaiting approval, with unblocked carriers for each lane) ·
 `POST /api/intake/:id/action` (approve [carrier, reason] | reject [reason] | send_reply | send_to_wms) ·
 `POST /api/orders` · `POST /api/orders/edi` · `GET /api/complaints` · `POST /api/complaints/:id/triage` ·
-`POST /api/recommend` · `POST /api/alerts/run` (stretch) · `/mcp` (Ask LateLens, core).
+`POST /api/recommend` · `POST /api/alerts/run` (stretch) · `POST /api/mcp` (Ask LateLens, core; Bearer `MCP_TOKEN`).
 Read endpoints serve precomputed tables and are cached in memory at startup (the data does not change).
 Exact JSON shapes live in `docs/CONTRACTS.md`.
 
