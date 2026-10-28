@@ -1428,9 +1428,9 @@ export default routes;
 - Create: `frontend/playwright.config.ts`, `frontend/e2e/smoke.spec.ts`
 - Modify: `frontend/package.json` (script, dev package)
 
-- [ ] **Step 1: Install.** `npm --prefix frontend install -D @playwright/test && npx --prefix frontend playwright install chromium` (install before creating the files, so `npm run typecheck` keeps passing).
+- [x] **Step 1: Install.** `npm --prefix frontend install -D @playwright/test && npx --prefix frontend playwright install chromium` (install before creating the files, so `npm run typecheck` keeps passing).
 
-- [ ] **Step 2: Config and test** (AC-UI-01, AC-UI-03 at 375 px; the Vitest config only picks up `components/` and `lib/`, so these never run under Vitest):
+- [x] **Step 2: Config and test** (AC-UI-01, AC-UI-03 at 375 px; the Vitest config only picks up `components/` and `lib/`, so these never run under Vitest):
 
 ```ts
 import { defineConfig } from '@playwright/test';
@@ -1471,9 +1471,25 @@ Add to `frontend/package.json` scripts:
 "e2e": "playwright test",
 ```
 
-- [ ] **Step 3: Run** against the deployed app, from `frontend/`: `WEB_URL=https://<static web app url> npm run e2e` — Expected: 6 passed. Run it again after every deployment on Thursday.
+- [x] **Step 3: Run** against the deployed app, from `frontend/`: `WEB_URL=https://<static web app url> npm run e2e` — Expected: 6 passed. Run it again after every deployment on Thursday.
 
-- [ ] **Step 4: Commit.** `git add frontend && git commit -m "test(c): Playwright smoke test of the dashboard at phone width"`
+- [x] **Step 4: Commit.** `git add frontend && git commit -m "test(c): Playwright smoke test of the dashboard at phone width"`
+
+**As built (28 Oct):**
+- `@playwright/test` pinned to 1.64.1 (1.64.x is the latest stable at least two weeks old). `npm run e2e` from `frontend/`
+  with `WEB_URL` and `API_URL`.
+- `e2e/smoke.spec.ts`, two projects (phone 375×812, desktop 1280×800): API health; the landing page; each of the six
+  screens loads with its title and heading, no "Could not load", no 5xx from the API, no page errors and no sideways
+  scrolling. At desktop width it also checks the SPEC figures on each screen: Overview 71.0% / 14,019 / $872k / 9
+  accounts; Warehouses 4,826 / 6,009 / 691; Carriers the five blocked lanes and the Northeast next-day reason; Replay
+  71.0%, 92.0% and the routing vendor's 78.3%; Order journey D000213; Order emails inbox. Read-only throughout.
+- CD: a separate `e2e` job runs after `deploy` on every deployment and uploads the HTML report, so a failed check is
+  visible without marking the deployment failed.
+- First run against the live app (28 Oct): 21 passed, 6 skipped (figures are checked at desktop width only), **1
+  failed: Replay no longer shows the routing vendor's 78.3%**. B12 removed the `adopt_vendor` scenario; the test stays
+  red until it is back.
+
+---
 
 ### Task C11: Order journey (D9, `docs/SPEC-order-workflow.md`)
 
