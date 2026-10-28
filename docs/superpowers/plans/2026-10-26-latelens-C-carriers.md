@@ -780,7 +780,7 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
 **Interfaces:**
 - Produces: feed files in `backend/synthetic-data/out/tracking/` (JSON lines for A–C, weekly portal HTML for D, weekly CSV for E–F; ~15 MB, gitignored); `events(d)`, `write_feeds(d, out)`, `read_feeds(out)`; table `carrier_events` (193,360 rows, `synthetic = true`). `/api/tracking?asOf=` (C4) now returns freshness per carrier and deliveries at risk.
 
-- [ ] **Step 1: Write the failing tests** (AC-TRK-01, AC-TRK-02):
+- [x] **Step 1: Write the failing tests** (AC-TRK-01, AC-TRK-02):
 
 ```python
 from analytics.carriers import tracking
@@ -819,9 +819,9 @@ describe.skipIf(!hasDb)('tracking route (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL, `ImportError`.
+- [x] **Step 2: Run.** Expected: FAIL, `ImportError`.
 
-- [ ] **Step 3: Implement:**
+- [x] **Step 3: Implement:**
 
 ```python
 """SD-07 synthetic carrier tracking feeds and adapters (SPEC §5.13, C8).
@@ -939,9 +939,9 @@ def build(ctx: Ctx) -> dict[str, pd.DataFrame]:
     }
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test -- test/routes/tracking` — Expected: pass (writing 193k events takes under a minute).
+- [x] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test -- test/routes/tracking` — Expected: pass (writing 193k events takes under a minute).
 
-- [ ] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/generators backend/api && git commit -m "feat(c): synthetic carrier tracking feeds and adapters (SD-07)"`
+- [x] **Step 5: Commit.** `git add backend/analytics backend/synthetic-data/generators backend/api && git commit -m "feat(c): synthetic carrier tracking feeds and adapters (SD-07)"`
 
 ---
 
@@ -1282,9 +1282,16 @@ jobs:
 
 - [x] **Step 4: First deployment.** Merge to `main`, or run the workflow from the Actions tab. Expected: the "Smoke check" step finds `"db":"ok"`. Open the Static Web App URL: Overview shows 71.0%.
 
-- [ ] **Step 5: Check logs.** Process one email through the deployed Order emails screen, then in Application Insights → Logs search for its `emailId`. Expected: the "intake email decided" line appears (AC-NFR-03).
+- [x] **Step 5: Check logs.** Process one email through the deployed Order emails screen, then in Application Insights → Logs search for its `emailId`. Expected: the "intake email decided" line appears (AC-NFR-03).
+  As built (28 Oct): App Insights collected requests only; the API's pino lines on stdout never reached it. A diagnostic
+  setting `app-logs` on `rootroute01-api` now sends `AppServiceConsoleLogs` and `AppServiceAppLogs` to the same
+  workspace (`rootroute01-logs`, in `infra/setup.sh`). Query: `AppServiceConsoleLogs | where ResultDescription has
+  '"emailId":8'` returns "intake email decided" (ALL_CLEAR) about 3 minutes after the email; `"emailId":7` returns
+  "intake action" (approve). Gap for A: emails fetched by the Gmail poll log only `pollId`, not each `emailId`, so
+  AC-NFR-03 holds for pasted emails and actions, not yet for polled ones.
 
-- [ ] **Step 6: Commit.** `git add infra .github/workflows/cd.yml && git commit -m "ci(c): Azure setup script and continuous deployment"`
+- [x] **Step 6: Commit.** `git add infra .github/workflows/cd.yml && git commit -m "ci(c): Azure setup script and continuous deployment"`
+  Done as 36aeee2 (setup script and CD, #20), 430ef5b (OIDC subject fix, #21) and 466391a (API logs to the workspace, #29).
 
 **Wednesday check-in:** the deployed URL shows all five screens on live data.
 

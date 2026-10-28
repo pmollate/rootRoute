@@ -82,6 +82,22 @@ describe('Order emails', () => {
     expect((screen.getByLabelText('Body') as HTMLTextAreaElement).value).toBe('');
   });
 
+  it('AC-INT-08 (UI): shows how often Gmail is checked and how the last check went, and reports a manual check', async () => {
+    const lastPoll = { trigger: 'schedule', startedAt: '2026-10-28T10:00:00.000Z', processed: 2, retried: 1, ok: true };
+    mockApi({ '/api/intake': { emails: [item(34)], pollMinutes: 10, lastPoll },
+      '/api/intake/fetch': { fetched: 3, processed: 1, retried: 0, ok: true } });
+    renderScreen(<IntakeScreen />);
+    expect(await screen.findByText(/Gmail is checked every 10 min\. Last check .* \(automatic\): 2 new emails, 1 retried\./)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Fetch from Gmail' }));
+    expect(await screen.findByText('Checked Gmail: 1 new email.')).toBeTruthy();
+  });
+
+  it('says when the automatic check is off', async () => {
+    mockApi({ '/api/intake': { emails: [], pollMinutes: 0, lastPoll: null } });
+    renderScreen(<IntakeScreen />);
+    expect(await screen.findByText('Automatic Gmail check is off.')).toBeTruthy();
+  });
+
   it('explains a refused reply without showing server text', async () => {
     const fetch = mockApi({ '/api/intake': { emails: [item(34, { status: 'APPROVED' })] },
       '/api/intake/34': detail(34, { email: { ...detail(34).email, status: 'APPROVED' } }) });

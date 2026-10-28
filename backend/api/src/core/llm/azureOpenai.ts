@@ -4,7 +4,10 @@ import { type JsonRequest, type LLM, LLMError, parseJson, type TextRequest } fro
 
 type ResponseFormat = OpenAI.Chat.ChatCompletionCreateParams['response_format'];
 
-/** GPT on Azure AI Foundry through the v1 endpoint. JSON calls use Structured Outputs (strict schema). */
+/**
+ * GPT on Azure AI Foundry through the v1 endpoint. JSON calls use Structured Outputs (strict schema).
+ * Every call is kept as a stored completion (Foundry portal -> Stored completions, ~30 days), tagged by step.
+ */
 export class AzureOpenAILLM implements LLM {
   readonly name = 'azure-openai';
   private readonly client: OpenAI;
@@ -14,12 +17,14 @@ export class AzureOpenAILLM implements LLM {
     this.client = new OpenAI({ baseURL: endpoint, apiKey, ...options });
   }
 
-  private async complete(system: string, user: string, responseFormat?: ResponseFormat): Promise<string> {
+  private async complete({ system, user, tag }: TextRequest, responseFormat?: ResponseFormat): Promise<string> {
     let res: OpenAI.Chat.ChatCompletion;
     try {
       res = await this.client.chat.completions.create({
         model: this.deployment,
         messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+        store: true,
+        metadata: { app: 'latelens', step: tag ?? 'untagged' },
         reasoning_effort: 'low',
         max_completion_tokens: 4000,
         ...(responseFormat ? { response_format: responseFormat } : {}),
@@ -36,10 +41,10 @@ export class AzureOpenAILLM implements LLM {
   }
 
   async json<T>(req: JsonRequest<T>): Promise<T> {
-    return parseJson(await this.complete(req.system, req.user, zodResponseFormat(req.schema, 'output')), req.schema);
+    return parseJson(await this.complete(req, zodResponseFormat(req.schema, 'output')), req.schema);
   }
 
   async text(req: TextRequest): Promise<string> {
-    return (await this.complete(req.system, req.user)).trim();
+    return (await this.complete(req)).trim();
   }
 }

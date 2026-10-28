@@ -1,4 +1,4 @@
-import type { ClientRow, EmailRow, ExtractionRow, Repo } from '../../src/modules/intake/repo.js';
+import type { ClientRow, EmailRow, ExtractionRow, PollRow, Repo } from '../../src/modules/intake/repo.js';
 import type { SavedAddress } from '../../src/modules/intake/schema.js';
 
 /** In-memory stand-in for the intake repo, so pipeline logic is tested without Postgres. */
@@ -7,6 +7,9 @@ export function memoryRepo(clients: Record<string, ClientRow>, saved: SavedAddre
   const extractions: ExtractionRow[] = [];
   const outbound: { emailId: number; to: string; body: string; status: string; gmailId: string | null }[] = [];
   const audit: { emailId: number; action: string; user: string }[] = [];
+  const polls: PollRow[] = [];
+  const lock = { held: false };
+  let clock = Date.UTC(2026, 9, 28, 10, 0); // poll start times; tests move it with `advance`
   const repo: Repo = {
     clientByDomain: async (domain) => clients[domain] ?? null,
     savedAddresses: async (clientId) => saved.filter((s) => s.client_id === clientId),
@@ -26,6 +29,28 @@ export function memoryRepo(clients: Record<string, ClientRow>, saved: SavedAddre
     listEmails: async () => emails.map((e) => ({ ...e, decision: null, priority: false })),
     logApproval: async (emailId, action, user) => { audit.push({ emailId, action, user }); },
     logOutbound: async (emailId, to, body, status, gmailId = null) => { outbound.push({ emailId, to, body, status, gmailId }); },
+    waitingEmails: async () => emails.filter((e) => e.status === 'WAITING'),
+    lastPollStart: async () => {
+      const ok = polls.filter((p) => p.ok).at(-1);
+      return ok ? Math.floor(ok.started_at.getTime() / 1000) : null;
+    },
+    lastPoll: async () => polls.at(-1) ?? null,
+    startPoll: async (trigger, query) => {
+      polls.push({ id: polls.length + 1, trigger, query, started_at: new Date(clock), finished_at: null, fetched: 0,
+        processed: 0, retried: 0, failed: 0, ok: null, error: null });
+      return polls.length;
+    },
+    finishPoll: async (id, r) => { Object.assign(polls[id - 1], r, { finished_at: new Date(clock) }); },
+    withPollLock: async (fn) => {
+      if (lock.held) return null;
+      lock.held = true;
+      try {
+        return await fn();
+      } finally {
+        lock.held = false;
+      }
+    },
   };
-  return { repo, emails, extractions, outbound, audit };
+  const advance = (minutes: number) => { clock += minutes * 60_000; };
+  return { repo, emails, extractions, outbound, audit, polls, lock, advance };
 }

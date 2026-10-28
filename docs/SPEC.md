@@ -1,6 +1,6 @@
 # LateLens — Product and Technical Spec
 
-Repo: root-route · Status: draft v0.6 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
+Repo: root-route · Status: draft v0.8 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
 Hackathon: FDE AI Hackathon 5.0, Problem 2 (Halcyon Logistics). Coding: Mon 26 – Thu 29 Oct 2026. Code submission: 29 Oct, `[DEADLINE_TIME]`.
 Source brief: `docs/Halcyon.docx` (Participant Problem Statement). Data: `Halcyon-Hackathon-Dataset/` (supplied) and `backend/synthetic-data/` (ours, §12.1).
 
@@ -20,6 +20,18 @@ intake (order desk), complaint triage (customer success) and "Ask LateLens" over
 §5.14); a discovery log records every question asked, the answer and what changed (§14.1); the first Azure deploy
 moves to Tue 27 and the Playwright smoke test against the deployed app is core (§9.1, §9.3, §10.2); the demo shows the
 AI model's output live next to the code's decision (§11). Nothing built so far changes.
+
+**Changes in v0.7** (email orders, agreed with the Email owner on 27–28 Oct): §5.3 now describes the pipeline as built —
+Gmail fetch, PII removal before the model, Azure Maps address confidence — and adds a scheduled Gmail poll every 10
+minutes, unknown senders skipped before any AI call, only a `high` map confidence counting as a verified address,
+automatic correction replies for address problems within safety checks (SEC-06), and an order review where a supervisor
+approves or rejects each ALL_CLEAR order and may change the carrier (E15–E18, §4.4, §5.3, §5.7, §6, §7, §8, §14.1).
+
+**Changes in v0.8** (Halcyon business answers to the team's question log, Q-001 to Q-005, received 28 Oct): five rows in
+§14.1; §12 confirms email timestamps are keying times and states the assumed WMS interface (`[WMS_CONTRACT]` open);
+§14 drops the answered questions. No requirement changed: the answers confirm the promise rule, the carrier baseline
+and the human gate on delay notices.
+WMS entry still needs a person's approval (SEC-04). Gmail is read and sent through the Gmail REST API, not MCP (§14.1).
 
 **Conventions.** **MUST** / **SHOULD** / **MAY** follow RFC 2119. Every requirement has an ID (`REQ-<module>-NN`,
 `NFR-NN`, `SEC-NN`). Its acceptance criterion has the same number (`AC-<module>-NN`). Every **MUST** has an AC.
@@ -242,10 +254,10 @@ Four tiers. **Core** must work at submission. **Synthetic** features are built o
 
 | ID | Feature | Area | Tier | Spec |
 |---|---|---|---|---|
-| E1 | Email intake: store, dedupe | Email | Core | §5.3 |
+| E1 | Email intake: Gmail fetch, store, dedupe | Email | Core | §5.3 |
 | E2 | Client identification by sender domain | Email | Core | §5.3 |
-| E3 | Order extraction (AI) to validated JSON | Email | Core | §5.3 |
-| E4 | Address check (complete or matches saved address) | Email | Core | §5.3 |
+| E3 | Order extraction (AI) to validated JSON, after PII removal | Email | Core | §5.3 |
+| E4 | Address check (complete or matches saved address) and Azure Maps confidence | Email | Core | §5.3 |
 | E5 | Decision state (code, not AI) | Email | Core | §5.3 |
 | E6 | Reply draft (AI) from checked facts | Email | Core | §5.3 |
 | E7 | Client reply handling (re-check after address answer) | Email | Core | §5.3 |
@@ -280,6 +292,10 @@ Four tiers. **Core** must work at submission. **Synthetic** features are built o
 | D7 | "Ask LateLens" agent over MCP (leadership) | Carriers | Core | §5.14 |
 | D8 | Cause attribution (points lost) and one KPI per cause on Overview | Warehouse (shared) | Core | §1.4, §5.1, §5.7 |
 | E14 | Tier 1 and at-risk clients first: intake queue, alerts, complaint escalation | Email | Core | §5.15 |
+| E15 | Scheduled Gmail poll (every 10 minutes) | Email | Core | §5.3 |
+| E16 | Unknown senders skipped before any AI call | Email | Core | §5.3 |
+| E17 | Automatic correction replies for address problems, within safety checks | Email | Core | §5.3, §8 |
+| E18 | Order review: supervisor approves or rejects ALL_CLEAR orders, may change the carrier | Email | Core | §5.3, §5.7 |
 | C11 | Friday capacity cap on carrier D | Carriers | Core | §5.2 |
 | P1 | Repo skeleton, Docker Postgres, migrations, UI kit | Warehouse | Core | §4 |
 | P2 | Python pipeline filling Postgres | All | Core | §4 |
@@ -360,7 +376,12 @@ domain/   pure functions, no I/O: promise, address, decide, capacity, region
 db/ llm/  pg queries · AI model interface (claude | azure-openai | recorded)
 ```
 - **Agents propose, code checks, a human approves.** The AI model extracts and drafts; decision states are computed by
-  code; actions (send, WMS entry) need operator approval (SEC-04).
+  code; WMS entry always needs a supervisor's approval (SEC-04). The one exception to approving every send: a
+  correction reply for an address problem goes out automatically when every safety check in §5.3 passes (SEC-06);
+  otherwise it waits for an operator like any other reply.
+- **No MCP in the intake pipeline.** Gmail is read and sent through the Gmail REST API by code. MCP is for agents where
+  the model chooses tools (Ask LateLens, §5.14); giving the intake model a mailbox tool would let an email's text
+  trigger actions, which SEC-02 forbids.
 - **The AI model gets no tools in the intake pipeline.** Its output must validate against a zod schema.
 - **LLM interface:** `json<T>({system, user, schema, temperature})` and `text(...)`. `LLM_PROVIDER=recorded` replays
   saved responses keyed by a prompt hash, so CI is fast, free and repeatable; `RECORD=1` refreshes them.
@@ -369,7 +390,7 @@ db/ llm/  pg queries · AI model interface (claude | azure-openai | recorded)
 
   | Agent | Role it serves | Trigger | AI step | Tools / data | Human gate | Tier |
   |---|---|---|---|---|---|---|
-  | Intake agent (§5.3) | Order desk | Order email arrives or client replies | Extract order to JSON; draft reply | Client lookup, saved addresses, `checkPromise`, `pickWarehouse`, `recommendCarrier` | Operator approves before reply or WMS entry | Core |
+  | Intake agent (§5.3) | Order desk, warehouse supervisor | The 10-minute Gmail poll finds an order email or a client's reply | Extract order to JSON; draft reply | Client lookup, saved addresses, Azure Maps, `checkPromise`, `pickWarehouse`, `recommendCarrier` | Supervisor approves or rejects before WMS entry; address corrections sent automatically within SEC-06, other replies approved by an operator | Core |
   | Complaint triage agent (§5.10) | Customer success | Complaint email arrives | Draft a response stating cause and next action | `delivery_causes`, accounts (Tier 1 / at risk) | Agent drafts, person sends | Core |
   | "Ask LateLens" agent (§5.14) | Leadership / COO | A question in Claude (Desktop or web) | The model chooses read-only tools and answers from their results | MCP tools: `delivery_causes`, `lane_scores`, `scenario`, `recommend_carrier`, `check_promise` | Read-only; no actions possible | Core |
   | Delay alert agent (§5.5) | Customer communication | Order scored at risk before despatch | Draft a proactive delay notice | Risk lookup, promise | Person sends | Stretch |
@@ -479,18 +500,39 @@ Synthetic test set: 50 emails across the 14 layouts, ~28% with an incomplete or 
 in the data), each with a gold JSON answer in `backend/tests/fixtures/emails/`. Every fixture is labelled synthetic and uses US
 addresses (ZIP codes).
 
-Pipeline (code controls every step; AI only at steps 3 and 9):
-1. Store and dedupe (hash of sender + body) → `intake_emails` RECEIVED
-2. Identify the client by sender domain (`find_client`); unknown → `MISSING_INFO`
-3. **Extract (AI)**, temperature 0, JSON only → zod validate; retry once; fail → `MISSING_INFO`
-4. Address check (`domain/address.ts`): line1 + city + state + 5-digit ZIP, or a match to `saved_addresses`
-5. Promise (`checkPromise`) 6. Warehouse (`pickWarehouse`) 7. Carrier (`recommendCarrier`)
-8. Decide (code only): `ALL_CLEAR` | `CONFIRM_ADDRESS` | `MISSING_INFO`
-9. **Draft reply (AI)** from a facts object only; the promise date and missing fields must appear verbatim, else a fixed template is used
-10. Save extraction and decision → AWAITING_APPROVAL; operator approves → SENT (allow-list only)
+Pipeline (code controls every step; AI only at steps 5 and 11). Code: `backend/api/src/modules/intake/`.
+1. **Poll** (E15): every `INTAKE_POLL_MINUTES` (default 10; 5 allowed) the API reads the Gmail inbox through the Gmail
+   REST API (`core/gmail.ts`) for mail not sent by us that arrived after the last successful poll minus a 2-minute
+   overlap (`after:<unix seconds>`; Gmail's `newer_than` counts only days). A missed or failed poll is caught up by the
+   next one. The "Fetch from Gmail" button and the paste form run the same pipeline.
+2. Store and dedupe (Gmail id, else hash of sender + body) → `intake_emails` RECEIVED. A new message in a Gmail thread
+   we already hold is the client's answer (step 13).
+3. Identify the client by sender domain (`client_domains`); unknown → `MISSING_INFO` at once, with no PII call, no
+   model call and no automatic reply (E16). The operator sees it as "Unknown sender".
+4. Remove PII (Azure AI Language: person, phone number and email only; the address must reach the model). Not
+   reachable → WAITING, retried by the next poll; nothing unredacted reaches the model.
+5. **Extract (AI)** from the redacted text, temperature 0, JSON only → zod validate; retry once; fail → `MISSING_INFO`;
+   model not reachable → WAITING.
+6. Address check (`address.ts`): a value counts only if it appears in the email text; complete means line1 + city +
+   state + 5-digit ZIP; with no street, a ZIP matching exactly one saved address counts as that address.
+7. **Map check** (Azure Maps geocoding, `validate.ts`) for complete addresses not taken from a saved address: the map's
+   best match gives a confidence `high` | `medium` | `low` and any issues `street_not_found` | `state_mismatch` |
+   `zip_mismatch`. Map not reachable → WAITING, retried by the next poll.
+8. Decide (code only, `decide.ts`): `ALL_CLEAR` | `CONFIRM_ADDRESS` | `MISSING_INFO` (rules in REQ-INT-09).
+9. Promise (`checkPromise`) 10. Warehouse (`pickWarehouse`) and carrier (`recommendCarrier`), for `ALL_CLEAR` only.
+11. **Draft reply (AI)** from a facts object only; the promise date, missing fields and address problems must appear
+    verbatim, else a fixed template is used.
+12. Route by decision:
+    - `CONFIRM_ADDRESS` with every SEC-06 check passing → the fixed template is sent automatically in the client's Gmail
+      thread → SENT (E17). Any check failing → AWAITING_APPROVAL; an operator approves and sends.
+    - `ALL_CLEAR` → the order review queue, AWAITING_APPROVAL (E18). A supervisor approves (and may change the carrier)
+      → APPROVED → `send_to_wms` → ENTERED, with the confirmation reply sent by an operator; or rejects with a
+      reason → REJECTED. Nothing reaches the WMS without approval (SEC-04).
+    - `MISSING_INFO` → AWAITING_APPROVAL; an operator approves and sends, or leaves it.
+13. A client's answer re-runs from step 4 and merges with the saved extraction (REQ-INT-07).
 
-States: `RECEIVED → EXTRACTED → DECIDED → AWAITING_APPROVAL → APPROVED → SENT`. A client reply (`in_reply_to` set)
-re-runs from step 3 and merges with the saved extraction.
+States: `RECEIVED → [WAITING] → AWAITING_APPROVAL → APPROVED → SENT | ENTERED`, `RECEIVED → SENT` for an automatic
+correction, `AWAITING_APPROVAL → REJECTED` for a rejected order.
 
 ```json
 {
@@ -512,6 +554,14 @@ re-runs from step 3 and merges with the saved extraction.
 | REQ-INT-05 | The agent **SHOULD** reach field-level extraction accuracy ≥ 90% on the fixtures. |
 | REQ-INT-06 | The agent **SHOULD** offer up to 3 saved addresses for the client in a `CONFIRM_ADDRESS` reply. |
 | REQ-INT-07 | When a client replies to a `CONFIRM_ADDRESS` email, the agent **MUST** re-run from extraction and merge the answer with the saved extraction. |
+| REQ-INT-08 | The API **MUST** poll the Gmail inbox every `INTAKE_POLL_MINUTES` (default 10) from the last successful poll minus 2 minutes, and **MUST NOT** process an email with a stored Gmail id twice. The poll **MUST** be switchable off (`INTAKE_POLL_MINUTES=0`). |
+| REQ-INT-09 | The decision **MUST** be `ALL_CLEAR` only for a known client with valid items and an address that is either matched to a saved address or confirmed by the map with confidence `high` and no issues. A complete address with confidence `medium` or `low`, or any issue, **MUST** be `CONFIRM_ADDRESS`. If the map cannot be reached the email **MUST** wait (WAITING) and be retried, never decided on the format rules alone. |
+| REQ-INT-10 | An email from an unknown sender domain **MUST** be set to `MISSING_INFO` without calling PII detection or the model, and **MUST NOT** receive an automatic reply. |
+| REQ-INT-11 | A `CONFIRM_ADDRESS` reply **MUST** say what is wrong in the client's terms: the missing parts, each map issue (keeping the map's ZIP for a ZIP mismatch), or for `medium` with no issue that the address could only be partly matched and must be confirmed. It **MUST NOT** suggest a different street. |
+| REQ-INT-12 | When `INTAKE_AUTO_REPLY=on` and every SEC-06 check passes, a `CONFIRM_ADDRESS` email **MUST** be answered automatically with the fixed template (not the model's draft), in the client's Gmail thread, and logged in `outbound_messages` as sent by `auto`. `INTAKE_AUTO_REPLY` defaults to off. |
+| REQ-INT-13 | Each email **MUST** get at most one outbound reply, including when polls overlap or a send is retried. A failed automatic send **MUST** leave the email AWAITING_APPROVAL for an operator. |
+| REQ-INT-14 | The order review **MUST** list `ALL_CLEAR` orders awaiting approval and let a supervisor approve or reject each; a rejection **MUST** record a reason and the user in `audit_log` and set REJECTED, and a rejected order **MUST NOT** be sent to the WMS. |
+| REQ-INT-15 | Before approving, the supervisor **MAY** choose another carrier for the order's lane. A blocked carrier **MUST NOT** be offered, and the change **MUST** be logged through the Carriers module's override (REQ-CAR-06). |
 
 | ID | Acceptance criterion |
 |---|---|
@@ -522,6 +572,14 @@ re-runs from step 3 and merges with the saved extraction.
 | AC-INT-05 | Given all 50 fixtures, when compared field by field with gold, then ≥ 90% of fields match. |
 | AC-INT-06 | Given C190 with 2 saved addresses and an ambiguous address, when the reply is drafted, then both saved addresses are offered. |
 | AC-INT-07 | Given C190's `CONFIRM_ADDRESS` email and a reply supplying line 1 and ZIP, when processed, then the state becomes `ALL_CLEAR` with the original items kept. |
+| AC-INT-08 | Given a poll at 10:00 whose last success was 09:50, when it runs, then Gmail is asked for mail after 09:48; given an email already stored by Gmail id, when it is fetched again, then no second row, extraction or reply is created; given `INTAKE_POLL_MINUTES=0`, then no poll runs. |
+| AC-INT-09 | Given a complete address the map returns as `medium` with no issue (fixture 47), when decided, then the state is `CONFIRM_ADDRESS`; given `high` with no issue, then `ALL_CLEAR`; given the map unreachable, then the email is WAITING and the next poll decides it. |
+| AC-INT-10 | Given an email from an unknown domain (fixture 50), when processed through the pipeline, then the state is `MISSING_INFO`, the PII detector and the model were not called, and no reply was sent. |
+| AC-INT-11 | Given a `medium` address with no issue, when the reply is drafted, then it says the address could only be partly matched and asks the client to confirm it; given a ZIP mismatch, then it names the map's ZIP. |
+| AC-INT-12 | Given `INTAKE_AUTO_REPLY=on` and a `CONFIRM_ADDRESS` email passing every SEC-06 check, when processed, then the template reply is sent in the same Gmail thread, the status is SENT and `outbound_messages` records sender `auto`; given `INTAKE_AUTO_REPLY` unset, then the email is AWAITING_APPROVAL. |
+| AC-INT-13 | Given two overlapping polls fetching the same `CONFIRM_ADDRESS` email, when both finish, then exactly one reply was sent; given Gmail send fails, then the email is AWAITING_APPROVAL. |
+| AC-INT-14 | Given an `ALL_CLEAR` order, when a supervisor rejects it with a reason, then the status is REJECTED, `audit_log` has the reason and user, and `send_to_wms` is refused. |
+| AC-INT-15 | Given an `ALL_CLEAR` Northeast order recommended to carrier E, when the supervisor picks A, then the order shows A, `override_log` has the change with user and reason, and F (blocked for Northeast) is not offered. |
 
 ### 5.4 Promise and stock check (owner: Warehouse; W1–W3, W6)
 
@@ -584,7 +642,7 @@ is a client component that reads the Node API (`NEXT_PUBLIC_API_URL`).
 | Screen | Owner | Content |
 |---|---|---|
 | Overview | Warehouse | KPIs, points of on-time lost per cause, one measure per cause (§1.4), late rate by cause and stage |
-| Intake | Email | Email queue (Tier 1 and at-risk clients first, marked Priority) → extracted fields with checks → reply draft → Approve; API/EDI orders (E11) and complaints (E12) |
+| Intake | Email | Email queue (Tier 1 and at-risk clients first, marked Priority) → extracted fields with checks and map confidence → reply draft → Approve; automatic replies marked "Auto-sent" with their text and time; order review for supervisors: `ALL_CLEAR` orders with Approve, Reject (reason) and a carrier choice among unblocked carriers (E18); last poll time; API/EDI orders (E11) and complaints (E12) |
 | Warehouses | Warehouse | Cut-off misses, out-of-stock and skipped-nearest by site; second pick run; placement suggestions (W5) |
 | Carriers | Carriers | Region/promise picker; ranked carriers Recommended / Backup / Blocked with reason; backtest; tracking (C8) |
 | Replay & decision | Warehouse | Programme waterfall (expected adoption) vs routing vendor; full-fix upper bounds; on-time vs 94% benchmark; cost avoided; 9 at-risk accounts; recommendation |
@@ -738,17 +796,24 @@ score_default, score_sla, blocked, reason) · `carrier_capacity` (carrier, regio
 `scenario_results` (scenario, segment, on_time, late_avoided, cost_avoided) · `risk_lookup` · `warehouse_stats` ·
 `penalty_reconciliation` · `stock_daily` (warehouse, sku, date, qty, synthetic) · `placement_suggestions` ·
 `carrier_events` (delivery_id, carrier, event, ts, source, synthetic) ·
-`intake_emails` (id, from_addr, subject, body, received_at, in_reply_to, hash, client_id, status) ·
-`intake_extractions` (email_id, json, model, confidence, decision, promise_date, promise_reason, carrier, backup, carrier_reason, reply_draft) ·
-`inbound_orders` (channel, payload, status, missing) · `saved_addresses` · `client_domains` · `audit_log` (approvals and actions) · `outbound_messages` ·
+`intake_emails` (id, source, gmail_id, thread_id, message_id, from_addr, subject, body, redacted_body, pii_map,
+received_at, in_reply_to, hash, client_id, status, auth_result, auto_submitted) ·
+`intake_extractions` (email_id, extraction, decision, checks incl. map confidence and issues, reply_draft, reply_source) ·
+`intake_polls` (trigger, query, started_at, finished_at, fetched, processed, retried, failed, ok, error; migration 101) · `outbound_messages` (email_id unique, to_addr, body,
+gmail_id, status, sent_by = user or `auto`) ·
+`inbound_orders` (channel, payload, status, missing) · `saved_addresses` · `client_domains` · `audit_log` (approvals, rejections with reason, and actions) ·
 `recommendations` · `alerts` · `override_log` · `complaint_triage`.
+Intake statuses: RECEIVED | WAITING | AWAITING_APPROVAL | APPROVED | SENT | ENTERED | REJECTED. The other v0.7 intake
+columns come in a later 1xx migration; `override_log` stays written by the Carriers module.
 Tables holding synthetic data carry a `synthetic boolean` column set to true.
 
 ## 7. API (Node)
 `GET /api/health` · `GET /api/overview` · `GET /api/causes?segment=` · `GET /api/warehouses` ·
 `GET /api/carriers?region=&commitment=` · `GET /api/carriers/backtest` · `GET /api/tracking?carrier=` ·
 `GET /api/replay?segment=` · `GET /api/accounts` · `GET /api/attribution` · `GET /api/cause-kpis` · `GET /api/penalties/unpaid` · `GET /api/placement?week=` ·
-`GET /api/intake` · `GET /api/intake/:id` · `POST /api/intake/email` · `POST /api/intake/:id/action` (approve | send_reply | send_to_wms) ·
+`GET /api/intake` · `GET /api/intake/:id` · `POST /api/intake/email` · `POST /api/intake/fetch` (the poll, also the button) ·
+`GET /api/intake/review` (`ALL_CLEAR` orders awaiting approval, with unblocked carriers for each lane) ·
+`POST /api/intake/:id/action` (approve [carrier, reason] | reject [reason] | send_reply | send_to_wms) ·
 `POST /api/orders` · `POST /api/orders/edi` · `GET /api/complaints` · `POST /api/complaints/:id/triage` ·
 `POST /api/recommend` · `POST /api/alerts/run` (stretch) · `/mcp` (Ask LateLens, core).
 Read endpoints serve precomputed tables and are cached in memory at startup (the data does not change).
@@ -768,6 +833,7 @@ Exact JSON shapes live in `docs/CONTRACTS.md`.
 | SEC-03 | Outbound replies and alerts **MUST** go only to an allow-list of test addresses during the hackathon. |
 | SEC-04 | An operator **MUST** approve each `ALL_CLEAR` order before it is entered into the WMS (sender domain alone can be spoofed). |
 | SEC-05 | Only synthetic data **MUST** be used; synthetic emails carry a "SYNTHETIC" label. |
+| SEC-06 | A reply **MAY** be sent without an operator only if all of these hold, else it waits for approval: `INTAKE_AUTO_REPLY=on`; the decision is `CONFIRM_ADDRESS`; the sender's domain is a known client; Gmail's `Authentication-Results` shows `dmarc=pass`, or `spf=pass` and `dkim=pass`, for that domain (a spoofed sender would otherwise receive the client's saved addresses); the email is not automatic (`Auto-Submitted` other than `no`, `Precedence: bulk/list/junk`, or an auto-reply header); fewer than 2 automatic replies already sit in the thread; the recipient is on the allow-list (SEC-03). The text is the fixed template, never the model's draft. |
 
 | ID | Acceptance criterion |
 |---|---|
@@ -781,12 +847,13 @@ Exact JSON shapes live in `docs/CONTRACTS.md`.
 | AC-SEC-03 | Given a reply to an address not on the allow-list, when sending is attempted, then it is refused and logged. |
 | AC-SEC-04 | Given an `ALL_CLEAR` order not yet approved, when `send_to_wms` is called, then it is refused. |
 | AC-SEC-05 | Given the fixture set, when checked, then every email contains the "SYNTHETIC" label. |
+| AC-SEC-06 | Given `INTAKE_AUTO_REPLY=on` and a `CONFIRM_ADDRESS` email, when any one check fails (`dmarc=fail` or no `Authentication-Results`; `Auto-Submitted: auto-replied`; `Precedence: bulk`; a third round in the thread; a recipient off the allow-list), then no reply is sent and the email is AWAITING_APPROVAL; given an `ALL_CLEAR` or `MISSING_INFO` email, then nothing is sent automatically. |
 
 ## 9. Testing, proof and delivery
 
 ### 9.1 Test plan
 Unit: flag definitions (AC-DIAG-01), block rule (AC-CAR-02), promise rules (AC-PRO-*), risk inputs (AC-RISK-01).
-Golden: every number in §2 (AC-DIAG-04, AC-DIAG-07, AC-REP-01, AC-REP-06). Extraction: 50 fixtures (AC-INT-*). Security: AC-SEC-02 to 04.
+Golden: every number in §2 (AC-DIAG-04, AC-DIAG-07, AC-REP-01, AC-REP-06). Extraction: 50 fixtures (AC-INT-*). Security: AC-SEC-02 to 04, AC-SEC-06.
 Synthetic consistency: AC-STK-01, AC-TRK-01, AC-API-02, AC-NFR-05.
 E2E: fixture email → decision → reply draft → dashboard shows it. Smoke: Playwright opens every screen on the deployed
 app at phone and desktop width after each deploy (P6, core). Backup demo video recorded on 29 Oct.
@@ -874,6 +941,11 @@ Decisions (due Mon 26):
 Assumptions (how we would test each):
 - `[CAPACITY_SHARE]` per carrier per lane is not in the data; default 40%, or the synthetic contracts (SD-06). Test: ask procurement for contracted daily capacity.
 - Stock levels and SKUs are not in the data; W5 runs on synthetic stock (SD-05). Test: WMS inventory extract.
+- **WMS interface (assumed, Q-002):** Operations IT's WMS has an API for order and inventory records; for the hackathon
+  order entry, pick lists and stock allocation are simulated. We assume `POST /orders` (client, items, ship-to address,
+  promise date, warehouse, carrier) → WMS order number, and `GET /inventory` (warehouse × SKU on hand). Today
+  `send_to_wms` (§7) simulates the first by setting the order ENTERED after approval; W5 uses SD-05 for the second.
+  `[WMS_CONTRACT]`: Email owner to add the request and response shapes to `docs/CONTRACTS.md`.
 - "If fixed" estimates assume causes are independent of the other flags and that carrier volume can move. Test: the pilot (§9.2).
 - Adoption rates (address 85%, lanes 90%, cut-off 85%, warehouse 60%, route 30%) are the team's estimates. Test: per-cause KPIs in the pilot.
 - Carriers A, B and C have spare lane capacity for the volume moved off the bad lanes and D's Friday overflow. Test: procurement.
@@ -881,8 +953,9 @@ Assumptions (how we would test each):
 - Weekend picking and shipping is normal operation. Test: warehouse supervisor.
 - In this synthetic data a delivery with no flag is never late; real data will have unexplained lateness. Test: pilot control group.
 - Penalty savings assume 70.8% of penalty-eligible late deliveries are paid, as in the data. Test: ask the CFO.
-- Email timestamps are probably keying times, not arrival times (78% of email orders are stamped after 08:00 vs 55% for
-  API/EDI). We use them as given; the intake agent records true arrival time going forward. Test: ask the VP Customer Success.
+- **Confirmed (Q-005, §14.1):** email `order_received_ts` is the time the order was keyed into the WMS, not when the
+  email arrived (78% of email orders are stamped after 08:00 vs 55% for API/EDI). We use it as when the order entered
+  Halcyon's process; the intake agent records true arrival time going forward, so keying delay stops pushing orders past the cut-off.
 - `[HALCYON_TIMEZONE]`: the dataset has no time zone. Gmail arrival times and fixture `Date` headers use `America/New_York`
   (`backend/synthetic-data/reference/mailbox.json`) until confirmed. Test: ask which time zone the 08:00 cut-off is in.
 - The 450 "delivered before shipped" same-day orders are kept and flagged; leaving them out would lower on-time slightly
@@ -896,6 +969,13 @@ Open questions:
 - What does carrier F's preferred-supplier agreement commit us to, and why does it cover the Northeast and Southeast?
 - Can we get pick, pack and dock timestamps from the WMS? Today the ship date always equals the pick-list date.
 - Does carrier portal automation have the carrier's permission?
+- Is Halcyon's order inbox Gmail (Workspace) or Outlook / Microsoft 365? The intake reads Gmail; Outlook would use
+  Microsoft Graph (`Mail.Read`, `Mail.Send`) behind the same three mailbox calls. Ask the VP Customer Success.
+- Demo of automatic replies: inserted fixtures carry no `Authentication-Results` and the synthetic client domains
+  (`*.example`) cannot receive mail, so SEC-06 sends them to an operator. A live auto-reply needs one real, allow-listed
+  test mailbox mapped to a synthetic client in `client_domains` (labelled synthetic). Owner: Email.
+- Gmail sending limits (about 500 a day for a personal account, about 2,000 for Workspace; to be checked) are enough for
+  the demo, not for Halcyon's volume. Test: confirm the production mailbox and its quota.
 
 ### 12.1 Synthetic data register
 Rules: (1) generated **from** the supplied data, same ids, dates and clients, so they agree; (2) one seeded generator per
@@ -922,6 +1002,7 @@ screens using synthetic data show a badge (REQ-UI-04).
 - Carrier risk model and capacity-limited replay: `backend/carrier-optimization-engine/model_report.md`
 - Team diagnostic deck: `docs/Halcyon_Delivery_Diagnostic.pdf` (source of the five-cause definitions, adoption rates, per-cause KPIs and open questions in v0.4)
 - Clickable prototype: https://claude.ai/artifact/3e3anPMEBFDUEsbz89rYc5
+- Order to delivery workflow ("Order journey", D9, draft for team review): `docs/SPEC-order-workflow.md`
 
 ## 14. Sponsor questions
 Record each answer and what changed in this spec.
@@ -929,7 +1010,7 @@ Record each answer and what changed in this spec.
 | Sponsor | Questions |
 |---|---|
 | COO | What does the vendor's proof of concept measure, on which data? Is the $680K one-time or per year? Would you accept an 8-week pilot before signing? Is the ~75% you quoted on the same basis as the 71.0% in the data? |
-| VP Customer Success | How are email orders keyed and checked today? Who tells a client their delivery will be late, and when? Are email timestamps arrival or keying times? |
+| VP Customer Success | How are email orders keyed and checked today? Is the order inbox Gmail or Outlook? May we email a client automatically about an address problem? (Answered in §14.1: who tells a client about a delay, and email timestamps.) |
 | Warehouse supervisor | What happens to a same-day order that arrives after 8am? Could a second pick run at 11:00 be staffed? Why would an order ship from a non-nearest warehouse that had stock (691 cases)? How is the carrier picked at despatch in practice, and why does D take 39% of Friday volume? What does the shipped time record, given 59% are before the collection window? Can the WMS give pick and pack timestamps? |
 | Head of Procurement | What daily capacity can each carrier take per lane, and on Fridays? What does the F agreement commit to (volume, lanes, penalties)? Can volume move off D and F within the contract? |
 | Onboarding team / COO | Could stock placement be reviewed weekly instead of quarterly? Can we get a WMS inventory extract? |
@@ -951,6 +1032,17 @@ changed. A question with no answer yet stays in §12 and §14 until it gets one.
 | 26 Oct | Can GitHub Actions sign in to Azure without stored secrets? | Tenant policy (Microsoft Graph) | Yes: users may create app registrations | CD keeps OIDC login (§9.3) |
 | 26 Oct | What must a submission show to qualify? | Organisers (EvoHack 2026 kickoff, Level 1 checklist) | Discovery, agents across roles, AI in the solution, live deployed demo, UI, backend, test evidence | v0.6: §3, §4.4, §9, §10.2, §11, §16 |
 | 26 Oct | Which AI model? | Team (Task 0); an Azure OpenAI account `RootRoute` already exists in the team group | Open | `[AI_MODEL]` in §12 |
+| 27 Oct | Does the built intake match the order desk's flow (fetch → extract address → map confidence → reply or WMS)? | Email owner; live run of three emails through Azure Language, the model and Azure Maps; `maps:check` 56/56 | Yes, except that `medium` passed as verified and an unreachable map fell back to format rules | Only `high` or a saved address is ALL_CLEAR; map down → WAITING (REQ-INT-09, AC-INT-09) |
+| 27 Oct | Should the intake read and send Gmail through an MCP server? | Email owner; Google's Gmail MCP reference and community servers | No: Google's server has no send tool, polling needs no MCP, and a mailbox tool in the model's hands would let an email trigger actions (SEC-02) | Gmail REST API kept; "No MCP in the intake pipeline" (§4.4) |
+| 27 Oct | How should new mail be picked up? | Email owner | A scheduled job every 5–10 minutes; only client emails | 10-minute poll with overlap and dedupe (E15, REQ-INT-08); unknown senders skip the AI (E16, REQ-INT-10) |
+| 28 Oct | May address corrections go to clients without an operator? | Email owner | Yes, within safety checks; WMS entry keeps approval | SEC-06, E17, REQ-INT-11 to 13; §4.4 human gate |
+| 28 Oct | What does the WMS team need? | Email owner | A supervisor view of email orders to approve or reject and assign the carrier | Order review (E18, REQ-INT-14/15, §5.7, §7) |
+| 28 Oct | Should the dataset be loaded with ORM (TypeORM) migrations? | Email owner; repo check | No: SQL migrations (`backend/db/migrations/`) create the Node tables; the Python pipeline loads the dataset into Postgres (48,340 deliveries); Azure Database for PostgreSQL is provisioned by `infra/setup.sh` | No change |
+| 26 Oct | Who chooses `commitment_type`, and how is `promised_date` set? Does "same day" mean despatched the same day and delivered next day? | Halcyon business, via the organisers' participant question log (Q-001) | The client chooses it on each order; Halcyon never sets or changes it. The system sets the promised date from it: same day +1, next day +2, standard +4 days from the order date; same day = despatched the day it arrives, delivered next day | Confirms `checkPromise` (§5.4) and the cut-off cause: a same-day order after 08:00 can't be despatched that day. Because the client chose same day, the honest next-day promise goes back to the client in the reply draft rather than being changed silently |
+| 26 Oct | Is the WMS Halcyon's own or a vendor's, does it have an API, and may we simulate it? | Halcyon business, question log (Q-002) | Operations IT runs it; it has an API for order and inventory records. For the hackathon, simulate order entry, pick lists and stock allocation and state the interface we assume | Assumed WMS interface recorded in §12; `[WMS_CONTRACT]` for the Email owner; `send_to_wms` and SD-05 stay simulated |
+| 26 Oct | Is `carriers.csv` the carrier preference spreadsheet, or should we infer preferences from `deliveries.csv`? | Halcyon business, question log (Q-003) | `carriers.csv` is the master list; the preference spreadsheet won't be provided and isn't needed (it reflects habit, not performance). Infer today's preferences from carriers used in `deliveries.csv` by region, warehouse and weekday | No change: lane scores and the backtest's "actual" baseline already come from `deliveries.csv` (§5.2); the weekday effect is the Friday cap on D. Adding the warehouse to the lane stays phase 2 |
+| 26 Oct | How do clients hear about delays today, and may we send delay notices? | Halcyon business, question log (Q-004 a–e) | Halcyon is the client's only contact; no proactive updates or tracking links today; clients learn of delays from their own customers or by chasing customer success, usually the day after. Delay notices may go to the client, not the end customer; whether a person reviews them is our decision to justify | Delay notices (E10, §5.5) go to the client only and keep "person sends": the at-risk flag (REQ-TRK-02) and late-risk score are estimates, and a wrong notice to a Tier 1 client costs trust. Tracking events (SD-07) give the at-risk list that feeds them |
+| 26 Oct | Is email `order_received_ts` the arrival time or the keying time? | Halcyon business, question log (Q-005) | Keying time into the WMS; arrival time isn't recorded and isn't needed. Treat keying time as when the order entered the process | §12 assumption confirmed. Strengthens the intake case: entering email orders on arrival (10-minute poll) removes keying delay before the 08:00 cut-off |
 
 ## 15. Mapping to the brief's task list
 | Brief asks | Where in this spec |

@@ -15,7 +15,7 @@ export function extractUserPrompt(subject: string, body: string): string {
  * Pass only redacted text (see read.ts).
  */
 export async function extractOrder(llm: LLM, subject: string, body: string): Promise<Extraction | null> {
-  const req = { system: EXTRACT_SYSTEM, user: extractUserPrompt(subject, body), schema: ExtractionSchema };
+  const req = { system: EXTRACT_SYSTEM, user: extractUserPrompt(subject, body), schema: ExtractionSchema, tag: 'extract' };
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       return await llm.json(req);
