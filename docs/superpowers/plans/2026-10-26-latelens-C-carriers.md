@@ -1282,7 +1282,13 @@ jobs:
 
 - [x] **Step 4: First deployment.** Merge to `main`, or run the workflow from the Actions tab. Expected: the "Smoke check" step finds `"db":"ok"`. Open the Static Web App URL: Overview shows 71.0%.
 
-- [ ] **Step 5: Check logs.** Process one email through the deployed Order emails screen, then in Application Insights → Logs search for its `emailId`. Expected: the "intake email decided" line appears (AC-NFR-03).
+- [x] **Step 5: Check logs.** Process one email through the deployed Order emails screen, then in Application Insights → Logs search for its `emailId`. Expected: the "intake email decided" line appears (AC-NFR-03).
+  As built (28 Oct): App Insights collected requests only; the API's pino lines on stdout never reached it. A diagnostic
+  setting `app-logs` on `rootroute01-api` now sends `AppServiceConsoleLogs` and `AppServiceAppLogs` to the same
+  workspace (`rootroute01-logs`, in `infra/setup.sh`). Query: `AppServiceConsoleLogs | where ResultDescription has
+  '"emailId":8'` returns "intake email decided" (ALL_CLEAR) about 3 minutes after the email; `"emailId":7` returns
+  "intake action" (approve). Gap for A: emails fetched by the Gmail poll log only `pollId`, not each `emailId`, so
+  AC-NFR-03 holds for pasted emails and actions, not yet for polled ones.
 
 - [ ] **Step 6: Commit.** `git add infra .github/workflows/cd.yml && git commit -m "ci(c): Azure setup script and continuous deployment"`
 
