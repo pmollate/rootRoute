@@ -3239,8 +3239,9 @@ def test_pipeline_builds_every_contract_table():
     assert list(tables["delivery_causes"].columns)[:2] == ["delivery_id", "client_id"]
 ```
 
-- [ ] **Step 2: Run.** `python -m pytest backend/analytics/tests/test_pipeline.py` — Expected: PASS once A, B and C have all merged. A failure names the missing table: tell its owner.
+- [x] **Step 2: Run.** `python -m pytest backend/analytics/tests/test_pipeline.py` — Expected: PASS once A, B and C have all merged. A failure names the missing table: tell its owner.
   - **Pending (26 Oct):** fails as expected. 21 of 25 tables built, none empty. Missing: `carrier_backtest`, `carrier_events` (C, C6 / SD-07) and `complaints`, `risk_lookup` (A). Re-run once A and C merge.
+  - **Done (28 Oct):** PASS, all 25 tables built. C6 merged from main; A10 (`complaints`) and A11 (`risk_lookup`) built on this branch.
 
 - [x] **Step 3: Write `backend/synthetic-data/README.md`** — one section per SD-01 … SD-08 from SPEC §12.1 (built from, used by, generator command, what real data replaces it), plus the three rules (generated from supplied data, seeded, never in headline figures).
 

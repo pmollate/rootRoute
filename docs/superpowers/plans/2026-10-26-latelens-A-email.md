@@ -2476,7 +2476,7 @@ const ApiOrder = z.object({ order_ref: z.string(), client_id: z.string(), ship_t
 - Consumes: `diagnosisApi.getDeliveryCauses` (B, real from B8), table `complaints`.
 - Produces: `triage(llm, diagnosis, row) -> { complaintId, deliveryId, stages, prePickup, escalate (Tier 1 or at risk), draft, source }`, `onlyKnownNumbers(draft, facts)`, `templateResponse`; `GET /api/complaints`, `POST /api/complaints/:id/triage`.
 
-- [ ] **Step 1: Write the failing tests** (AC-CMP-01 to -03):
+- [x] **Step 1: Write the failing tests** (AC-CMP-01 to -03):
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -2528,9 +2528,9 @@ describe.skipIf(!hasDb)('complaint routes (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL, cannot find `complaints.js`.
+- [x] **Step 2: Run.** Expected: FAIL, cannot find `complaints.js`.
 
-- [ ] **Step 3: Implement.** `backend/analytics/intake/__init__.py`:
+- [x] **Step 3: Implement.** `backend/analytics/intake/__init__.py`:
 
 ```python
 """Intake pipeline step (owner A)."""
@@ -2675,9 +2675,9 @@ import { diagnosisApi } from '../warehouse/index.js';
   });
 ```
 
-- [ ] **Step 4: Run.** `npm run pipeline:test && python backend/synthetic-data/generators/sd03_complaints.py && npm --prefix backend/api test` — Expected: all pass; triage of all 34 gives 28 before-pickup causes and 24 escalations.
+- [x] **Step 4: Run.** `npm run pipeline:test && python backend/synthetic-data/generators/sd03_complaints.py && npm --prefix backend/api test` — Expected: all pass; triage of all 34 gives 28 before-pickup causes and 24 escalations.
 
-- [ ] **Step 5: Commit.** `git add backend/analytics backend/api backend/synthetic-data/generators && git commit -m "feat(a): complaint triage agent (E12)"`
+- [x] **Step 5: Commit.** `git add backend/analytics backend/api backend/synthetic-data/generators && git commit -m "feat(a): complaint triage agent (E12)"`
 
 **Wednesday check-in:** Order emails screen live on the deployed app; API/EDI and complaints endpoints working.
 
@@ -2694,7 +2694,7 @@ import { diagnosisApi } from '../warehouse/index.js';
 - Consumes: `f_lane` on `ctx.d` (B3); `delivery_causes`, `deliveries_clean`, `clients` (B); `isPriority`, `byPriority` (A7).
 - Produces: table `risk_lookup` (keyed by `f_addr`, `f_cutoff`, `f_stock`, `f_lane`); `riskScore(facts, lookup)`, `draftAlert(candidate, score, asOf)` (threshold 0.5), `runAlerts(asOf)` (Tier 1 and at-risk clients drafted first); `POST /api/alerts/run`.
 
-- [ ] **Step 1: Write the failing tests** (AC-RISK-01 to -03):
+- [x] **Step 1: Write the failing tests** (AC-RISK-01 to -03):
 
 ```python
 from analytics.intake import risk
@@ -2761,9 +2761,9 @@ describe.skipIf(!hasDb)('alert routes (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** Expected: FAIL (missing `risk` / `alerts`).
+- [x] **Step 2: Run.** Expected: FAIL (missing `risk` / `alerts`).
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
 
 ```python
 """risk_lookup: late rate by facts known before despatch (SPEC §5.5, E10)."""
@@ -2871,9 +2871,9 @@ import { runAlerts } from './alerts.js';
   });
 ```
 
-- [ ] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test` — Expected: all pass.
+- [x] **Step 4: Run.** `python -m pytest && npm run pipeline:test && npm --prefix backend/api test` — Expected: all pass.
 
-- [ ] **Step 5: Commit.** `git add backend/analytics backend/api && git commit -m "feat(a): late-risk score and delay alert drafts (E10)"`
+- [x] **Step 5: Commit.** `git add backend/analytics backend/api && git commit -m "feat(a): late-risk score and delay alert drafts (E10)"`
 
 ---
 
