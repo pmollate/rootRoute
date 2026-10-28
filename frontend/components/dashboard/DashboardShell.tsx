@@ -60,7 +60,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       <main className={s.main}>{children}</main>
       <footer className={s.foot}>
         <p>Computed from the supplied Halcyon dataset · 48,340 deliveries · Apr–Sep 2026 · 5 sites · 6 carriers.</p>
-        <p><Pill tone="synthetic">Synthetic</Pill> marks panels using generated data</p>
+        <p><Pill tone="synthetic">Synthetic</Pill></p>
       </footer>
     </div>
   );
