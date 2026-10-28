@@ -1,8 +1,8 @@
 # SPEC — Order to delivery workflow ("Order journey", D9)
 
-**Project:** LateLens (root-route) · **Version:** 0.1 · **Status:** draft for team review · **Date:** 28 Oct 2026
+**Project:** LateLens (root-route) · **Version:** 0.2 · **Status:** core parts built (Task C11) · **Date:** 28 Oct 2026
 **Parent spec:** `docs/SPEC.md` v0.8 (source of truth; this file adds feature D9 and does not change any existing REQ).
-**Owner:** Carriers (proposed; `[OWNER]` to be confirmed by the team) · **Reads from:** Email (§5.3), Warehouse (§5.4), Carriers (§5.2, §5.13).
+**Owner:** Carriers (Task C11) · **Reads from:** Email (§5.3), Warehouse (§5.4), Carriers (§5.2, §5.13).
 
 **Conventions** as in SPEC: **MUST** / **SHOULD** / **MAY** per RFC 2119; every requirement has an id (`REQ-JRN-NN`),
 its acceptance criterion has the same number (`AC-JRN-NN`); every **MUST** has an AC. Every number shown comes from the
@@ -136,7 +136,7 @@ The "With LateLens" note shows the rule's output, never a promise that the deliv
 |---|---|
 | NFR-JRN-01 | `GET /api/journey/:ref` **SHOULD** respond within 500 ms at p95 on the demo database. |
 | SEC-JRN-01 | The journey **MUST NOT** return names, phone numbers or email addresses of people. It shows client id, items, and city, state and ZIP; the full email stays on the Intake screen. |
-| SEC-JRN-02 | The journey endpoint **MUST** be read-only and require the API key, like the other `/api/intake` reads. |
+| SEC-JRN-02 | The journey endpoint **MUST** be read-only. Like the other dashboard reads (`GET /api/intake`, `/api/carriers`) it needs no API key, which is why SEC-JRN-01 keeps people's details out of it. |
 | SEC-JRN-03 | Journey requests **MUST** log the ref (`emailId` or `deliveryId`), so an order's journey views are traceable in Application Insights (NFR-03). |
 
 ## 6. Acceptance criteria
@@ -156,7 +156,7 @@ The "With LateLens" note shows the rule's output, never a promise that the deliv
 | AC-JRN-12 | (Stretch.) Given an `at_risk` order, when the notice is drafted, then it is addressed to the client's allow-listed address, stays unsent until an operator approves it, and a non-allow-listed address is refused. |
 | AC-NFR-JRN-01 | Given the demo database, when 50 journeys are requested, then p95 < 500 ms. |
 | AC-SEC-JRN-01 | Given fixture C190 (with a contact name and phone), when its journey is returned, then the JSON has no name, phone or email address. |
-| AC-SEC-JRN-02 | Given a request without the API key, then 401. Given any request, then no table row changes. |
+| AC-SEC-JRN-02 | Given any journey request, then no row changes in `recommendations`, `audit_log` or `override_log`. |
 | AC-SEC-JRN-03 | Given a journey request for `email:7`, when Application Insights (`AppServiceConsoleLogs`) is queried, then a line with `"emailId":7` appears. |
 
 ## 7. Technical design
@@ -179,8 +179,10 @@ Python pipeline ─────────┤
   journey_timing (new)   ┘
 ```
 
-- **Module:** `backend/api/src/modules/journey/` (`routes.ts`, `build.ts`: pure stage builders, `queries.ts`).
-  The builders are pure functions of the rows, so they are tested without a database.
+- **Module (as built):** in the Carriers area, which owns D9: `backend/api/src/modules/carriers/journey.ts` (pure stage
+  builders, tested without a database), reads in `queries.ts`, the route in `routes.ts`. Being inside Carriers lets the
+  past-delivery note use `laneRows` + `recommendFromLane` directly, which log nothing; the public `recommendCarrier`
+  writes a `recommendations` row and would break REQ-JRN-02.
 - **Table `order_events`** (migration `301_order_events.sql`, writer: Node journey module): `id`, `order_ref`, `event`
   (`wms_entered` | `picked` | `picked_up` | `in_transit` | `out_for_delivery` | `delivered`), `ts`, `detail jsonb`,
   `synthetic boolean`, unique (`order_ref`, `event`).
@@ -197,9 +199,9 @@ Python pipeline ─────────┤
 
 | Part | Tier | Estimate | Depends on |
 |---|---|---|---|
-| Past-delivery journey (REQ-JRN-01, -07, -10, SEC) | Core | 2–3 h | Done: B5 causes, C6 tracking |
-| New-order journey, stages 1–8 (REQ-JRN-01–04, -09) | Core | 2 h | Done: A8 intake |
-| Simulated stages 9–13 (REQ-JRN-05, -06, -08) | Synthetic | 2 h | A's review of the `send_to_wms` hook |
+| Past-delivery journey (REQ-JRN-01, -07, SEC) | Core | **Built (C11)** | B5 causes, C6 tracking |
+| New-order journey, stages 1–9 (REQ-JRN-01–04) | Core | **Built (C11)**; the Intake link (REQ-JRN-09) waits for A's open changes | A8 intake |
+| Simulated stages 10–13 (REQ-JRN-05, -06, -10) | Synthetic | 2 h, not built | A's review of the `send_to_wms` hook |
 | Delay notice (REQ-JRN-12) | Stretch | — | E10 |
 
 Drop order if behind: delay notice → simulated stages → new-order journey. The past-delivery journey stays: it is the
@@ -224,6 +226,6 @@ per-order proof of SPEC §2.2.
 
 ## 11. Open items
 
-- `[OWNER]`: the team confirms who builds D9 (proposed: Carriers, after C10).
+- Owner: Carriers (Task C11).
 - `[WMS_CONTRACT]`: the WMS order number format follows the assumed interface once A adds it to CONTRACTS.md (SPEC §12).
 - Add D9 to SPEC §3 and the demo script (§11) once the team agrees: after "ALL_CLEAR", open the order's journey and move "as of" to the delivery day.
