@@ -10,7 +10,7 @@ from the dataset, and the same number reads the same everywhere.
 ## How to audit
 1. Recompute from the data with the pipeline's own code (`backend/analytics`, Python 3.12 in `.venv`):
    on-time rate, late count, penalties, late-handling cost, the five causes' points lost, the replay ladder
-   (71.0 → 76.2 → 82.5 → 87.3 → 91.0 → 92.0; vendor 78.3; as built 85.9), the five blocked lanes, the carrier backtest.
+   (71.0 → 76.2 → 82.5 → 87.3 → 91.0 → 92.0; as built 85.9), the five blocked lanes, the carrier backtest.
 2. Compare against: `CLAUDE.md` key numbers, `docs/SPEC.md` §2 and §5, the API (`/api/overview`, `/api/replay`,
    `/api/carriers`, `/api/carriers/backtest` on the local or deployed API), and the text of each `/dashboard/*` screen.
 3. Search the frontend and docs for hard-coded figures (`grep -rnE '[0-9]+(\.[0-9]+)?%'`) and check each has a data source.
