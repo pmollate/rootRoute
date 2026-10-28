@@ -212,9 +212,11 @@
   text-align: center;
 }
 
-/* the section links move into the hamburger menu, which sits left of the mark */
+/* the section links and the demo button move into the hamburger menu, which sits left of the mark,
+   leaving the theme toggle at the end of the bar */
 @media (max-width: 860px) {
-  .navLink {
+  .navLink,
+  .nav .link {
     display: none;
   }
 
