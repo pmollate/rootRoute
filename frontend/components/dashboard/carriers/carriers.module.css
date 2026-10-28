@@ -1,4 +1,4 @@
-/* Carriers screen: page head, hero, blocked-lanes alert, lane picker, backtest + tracking, override form.
+/* Carriers screen: hero, blocked-lanes alert, lane picker, backtest + tracking, override form.
    Sizes and colours follow the design file (Carrier clips/Carriers.html); colours come from the theme tokens. */
 .screen { --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace; --pad: clamp(18px, 2.4vw, 24px);
   --tint: rgb(var(--ink-rgb) / 0.025); --rail: color-mix(in srgb, var(--paper) 55%, var(--line));
@@ -9,16 +9,19 @@
 .h2 { font-family: var(--font-display); font-size: 1.08rem; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; }
 .sub { margin: 0; max-width: 52ch; color: var(--ink-2); font-size: 0.76rem; line-height: 1.5; }
 
-/* Page head */
-.pageHead { margin: 12px 0 8px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; }
-.eyebrow { margin: 0 0 8px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); }
-.title { font-family: var(--font-display); font-size: clamp(1.6rem, 2.6vw, 2rem); font-weight: 700; letter-spacing: -0.03em; margin: 0; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 0.74rem; font-weight: 500; padding: 5px 10px; border-radius: 8px;
-  border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; white-space: nowrap; }
-button.chip { cursor: pointer; }
-button.chip:disabled { opacity: 0.5; cursor: default; }
-.chip:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+/* Hero (inside the shared PageHero), as in the design file: a truck in place of the eyebrow mark, export and replay below the lede. */
+.heroEy { display: inline-flex; align-items: center; gap: 8px; }
+.heroEy svg { color: #d4ab6a; }
+.screen p:has(> .heroEy) > i { display: none; }
+.heroTools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.heroBtn, .heroCta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 14px; border-radius: 12px; font: inherit; font-size: 0.82rem; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.heroBtn { border: 1px solid rgb(var(--cream-rgb) / 0.18); background: rgb(var(--cream-rgb) / 0.08); color: var(--cream); backdrop-filter: blur(6px); }
+.heroBtn:hover { background: rgb(var(--cream-rgb) / 0.16); }
+.heroBtn:disabled { opacity: 0.5; cursor: default; }
+.heroCta { border: 1px solid var(--cream); background: var(--cream); color: #22345b; }
+.heroBtn:focus-visible, .heroCta:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.fileName { font-family: var(--mono); font-size: 0.7rem; font-weight: 500; color: rgb(var(--cream-rgb) / 0.7); }
+@media (max-width: 520px) { .heroTools { display: grid; grid-template-columns: 1fr 1fr; } .fileName { display: none; } }
 
 /* Blocked-lanes alert */
 .alert { display: flex; align-items: flex-start; gap: 16px; padding: 18px 20px; border-radius: 16px; background: color-mix(in srgb, var(--hot-bg) 35%, var(--surface));
@@ -162,7 +165,4 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
 @media (max-width: 640px) { .form { grid-template-columns: minmax(0, 1fr); } .wide { grid-column: auto; } .primary { justify-self: stretch; } }
 
 /* Phones: tighter section gaps. */
-@media (max-width: 640px) {
-  .screen { gap: 20px; }
-  .pageHead { align-items: flex-start; }
-}
+@media (max-width: 640px) { .screen { gap: 20px; } }

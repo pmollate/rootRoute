@@ -170,24 +170,22 @@ export function CarriersScreen() {
 
   return (
     <div className={s.screen}>
-      <div className={s.pageHead}>
-        <div>
-          <p className={s.eyebrow}>After pickup</p>
-          <h1 className={s.title}>Carriers</h1>
-        </div>
-        <div className={s.actions}>
-          <button type="button" className={s.chip} disabled={!rec} onClick={() => rec && exportLane(region, commitment, rec)}>
-            <Icon size={14}>{ICON.fileExport}</Icon>Export CSV
-          </button>
-          <Link className={s.chip} href="/dashboard/replay"><Icon size={14}>{ICON.play}</Icon>Open replay</Link>
-        </div>
-      </div>
-
-      <PageHero image="/media/carriers-hero.jpg" imagePosition="right 45%" variant="metric" chipsAt="top"
-        eyebrow="Carrier lanes blocked"
-        title={network ? int(network.blocked.length) : '—'}
+      {/* Top section as in the design file (Carrier clips/Carriers.html): title, lede and actions in the hero, stats top right. */}
+      <PageHero image="/media/carriers-hero.jpg" imagePosition="right 45%" chipsAt="top"
+        eyebrow={<span className={s.heroEy}><Icon size={14}>{ICON.truck}</Icon>Line-haul · {REGIONS.length} regions</span>}
+        title="Carriers"
         text="Carrier choice by lane, scored only on deliveries with no address, stock or cut-off problem."
-        chips={network ? [{ label: 'Carriers', value: network.carriers, icon: <Icon>{ICON.truck}</Icon> }] : undefined} />
+        chips={network ? [
+          { label: 'Carriers', value: network.carriers },
+          { label: 'Lanes blocked', value: network.blocked.length, tone: 'hot' },
+        ] : undefined}>
+        <div className={s.heroTools}>
+          <button type="button" className={s.heroBtn} disabled={!rec} onClick={() => rec && exportLane(region, commitment, rec)}>
+            <Icon>{ICON.fileExport}</Icon>Export <span className={s.fileName}>carriers-{region}-{commitment}.csv</span>
+          </button>
+          <Link className={s.heroCta} href="/dashboard/replay"><Icon size={14}>{ICON.play}</Icon>Open replay</Link>
+        </div>
+      </PageHero>
 
       {network && network.blocked.length > 0 && (
         <div className={s.alert} role="note">
