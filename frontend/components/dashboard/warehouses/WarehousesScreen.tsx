@@ -136,8 +136,6 @@ const ICON = {
   tie: <><circle cx="12" cy="6.5" r="3.5" /><path d="M4.5 21a7.5 7.5 0 0 1 15 0M12 11l-1.2 2 1.2 5 1.2-5L12 11Z" /></>,
   crosshair: <><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></>,
   lifering: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="m5.6 5.6 3.6 3.6M14.8 14.8l3.6 3.6M18.4 5.6l-3.6 3.6M9.2 14.8l-3.6 3.6" /></>,
-  scale: <><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 7a3 3 0 0 0 6 0L5 7ZM19 7l-3 7a3 3 0 0 0 6 0l-3-7Z" /></>,
-  search: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m20 20-4.8-4.8M7.5 12.5v-2M10.5 12.5V8.5M13.5 12.5v-3" /></>,
   map: <><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5L9 4Z" /><path d="M9 4v13.5M15 6.5V20" /></>,
 };
 /** Solid cause glyphs (clock, open box) and a shuffle for misallocation, as in the design. */
@@ -167,18 +165,15 @@ const exportUnpaid = (rows: UnpaidRow[]) => downloadCsv('unrecorded-penalties.cs
   ...rows.map((r) => [r.deliveryId, r.clientId, r.tier, r.warehouseId ?? '', r.daysLate, r.promisedDate]),
 ]);
 
-/** Section title with its icon, a one-line description, and optional tools on the right. */
-function SectionHead({ icon, title, sub, tone, children }: { icon: ReactNode; title: ReactNode; sub?: string; tone?: 'teal' | 'plum'; children?: ReactNode }) {
+/** Card heading: title and one-line description on the left, optional tags or tools on the right. */
+function Head({ title, sub, children }: { title: ReactNode; sub?: string; children?: ReactNode }) {
   return (
-    <div className={s.secHead}>
-      <div className={s.secTitle}>
-        <span className={`${s.secMark} ${tone ? s[tone] : ''}`}><Icon size={17}>{icon}</Icon></span>
-        <div>
-          <h2 className={s.h2}>{title}</h2>
-          {sub && <p className={s.sub}>{sub}</p>}
-        </div>
+    <div className={s.head}>
+      <div>
+        <h2 className={s.h2}>{title}</h2>
+        {sub && <p className={s.sub}>{sub}</p>}
       </div>
-      {children && <div className={s.secTools}>{children}</div>}
+      {children && <div className={s.tools}>{children}</div>}
     </div>
   );
 }
@@ -374,12 +369,24 @@ export function WarehousesScreen() {
 
   return (
     <div className={s.screen}>
-      <PageHero image="/media/warehouses-hero.jpg" imagePosition="center 62%" eyebrow="Before pickup" title="Warehouses" chipsAt="top"
+      <div className={s.pageHead}>
+        <div>
+          <p className={s.eyebrow}>Before pickup</p>
+          <h1 className={s.title}>Warehouses</h1>
+        </div>
+        <div className={s.actions}>
+          <button type="button" className={s.chip} disabled={rows.length === 0} onClick={() => exportSites(rows)}>
+            <Icon size={14}>{ICON.csv}</Icon>Export CSV
+          </button>
+          <Link className={s.chip} href="/dashboard/replay"><Icon size={14}>{ICON.play}</Icon>Open replay</Link>
+        </div>
+      </div>
+
+      <PageHero image="/media/warehouses-hero.jpg" imagePosition="center 62%" variant="metric" chipsAt="top"
+        eyebrow={<span title="Orders hit by each warehouse cause, summed; an order with two causes counts twice">Orders hit by a warehouse cause</span>}
+        title={all.length > 0 ? int(sum(totals, (x) => x.total)) : '—'}
         text="Delivery failures that start at the warehouse, before a carrier collects the order, and the fixes that would remove them."
-        chips={all.length > 0 ? [
-          { label: 'Sites', value: site === 'all' ? all.length : site },
-          { label: 'Orders hit', value: int(sum(totals, (x) => x.total)), title: 'Orders hit by each warehouse cause, summed; an order with two causes counts twice' },
-        ] : undefined}>
+        chips={all.length > 0 ? [{ label: 'Sites', value: site === 'all' ? all.length : site }] : undefined}>
         <div className={s.heroTools}>
           <div className={s.siteSeg} role="group" aria-label="Site">
             <button type="button" aria-pressed={site === 'all'} onClick={() => setSite('all')}><Icon size={14}>{ICON.layers}</Icon>All sites</button>
@@ -397,10 +404,6 @@ export function WarehousesScreen() {
             </select>
             <span className={s.sitePickCaret}><Icon size={14}>{ICON.chevron}</Icon></span>
           </label>
-          <button type="button" className={s.heroBtn} disabled={rows.length === 0} onClick={() => exportSites(rows)}>
-            <Icon>{ICON.csv}</Icon>Export CSV
-          </button>
-          <Link className={s.heroCta} href="/dashboard/replay"><Icon size={14}>{ICON.play}</Icon>Open replay</Link>
         </div>
       </PageHero>
 
@@ -416,15 +419,15 @@ export function WarehousesScreen() {
       <Status loading={w.loading} error={w.error} skeleton="cards" count={3} />
       {rows.length > 0 && (
         <>
-          <section>
-            <SectionHead icon={ICON.search} title="Warehouse causes of lateness"
+          <section className={s.panel}>
+            <Head title="Warehouse causes of lateness"
               sub="Three causes that start inside the warehouse, before carrier collection. Colour shows how often each one arrives late.">
               <p className={s.heatKey}><span>Late rate</span>
                 <span className={`${s.heat} ${s.cool}`}>Cool &lt;35%</span>
                 <span className={`${s.heat} ${s.warm}`}>Warm 35–50%</span>
                 <span className={`${s.heat} ${s.hot}`}>Hot &gt;50%</span>
               </p>
-            </SectionHead>
+            </Head>
             <div className={s.causes}>
               {totals.map((x, i) => {
                 const h = heat(x.late);
@@ -459,104 +462,102 @@ export function WarehousesScreen() {
             </div>
           </section>
 
-          <section>
-            <SectionHead icon={ICON.site} tone="teal" title="Sites" sub="The same three causes, broken down by warehouse." />
-            <div className={s.panel}>
-              <div className={s.panelBar}>
-                <span className={s.meta}><Icon size={14}>{ICON.site}</Icon>{rows.length} {rows.length === 1 ? 'site' : 'sites'} · {int(siteOrders)} orders</span>
-                <Segmented label="Sites view" value={view} options={VIEWS} onChange={setView} />
-              </div>
-              {view === 'cards' ? (
-                <div className={s.sitesBody}>
-                  <div className={s.siteGrid} style={cardSlots(rows.length + (rows.length > 1 ? 1 : 0))}>
-                    {rows.map((r, i) => {
-                      const pair = pairOf(r.warehouseId);
-                      return (
-                        <article key={r.warehouseId} className={s.site} style={{ '--i': i } as CSSProperties}>
-                          <div className={s.siteHead}>
-                            <div><b>{r.warehouseId} · {r.name}</b><small>{pair ? 'Paired site' : 'Regional site'}</small></div>
-                            {pair && <span className={s.pairChip}><Icon size={12}>{ICON.swap}</Icon>Pair {pair}</span>}
-                          </div>
-                          <p className={s.siteOrders} title={`${pct(r.orders / allTotal)} of all orders`}><b>{int(r.orders)}</b> orders</p>
-                          <ul className={s.siteMetrics}>
-                            {PROBLEMS.map((x) => (
-                              <li key={x.key}>
-                                <span><Icon size={13}>{CAUSE_ICON[x.key]}</Icon>{x.label}<small>· {int(x.n(r))}</small></span>
-                                <span className={`${s.heat} ${s[heat(x.rate(r))]}`}>{pct(x.rate(r), 0)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </article>
-                      );
-                    })}
-                    {rows.length > 1 && (
-                      <article className={`${s.site} ${s.network}`} style={{ '--i': rows.length } as CSSProperties}>
+          <section className={s.panel}>
+            <Head title="Sites" sub="The same three causes, broken down by warehouse." />
+            <div className={s.panelBar}>
+              <span className={s.meta}><Icon size={14}>{ICON.site}</Icon>{rows.length} {rows.length === 1 ? 'site' : 'sites'} · {int(siteOrders)} orders</span>
+              <Segmented label="Sites view" value={view} options={VIEWS} onChange={setView} />
+            </div>
+            {view === 'cards' ? (
+              <div className={s.sitesBody}>
+                <div className={s.siteGrid} style={cardSlots(rows.length + (rows.length > 1 ? 1 : 0))}>
+                  {rows.map((r, i) => {
+                    const pair = pairOf(r.warehouseId);
+                    return (
+                      <article key={r.warehouseId} className={s.site} style={{ '--i': i } as CSSProperties}>
                         <div className={s.siteHead}>
-                          <div><b>Network</b><small>All {rows.length} sites</small></div>
+                          <div><b>{r.warehouseId} · {r.name}</b><small>{pair ? 'Paired site' : 'Regional site'}</small></div>
+                          {pair && <span className={s.pairChip}><Icon size={12}>{ICON.swap}</Icon>Pair {pair}</span>}
                         </div>
-                        <p className={s.siteOrders}><b>{int(siteOrders)}</b> orders</p>
+                        <p className={s.siteOrders} title={`${pct(r.orders / allTotal)} of all orders`}><b>{int(r.orders)}</b> orders</p>
                         <ul className={s.siteMetrics}>
                           {PROBLEMS.map((x) => (
                             <li key={x.key}>
-                              <span><Icon size={13}>{CAUSE_ICON[x.key]}</Icon>{x.rateLabel}</span>
-                              <b>{rateRange(rows, x.rate)}</b>
+                              <span><Icon size={13}>{CAUSE_ICON[x.key]}</Icon>{x.label}<small>· {int(x.n(r))}</small></span>
+                              <span className={`${s.heat} ${s[heat(x.rate(r))]}`}>{pct(x.rate(r), 0)}</span>
                             </li>
                           ))}
                         </ul>
                       </article>
-                    )}
-                    <SiteMap sites={all} distances={w.data?.distances ?? []} active={site} />
-                  </div>
-                </div>
-              ) : (
-                <div className={s.flush}>
-                  <div className={ui.tableWrap}>
-                    <table className={`${s.table} ${s.stack}`}>
-                      <thead>
-                        <tr>
-                          <th>Site</th><th className={s.right}>Orders</th>
-                          {PROBLEMS.map((x) => <th key={x.key} className={s.right}>{x.label}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sitePage.rows.map((r) => (
-                          <tr key={r.warehouseId}>
-                            <td><span className={s.code}>{r.warehouseId}</span>{r.name}</td>
-                            <td className={`${s.right} ${s.num}`} data-label="Orders">{int(r.orders)}</td>
-                            {PROBLEMS.map((x) => (
-                              <td key={x.key} className={`${s.right} ${s.num}`} data-label={x.label}>
-                                {int(x.n(r))} <small>{pct(x.n(r) / r.orders)}</small>{' '}
-                                <span className={`${s.heat} ${s[heat(x.rate(r))]}`}>{pct(x.rate(r), 0)}</span>
-                              </td>
-                            ))}
-                          </tr>
+                    );
+                  })}
+                  {rows.length > 1 && (
+                    <article className={`${s.site} ${s.network}`} style={{ '--i': rows.length } as CSSProperties}>
+                      <div className={s.siteHead}>
+                        <div><b>Network</b><small>All {rows.length} sites</small></div>
+                      </div>
+                      <p className={s.siteOrders}><b>{int(siteOrders)}</b> orders</p>
+                      <ul className={s.siteMetrics}>
+                        {PROBLEMS.map((x) => (
+                          <li key={x.key}>
+                            <span><Icon size={13}>{CAUSE_ICON[x.key]}</Icon>{x.rateLabel}</span>
+                            <b>{rateRange(rows, x.rate)}</b>
+                          </li>
                         ))}
-                      </tbody>
-                      {rows.length > 1 && (
-                        <tfoot>
-                          <tr>
-                            <td><b>All sites</b></td>
-                            <td className={`${s.right} ${s.num}`} data-label="Orders">{int(siteOrders)}</td>
-                            {totals.map((x) => <td key={x.key} className={`${s.right} ${s.num}`} data-label={x.label}>{int(x.total)}</td>)}
-                          </tr>
-                        </tfoot>
-                      )}
-                    </table>
-                  </div>
-                  <Pager p={sitePage} className={s.pager} />
+                      </ul>
+                    </article>
+                  )}
+                  <SiteMap sites={all} distances={w.data?.distances ?? []} active={site} />
                 </div>
-              )}
-              {all.length > 1 && (
-                <p className={s.note}>
-                  <Icon>{ICON.info}</Icon>
-                  <span><b>Late rates are close across all {all.length} sites</b> (within {spread} points for each cause). These are company-wide rules to change, not one problem warehouse.</span>
-                </p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className={s.flush}>
+                <div className={ui.tableWrap}>
+                  <table className={`${s.table} ${s.stack}`}>
+                    <thead>
+                      <tr>
+                        <th>Site</th><th className={s.right}>Orders</th>
+                        {PROBLEMS.map((x) => <th key={x.key} className={s.right}>{x.label}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sitePage.rows.map((r) => (
+                        <tr key={r.warehouseId}>
+                          <td><span className={s.code}>{r.warehouseId}</span>{r.name}</td>
+                          <td className={`${s.right} ${s.num}`} data-label="Orders">{int(r.orders)}</td>
+                          {PROBLEMS.map((x) => (
+                            <td key={x.key} className={`${s.right} ${s.num}`} data-label={x.label}>
+                              {int(x.n(r))} <small>{pct(x.n(r) / r.orders)}</small>{' '}
+                              <span className={`${s.heat} ${s[heat(x.rate(r))]}`}>{pct(x.rate(r), 0)}</span>
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                    {rows.length > 1 && (
+                      <tfoot>
+                        <tr>
+                          <td><b>All sites</b></td>
+                          <td className={`${s.right} ${s.num}`} data-label="Orders">{int(siteOrders)}</td>
+                          {totals.map((x) => <td key={x.key} className={`${s.right} ${s.num}`} data-label={x.label}>{int(x.total)}</td>)}
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+                <Pager p={sitePage} className={s.pager} />
+              </div>
+            )}
+            {all.length > 1 && (
+              <p className={s.note}>
+                <Icon>{ICON.info}</Icon>
+                <span><b>Late rates are close across all {all.length} sites</b> (within {spread} points for each cause). These are company-wide rules to change, not one problem warehouse.</span>
+              </p>
+            )}
           </section>
 
-          <section>
-            <SectionHead icon={ICON.scale} tone="plum" title="Fixes to decide" />
+          <section className={s.panel}>
+            <Head title="Fixes to decide" />
             <div className={s.fixes}>
               <article className={s.fix}>
                 <div className={s.fixHead}>
@@ -638,7 +639,7 @@ export function WarehousesScreen() {
       )}
 
       <section className={s.panel}>
-        <SectionHead icon={ICON.dolly} tone="teal" title="Weekly stock placement" />
+        <Head title="Weekly stock placement" />
         <Status loading={p.loading} error={p.error} skeleton="rows" count={4} />
         {suggestions.length > 0 && (
           <>
@@ -722,7 +723,7 @@ export function WarehousesScreen() {
       </section>
 
       <section id="finance" className={s.finance}>
-        <div className={s.financeHead}>
+        <div className={`${s.head} ${s.financeHead}`}>
           <div>
             <h2 className={s.h2}>Unrecorded SLA penalties</h2>
             <p className={s.sub}>Late deliveries to clients with a penalty clause where no penalty has been recorded.</p>
