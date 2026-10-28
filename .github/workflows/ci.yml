@@ -3,10 +3,28 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+# Least privilege: jobs that need more ask for it themselves.
+permissions:
+  contents: read
+
+# A new push to a PR cancels its older run; runs on main always finish, because cd waits for them.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Same Node as the App Service runtime (infra/setup.sh: NODE:24-lts) and as cd, so CI tests what ships.
+env:
+  NODE_VERSION: "24"
+  PYTHON_VERSION: "3.12"
+  NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
+  # Everything that needs Postgres: Python checks, the pipeline, migrations and the test suites.
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16
@@ -23,13 +41,15 @@ jobs:
       TEST_DATABASE_URL: postgres://latelens:latelens@localhost:5432/latelens_test
       API_KEY: test-key
       LLM_PROVIDER: recorded
-      NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: "3.12"
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
+          cache-dependency-path: requirements.txt
       - run: pip install -r requirements.txt
       - run: ruff check backend/analytics $(test -d backend/synthetic-data/generators && echo backend/synthetic-data/generators)
       - run: python -m pytest
@@ -39,36 +59,55 @@ jobs:
           for g in backend/synthetic-data/generators/*.py; do python "$g"; done
           files=(backend/synthetic-data/out/*.csv backend/synthetic-data/out/*.json)
           if [ ${#files[@]} -gt 0 ]; then
-            sha1sum "${files[@]}" > /tmp/first
+            sha1sum "${files[@]}" > "$RUNNER_TEMP/first"
             for g in backend/synthetic-data/generators/*.py; do python "$g" > /dev/null; done
-            sha1sum -c /tmp/first
+            sha1sum -c --quiet "$RUNNER_TEMP/first"
           fi
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/api/package-lock.json
+      - run: npm run setup
+      - run: npm run pipeline:test
+      - run: npm run migrate:test
+      - run: npm run seed:test
+      - run: npm --prefix backend/api test
+      - run: npm --prefix frontend test
+
+  # Typecheck and production builds need no database, so they run alongside the tests.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: |
             frontend/package-lock.json
             backend/api/package-lock.json
       - run: npm run setup
       - run: npm run typecheck
-      - run: npm run pipeline:test
-      - run: npm run migrate:test
-      - run: npm --prefix backend/api run --if-present seed -- --test  # seed script arrives with A2
-      - run: npm --prefix backend/api test
-      - run: npm --prefix frontend test
       - run: npm run build:api
       - run: npm run build
 
   secrets:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: read   # gitleaks lists the PR's commits
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
