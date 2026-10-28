@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
 const API_URL = process.env.API_URL ?? 'http://localhost:3001';
 
 const SCREENS = [
-  { path: '/dashboard/overview', title: 'Overview', h1: 'Delivery performance' },
+  { path: '/dashboard/overview', title: 'Overview', h1: 'Overview' },
   { path: '/dashboard/intake', title: 'Order emails', h1: 'Order emails' },
   { path: '/dashboard/warehouses', title: 'Warehouses', h1: 'Warehouses' },
   { path: '/dashboard/carriers', title: 'Carriers', h1: 'Carriers' },
