@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { PageHero } from '@/components/dashboard/PageHero';
-import { Pager, Segmented, Status, SyntheticBadge, ui, usePage } from '@/components/dashboard/ui';
+import { Pager, Segmented, Status, ui, usePage } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
 import { int, pct, points, usd, usd2 } from '@/lib/metrics';
 import type { Overview } from '../overview/OverviewScreen';
@@ -162,10 +162,6 @@ const exportSites = (rows: WarehouseRow[]) => downloadCsv('warehouses-pre-pickup
   ['warehouse_id', 'name', 'orders', ...PROBLEMS.flatMap((x) => [`${x.key}_orders`, `${x.key}_late_rate`])],
   ...rows.map((r) => [r.warehouseId, r.name, r.orders, ...PROBLEMS.flatMap((x) => [x.n(r), x.rate(r).toFixed(4)])]),
 ]);
-const exportPlacement = (rows: Suggestion[]) => downloadCsv('stock-placement.csv', [
-  ['client_id', 'sku', 'from', 'to', 'units', 'reason'],
-  ...rows.map((r) => [r.clientId, r.sku ?? '', r.from, r.to, r.qty, r.reason]),
-]);
 const exportUnpaid = (rows: UnpaidRow[]) => downloadCsv('unrecorded-penalties.csv', [
   ['delivery_id', 'client_id', 'tier', 'warehouse_id', 'days_late', 'promised_date'],
   ...rows.map((r) => [r.deliveryId, r.clientId, r.tier, r.warehouseId ?? '', r.daysLate, r.promisedDate]),
@@ -226,12 +222,6 @@ function SiteMap({ sites, distances, active }: { sites: WarehouseRow[]; distance
         <span><Icon size={14}>{ICON.map}</Icon>Site network</span>
         <span>Pin size = order volume</span>
       </figcaption>
-      {focus && region && (
-        <p className={s.mapFocus}>
-          <span>Miles to <b>{focus}</b>&apos;s {region} customers{miles(focus, region) != null && <> · {focus} itself {int(miles(focus, region))} mi</>}</span>
-          {active === 'all' && <small>Select a site to compare</small>}
-        </p>
-      )}
       <svg viewBox="0 0 400 240" role="group" aria-label="Site network">
         {spokes.map(({ id, mi, kind }) => {
           const a = MAP[id], b = MAP[focus!];
@@ -269,11 +259,19 @@ function SiteMap({ sites, distances, active }: { sites: WarehouseRow[]; distance
           );
         })}
       </svg>
-      <p className={s.mapKey}>
-        <span><i className={s.keyPair} />Paired fallback</span>
-        <span><i className={s.keyNear} />Same half of the country</span>
-        <span><i className={s.keyCross} />Cross-country (≥{int(CROSS_COUNTRY_MI)} mi)</span>
-      </p>
+      <div className={s.mapFoot}>
+        <p className={s.mapKey}>
+          <span><i className={s.keyPair} />Paired fallback</span>
+          <span><i className={s.keyNear} />Same half of the country</span>
+          <span><i className={s.keyCross} />Cross-country (≥{int(CROSS_COUNTRY_MI)} mi)</span>
+        </p>
+        {focus && region && (
+          <p className={s.mapFocus}>
+            <span>Miles to <b>{focus}</b>&apos;s {region} customers{miles(focus, region) != null && <> · {focus} itself {int(miles(focus, region))} mi</>}</span>
+            {active === 'all' && <small>Select a site to compare</small>}
+          </p>
+        )}
+      </div>
     </figure>
   );
 }
@@ -483,7 +481,7 @@ export function WarehousesScreen() {
                           <ul className={s.siteMetrics}>
                             {PROBLEMS.map((x) => (
                               <li key={x.key}>
-                                <span><Icon size={15}>{CAUSE_ICON[x.key]}</Icon>{x.label}<small>· {int(x.n(r))}</small></span>
+                                <span><Icon size={13}>{CAUSE_ICON[x.key]}</Icon>{x.label}<small>· {int(x.n(r))}</small></span>
                                 <span className={`${s.heat} ${s[heat(x.rate(r))]}`}>{pct(x.rate(r), 0)}</span>
                               </li>
                             ))}
@@ -500,7 +498,7 @@ export function WarehousesScreen() {
                         <ul className={s.siteMetrics}>
                           {PROBLEMS.map((x) => (
                             <li key={x.key}>
-                              <span><Icon size={15}>{CAUSE_ICON[x.key]}</Icon>{x.rateLabel}</span>
+                              <span><Icon size={13}>{CAUSE_ICON[x.key]}</Icon>{x.rateLabel}</span>
                               <b>{rateRange(rows, x.rate)}</b>
                             </li>
                           ))}
@@ -558,15 +556,15 @@ export function WarehousesScreen() {
           </section>
 
           <section>
-            <SectionHead icon={ICON.scale} tone="plum" title="Fixes to decide" sub="Two proposed changes, each with an owner and an expected effect." />
+            <SectionHead icon={ICON.scale} tone="plum" title="Fixes to decide" />
             <div className={s.fixes}>
               <article className={s.fix}>
                 <div className={s.fixHead}>
                   <div>
-                    <h3 className={s.fixTitle}>Second pick wave at 11:00, plus a cut-off-aware promise</h3>
+                    <p className={s.kicker}>Fix A · Cut-off</p>
+                    <h3 className={s.fixTitle}>Second pick wave at 11:00</h3>
                     <p className={s.body}>
-                      Orders arriving 08:00–11:00 ship the same day instead of slipping a day.
-                      Orders after 11:00 get a delivery promise at checkout that accounts for the cut-off.
+                      Orders placed 08:00–11:00 ship the same day. Later orders get a cut-off-aware promise at checkout.
                     </p>
                   </div>
                   {pick?.onTime != null && o.data && (
@@ -579,12 +577,12 @@ export function WarehousesScreen() {
                   <PickDial moved={moved} after={stillLate} />
                   <ul className={s.waveList}>
                     <li><i className={s.keyBefore} /><span>06:00–08:00 · already same day</span></li>
-                    <li className={s.waveHit}><i className={s.keyWave} /><span>08:00–11:00 · now ship same day</span><b>{int(moved)}</b></li>
-                    <li><i className={s.keyAfter} /><span>After 11:00 · honest next-day promise</span><b>{int(stillLate)}</b></li>
+                    <li className={s.waveHit}><i className={s.keyWave} /><span>08:00–11:00 · now same day</span><b>{int(moved)}</b></li>
+                    <li><i className={s.keyAfter} /><span>After 11:00 · next-day promise</span><b>{int(stillLate)}</b></li>
                   </ul>
                 </div>
                 {pick?.onTime != null && o.data && (
-                  <p className={s.fixNote}>On time {pct(o.data.onTime)} → {pct(pick.onTime)} with this fix alone</p>
+                  <p className={s.fixNote}>On time <b>{pct(o.data.onTime)} → {pct(pick.onTime)}</b> with this fix alone</p>
                 )}
                 <div className={s.fixFoot}>
                   <span className={s.owners}><small>Owners</small><span className={`${s.owner} ${s.navy}`}><Icon size={12}>{ICON.headset}</Icon>Sales ops</span><span className={`${s.owner} ${s.teal}`}><Icon size={12}>{ICON.carry}</Icon>Warehouse teams</span></span>
@@ -595,10 +593,10 @@ export function WarehousesScreen() {
               <article className={s.fix}>
                 <div className={s.fixHead}>
                   <div>
-                    <h3 className={s.fixTitle}>Ship from the nearest site with stock, then its pair</h3>
+                    <p className={s.kicker}>Fix B · Allocation</p>
+                    <h3 className={s.fixTitle}>Ship from the nearest site with stock</h3>
                     <p className={s.body}>
-                      Each order goes to the nearest site that has stock, falls back to its paired site,
-                      then to the closest site with stock before shipping across the country.
+                      Each order follows a fixed fallback order, so it ships across the country only as a last resort.
                     </p>
                   </div>
                   {fallbackFrom != null && fallbackTo != null && (
@@ -627,8 +625,8 @@ export function WarehousesScreen() {
                     <span className={s.track}><span className={s.hot} style={{ width: `${((freight?.otherSite ?? 0) / freightMax) * 100}%` }} /></span>
                     <b className={s.hotText}>{usd2(freight?.otherSite)}</b>
                   </div>
-                  <small title="Averaged across all sites">Freight cost per order · misallocated orders <b className={s.plumText}>{int(allSkip)} → 0</b></small>
                 </div>
+                <p className={s.fixNote} title="Freight averaged across all sites">Freight per order · misallocated orders <b>{int(allSkip)} → 0</b></p>
                 <div className={s.fixFoot}>
                   <span className={s.owners}><small>Owner</small><span className={`${s.owner} ${s.plum}`}><Icon size={12}>{ICON.tie}</Icon>Warehouse supervisors</span></span>
                   <Link className={s.primary} href="/dashboard/replay"><Icon>{ICON.replay}</Icon>Simulate in replay</Link>
@@ -640,13 +638,7 @@ export function WarehousesScreen() {
       )}
 
       <section className={s.panel}>
-        <SectionHead icon={ICON.dolly} tone="teal" title="Weekly stock placement"
-          sub={`Suggested stock moves between sites for each client, so the nearest site doesn't run out.${p.data?.week ? ` Week of ${p.data.week}.` : ''}`}>
-          <SyntheticBadge />
-          <button type="button" className={s.button} disabled={suggestions.length === 0} onClick={() => exportPlacement(suggestions)}>
-            <Icon>{ICON.download}</Icon>Export
-          </button>
-        </SectionHead>
+        <SectionHead icon={ICON.dolly} tone="teal" title="Weekly stock placement" />
         <Status loading={p.loading} error={p.error} skeleton="rows" count={4} />
         {suggestions.length > 0 && (
           <>
@@ -691,25 +683,6 @@ export function WarehousesScreen() {
                   </div>
                 </div>
               </figure>
-              <div className={`${s.box} ${s.netList}`}>
-                <div className={s.boxHead}><b>Change by site</b><small>units</small></div>
-                <div className={s.boxBody}>
-                  <table className={`${s.table} ${s.netTable}`}>
-                    <thead><tr><th>Site</th><th className={s.right}>Sent <Icon size={10}>{ICON.arrow}</Icon> Received</th><th className={s.right}>Change</th></tr></thead>
-                    <tbody>
-                      {flow.map((f) => (
-                        <tr key={f.id}>
-                          <td><b>{f.id} · {siteName(f.id)}</b>
-                            <small>{f.net > 0 ? 'Topped up' : f.net < 0 ? 'Donor site' : 'Balanced'}</small></td>
-                          <td className={`${s.right} ${s.num} ${s.flowCell}`}>{int(f.outUnits)}<Icon size={10}>{ICON.arrow}</Icon>{int(f.inUnits)}</td>
-                          <td className={`${s.right} ${s.changeCell}`}><span className={`${s.netTag} ${f.net > 0 ? s.up : ''}`}>{signed(f.net)}</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className={s.boxFoot}><Icon size={14}>{ICON.info}</Icon>Stock moves out of donor sites into the sites that would otherwise run short.</p>
-              </div>
             </div>
 
             <div className={s.subHead}><b>Suggested moves</b><small>Sorted by units</small></div>
