@@ -383,36 +383,29 @@ nav.pager { padding: 14px 0 0; }
 .empty b { color: var(--ink); }
 .empty p { margin: 0; max-width: 48ch; font-size: 0.82rem; }
 
-/* Unrecorded penalties: head, a four-figure strip, then tier exposure beside the order list. */
-.finance { overflow: hidden; }
+/* Unrecorded penalties: head, then the four figures (2 × 2) beside tier exposure at the same height, then the order list
+   across the full width. */
+.finance { overflow: hidden; container: finance / inline-size; }
 .financeHead { margin: 0; padding: var(--pad) var(--pad) 18px; border-bottom: 1px solid var(--line); }
 .financePad:not(:empty) { padding: var(--pad); }
-.figures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
-.figures > div { display: grid; align-content: start; gap: 2px; padding: 20px clamp(16px, 2.6vw, 28px); min-width: 0; }
-.figures > div + div { border-left: 1px solid var(--line); }
+.financeTop { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-bottom: 1px solid var(--line); }
+.figures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; border-right: 1px solid var(--line); }
+.figures > div { display: grid; align-content: center; gap: 2px; padding: 20px clamp(16px, 2.6vw, 28px); min-width: 0; }
+.figures > div:nth-child(even) { border-left: 1px solid var(--line); }
+.figures > div:nth-child(n + 3) { border-top: 1px solid var(--line); }
 .figures small { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .figures .big { margin-top: 4px; font-size: clamp(1.5rem, 2.6vw, 1.9rem); overflow-wrap: anywhere; }
 .figures span { font-size: 0.75rem; color: var(--ink-2); }
-@media (max-width: 860px) {
-  .figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .figures > div:nth-child(3) { border-left: 0; }
-  .figures > div:nth-child(n + 3) { border-top: 1px solid var(--line); }
-}
-@media (max-width: 420px) {
-  .figures { grid-template-columns: minmax(0, 1fr); }
-  .figures > div + div { border-left: 0; border-top: 1px solid var(--line); }
-}
-/* Tier exposure beside the order list only when the card is wide enough for both; otherwise the list gets the full width,
-   so it stays a table (it only stacks into label / value rows when the card is phone-narrow). */
-.finance { container: finance / inline-size; }
-.financeBody { display: grid; grid-template-columns: minmax(280px, 420px) minmax(0, 1fr); }
 .financeSide, .financeTable { padding: 22px clamp(16px, 2.6vw, 28px); }
-.financeSide { border-right: 1px solid var(--line); }
-@container finance (max-width: 1040px) {
-  .financeBody { grid-template-columns: minmax(0, 1fr); }
-  .financeSide { border-right: 0; border-bottom: 1px solid var(--line); }
-  /* Full width, so the table lines up with its "USD" heading and with the order list below. */
-  .tierBar { width: min(280px, 100%); }
+/* Too narrow for both side by side: the figures sit above the tier table. */
+@container finance (max-width: 860px) {
+  .financeTop { grid-template-columns: minmax(0, 1fr); }
+  .figures { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+@container finance (max-width: 420px) {
+  .figures { grid-template-columns: minmax(0, 1fr); }
+  .figures > div:nth-child(even) { border-left: 0; }
+  .figures > div + div { border-top: 1px solid var(--line); }
 }
 .orders td { padding-top: 12px; padding-bottom: 12px; }
 .orders td:first-child { padding-left: 16px; }

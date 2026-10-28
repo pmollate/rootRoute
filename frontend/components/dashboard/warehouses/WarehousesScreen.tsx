@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { PageHero } from '@/components/dashboard/PageHero';
-import { Pager, Segmented, Status, ui, usePage } from '@/components/dashboard/ui';
+import { Pager, Segmented, Status, SyntheticBadge, ui, usePage } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
 import { int, pct, points, usd, usd2 } from '@/lib/metrics';
 import type { Overview } from '../overview/OverviewScreen';
@@ -15,7 +15,7 @@ interface WarehouseRow {
 }
 interface Suggestion { clientId: string; sku?: string; from: string; to: string; qty: number; reason: string }
 interface Placement {
-  week: string | null; suggestions: Suggestion[];
+  synthetic?: boolean; week: string | null; suggestions: Suggestion[];
   impact: { week: string; suggestions: number; avoidedNextWeek: number }[];
 }
 /** warehouseId is null until the pipeline has been re-run with the site column. */
@@ -639,7 +639,7 @@ export function WarehousesScreen() {
       )}
 
       <section className={s.panel}>
-        <Head title="Weekly stock placement" />
+        <Head title={<>Weekly stock placement {p.data?.synthetic && <SyntheticBadge />}</>} />
         <Status loading={p.loading} error={p.error} skeleton="rows" count={4} />
         {suggestions.length > 0 && (
           <>
@@ -737,13 +737,13 @@ export function WarehousesScreen() {
         <div className={s.financePad}><Status loading={u.loading} error={u.error} /></div>
         {u.data && (
           <>
-            <div className={s.figures}>
-              <div><small>Late orders, no record</small><b className={s.big}>{int(u.data.count)}</b><span>with a penalty clause</span></div>
-              <div><small>SLA penalty</small><b className={s.big}>{usd(PENALTY_USD)}</b><span>flat, per late order</span></div>
-              <div><small>Potential exposure</small><b className={`${s.big} ${s.hotText}`}>{usd(u.data.count * PENALTY_USD)}</b><span>{int(u.data.count)} × {usd(PENALTY_USD)}</span></div>
-              {topTier && <div><small>Largest tier</small><b className={s.big}>{topTier.tier}</b><span>{pct(topTier.n / tierTotal, 0)} of exposure</span></div>}
-            </div>
-            <div className={s.financeBody}>
+            <div className={s.financeTop}>
+              <div className={s.figures}>
+                <div><small>Late orders, no record</small><b className={s.big}>{int(u.data.count)}</b><span>with a penalty clause</span></div>
+                <div><small>SLA penalty</small><b className={s.big}>{usd(PENALTY_USD)}</b><span>flat, per late order</span></div>
+                <div><small>Potential exposure</small><b className={`${s.big} ${s.hotText}`}>{usd(u.data.count * PENALTY_USD)}</b><span>{int(u.data.count)} × {usd(PENALTY_USD)}</span></div>
+                {topTier && <div><small>Largest tier</small><b className={s.big}>{topTier.tier}</b><span>{pct(topTier.n / tierTotal, 0)} of exposure</span></div>}
+              </div>
               <div className={`${s.financeSide} ${s.flush}`}>
                 <div className={s.subHead}><b>Exposure by client tier</b><small>USD</small></div>
                 <table className={`${s.table} ${s.tierTable}`}>
@@ -768,30 +768,30 @@ export function WarehousesScreen() {
                   </tfoot>
                 </table>
               </div>
-              <div className={`${s.financeTable} ${s.flush}`}>
-                <div className={s.subHead}><b>Orders without a penalty record</b><small>Sorted by days late</small></div>
-                {u.data.rows.length > 0 ? (
-                  <div className={ui.tableWrap}>
-                    <table className={`${s.table} ${s.stackNarrow} ${s.orders}`}>
-                      <thead><tr><th>Order ID</th><th>Client</th><th>Tier</th>{hasSite && <th>Site</th>}<th className={s.right}>Days late</th><th>Status</th><th className={s.right}>Exposure</th></tr></thead>
-                      <tbody>
-                        {shownOrders.map((r) => (
-                          <tr key={r.deliveryId} title={`Promised ${r.promisedDate.slice(0, 10)}`}>
-                            <td className={`${s.num} ${s.mono}`}>{r.deliveryId}</td>
-                            <td data-label="Client">{clientName(r.clientId)}</td>
-                            <td data-label="Tier">{r.tier}</td>
-                            {hasSite && <td data-label="Site">{r.warehouseId ?? '—'}</td>}
-                            <td className={`${s.right} ${s.num}`} data-label="Days late">{r.daysLate}</td>
-                            <td data-label="Status"><span className={s.status}><i />Not recorded</span></td>
-                            <td className={`${s.right} ${s.num}`} data-label="Exposure">{usd(PENALTY_USD)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : <p className={s.emptyLine}>No order-level rows to list.</p>}
-                {allOrders && <Pager p={unpaidPage} className={s.pager} />}
-              </div>
+            </div>
+            <div className={`${s.financeTable} ${s.flush}`}>
+              <div className={s.subHead}><b>Orders without a penalty record</b><small>Sorted by days late</small></div>
+              {u.data.rows.length > 0 ? (
+                <div className={ui.tableWrap}>
+                  <table className={`${s.table} ${s.stackNarrow} ${s.orders}`}>
+                    <thead><tr><th>Order ID</th><th>Client</th><th>Tier</th>{hasSite && <th>Site</th>}<th className={s.right}>Days late</th><th>Status</th><th className={s.right}>Exposure</th></tr></thead>
+                    <tbody>
+                      {shownOrders.map((r) => (
+                        <tr key={r.deliveryId} title={`Promised ${r.promisedDate.slice(0, 10)}`}>
+                          <td className={`${s.num} ${s.mono}`}>{r.deliveryId}</td>
+                          <td data-label="Client">{clientName(r.clientId)}</td>
+                          <td data-label="Tier">{r.tier}</td>
+                          {hasSite && <td data-label="Site">{r.warehouseId ?? '—'}</td>}
+                          <td className={`${s.right} ${s.num}`} data-label="Days late">{r.daysLate}</td>
+                          <td data-label="Status"><span className={s.status}><i />Not recorded</span></td>
+                          <td className={`${s.right} ${s.num}`} data-label="Exposure">{usd(PENALTY_USD)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className={s.emptyLine}>No order-level rows to list.</p>}
+              {allOrders && <Pager p={unpaidPage} className={s.pager} />}
             </div>
             <div className={s.financeFoot}>
               <small>

@@ -15,7 +15,9 @@ const EmailBody = z.object({
   from: z.string().min(3), subject: z.string(), body: z.string().min(1),
   receivedAt: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/), inReplyTo: z.number().int().optional(),
 });
-const ActionBody = z.object({ action: z.enum(['approve', 'send_reply', 'send_to_wms']), user: z.string().min(1) });
+// `reply`: the operator's edited reply text (send_reply only); without it the stored draft is sent.
+const ActionBody = z.object({ action: z.enum(['approve', 'send_reply', 'send_to_wms']), user: z.string().min(1),
+  reply: z.string().trim().min(1).max(5000).optional() });
 const FetchBody = z.object({ query: z.string().optional(), max: z.number().int().min(1).max(POLL_MAX).default(POLL_MAX) });
 
 const routes: FastifyPluginAsync = async (app) => {
@@ -76,7 +78,7 @@ const routes: FastifyPluginAsync = async (app) => {
     if (!body.success) return reply.code(400).send({ error: body.error.message });
     const deps = getDeps();
     const result = await applyAction(deps.repo, Number(req.params.id), body.data.action, body.data.user,
-      { gmail: deps.gmail, allow: allowList });
+      { gmail: deps.gmail, allow: allowList }, body.data.reply);
     req.log.info({ emailId: Number(req.params.id), action: body.data.action, code: result.code }, 'intake action');
     return reply.code(result.code).send(result.error ? { error: result.error } : { status: result.status });
   });
