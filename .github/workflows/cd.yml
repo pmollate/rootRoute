@@ -192,6 +192,7 @@ jobs:
         with:
           app-name: ${{ env.API_APP }}
           package: deploy-api
+          clean: true   # replace wwwroot, so no files or build leftovers from earlier deploys survive
       - name: Give the API its version, AI, map and Gmail settings (empty secrets leave the current value)
         env:
           GIT_SHA: ${{ env.SHA }}
@@ -228,6 +229,7 @@ jobs:
         with:
           app-name: ${{ env.WEB_APP }}
           package: deploy-web
+          clean: true
       # The deploy replaces the files, but a running Next.js server keeps serving the build it loaded at start-up
       # (the API restarts anyway, from the app-settings change above).
       - name: Restart the web app so it serves the new build
