@@ -25,6 +25,8 @@ if [ -z "$PG_PASSWORD" ]; then
   az keyvault secret set --vault-name "$KV" -n pg-password --value "$PG_PASSWORD" -o none
 fi
 [ -n "$(secret api-key)" ] || az keyvault secret set --vault-name "$KV" -n api-key --value "$(openssl rand -hex 16)" -o none
+# Bearer token for the Ask LateLens MCP endpoint (D7); separate from api-key, which the dashboard ships to browsers.
+[ -n "$(secret mcp-token)" ] || az keyvault secret set --vault-name "$KV" -n mcp-token --value "$(openssl rand -hex 24)" -o none
 for s in AZURE_OPENAI_ENDPOINT AZURE_OPENAI_API_KEY AZURE_OPENAI_DEPLOYMENT; do
   name=$(echo "$s" | tr '[:upper:]_' '[:lower:]-')
   if [ -n "${!s:-}" ]; then az keyvault secret set --vault-name "$KV" -n "$name" --value "${!s}" -o none; fi
@@ -77,6 +79,7 @@ fi
 az webapp config appsettings set -g "$RG" -n "$API" -o none --settings \
   "DATABASE_URL=@Microsoft.KeyVault(SecretUri=$REF/database-url/)" \
   "API_KEY=@Microsoft.KeyVault(SecretUri=$REF/api-key/)" \
+  "MCP_TOKEN=@Microsoft.KeyVault(SecretUri=$REF/mcp-token/)" \
   "${LLM_SETTINGS[@]}" "ALLOW_LIST=ops-test@latelens.example,orders@client190.example" \
   "APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONN" "ApplicationInsightsAgent_EXTENSION_VERSION=~3" \
   "NODE_ENV=production" "SCM_DO_BUILD_DURING_DEPLOYMENT=false"

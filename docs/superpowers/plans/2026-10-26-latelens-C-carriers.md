@@ -1297,7 +1297,7 @@ jobs:
 
 ---
 
-### Task C9 (stretch): "Ask LateLens" MCP server (D7)
+### Task C9 (core since SPEC v0.6): "Ask LateLens" MCP server (D7)
 
 **Files:**
 - Create: `backend/api/src/modules/mcp/routes.ts`
@@ -1307,9 +1307,9 @@ jobs:
 - Consumes: `q.overview/causes/replay` (B9), `laneRows` + `recommendFromLane` (C4), `checkPromise` (B8).
 - Produces: `POST /api/mcp` (Streamable HTTP, stateless, needs `x-api-key`) with read-only tools `overview`, `delivery_causes`, `scenario`, `lane_scores`, `check_promise`; `buildMcpServer()`.
 
-- [ ] **Step 1: Install.** `npm --prefix backend/api install @modelcontextprotocol/sdk`
+- [x] **Step 1: Install.** `npm --prefix backend/api install @modelcontextprotocol/sdk`
 
-- [ ] **Step 2: Write the failing tests** (AC-MCP-01, AC-MCP-02):
+- [x] **Step 2: Write the failing tests** (AC-MCP-01, AC-MCP-02):
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1341,9 +1341,9 @@ describe.skipIf(!hasDb)('MCP route (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 3: Run.** Expected: FAIL, cannot find `mcp/routes.js`.
+- [x] **Step 3: Run.** Expected: FAIL, cannot find `mcp/routes.js`.
 
-- [ ] **Step 4: Implement:**
+- [x] **Step 4: Implement:**
 
 ```ts
 // D7 (stretch, owner C): read-only LateLens tools over MCP (Streamable HTTP, stateless).
@@ -1402,21 +1402,35 @@ const routes: FastifyPluginAsync = async (app) => {
 export default routes;
 ```
 
-- [ ] **Step 5: Run and try it.** `npm --prefix backend/api test -- test/mcp test/routes/mcp` — Expected: pass. Then connect an MCP client (for example Claude Desktop's custom connector) to `https://<NAME>-api.azurewebsites.net/api/mcp` with header `x-api-key`, and ask "What would LateLens as built achieve compared with the routing vendor?" — the answer must quote 92.0% for the full programme and 78.3% for the routing vendor.
+- [ ] **Step 5: Run and try it.** (Tests pass and a local MCP client works; the live check waits for deploy and `mcp-token`.) `npm --prefix backend/api test -- test/mcp test/routes/mcp` — Expected: pass. Then connect an MCP client (for example Claude Desktop's custom connector) to `https://<NAME>-api.azurewebsites.net/api/mcp` with header `x-api-key`, and ask "What would LateLens as built achieve compared with the routing vendor?" — the answer must quote 92.0% for the full programme and 78.3% for the routing vendor.
 
-- [ ] **Step 6: Commit.** `git add backend/api && git commit -m "feat(c): read-only MCP server for Ask LateLens (D7)"`
+- [x] **Step 6: Commit.** `git add backend/api && git commit -m "feat(c): read-only MCP server for Ask LateLens (D7)"`
+
+**As built (28 Oct):**
+- Code in `backend/api/src/modules/mcp/server.ts` (tools, `mcpAuth`) and `routes.ts` (transport); SDK pinned to 1.32.1
+  (1.32.2 was 5 days old).
+- Tools follow SPEC REQ-MCP-01 plus `overview`: `overview`, `delivery_causes`, `scenario`, `lane_scores`,
+  `recommend_carrier`, `check_promise`, all annotated read-only. `lane_scores` with no arguments lists the five blocked
+  lanes with reasons (AC-MCP-03 in one call).
+- Token: `MCP_TOKEN` as Bearer, not `x-api-key` (that key is `NEXT_PUBLIC_` and visible in every browser). Unset or
+  empty = 503. Key Vault secret `mcp-token`, created by `infra/setup.sh`.
+- Tests: `test/mcp.test.ts` (5: tool list and annotations through a real MCP client, check_promise, bad input, token)
+  and `test/routes/mcp.test.ts` (4, test database: 401 without the token or with the API key, five blocked lanes,
+  replay figures, no `recommendations` row written). Probed with the SDK's HTTP client against a local server.
+- The plan's example question quoted the routing vendor's 78.3%; B12 removed that scenario (`adopt_vendor`), so the test
+  checks today 71.0%, as built 85.9% and the programme 92.0% instead.
 
 ---
 
-### Task C10 (stretch): Playwright smoke test of every screen (P6)
+### Task C10 (core since SPEC v0.6): Playwright smoke test of every screen (P6)
 
 **Files:**
 - Create: `frontend/playwright.config.ts`, `frontend/e2e/smoke.spec.ts`
 - Modify: `frontend/package.json` (script, dev package)
 
-- [ ] **Step 1: Install.** `npm --prefix frontend install -D @playwright/test && npx --prefix frontend playwright install chromium` (install before creating the files, so `npm run typecheck` keeps passing).
+- [x] **Step 1: Install.** `npm --prefix frontend install -D @playwright/test && npx --prefix frontend playwright install chromium` (install before creating the files, so `npm run typecheck` keeps passing).
 
-- [ ] **Step 2: Config and test** (AC-UI-01, AC-UI-03 at 375 px; the Vitest config only picks up `components/` and `lib/`, so these never run under Vitest):
+- [x] **Step 2: Config and test** (AC-UI-01, AC-UI-03 at 375 px; the Vitest config only picks up `components/` and `lib/`, so these never run under Vitest):
 
 ```ts
 import { defineConfig } from '@playwright/test';
@@ -1457,9 +1471,25 @@ Add to `frontend/package.json` scripts:
 "e2e": "playwright test",
 ```
 
-- [ ] **Step 3: Run** against the deployed app, from `frontend/`: `WEB_URL=https://<static web app url> npm run e2e` — Expected: 6 passed. Run it again after every deployment on Thursday.
+- [x] **Step 3: Run** against the deployed app, from `frontend/`: `WEB_URL=https://<static web app url> npm run e2e` — Expected: 6 passed. Run it again after every deployment on Thursday.
 
-- [ ] **Step 4: Commit.** `git add frontend && git commit -m "test(c): Playwright smoke test of the dashboard at phone width"`
+- [x] **Step 4: Commit.** `git add frontend && git commit -m "test(c): Playwright smoke test of the dashboard at phone width"`
+
+**As built (28 Oct):**
+- `@playwright/test` pinned to 1.64.1 (1.64.x is the latest stable at least two weeks old). `npm run e2e` from `frontend/`
+  with `WEB_URL` and `API_URL`.
+- `e2e/smoke.spec.ts`, two projects (phone 375×812, desktop 1280×800): API health; the landing page; each of the six
+  screens loads with its title and heading, no "Could not load", no 5xx from the API, no page errors and no sideways
+  scrolling. At desktop width it also checks the SPEC figures on each screen: Overview 71.0% / 14,019 / $872k / 9
+  accounts; Warehouses 4,826 / 6,009 / 691; Carriers the five blocked lanes and the Northeast next-day reason; Replay
+  71.0%, 92.0% and the routing vendor's 78.3%; Order journey D000213; Order emails inbox. Read-only throughout.
+- CD: a separate `e2e` job runs after `deploy` on every deployment and uploads the HTML report, so a failed check is
+  visible without marking the deployment failed.
+- First run against the live app (28 Oct): 21 passed, 6 skipped (figures are checked at desktop width only), **1
+  failed: Replay no longer shows the routing vendor's 78.3%**. B12 removed the `adopt_vendor` scenario; the test stays
+  red until it is back.
+
+---
 
 ### Task C11: Order journey (D9, `docs/SPEC-order-workflow.md`)
 

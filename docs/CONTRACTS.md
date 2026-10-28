@@ -200,7 +200,7 @@ All numbers are numbers (not strings). Rates are 0..1; the UI formats them. Pane
 | `GET /api/complaints` | A | `{ complaints: [{ complaintId, clientId, deliveryId, category, date, text, atRisk, tier }] }` |
 | `POST /api/complaints/:id/triage` | A | → `{ complaintId, deliveryId, stages, prePickup, escalate, draft, source }` |
 | `POST /api/alerts/run` | A | body `{ asOf }` → `{ drafted: number }` (needs `x-api-key`) |
-| `POST /api/mcp` | C | MCP Streamable HTTP, read-only tools (needs `x-api-key`; stretch) |
+| `POST /api/mcp` | C | MCP Streamable HTTP (stateless, JSON responses). Tools, all read-only: `overview`, `delivery_causes`, `scenario`, `lane_scores`, `recommend_carrier`, `check_promise`. Needs `Authorization: Bearer <MCP_TOKEN>`; 401 without it, 503 when `MCP_TOKEN` is unset |
 
 ## 7. Environment variables (`.env.example`, owner B)
 

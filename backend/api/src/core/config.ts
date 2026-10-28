@@ -24,6 +24,8 @@ const Env = z.object({
   GMAIL_REFRESH_TOKEN: z.string().optional(),
   INTAKE_POLL_MINUTES: z.coerce.number().int().min(0).max(60).default(10), // E15: Gmail poll interval; 0 = off
   API_KEY: z.string().min(1),
+  // D7 Ask LateLens: Bearer token for /api/mcp; unset or empty = endpoint off
+  MCP_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(16).optional()),
   ALLOW_LIST: z.string().default(''),
 });
 
