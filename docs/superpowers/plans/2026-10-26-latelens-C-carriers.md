@@ -1460,3 +1460,25 @@ Add to `frontend/package.json` scripts:
 - [ ] **Step 3: Run** against the deployed app, from `frontend/`: `WEB_URL=https://<static web app url> npm run e2e` — Expected: 6 passed. Run it again after every deployment on Thursday.
 
 - [ ] **Step 4: Commit.** `git add frontend && git commit -m "test(c): Playwright smoke test of the dashboard at phone width"`
+
+### Task C11: Order journey (D9, `docs/SPEC-order-workflow.md`)
+
+**Files:**
+- Create: `backend/api/src/modules/carriers/journey.ts` (pure stage builders), `backend/api/test/carriers/journey.test.ts`,
+  `backend/api/test/routes/journey.test.ts`, `frontend/app/dashboard/journey/page.tsx`,
+  `frontend/components/dashboard/journey/` (`JourneyScreen.tsx`, `journey.module.css`, `JourneyScreen.test.tsx`)
+- Modify: `backend/api/src/modules/carriers/queries.ts` (`deliveryFacts`, `emailFacts`, reads only),
+  `backend/api/src/modules/carriers/routes.ts` (`GET /api/journey/:ref`), `frontend/config/dashboard.ts` and
+  `frontend/components/dashboard/DashboardShell.tsx` (nav entry and icon)
+
+- [x] **Step 1: Builder tests first** (AC-JRN-01, -03, -04, -07, REQ-JRN-08, SEC-JRN-01): 13 tests, failing.
+- [x] **Step 2: Builders** `buildDeliveryJourney`, `buildEmailJourney`: 14 stages; a past delivery marks the stage of each
+  cause flag as failed, with the existing rule's output beside it (never an on-time claim).
+- [x] **Step 3: Route** `GET /api/journey/:ref` (`email:<id>` | `delivery:D<6 digits>`; 400 / 404), test on the test
+  database (AC-JRN-01, -02, -07): D000213 fails at address, carrier and delivery; no rows written. Logs the ref (SEC-JRN-03).
+- [x] **Step 4: Screen** `/dashboard/journey?ref=…`: ref box, two real examples (D000213, D000559) and the latest order
+  emails, four KPIs, a five-phase tracker and the timeline with "With LateLens" notes and synthetic badges. 3 tests.
+- [x] **Step 5: Commit.** `git commit -m "feat(c): Order journey (D9): one order from email to door"`
+- [ ] **Step 6 (synthetic, not started):** simulated stages 10–13 for new orders (`order_events`, `journey_timing`,
+  REQ-JRN-05/-06/-10), and the "Order journey" link on the Intake detail (REQ-JRN-09) once A's open changes are merged.
+
