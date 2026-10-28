@@ -1417,7 +1417,7 @@ export default routes;
 - Tests: `test/mcp.test.ts` (5: tool list and annotations through a real MCP client, check_promise, bad input, token)
   and `test/routes/mcp.test.ts` (4, test database: 401 without the token or with the API key, five blocked lanes,
   replay figures, no `recommendations` row written). Probed with the SDK's HTTP client against a local server.
-- The plan's example question quoted the routing vendor's 78.3%; B12 removed that scenario (`adopt_vendor`), so the test
+- The plan's example question quoted the routing vendor's 78.3%; that scenario was removed (SPEC v0.9), so the test
   checks today 71.0%, as built 85.9% and the programme 92.0% instead.
 
 ---
@@ -1482,12 +1482,11 @@ Add to `frontend/package.json` scripts:
   screens loads with its title and heading, no "Could not load", no 5xx from the API, no page errors and no sideways
   scrolling. At desktop width it also checks the SPEC figures on each screen: Overview 71.0% / 14,019 / $872k / 9
   accounts; Warehouses 4,826 / 6,009 / 691; Carriers the five blocked lanes and the Northeast next-day reason; Replay
-  71.0%, 92.0% and the routing vendor's 78.3%; Order journey D000213; Order emails inbox. Read-only throughout.
+  71.0% and 92.0%, and no vendor scenario (SPEC v0.9); Order journey D000213; Order emails inbox. Read-only throughout.
 - CD: a separate `e2e` job runs after `deploy` on every deployment and uploads the HTML report, so a failed check is
   visible without marking the deployment failed.
-- First run against the live app (28 Oct): 21 passed, 6 skipped (figures are checked at desktop width only), **1
-  failed: Replay no longer shows the routing vendor's 78.3%**. B12 removed the `adopt_vendor` scenario; the test stays
-  red until it is back.
+- First run against the live app (28 Oct): 21 passed, 6 skipped, 1 failed on the routing vendor's 78.3%. The team then
+  removed that scenario (SPEC v0.9), and the check now asserts it is absent.
 
 ---
 
