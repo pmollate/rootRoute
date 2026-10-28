@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
-import { Segmented, Status } from '@/components/dashboard/ui';
+import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { PageHero } from '@/components/dashboard/PageHero';
+import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
 import { int, pct, points, usdK, usdShort } from '@/lib/metrics';
 import s from './overview.module.css';
@@ -11,7 +12,6 @@ export interface Overview {
   onTime: number; benchmark: number; deliveries: number; late: number; penaltiesUsd: number; handlingCostUsd: number;
   atRiskAccounts: number; atRiskRevenueUsd: number; prePickupShare: number;
 }
-interface Cause { flag: string; label: string; stage: string; n: number; lateRate: number }
 interface Attribution { cause: string; label: string; stage: string; deliveries: number; pointsLost: number; share: number }
 interface CauseKpi { cause: string; label: string; kpi: string; baseline: number; target: string; owner: string }
 interface Scenario { scenario: string; label: string; onTime: number }
@@ -19,70 +19,52 @@ interface Scenario { scenario: string; label: string; onTime: number }
 /** The on-time goal the team set (a target, not a computed figure); the 94% industry benchmark comes from the API. */
 const TARGET = 0.95;
 
-/** 24px line icons, drawn with the current text colour. */
-const PATHS = {
-  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+/** A small square glyph, as used on the chips and card corners of the design. */
+const Glyph = () => <span className={s.glyph} aria-hidden="true" />;
+
+/** 24px line icons for the KPI cards, drawn with the current text colour. */
+const KPI_ICONS = {
+  clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
   box: <><path d="M21 8 12 3 3 8v8l9 5 9-5z" /><path d="M3 8l9 5 9-5M12 13v8" /></>,
   dollar: <path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.6 4.5 3 4.5 1.3 4.5 3-2 3-4.5 3-4.5-1.3-4.5-3" />,
   users: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.5 3.3-5.5 6.5-5.5s5.9 2 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.8c1.6.8 2.7 2.6 3 5.2" /></>,
-  mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
-  clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
-  warehouse: <><path d="M3 21V8l9-5 9 5v13" /><path d="M7 21v-8h10v8M7 17h10" /></>,
-  truck: <><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="18" r="2" /></>,
-  route: <><circle cx="6" cy="19" r="2" /><circle cx="18" cy="5" r="2" /><path d="M8 19h8.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H16" /></>,
-  pin: <><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></>,
-  alert: <><path d="M12 3 2 20h20z" /><path d="M12 10v4M12 17.5v.01" /></>,
-  download: <path d="M12 4v11M7 10l5 5 5-5M4 20h16" />,
-  replay: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></>,
-  chevron: <path d="m9 6 6 6-6 6" />,
-  arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
-  info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8v.01" /></>,
 };
-type IconName = keyof typeof PATHS;
-const Icon = ({ name, size = 18 }: { name: IconName; size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    {PATHS[name]}
-  </svg>
+const KpiIcon = ({ name }: { name: keyof typeof KPI_ICONS }) => (
+  <span className={s.kpiIcon}>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {KPI_ICONS[name]}
+    </svg>
+  </span>
 );
 
 const PRE_PICKUP = new Set(['Intake', 'Promise', 'Fulfilment']);
 /** The shipment lifecycle, in order: each stage has one of the five causes. */
 const LIFECYCLE = ['f_addr', 'f_cutoff', 'f_stock', 'f_lane', 'f_route'];
-const STAGE_ICON: Record<string, IconName> = { f_addr: 'mail', f_cutoff: 'clock', f_stock: 'warehouse', f_lane: 'truck', f_route: 'route' };
-const CAUSE_ICON: Record<string, IconName> = { f_addr: 'pin', f_cutoff: 'clock', f_stock: 'warehouse', f_lane: 'truck', f_route: 'route' };
+/** Short stage/cause wording for the lifecycle list. */
+const LIFECYCLE_TEXT: Record<string, [string, string]> = {
+  f_addr: ['Intake', 'incomplete address'], f_cutoff: ['Promise', 'after 8am cut-off'], f_stock: ['Fulfilment', 'non-nearest warehouse'],
+  f_lane: ['Line-haul', 'carrier D, Fridays'], f_route: ['Last mile', 'route overrun >20%'],
+};
 /** Expected-adoption steps of the replay, in programme order, and the cause each one fixes. */
 const ADOPTION = [['adopt_address', 'f_addr'], ['adopt_lanes', 'f_lane'], ['adopt_cutoff', 'f_cutoff'],
   ['adopt_warehouse', 'f_stock'], ['adopt_all', 'f_route']] as const;
-/** The proposed fix for each cause, and the screen that carries it out. */
-const FIXES: Record<string, [string, string]> = {
-  f_lane: ['Lane rules + Friday cap on carrier D', '/dashboard/carriers'],
-  f_addr: ['Validate addresses at intake', '/dashboard/intake'],
-  f_stock: ['Nearest-stocked + sibling fallback', '/dashboard/warehouses'],
-  f_cutoff: ['Cutoff-aware promise + 11:00 wave', '/dashboard/warehouses'],
-  f_route: ['Live route-overrun alerts', '/dashboard/carriers'],
-  none: ['Set up delay alerts', '/dashboard/intake'],
+/** The proposed fix for each cause: [title, what it fixes, short waterfall label]. */
+const FIXES: Record<string, [string, string, string]> = {
+  f_addr: ['Validate addresses at intake', 'Fixes incomplete address', 'Address validation'],
+  f_lane: ['Lane rules plus a Friday cap on carrier D', 'Fixes lane / carrier D on Fridays', 'Lane rules + Friday cap on D'],
+  f_cutoff: ['Cut-off-aware delivery promise with an 11:00 wave', 'Fixes orders after the 8am cut-off', 'Cut-off-aware promise'],
+  f_stock: ['Ship from the nearest warehouse with stock', 'With a sibling fallback', 'Nearest warehouse'],
+  f_route: ['Live alerts when a route overruns', 'Fixes route overrun above 20%', 'Route overrun alerts'],
 };
-const SEGMENTS = [['all', 'All orders'], ['email', 'Email orders'], ['at_risk', 'At-risk accounts']] as const;
-type Segment = (typeof SEGMENTS)[number][0];
-const MODES = [['ceiling', 'Ceiling'], ['replay', 'Replay']] as const;
-type Mode = (typeof MODES)[number][0];
-const METHOD = 'Ceiling assumes each cause fully removed; Replay applies realistic fix rates.';
 
 /** The waterfall runs from 65% to 100% on-time. */
 const AXIS_MIN = 0.65;
 const at = (v: number) => `${Math.max(0, Math.min(100, ((v - AXIS_MIN) / (1 - AXIS_MIN)) * 100))}%`;
-const span = (from: number, to: number) => ({ left: at(from), width: `calc(${at(to)} - ${at(from)})` });
+const col = (from: number, to: number) => ({ bottom: at(from), height: `calc(${at(to)} - ${at(from)})` });
 /** Counts are shown as whole numbers, shares as percentages. */
 const today = (k: CauseKpi) => (k.baseline > 1 ? int(k.baseline) : pct(k.baseline));
 /** "<26% (the before-cutoff rate)" → "<26%"; the note moves to a tooltip. */
 const shortTarget = (t: string) => t.split(' (')[0];
-/** Whether today's value meets a target such as "<2%", "0%" or "0"; null when the target can't be read. */
-function onTarget(k: CauseKpi): boolean | null {
-  const m = /^(<)?\s*([\d.]+)(%)?/.exec(k.target);
-  if (!m) return null;
-  const v = m[3] ? k.baseline * 100 : k.baseline;
-  return m[1] ? v < Number(m[2]) : v <= Number(m[2]);
-}
 /** "Sales ops / warehouse" → "SO" */
 const initials = (name: string) => name.split(/[\s/]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 
@@ -96,77 +78,193 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
   URL.revokeObjectURL(url);
 }
 
-interface Step { cause: string; label: string; note?: string; pre: boolean; from: number; to: number }
+interface Step { cause: string; stage: string; pointsLost: number; from: number; to: number }
 
-function KpiCard({ label, icon, value, children }: { label: string; icon: IconName; value: string; children: ReactNode }) {
+/** Ring chart for a 0–1 share. */
+function Donut({ value }: { value: number }) {
+  const r = 26, c = 2 * Math.PI * r;
   return (
-    <section className={s.kpi}>
-      <p className={s.kpiHead}>{label}<span className={s.kpiIcon}><Icon name={icon} /></span></p>
-      <div className={s.kpiValue}>{value}</div>
-      <p className={s.kpiNote}>{children}</p>
-    </section>
+    <span className={s.donut} role="img" aria-label={pct(value, 0)}>
+      <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
+        <circle cx="32" cy="32" r={r} className={s.donutRest} />
+        <circle cx="32" cy="32" r={r} className={s.donutFill} strokeDasharray={`${c * value} ${c}`} transform="rotate(-90 32 32)" />
+      </svg>
+      <b>{pct(value, 0)}</b>
+    </span>
   );
 }
 
-/** The 94% benchmark (dashed) and the 95% target (solid) drawn across a waterfall track. */
-const Marks = ({ benchmark }: { benchmark: number }) => (
-  <>
-    <span className={s.bench} style={{ left: at(benchmark) }} />
-    <span className={s.target} style={{ left: at(TARGET) }} />
-  </>
-);
+const OPENING = 'How do we close the gap to our 95% on-time target?';
+const SUGGESTIONS = ["Show carrier D's Friday lanes", 'Who owns each fix?', 'What closes the last 3 points?'];
+
+interface AssistantProps {
+  deliveries?: number; onTime?: number; steps: Step[]; lost: number; ceiling?: number; largest?: string;
+  owners: Record<string, string>; loading: boolean; error?: string;
+}
+
+/** Recommendations as a conversation. Answers are worked out from the same replay and attribution figures as the rest of the page. */
+function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, loading, error }: AssistantProps) {
+  const [picked, setPicked] = useState(0);
+  const [asked, setAsked] = useState<string[]>([]);
+  /** Up to 1000px the assistant is a side popup behind a floating icon. Wider screens ignore this. */
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+  const [draft, setDraft] = useState('');
+  const [copied, setCopied] = useState(false);
+  const final = steps.at(-1)?.to;
+  const first = steps[0] ? steps[0].to - steps[0].from : 1;
+
+  const answer = (q: string): ReactNode => {
+    if (/own|who/i.test(q)) {
+      return <ul className={s.answerList}>{steps.map((x) => <li key={x.cause}><b>{FIXES[x.cause]?.[0]}</b> · {owners[x.cause] || 'No owner named yet'}</li>)}</ul>;
+    }
+    if (/carrier|friday|lane/i.test(q)) {
+      const lane = steps.find((x) => x.cause === 'f_lane');
+      return <p>Carrier D on Fridays is a capacity problem on specific lanes and costs {lane ? points(lane.pointsLost) : '—'} points of on-time.
+        The lane-by-lane view is on <Link href="/dashboard/carriers">Lanes &amp; carriers</Link>.</p>;
+    }
+    if (/last|close|gap|target|95/i.test(q) && final != null && ceiling != null) {
+      return <p>At expected adoption the fixes reach {pct(final)}, {points(Math.max(0, TARGET - final))} points short of {pct(TARGET, 0)}.
+        Removing every cause entirely would reach {pct(Math.min(ceiling, 1))}, so the last points come from adopting the same five fixes more fully, not from new fixes.</p>;
+    }
+    return <p>I can answer about the five causes, who owns each fix, carrier D&apos;s lanes, or what closes the gap to target.</p>;
+  };
+  const ask = (q: string) => { if (q.trim()) setAsked((list) => [...list, q.trim()]); setDraft(''); };
+  const submit = (e: FormEvent) => { e.preventDefault(); ask(draft); };
+  const copyPlan = () => {
+    const plan = steps.map((x, i) => `${i + 1}. ${FIXES[x.cause]?.[0]}: +${points(x.to - x.from)} pts, to ${pct(x.to)}`).join('\n');
+    navigator.clipboard?.writeText(plan).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1600); }, () => {});
+  };
+
+  return (
+    <>
+    <button type="button" className={`${s.bot} ${s.launcher}`} aria-expanded={open} aria-controls="assistant" aria-label="Open Halcyon Assistant"
+      onClick={() => setOpen(true)}>
+      <Glyph /><i /><span className={s.launcherTip} aria-hidden="true">Ask Halcyon Assistant</span>
+    </button>
+    <div className={s.scrim} data-open={open} aria-hidden="true" onClick={() => setOpen(false)} />
+    <section id="assistant" className={`${s.panel} ${s.assistant}`} data-open={open} aria-label="Halcyon Assistant">
+      <div className={s.chatHead}>
+        <span className={s.bot}><Glyph /><i /></span>
+        <div><b>Halcyon Assistant</b>{deliveries != null && <small>Analysed {int(deliveries)} deliveries</small>}</div>
+        <button type="button" className={s.close} aria-label="Close assistant" onClick={() => setOpen(false)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+        </button>
+      </div>
+      <div className={s.thread}>
+        <p className={s.day}>Today</p>
+        <p className={s.you}>{OPENING}</p>
+        <div className={s.reply}>
+          <span className={s.botSmall}><Glyph /></span>
+          <div className={s.replyBody}>
+            <p>I traced every late delivery to one of five causes. Here&apos;s <b>one fix per cause, ranked by impact</b>. I replayed each on your
+              supplied deliveries at its expected adoption rate. Select a fix to see what it targets.</p>
+            <Status loading={loading} error={error} skeleton="rows" count={5} />
+            <ol className={s.fixes}>
+              {steps.map((x, i) => {
+                const fix = FIXES[x.cause];
+                const gain = x.to - x.from;
+                const open = i === picked;
+                return (
+                  <li key={x.cause}>
+                    <button type="button" className={`${s.fix} ${open ? s.fixOpen : ''}`} aria-expanded={open} onClick={() => setPicked(i)}>
+                      <span className={s.fixRow}>
+                        <span className={s.fixNum}>{i + 1}</span>
+                        <span className={s.fixText}><b>{fix?.[0] ?? x.cause}</b><small>{fix?.[1]} · {x.stage}</small></span>
+                        <span className={s.fixBar}><span className={x.cause === largest || i === 0 ? s.hot : undefined} style={{ width: `${(gain / first) * 100}%`, '--i': i } as CSSProperties} /></span>
+                        <span className={s.fixPts}><b className={i === 0 ? s.hotText : undefined}>+{points(gain)}</b><small>to {pct(x.to)}</small></span>
+                      </span>
+                      {open && (
+                        <span className={s.fixDetail}>
+                          <span><small>Cause removed</small>{points(x.pointsLost)} pts lost</span>
+                          <span><small>Lifecycle stage</small>{x.stage}, {PRE_PICKUP.has(x.stage) ? 'before' : 'after'} pickup</span>
+                          <span><small>Replayed on-time</small>{(x.from * 100).toFixed(1)} → {pct(x.to)}</span>
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+            {onTime != null && final != null && (
+              <>
+                <p className={s.applied}><span>Applied together, on-time rises from {pct(onTime)} to</span><b>{pct(final)}</b></p>
+                {ceiling != null && ceiling > TARGET && (
+                  <p>Removing every cause entirely would put you above the {pct(TARGET, 0)} target, so the last {points(TARGET - final)} points come down to adoption.</p>
+                )}
+                <p className={s.meta}>
+                  {deliveries != null && <span><Glyph />{int(deliveries)} supplied deliveries</span>}
+                  <span><Glyph />Replayed at expected adoption</span>
+                  <span><Glyph />{steps.length} causes, {points(lost)} pts</span>
+                </p>
+                <button type="button" className={s.ghost} onClick={copyPlan}><Glyph />{copied ? 'Copied' : 'Copy plan'}</button>
+              </>
+            )}
+          </div>
+        </div>
+        {asked.map((q, i) => (
+          <div key={i}>
+            <p className={s.you}>{q}</p>
+            <div className={s.reply}><span className={s.botSmall}><Glyph /></span><div className={s.replyBody}>{answer(q)}</div></div>
+          </div>
+        ))}
+      </div>
+      <div className={s.suggest}>
+        {SUGGESTIONS.map((q) => <button key={q} type="button" className={s.chip} onClick={() => ask(q)}><Glyph />{q}</button>)}
+      </div>
+      <form className={s.ask} onSubmit={submit}>
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Ask a follow-up about delivery performance…" aria-label="Ask a follow-up" />
+        <button type="submit" aria-label="Send" disabled={!draft.trim()}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+        </button>
+      </form>
+    </section>
+    </>
+  );
+}
 
 export function OverviewScreen() {
-  const [segment, setSegment] = useState<Segment>('all');
-  const [mode, setMode] = useState<Mode>('ceiling');
   const o = useApi<Overview>('/api/overview');
   const a = useApi<{ causes: Attribution[] }>('/api/attribution');
   const k = useApi<{ kpis: CauseKpi[] }>('/api/cause-kpis');
   const r = useApi<{ scenarios: Scenario[] }>('/api/replay?segment=all');
-  const all = useApi<{ causes: Cause[] }>('/api/causes?segment=all');
-  const seg = useApi<{ causes: Cause[] }>(segment === 'all' ? null : `/api/causes?segment=${segment}`);
-  const segCauses = segment === 'all' ? all : seg;
 
   const attribution = a.data?.causes ?? [];
   const byCause = new Map(attribution.map((x) => [x.cause, x]));
-  const flag = (list: Cause[] | undefined, f: string) => list?.find((x) => x.flag === f);
   const lost = attribution.reduce((t, x) => t + x.pointsLost, 0);
-  const lostPre = attribution.filter((x) => PRE_PICKUP.has(x.stage)).reduce((t, x) => t + x.pointsLost, 0);
   const maxLost = Math.max(0, ...attribution.map((x) => x.pointsLost));
-  const none = flag(all.data?.causes, 'none');
   const kpis = k.data?.kpis ?? [];
   /** A cause's headline measure is the first one /api/cause-kpis lists for it. */
   const measure = (cause: string) => kpis.find((m) => m.cause === cause);
   const crossCutting = measure('none');
 
   const scenarios = new Map((r.data?.scenarios ?? []).map((x) => [x.scenario, x]));
-  const programme = scenarios.get('adopt_all')?.onTime;
   const steps: Step[] = [];
-  if (o.data && mode === 'ceiling') {
-    let from = o.data.onTime;
-    for (const x of attribution) {
-      steps.push({ cause: x.cause, label: measure(x.cause)?.label ?? x.label, pre: PRE_PICKUP.has(x.stage), from, to: from + x.pointsLost });
-      from += x.pointsLost;
-    }
-  } else if (o.data && r.data) {
+  if (o.data) {
     let from = o.data.onTime;
     for (const [id, cause] of ADOPTION) {
       const sc = scenarios.get(id);
       const c = byCause.get(cause);
       if (!sc || !c) continue;
-      steps.push({ cause, label: measure(cause)?.label ?? c.label, note: sc.label.replace(/^\+ /, ''), pre: PRE_PICKUP.has(c.stage), from, to: sc.onTime });
+      steps.push({ cause, stage: c.stage, pointsLost: c.pointsLost, from, to: sc.onTime });
       from = sc.onTime;
     }
   }
+  const final = steps.at(-1)?.to;
+  const ceiling = o.data ? o.data.onTime + lost : undefined;
   const benchmark = o.data?.benchmark ?? 0.94;
-  const clears = steps.findIndex((x) => x.to >= TARGET);
+  const largest = attribution[0]?.cause;
 
   const exportTable = () => downloadCsv('halcyon-causes.csv', [
-    ['Cause', 'Stage', 'Points lost', 'Late rate', 'Measure', 'Today', 'Target', 'Owner'],
+    ['Cause', 'Stage', 'Points lost', 'Measure', 'Current', 'Target', 'Owner'],
     ...attribution.map((x) => {
       const m = measure(x.cause);
-      return [m?.label ?? x.label, x.stage, points(x.pointsLost), pct(flag(segCauses.data?.causes, x.cause)?.lateRate, 0),
-        m?.kpi ?? '', m ? today(m) : '', m?.target ?? '', m?.owner ?? ''];
+      return [m?.label ?? x.label, x.stage, points(x.pointsLost), m?.kpi ?? '', m ? today(m) : '', m?.target ?? '', m?.owner ?? ''];
     }),
   ]);
 
@@ -174,232 +272,268 @@ export function OverviewScreen() {
     <div className={s.screen}>
       <div className={s.pageHead}>
         <div>
-          <h1 className={s.title}>Delivery performance</h1>
-          {o.data && (
-            <p className={s.lede}>
-              Why {pct(o.data.late / o.data.deliveries, 0)} of shipments arrive late, and which fixes close the gap to {pct(TARGET, 0)}.
-            </p>
-          )}
+          <p className={s.eyebrow}>Delivery performance</p>
+          <h1 className={s.title}>Overview</h1>
         </div>
         <div className={s.actions}>
-          <button type="button" className={s.btn} onClick={exportTable} disabled={attribution.length === 0}>
-            <Icon name="download" size={16} />Export
+          {o.data && <span className={s.chip}><Glyph />{int(o.data.deliveries)} shipments analysed</span>}
+          <button type="button" className={s.chip} onClick={exportTable} disabled={attribution.length === 0}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 15V3M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
+            </svg>Export
           </button>
-          <Link className={`${s.btn} ${s.btnDark}`} href="/dashboard/replay"><Icon name="replay" size={16} />Open replay</Link>
         </div>
       </div>
 
-      <Status loading={o.loading} error={o.error} />
+      <Status loading={o.loading} error={o.error} skeleton="block" count={1} />
       {o.data && (
         <>
-          <div className={s.alert} role="note">
-            <Icon name="alert" />
-            <p><b>{o.data.atRiskAccounts} accounts are threatening to leave</b> — {usdShort(o.data.atRiskRevenueUsd)} in annual revenue at risk.</p>
-            <Link href="/dashboard/replay">View accounts <Icon name="arrow" size={14} /></Link>
-          </div>
+          <PageHero image="/media/overview-hero.jpg" imagePosition="right -40px center" imageSize="auto 135%"
+            variant="metric" eyebrow="On-time delivery rate" title={<>{(o.data.onTime * 100).toFixed(1)}<small>%</small></>}
+            text={<>
+              <b>{Math.round((o.data.benchmark - o.data.onTime) * 100)} points below</b> the {pct(o.data.benchmark, 0)} industry benchmark
+              and short of the team&apos;s {pct(TARGET, 0)} target. Five causes explain the entire gap, and most of it happens <b>before pickup</b>.
+            </>}
+            chips={[
+              { label: 'Late shipments', value: int(o.data.late), note: `of ${int(o.data.deliveries)}` },
+              { label: 'Cost of lateness', value: usdShort(o.data.penaltiesUsd + o.data.handlingCostUsd) },
+            ]}>
+            <div className={s.heroGauge}>
+              <div className={s.heroBar} role="img" aria-label={`${pct(o.data.onTime)} today; benchmark ${pct(benchmark, 0)}, target ${pct(TARGET, 0)}`}>
+                <span className={s.heroFill} style={{ width: pct(o.data.onTime) }} />
+                <span className={s.heroGap} style={{ left: pct(o.data.onTime), width: pct(TARGET - o.data.onTime) }} />
+                <span className={s.heroTick} style={{ left: pct(benchmark) }} />
+                <span className={s.heroTick} style={{ left: pct(TARGET) }} />
+              </div>
+              <div className={s.heroAxis}>
+                <span>0%</span>
+                <span style={{ left: pct(o.data.onTime) }}><b>{pct(o.data.onTime)}</b>Today</span>
+                <span style={{ left: pct(TARGET) }}><b>{pct(benchmark, 0)} / {pct(TARGET, 0)}</b>Benchmark / target</span>
+              </div>
+            </div>
+          </PageHero>
 
           <div className={s.kpis}>
-            <KpiCard label="On-time delivery" icon="check" value={pct(o.data.onTime)}>
-              <span className={s.tagBad}>−{Math.round((o.data.benchmark - o.data.onTime) * 100)} pts</span> vs {pct(o.data.benchmark, 0)} industry benchmark
-            </KpiCard>
-            <KpiCard label="Late deliveries" icon="box" value={int(o.data.late)}>
-              <span className={s.tagMuted}>{pct(o.data.late / o.data.deliveries)}</span> of {int(o.data.deliveries)} shipments
-            </KpiCard>
-            <KpiCard label="Cost of lateness" icon="dollar" value={usdShort(o.data.penaltiesUsd + o.data.handlingCostUsd)}>
-              {usdK(o.data.penaltiesUsd)} penalties · {usdK(o.data.handlingCostUsd)} handling
-            </KpiCard>
-            <KpiCard label="Revenue at risk" icon="users" value={usdShort(o.data.atRiskRevenueUsd)}>
-              <span className={s.tagBad}>{o.data.atRiskAccounts} accounts</span> threatening to leave
-            </KpiCard>
+            <section className={s.kpi}>
+              <p className={s.kpiHead}>On-time rate<KpiIcon name="clock" /></p>
+              <p className={s.kpiValue}>{(o.data.onTime * 100).toFixed(1)}<small>%</small></p>
+              <span className={s.tagBad}><Glyph />{Math.round((o.data.benchmark - o.data.onTime) * 100)} pts vs {pct(o.data.benchmark, 0)} benchmark</span>
+              <p className={s.kpiNote}>Target {pct(TARGET, 0)}.{final != null && <> Replayed fixes lift it to <b className={s.good}>{pct(final)}</b>.</>}</p>
+            </section>
+            <section className={s.kpi}>
+              <p className={s.kpiHead}>Late shipments<KpiIcon name="box" /></p>
+              <p className={s.kpiValue}>{int(o.data.late)}</p>
+              <p className={s.kpiNote}>{pct(o.data.late / o.data.deliveries)} of {int(o.data.deliveries)} shipments arrived late</p>
+              <span className={s.split2}>
+                <span className={s.light} style={{ flexGrow: o.data.deliveries - o.data.late }} />
+                <span className={s.dark} style={{ flexGrow: o.data.late }} />
+              </span>
+              <p className={s.legend}><span><i className={s.light} />On time {int(o.data.deliveries - o.data.late)}</span><span><i className={s.dark} />Late {int(o.data.late)}</span></p>
+            </section>
+            <section className={s.kpi}>
+              <p className={s.kpiHead}>Cost of lateness<KpiIcon name="dollar" /></p>
+              <p className={s.kpiValue}>{usdShort(o.data.penaltiesUsd + o.data.handlingCostUsd)}</p>
+              <p className={s.kpiNote}>Penalties and late-delivery handling</p>
+              <span className={s.split2}>
+                <span className={s.dark} style={{ flexGrow: o.data.penaltiesUsd }} />
+                <span className={s.mid} style={{ flexGrow: o.data.handlingCostUsd }} />
+              </span>
+              <p className={s.legend}><span><i className={s.dark} />Penalties {usdK(o.data.penaltiesUsd)}</span><span><i className={s.mid} />Handling {usdK(o.data.handlingCostUsd)}</span></p>
+            </section>
+            <section className={s.kpi}>
+              <p className={s.kpiHead}>Accounts at risk<KpiIcon name="users" /></p>
+              <p className={s.kpiValue}>{o.data.atRiskAccounts}</p>
+              <p className={s.kpiNote}>Combined annual revenue <span className={s.tagMuted}>{usdShort(o.data.atRiskRevenueUsd)}</span></p>
+            </section>
           </div>
         </>
       )}
 
-      <div className={s.split}>
-        <section className={s.panel}>
+      <div className={s.row2}>
+        <section className={`${s.panel} ${s.pathPanel}`}>
           <div className={s.head}>
             <div>
-              <h2 className={s.h2}>
-                Path to {pct(TARGET, 0)} on-time
-                <span className={s.info} title={METHOD}><Icon name="info" size={15} /></span>
-              </h2>
+              <h2 className={s.h2}>Path to target</h2>
               <p className={s.sub}>
-                {mode === 'ceiling'
-                  ? 'On-time points recovered by removing each cause, largest first'
-                  : 'Each fix replayed on the supplied deliveries at its expected adoption rate'}
+                Each fix replayed on the supplied deliveries at its expected adoption rate.
+                {o.data && final != null && <> On-time rises step by step from {pct(o.data.onTime)} to {pct(final)}.</>}
               </p>
             </div>
-            <Segmented label="Waterfall" value={mode} onChange={setMode}
-              options={MODES.map(([v, l]) => [v, v === 'replay' && programme != null ? `${l} · ${pct(programme, 0)}` : l] as const)} />
+            <div className={s.chips}>
+              {o.data && final != null && <span className={s.tagGood}><Glyph />+{points(final - o.data.onTime)} pts</span>}
+              {ceiling != null && <span className={s.tagMuted}>Ceiling {ceiling > TARGET ? `> ${pct(TARGET, 0)}` : pct(ceiling)}</span>}
+            </div>
           </div>
-          <Status loading={a.loading} error={a.error} />
-          {mode === 'replay' && <Status loading={r.loading} error={r.error} />}
-          {o.data && steps.length > 0 && (
-            <div className={s.fall}>
-              <div className={s.step}>
-                <span className={s.stepLabel}>Today</span>
-                <span className={s.track}>
-                  <span className={`${s.seg} ${s.base}`} style={span(AXIS_MIN, o.data.onTime)} />
-                  <Marks benchmark={benchmark} />
-                </span>
-                <span className={s.stepValue}>{pct(o.data.onTime)}</span>
-              </div>
-              {steps.map((x, i) => (
-                <div key={x.cause} className={s.step}>
-                  <span className={s.stepLabel}>{x.label}{x.note && <small>{x.note}</small>}</span>
-                  <span className={s.track} role="img" aria-label={`+${points(x.to - x.from)} points to ${pct(x.to)}`}>
-                    <span className={`${s.seg} ${x.pre ? s.pre : s.post}`} style={span(x.from, x.to)} />
-                    <Marks benchmark={benchmark} />
-                  </span>
-                  <span className={s.stepValue}>
-                    <b>+{points(x.to - x.from)}</b> <span className={i === clears ? s.accent : undefined}>{pct(Math.min(x.to, 1))}</span>
-                  </span>
+          <Status loading={a.loading || r.loading} error={a.error ?? r.error} skeleton="bars" count={6} />
+          {o.data && final != null && (
+            <div className={s.pathGrid}>
+              <div className={s.chartScroll}>
+                <div className={s.chart}>
+                  <div className={s.plot}>
+                    {[0.7, 0.8, 0.9, 1].map((v) => <span key={v} className={s.grid} style={{ bottom: at(v) }}><em>{pct(v, 0)}</em></span>)}
+                    <span className={s.targetLine} style={{ bottom: at(TARGET) }}><em>Target {pct(TARGET, 0)}</em></span>
+                    <span className={s.benchLine} style={{ bottom: at(benchmark) }}><em>Benchmark {pct(benchmark, 0)}</em></span>
+                    <div className={s.cols}>
+                      <div className={s.col}>
+                        <span className={`${s.bar} ${s.barBase}`} style={{ ...col(AXIS_MIN, o.data.onTime), '--i': 0 } as CSSProperties}>
+                          <em>{(o.data.onTime * 100).toFixed(1)}</em>
+                        </span>
+                      </div>
+                      {steps.map((x, i) => (
+                        <div key={x.cause} className={s.col}>
+                          <span className={`${s.bar} ${x.cause === largest ? s.barHot : s.barStep}`} title={`${pct(x.from)} → ${pct(x.to)}`}
+                            style={{ ...col(x.from, x.to), '--i': i + 1 } as CSSProperties}>
+                            <em>+{points(x.to - x.from)}</em>
+                            <small>{(x.to * 100).toFixed(1)}</small>
+                          </span>
+                        </div>
+                      ))}
+                      <div className={s.col}>
+                        {ceiling != null && <span className={s.ceiling} style={col(final, Math.min(ceiling, 1))}><em>Ceiling {ceiling > TARGET ? `>${pct(TARGET, 0)}` : pct(ceiling)}</em></span>}
+                        <span className={`${s.bar} ${s.barFinal}`} style={{ ...col(AXIS_MIN, final), '--i': steps.length + 1 } as CSSProperties}>
+                          <b>{(final * 100).toFixed(1)}</b>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className={s.colLabels}>
+                    <span><b>Today</b></span>
+                    {steps.map((x) => <span key={x.cause}>{FIXES[x.cause]?.[2] ?? x.cause}</span>)}
+                    <span className={s.good}>With fixes</span>
+                  </div>
                 </div>
-              ))}
-              <div className={s.step} aria-hidden="true">
-                <span />
-                <span className={s.axis}>
-                  <span style={{ left: 0 }}>{pct(AXIS_MIN, 0)}</span>
-                  <span className={s.axisBench} style={{ left: at(benchmark) }}>{pct(benchmark, 0)} benchmark</span>
-                  <span className={s.axisTarget} style={{ left: at(TARGET) }}>{pct(TARGET, 0)} target</span>
-                </span>
-                <span />
+              </div>
+              <aside className={s.stepTable}>
+                <p className={s.stepHead}><span>Step</span><span>On-time</span></p>
+                <ol>
+                  <li style={{ '--i': 0 } as CSSProperties}><i className={s.dark} /><span>Today</span><small /><b>{pct(o.data.onTime)}</b></li>
+                  {steps.map((x, i) => (
+                    <li key={x.cause} className={x.cause === largest ? s.stepHot : undefined} style={{ '--i': i + 1 } as CSSProperties}>
+                      <i /><span>{FIXES[x.cause]?.[2] ?? x.cause}</span><small>+{points(x.to - x.from)}</small><b>{pct(x.to)}</b>
+                    </li>
+                  ))}
+                </ol>
+                <p className={s.short}>
+                  <span>{final < TARGET ? `${points(TARGET - final)} pts short of the ${pct(TARGET, 0)} target` : `Clears the ${pct(TARGET, 0)} target`}</span>
+                  <b>{pct(final)}</b>
+                </p>
+              </aside>
+            </div>
+          )}
+        </section>
+
+        <section className={s.panel}>
+          <h2 className={s.h2}>Where the loss starts</h2>
+          <p className={s.sub}>Each cause is tied to one stage of the shipment lifecycle.</p>
+          {o.data && (
+            <div className={s.callout}>
+              <Donut value={o.data.prePickupShare} />
+              <div>
+                <b>of late deliveries start before pickup</b>
+                <p>At intake, the delivery promise or fulfilment, not with the carrier.</p>
               </div>
             </div>
           )}
-          <div className={s.legend}>
-            <span><i className={s.pre} />Decided before pickup</span>
-            <span><i className={s.post} />Carrier &amp; delivery</span>
-            <span className={s.legendNote}>
-              {mode === 'ceiling'
-                ? clears >= 0 && `Fixing ${clears + 1} of ${steps.length} causes clears the target`
-                : programme != null && `Full programme reaches ${pct(programme)}`}
-            </span>
-          </div>
-        </section>
-
-        <section className={s.panel}>
-          <div className={s.head}>
-            <div>
-              <h2 className={s.h2}>Recommended fixes</h2>
-              <p className={s.sub}>One fix per cause, ranked by on-time impact</p>
-            </div>
-            {attribution.length > 0 && <span className={s.tagMuted}>{attribution.length} proposed</span>}
-          </div>
-          <Status loading={a.loading} error={a.error} />
-          <ul className={s.fixes}>
-            {attribution.map((x) => {
-              const fix = FIXES[x.cause];
-              if (!fix) return null;
-              return (
-                <li key={x.cause}>
-                  <Link className={s.fix} href={fix[1]}>
-                    <span className={s.iconBox}><Icon name={CAUSE_ICON[x.cause] ?? 'box'} /></span>
-                    <span className={s.fixText}>
-                      <b>{fix[0]}</b>
-                      <small>{measure(x.cause)?.owner ?? x.stage} · Proposed</small>
-                    </span>
-                    <span className={s.fixPts}>+{points(x.pointsLost)}</span>
-                    <Icon name="chevron" size={16} />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-          <Link className={`${s.btn} ${s.btnDark} ${s.btnWide}`} href="/dashboard/replay"><Icon name="replay" size={16} />Simulate all in Replay</Link>
-        </section>
-      </div>
-
-      <section className={s.panel}>
-        <div className={s.head}>
-          <div>
-            <h2 className={s.h2}>Where shipments break</h2>
-            <p className={s.sub}>Late rate when each cause is present, by lifecycle stage</p>
-          </div>
-          {lost > 0 && <p className={s.headNote}><b>{pct(lostPre / lost, 0)}</b> of lost points are decided before pickup</p>}
-        </div>
-        <Status loading={all.loading} error={all.error} />
-        {all.data && (
+          <Status loading={a.loading} error={a.error} skeleton="rows" count={5} />
           <ol className={s.stages}>
-            {LIFECYCLE.map((f) => {
-              const c = flag(all.data?.causes, f);
+            {LIFECYCLE.map((f, i) => {
+              const c = byCause.get(f);
               if (!c) return null;
+              const [stage, text] = LIFECYCLE_TEXT[f];
+              const pre = PRE_PICKUP.has(c.stage);
+              const firstPost = !pre && LIFECYCLE.slice(0, i).every((g) => PRE_PICKUP.has(byCause.get(g)?.stage ?? ''));
               return (
-                <li key={f} className={`${s.stage} ${PRE_PICKUP.has(c.stage) ? s.stagePre : ''}`}>
-                  <p className={s.stageHead}><span className={s.iconBox}><Icon name={STAGE_ICON[f]} /></span>{c.stage}</p>
-                  <p className={s.stageCause}>{c.label}</p>
-                  <p className={s.stageRate}><b>{pct(c.lateRate, 0)}</b> late · {int(c.n)} orders</p>
+                <li key={f} className={pre ? s.stagePre : undefined} style={{ '--i': i } as CSSProperties}>
+                  {firstPost && <span className={s.pickup}>Pickup</span>}
+                  <span className={s.stage}>
+                    <span className={s.num}>{i + 1}</span>
+                    <span><b>{stage}</b> · {text}</span>
+                    <span className={s.pts}>{points(c.pointsLost)}</span>
+                  </span>
                 </li>
               );
             })}
           </ol>
-        )}
-        {none && (
-          <p className={s.clean}>
-            <Icon name="check" size={16} /><span><b>{int(none.n)}</b> shipments with none of the five causes: <b>{pct(none.lateRate, 0)} late</b></span>
-          </p>
-        )}
-      </section>
+        </section>
+      </div>
+
+      <div className={s.row3}>
+        <section className={s.panel}>
+          <h2 className={s.h2}>Five causes of lost on-time</h2>
+          <p className={s.sub}>Points lost to each cause. No shipment without one of these causes arrived late.</p>
+          <Status loading={a.loading} error={a.error} skeleton="rows" count={5} />
+          <ul className={s.causes}>
+            {attribution.map((x, i) => (
+              <li key={x.cause}>
+                <span className={s.causeHead}>
+                  <span><b>{measure(x.cause)?.label ?? x.label}</b><small>{x.stage}{i === 0 && ' · largest cause'}</small></span>
+                  <span className={s.causePts}>{points(x.pointsLost)} <small>pts</small></span>
+                </span>
+                <span className={s.causeBar}><span className={i === 0 ? s.hot : undefined} style={{ width: `${(x.pointsLost / maxLost) * 100}%`, '--i': i } as CSSProperties} /></span>
+              </li>
+            ))}
+          </ul>
+          {lost > 0 && <p className={s.total}><span>Together, all five causes</span><b>{points(lost)} pts</b></p>}
+        </section>
+
+        <Assistant deliveries={o.data?.deliveries} onTime={o.data?.onTime} steps={steps} lost={lost} ceiling={ceiling}
+          largest={largest} owners={Object.fromEntries(attribution.map((x) => [x.cause, measure(x.cause)?.owner ?? '']))}
+          loading={a.loading || r.loading} error={a.error ?? r.error} />
+      </div>
 
       <section className={`${s.panel} ${s.tablePanel}`}>
         <div className={s.head}>
           <div>
-            <h2 className={s.h2}>Causes, measures &amp; owners</h2>
-            <p className={s.sub}>One measure per cause, tracked against target</p>
+            <h2 className={s.h2}>Causes and measures</h2>
+            <p className={s.sub}>Each cause has one measure, a current value, a target and a named owner. Customer comms is tracked across all stages.</p>
           </div>
-          <Segmented label="Orders" value={segment} options={SEGMENTS} onChange={setSegment} />
+          {kpis.length > 0 && <span className={s.tagMuted}><Glyph />{attribution.length + (crossCutting ? 1 : 0)} measures</span>}
         </div>
-        <Status loading={k.loading || a.loading} error={k.error ?? a.error} />
-        {segment !== 'all' && <Status loading={seg.loading} error={seg.error} />}
+        <Status loading={k.loading || a.loading} error={k.error ?? a.error} skeleton="rows" count={6} />
         {kpis.length > 0 && attribution.length > 0 && (
           <div className={s.tableWrap}>
             <table className={s.table}>
               <thead>
-                <tr>
-                  <th>Cause</th><th>Impact (pts)</th><th>Late rate</th><th>Measure</th><th>Today → target</th><th>Owner</th><th>Status</th>
-                </tr>
+                <tr><th>Cause</th><th>Stage</th><th>Measure</th><th>Current</th><th>Target</th><th>Owner</th><th className={s.right}>Pts at stake</th></tr>
               </thead>
               <tbody>
                 {attribution.map((x) => {
                   const m = measure(x.cause);
-                  const met = m ? onTarget(m) : null;
                   return (
                     <tr key={x.cause}>
-                      <td>
-                        <span className={s.causeCell}>
-                          <span className={s.iconBox}><Icon name={CAUSE_ICON[x.cause] ?? 'box'} /></span>
-                          <span><b>{m?.label ?? x.label}</b><small>{x.stage}</small></span>
-                        </span>
-                      </td>
-                      <td>
-                        <span className={s.impact}>
-                          <span className={s.num}>{points(x.pointsLost)}</span>
-                          <span className={s.impactBar}><span style={{ width: `${(x.pointsLost / maxLost) * 100}%` }} /></span>
-                        </span>
-                      </td>
-                      <td className={s.num}>{pct(flag(segCauses.data?.causes, x.cause)?.lateRate, 0)}</td>
-                      <td className={s.measure}>{m?.kpi}</td>
-                      <td className={s.nowrap}>
-                        {m && <><span className={s.num}>{today(m)}</span> → <b className={`${s.num} ${s.good}`} title={m.target}>{shortTarget(m.target)}</b></>}
-                      </td>
+                      <td><b>{m?.label ?? x.label}</b></td>
+                      <td><span className={`${s.dot} ${PRE_PICKUP.has(x.stage) ? s.dotPre : ''}`}>{x.stage}</span></td>
+                      <td>{m?.kpi}</td>
+                      <td>{m && <span className={s.cell}>{today(m)}</span>}</td>
+                      <td>{m && <span className={s.cell} title={m.target}>{shortTarget(m.target)}</span>}</td>
                       <td>{m && <span className={s.owner}><span className={s.avatar} aria-hidden="true">{initials(m.owner)}</span>{m.owner}</span>}</td>
-                      <td>{met != null && <span className={met ? s.tagGood : s.tagBad}>{met ? 'On target' : 'Off target'}</span>}</td>
+                      <td className={`${s.right} ${s.strong}`}>{points(x.pointsLost)}</td>
                     </tr>
                   );
                 })}
+                {crossCutting && (
+                  <tr className={s.crossRow}>
+                    <td><b>Customer comms</b></td>
+                    <td><span className={s.tagMuted}>Cross-cutting</span></td>
+                    <td>{crossCutting.kpi}</td>
+                    <td><span className={s.cell}>{today(crossCutting)}</span></td>
+                    <td><span className={s.cell} title={crossCutting.target}>{shortTarget(crossCutting.target)}</span></td>
+                    <td><span className={s.owner}><span className={s.avatar} aria-hidden="true">{initials(crossCutting.owner)}</span>{crossCutting.owner}</span></td>
+                    <td className={s.right}>All</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         )}
-        {crossCutting && (
-          <div className={s.cross}>
-            <p>
-              <b>Customer comms:</b> {crossCutting.kpi} {today(crossCutting)} / quarter → target {shortTarget(crossCutting.target)} · {crossCutting.owner}
-            </p>
-            <Link href={FIXES.none[1]}>{FIXES.none[0]} <Icon name="arrow" size={14} /></Link>
-          </div>
-        )}
       </section>
+
+      {o.data && (
+        <p className={s.foot}>
+          <span>Halcyon · Delivery performance overview · {int(o.data.deliveries)} shipments</span>
+          <span>Fix impact replayed on supplied deliveries at expected adoption rates</span>
+        </p>
+      )}
     </div>
   );
 }

@@ -18,7 +18,7 @@ describe('Warehouses', () => {
     expect((await screen.findAllByText('Synthetic data')).length).toBeGreaterThan(0);
     expect(await screen.findByText(/73\.4%/)).toBeTruthy();
     expect(await screen.findByText(/2,002 late deliveries/)).toBeTruthy();
-    expect(await screen.findByText('$360,360')).toBeTruthy();
+    expect((await screen.findAllByText('$360,360')).length).toBe(2); // alert + finance exposure
     expect(await screen.findByText('$23.58')).toBeTruthy();
   });
 });

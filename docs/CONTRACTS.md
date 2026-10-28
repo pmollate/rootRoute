@@ -144,7 +144,7 @@ in 0..1, money in USD.
 | `warehouse_region_distance` | B | `warehouse_id`, `region`, `miles` |
 | `client_region_nearest` | B | `client_id`, `region`, `warehouse_id` |
 | `warehouse_stats` | B | `warehouse_id`, `warehouse_name`, `orders`, `cutoff_misses`, `cutoff_late_rate`, `cutoff_before_11`, `out_of_stock`, `out_of_stock_late_rate`, `skipped_nearest`, `skipped_nearest_late_rate` |
-| `penalty_reconciliation` | B | `delivery_id`, `client_id`, `account_tier`, `days_late`, `promised_date` |
+| `penalty_reconciliation` | B | `delivery_id`, `client_id`, `account_tier`, `warehouse_id` (the site that shipped it), `days_late`, `promised_date`; most days late first |
 | `stock_daily` | B (SD-05) | `date`, `warehouse_id`, `client_id`, `sku`, `qty`, `synthetic` |
 | `placement_suggestions` | B (SD-05) | `week`, `client_id`, `sku`, `from_warehouse`, `to_warehouse`, `qty`, `reason`, `synthetic` |
 | `placement_impact` | B (SD-05) | `week`, `suggestions`, `avoided_next_week`, `synthetic` |
@@ -182,7 +182,7 @@ All numbers are numbers (not strings). Rates are 0..1; the UI formats them. Pane
 | `GET /api/attribution` | B | `{ causes: [{ cause, label, stage, deliveries, pointsLost, share }] }` |
 | `GET /api/cause-kpis` | B | `{ kpis: [{ cause, label, kpi, baseline, target, owner }] }` |
 | `GET /api/accounts` | B | `{ accounts: [{ clientId, clientName, tier, revenueUsd, channel, deliveries, onTime, mainCause, complaints }] }` |
-| `GET /api/warehouses` | B | `{ warehouses: [{ warehouseId, name, orders, cutoffMisses, cutoffLateRate, cutoffBefore11, outOfStock, outOfStockLateRate, skippedNearest, skippedNearestLateRate }], secondPick: { movedOrders, onTime } }` |
+| `GET /api/warehouses` | B | `{ warehouses: [{ warehouseId, name, orders, cutoffMisses, cutoffLateRate, cutoffBefore11, outOfStock, outOfStockLateRate, skippedNearest, skippedNearestLateRate }], secondPick: { movedOrders, onTime }, freightPerOrder: { nearest, otherSite }, distances: [{ warehouseId, region, miles }] }` |
 | `GET /api/penalties/unpaid` | B | `{ count, byTier: [{ tier, n }], rows: [{ deliveryId, clientId, tier, daysLate, promisedDate }] }` (first 200 rows) |
 | `GET /api/placement` | B | `{ synthetic: true, week, suggestions: [{ clientId, sku, from, to, qty, reason }], impact: [{ week, suggestions, avoidedNextWeek }] }` |
 | `GET /api/carriers?region=&commitment=&sla=true\|false` | C | `{ region, commitment, recommendation: CarrierRecommendation }` |

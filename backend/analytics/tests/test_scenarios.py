@@ -7,7 +7,7 @@ GOLDEN = {
     "today": (71.0, 0, 0),
     "route_only": (73.6, 1279, 113347),
     "carrier_only": (77.4, 3091, 282161),
-    "vendor_best": (80.4, 4523, 409897),
+    "lanes_routes": (80.4, 4523, 409897),
     "address_only": (77.1, 2967, 322413),
     "address_lanes": (84.2, 6381, 639700),
     "addr_cut_stock": (87.8, 8112, 801412),
@@ -26,11 +26,10 @@ GOLDEN = {
     "adopt_cutoff": (87.3, 7876, 767984),
     "adopt_warehouse": (91.0, 9649, 934781),
     "adopt_all": (92.0, 10150, 980764),
-    "adopt_vendor": (78.3, 3521, 320482),
 }
 SEGMENT_GOLDEN = {
     ("as_built", "email"): 93.3, ("as_built", "at_risk"): 89.7, ("address_only", "email"): 84.4,
-    ("vendor_best", "at_risk"): 78.8, ("adopt_all", "email"): 92.6, ("as_built_adopted", "at_risk"): 86.8,
+    ("lanes_routes", "at_risk"): 78.8, ("adopt_all", "email"): 92.6, ("as_built_adopted", "at_risk"): 86.8,
 }
 
 
@@ -78,7 +77,6 @@ def test_ac_rep_05_adoption_matches_full_fix_at_100_percent(d):
 def test_ac_rep_06_programme_waterfall(results):
     steps = ["today", "adopt_address", "adopt_lanes", "adopt_cutoff", "adopt_warehouse", "adopt_all"]
     assert [round(100 * results.loc[(k, "all")].on_time, 1) for k in steps] == [71.0, 76.2, 82.5, 87.3, 91.0, 92.0]
-    assert round(100 * results.loc[("adopt_vendor", "all")].on_time, 1) == 78.3
 
 
 def test_cause_attribution_sums_to_lateness(d):

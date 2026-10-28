@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import s from './ui.module.css';
 
 export { s as ui };
@@ -39,16 +39,72 @@ export function SyntheticBadge() {
   return <Pill tone="synthetic" title="Built on data we generated (SPEC §12.1)">Synthetic data</Pill>;
 }
 
-/** Errors show a fixed message: the error text can carry API paths, status codes or server internals. */
-export function Status({ loading, error }: { loading: boolean; error?: string }) {
+/** Loading placeholder shapes: a row of cards, table rows, chart bars, one block, or lines of text. */
+export type Skeleton = 'cards' | 'rows' | 'bars' | 'block' | 'text';
+
+function Shimmer({ shape, count }: { shape: Skeleton; count: number }) {
+  const n = Array.from({ length: count }, (_, i) => i);
+  if (shape === 'cards') return <div className={s.skCards}>{n.map((i) => <span key={i} className={`${s.sk} ${s.skCard}`} />)}</div>;
+  if (shape === 'block') return <span className={`${s.sk} ${s.skBlock}`} />;
+  if (shape === 'bars') return (
+    <div className={s.skList}>
+      {n.map((i) => (
+        <div key={i} className={s.skBar}>
+          <span className={`${s.sk} ${s.skLine}`} />
+          <span className={`${s.sk} ${s.skLine}`} style={{ width: `${88 - ((i * 17) % 45)}%` }} />
+        </div>
+      ))}
+    </div>
+  );
+  if (shape === 'rows') return <div className={s.skList}>{n.map((i) => <span key={i} className={`${s.sk} ${s.skRow}`} />)}</div>;
+  return <div className={s.skList}>{n.map((i) => <span key={i} className={`${s.sk} ${s.skLine}`} style={{ width: `${92 - i * 16}%` }} />)}</div>;
+}
+
+/** Errors show a fixed message: the error text can carry API paths, status codes or server internals.
+ *  While loading, a shimmer in the shape of the content holds its place. */
+export function Status({ loading, error, skeleton = 'text', count = 3 }: { loading: boolean; error?: string; skeleton?: Skeleton; count?: number }) {
   if (error) return <p className={s.error} role="alert">Could not load this section. Please try again later.</p>;
-  if (loading) return <p className={s.muted}>Loading…</p>;
+  if (loading) return (
+    <div className={s.skeleton} role="status" aria-busy="true">
+      <span className={s.srOnly}>Loading…</span>
+      <Shimmer shape={skeleton} count={count} />
+    </div>
+  );
   return null;
+}
+
+/** Rows shown per table page. */
+export const PAGE_SIZE = 25;
+
+export interface Page<T> { rows: T[]; page: number; pages: number; total: number; size: number; setPage: (p: number) => void }
+
+/** Slices `rows` into pages of `size` (default PAGE_SIZE); the page clamps when the row count shrinks (e.g. a filter). */
+export function usePage<T>(all: T[], size = PAGE_SIZE): Page<T> {
+  const [want, setPage] = useState(0);
+  const pages = Math.max(1, Math.ceil(all.length / size));
+  const page = Math.min(want, pages - 1);
+  return { rows: all.slice(page * size, (page + 1) * size), page, pages, total: all.length, size, setPage };
+}
+
+/** Prev / next controls under a table; renders nothing while everything fits on one page. */
+export function Pager<T>({ p, className }: { p: Page<T>; className?: string }) {
+  if (p.pages < 2) return null;
+  const from = p.page * p.size + 1;
+  const to = Math.min(p.total, from + p.size - 1);
+  return (
+    <nav className={`${s.pager} ${className ?? ''}`} aria-label="Table pages">
+      <span className={s.pagerInfo} aria-live="polite">{from}–{to} of {p.total}</span>
+      <button type="button" className={s.button} disabled={p.page === 0} onClick={() => p.setPage(p.page - 1)}>Previous</button>
+      <span className={s.pagerInfo}>Page {p.page + 1} of {p.pages}</span>
+      <button type="button" className={s.button} disabled={p.page >= p.pages - 1} onClick={() => p.setPage(p.page + 1)}>Next</button>
+    </nav>
+  );
 }
 
 export interface Column<T> { key: string; label: string; render: (row: T) => ReactNode; align?: 'right' }
 
 export function Table<T>({ rows, columns }: { rows: T[]; columns: Column<T>[] }) {
+  const p = usePage(rows);
   return (
     <div className={s.tableWrap}>
       <table className={s.table}>
@@ -56,11 +112,12 @@ export function Table<T>({ rows, columns }: { rows: T[]; columns: Column<T>[] })
           <tr>{columns.map((c) => <th key={c.key} className={c.align === 'right' ? s.right : undefined}>{c.label}</th>)}</tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
+          {p.rows.map((r, i) => (
             <tr key={i}>{columns.map((c) => <td key={c.key} className={c.align === 'right' ? s.right : undefined}>{c.render(r)}</td>)}</tr>
           ))}
         </tbody>
       </table>
+      <Pager p={p} />
     </div>
   );
 }

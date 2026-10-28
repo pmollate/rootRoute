@@ -30,21 +30,20 @@ describe('Overview', () => {
     mockApi(ROUTES);
     renderScreen(<OverviewScreen />);
     expect((await screen.findAllByText('71.0%')).length).toBeGreaterThan(0);
-    expect(await screen.findByText('$1.35M')).toBeTruthy();
-    expect(await screen.findByText('$872k penalties · $477k handling')).toBeTruthy();
+    expect((await screen.findAllByText('$1.35M')).length).toBeGreaterThan(0);
+    expect(await screen.findByText('Penalties $872k')).toBeTruthy();
     expect((await screen.findAllByText('$14.2M')).length).toBeGreaterThan(0);
-    expect(await screen.findByText('7.6')).toBeTruthy();
+    expect((await screen.findAllByText('7.6')).length).toBeGreaterThan(0);
     expect(await screen.findByText('12.4%')).toBeTruthy();
-    expect(await screen.findByText('Incomplete address at intake')).toBeTruthy();
-    expect(await screen.findByText('22,309')).toBeTruthy();
-    expect(await screen.findByText('Off target')).toBeTruthy();
+    expect(await screen.findByText('Customer comms')).toBeTruthy();
   });
 
-  it('AC-UI-01: the waterfall switches from the data ceiling to the expected-adoption replay', async () => {
+  it('AC-UI-01: the waterfall follows the expected-adoption replay and a fix opens its detail', async () => {
     mockApi(ROUTES);
     renderScreen(<OverviewScreen />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Replay · 92%' }));
-    expect(await screen.findByText('address check (85%)')).toBeTruthy();
-    expect(await screen.findByText('Full programme reaches 92.0%')).toBeTruthy();
+    expect(await screen.findByText('With fixes')).toBeTruthy();
+    expect((await screen.findAllByText('+5.2')).length).toBeGreaterThan(0);
+    fireEvent.click((await screen.findAllByRole('button', { name: /Lane rules plus a Friday cap/ }))[0]);
+    expect(await screen.findByText('76.2 → 82.5%')).toBeTruthy();
   });
 });

@@ -3,7 +3,10 @@ import { z } from 'zod';
 import { allowList, config } from '../../core/config.js';
 import { restore } from '../../core/pii/redact.js';
 import { requireApiKey } from '../../core/auth.js';
+import { diagnosisApi } from '../warehouse/index.js';
 import { applyAction } from './actions.js';
+import { runAlerts } from './alerts.js';
+import { listComplaints, saveTriage, triage } from './complaints.js';
 import { getDeps } from './deps.js';
 import { processEmail } from './pipeline.js';
 import { POLL_MAX, runPoll } from './poll.js';
@@ -76,6 +79,25 @@ const routes: FastifyPluginAsync = async (app) => {
       { gmail: deps.gmail, allow: allowList });
     req.log.info({ emailId: Number(req.params.id), action: body.data.action, code: result.code }, 'intake action');
     return reply.code(result.code).send(result.error ? { error: result.error } : { status: result.status });
+  });
+
+  app.get('/complaints', async () => ({
+    complaints: (await listComplaints()).map((c) => ({ complaintId: c.complaint_id, clientId: c.client_id, deliveryId: c.delivery_id,
+      category: c.category, date: c.complaint_date, text: c.text, atRisk: c.at_risk, tier: c.account_tier })),
+  }));
+
+  app.post<{ Params: { id: string } }>('/complaints/:id/triage', async (req, reply) => {
+    const row = (await listComplaints()).find((c) => c.complaint_id === req.params.id);
+    if (!row) return reply.code(404).send({ error: 'not found' });
+    const t = await triage(getDeps().llm, diagnosisApi, row);
+    await saveTriage(t);
+    return t;
+  });
+
+  app.post('/alerts/run', { preHandler: requireApiKey }, async (req, reply) => {
+    const asOf = (req.body as { asOf?: string } | undefined)?.asOf;
+    if (!asOf || !/^\d{4}-\d{2}-\d{2}$/.test(asOf)) return reply.code(400).send({ error: 'asOf must be YYYY-MM-DD' });
+    return { drafted: await runAlerts(asOf) };
   });
 };
 
