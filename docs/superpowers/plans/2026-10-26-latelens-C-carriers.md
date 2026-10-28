@@ -1290,7 +1290,8 @@ jobs:
   "intake action" (approve). Gap for A: emails fetched by the Gmail poll log only `pollId`, not each `emailId`, so
   AC-NFR-03 holds for pasted emails and actions, not yet for polled ones.
 
-- [ ] **Step 6: Commit.** `git add infra .github/workflows/cd.yml && git commit -m "ci(c): Azure setup script and continuous deployment"`
+- [x] **Step 6: Commit.** `git add infra .github/workflows/cd.yml && git commit -m "ci(c): Azure setup script and continuous deployment"`
+  Done as 36aeee2 (setup script and CD, #20), 430ef5b (OIDC subject fix, #21) and 466391a (API logs to the workspace, #29).
 
 **Wednesday check-in:** the deployed URL shows all five screens on live data.
 
