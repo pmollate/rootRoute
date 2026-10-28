@@ -47,6 +47,8 @@ exists az resource show -g "$RG" -n "$NAME-ai" --resource-type Microsoft.Insight
        --is-full-object -o none --properties \
        "{\"location\":\"$LOC\",\"kind\":\"web\",\"properties\":{\"Application_Type\":\"web\",\"WorkspaceResourceId\":\"$WS_ID\"}}"
 AI_CONN=$(az resource show -g "$RG" -n "$NAME-ai" --resource-type Microsoft.Insights/components --query properties.ConnectionString -o tsv)
+# App Insights collects requests only; the API's log lines (pino on stdout, with emailId) reach the same workspace
+# through a diagnostic setting, in AppServiceConsoleLogs (NFR-03). Created after the API app below.
 
 # One Linux plan runs both apps: the API and the Next.js app (landing page + dashboard; its middleware needs a server).
 exists az appservice plan show -g "$RG" -n "$NAME-plan" || az appservice plan create -g "$RG" -n "$NAME-plan" --is-linux --sku B1 -o none
@@ -55,6 +57,10 @@ for app in "$API" "$WEB"; do
   az webapp update -g "$RG" -n "$app" --https-only true -o none
 done
 az webapp config set -g "$RG" -n "$API" --startup-file "node backend/api/dist/index.js" --always-on true -o none
+API_ID=$(az webapp show -g "$RG" -n "$API" --query id -o tsv)
+exists az monitor diagnostic-settings show -n app-logs --resource "$API_ID" \
+  || az monitor diagnostic-settings create -n app-logs --resource "$API_ID" --workspace "$WS_ID" -o none \
+       --logs '[{"category":"AppServiceConsoleLogs","enabled":true},{"category":"AppServiceAppLogs","enabled":true}]'
 az webapp config set -g "$RG" -n "$WEB" --startup-file "node node_modules/next/dist/bin/next start -p \$PORT" --always-on true -o none
 
 # The API reads its secrets through Key Vault references with its managed identity.
