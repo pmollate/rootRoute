@@ -41,6 +41,10 @@ npm run dev:all                           # API on :3001, landing page on :3000,
 
 Activate the venv (`source .venv/bin/activate`) in every new terminal; the `pipeline`, `data` and `test:py` scripts call `python`.
 Tests: `npm test` (API, dashboard, Python; API route tests run only when the test database is up). Types: `npm run typecheck`.
+Before pushing: `npm run setup` turns on a pre-push hook (`.githooks/pre-push`) that runs `scripts/check.sh` for the
+areas the push changes: lint, typecheck and tests, plus the Playwright smoke test when the app is running
+(`npm run dev:all`; install its browser once with `npx --prefix frontend playwright install chromium`). Run it by hand
+with `npm run check`; skip it once with `git push --no-verify`.
 Docs: `docs/SPEC.md` (what and why), `docs/CONTRACTS.md` (shared types, tables, API), `docs/superpowers/plans/` (task plans).
 
 ## Deploy
