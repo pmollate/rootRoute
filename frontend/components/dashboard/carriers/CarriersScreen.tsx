@@ -40,7 +40,6 @@ const ICON = {
   fileExport: <><path d="M14 3H6v18h12v-5" /><path d="M14 3v4h4v2M11 13h10M18 10l3 3-3 3" /></>,
   play: <path d="M7 4.5v15l12-7.5-12-7.5Z" />,
   truck: <><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7" /><circle cx="7" cy="17.5" r="1.5" /><circle cx="17" cy="17.5" r="1.5" /></>,
-  barrier: <><path d="M3 8h18v5H3zM6 13v7M18 13v7M6 4v4M18 4v4" /><path d="m7 8 4 5M13 8l4 5" /></>,
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
   route: <><circle cx="6" cy="19" r="2" /><circle cx="18" cy="5" r="2" /><path d="M8 19h8.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H16" /></>,
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
@@ -49,17 +48,14 @@ const ICON = {
   lock: <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
   bulb: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z" /></>,
   contract: <><path d="M14 3H6v18h12V7l-4-4Z" /><path d="M14 3v4h4M9 12h6M9 16h3" /></>,
-  flask: <><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" /><path d="M7.5 15h9" /></>,
   cap: <><path d="m2 9 10-5 10 5-10 5L2 9Z" /><path d="M6 11v5c3 2 9 2 12 0v-5M22 9v6" /></>,
   vial: <><path d="M9 3h6M10 3v15a2 2 0 0 0 4 0V3" /><path d="M10 12h4" /></>,
   history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
-  dish: <><path d="M4 10a10 10 0 0 0 10 10L4 10Z" /><path d="m9 15 4-4M14 4a6 6 0 0 1 6 6M14 8a2 2 0 0 1 2 2" /></>,
   bolt: <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" />,
   plug: <><path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0V8ZM12 17v5" /></>,
   mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
   globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
   file: <><path d="M14 3H6v18h12V7l-4-4Z" /><path d="M14 3v4h4" /></>,
-  pen: <><path d="M4 20h4L19 9l-4-4L4 16v4Z" /><path d="m13.5 6.5 4 4" /></>,
   clipboard: <><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4h6v3H9zM9 13l2 2 4-4" /></>,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
 };
@@ -114,17 +110,15 @@ function useNetwork(): { carriers: number; blocked: { carrier: string; region: R
   return { carriers: carriers.size, blocked };
 }
 
-function SectionHead({ icon, title, sub, tone, children }: { icon: ReactNode; title: ReactNode; sub?: string; tone?: 'teal' | 'plum' | 'sand'; children?: ReactNode }) {
+/** Card heading: title and one-line description on the left, optional tags or tools on the right. */
+function Head({ title, sub, children }: { title: ReactNode; sub?: string; children?: ReactNode }) {
   return (
-    <div className={s.secHead}>
-      <div className={s.secTitle}>
-        <span className={`${s.secMark} ${tone ? s[tone] : ''}`}><Icon size={17}>{icon}</Icon></span>
-        <div>
-          <h2 className={s.h2}>{title}</h2>
-          {sub && <p className={s.sub}>{sub}</p>}
-        </div>
+    <div className={s.head}>
+      <div>
+        <h2 className={s.h2}>{title}</h2>
+        {sub && <p className={s.sub}>{sub}</p>}
       </div>
-      {children && <div className={s.secTools}>{children}</div>}
+      {children && <div className={s.tools}>{children}</div>}
     </div>
   );
 }
@@ -176,20 +170,24 @@ export function CarriersScreen() {
 
   return (
     <div className={s.screen}>
-      <PageHero image="/media/carriers-hero.jpg" imagePosition="right 45%" chipsAt="top"
-        title="Carriers"
-        text="Carrier choice by lane, scored only on deliveries with no address, stock or cut-off problem."
-        chips={network ? [
-          { label: 'Carriers', value: network.carriers, icon: <Icon>{ICON.truck}</Icon> },
-          { label: 'Lanes blocked', value: network.blocked.length, icon: <Icon>{ICON.barrier}</Icon>, tone: 'hot' },
-        ] : undefined}>
-        <div className={s.heroTools}>
-          <button type="button" className={s.heroBtn} disabled={!rec} onClick={() => rec && exportLane(region, commitment, rec)}>
-            <Icon>{ICON.fileExport}</Icon>Export CSV
-          </button>
-          <Link className={s.heroCta} href="/dashboard/replay"><Icon size={14}>{ICON.play}</Icon>Open replay</Link>
+      <div className={s.pageHead}>
+        <div>
+          <p className={s.eyebrow}>After pickup</p>
+          <h1 className={s.title}>Carriers</h1>
         </div>
-      </PageHero>
+        <div className={s.actions}>
+          <button type="button" className={s.chip} disabled={!rec} onClick={() => rec && exportLane(region, commitment, rec)}>
+            <Icon size={14}>{ICON.fileExport}</Icon>Export CSV
+          </button>
+          <Link className={s.chip} href="/dashboard/replay"><Icon size={14}>{ICON.play}</Icon>Open replay</Link>
+        </div>
+      </div>
+
+      <PageHero image="/media/carriers-hero.jpg" imagePosition="right 45%" variant="metric" chipsAt="top"
+        eyebrow="Carrier lanes blocked"
+        title={network ? int(network.blocked.length) : '—'}
+        text="Carrier choice by lane, scored only on deliveries with no address, stock or cut-off problem."
+        chips={network ? [{ label: 'Carriers', value: network.carriers, icon: <Icon>{ICON.truck}</Icon> }] : undefined} />
 
       {network && network.blocked.length > 0 && (
         <div className={s.alert} role="note">
@@ -210,7 +208,7 @@ export function CarriersScreen() {
       )}
 
       <section className={s.panel}>
-        <SectionHead icon={ICON.route} title="Which carrier for this lane?"
+        <Head title="Which carrier for this lane?"
           sub="Ranked by on-time rate, days late and cost; blocked carriers are never offered." />
         <div className={s.controls}>
           <div className={s.ctl}><p className={s.lb}>Region</p>
@@ -289,7 +287,7 @@ export function CarriersScreen() {
 
       <div className={s.halves}>
         <section className={s.panel}>
-          <SectionHead icon={ICON.flask} tone="plum" title="Backtest: rules trained Apr–Jul, tested Aug–Sep"
+          <Head title="Backtest: rules trained Apr–Jul, tested Aug–Sep"
             sub="Same Aug–Sep deliveries, each way of choosing the carrier." />
           <p className={s.period}><span><Icon size={13}>{ICON.cap}</Icon>Train · Apr–Jul</span>
             <span className={s.test}><Icon size={13}>{ICON.vial}</Icon>Test · Aug–Sep</span></p>
@@ -319,9 +317,9 @@ export function CarriersScreen() {
         </section>
 
         <section className={s.panel}>
-          <SectionHead icon={ICON.dish} tone="teal" title="Tracking across all six carriers" sub="How each carrier reports delivery events.">
+          <Head title="Tracking across all six carriers" sub="How each carrier reports delivery events.">
             <SyntheticBadge />
-          </SectionHead>
+          </Head>
           <Status loading={tr.loading} error={tr.error} skeleton="rows" count={4} />
           {tr.data && (
             <>
@@ -352,7 +350,7 @@ export function CarriersScreen() {
       </div>
 
       <section className={s.panel}>
-        <SectionHead icon={ICON.pen} tone="sand" title="Override a recommendation"
+        <Head title="Override a recommendation"
           sub="Every override is logged with a reason, so the lane rules can be reviewed." />
         <div className={s.form}>
           <label className={s.fld}><span className={s.lb}>Order ref</span>
