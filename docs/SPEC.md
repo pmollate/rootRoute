@@ -1,6 +1,6 @@
 # LateLens — Product and Technical Spec
 
-Repo: root-route · Status: draft v0.8 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
+Repo: root-route · Status: draft v0.9 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
 Hackathon: FDE AI Hackathon 5.0, Problem 2 (Halcyon Logistics). Coding: Mon 26 – Thu 29 Oct 2026. Code submission: 29 Oct, `[DEADLINE_TIME]`.
 Source brief: `docs/Halcyon.docx` (Participant Problem Statement). Data: `Halcyon-Hackathon-Dataset/` (supplied) and `backend/synthetic-data/` (ours, §12.1).
 
@@ -31,6 +31,10 @@ approves or rejects each ALL_CLEAR order and may change the carrier (E15–E18, 
 §14.1; §12 confirms email timestamps are keying times and states the assumed WMS interface (`[WMS_CONTRACT]` open);
 §14 drops the answered questions. No requirement changed: the answers confirm the promise rule, the carrier baseline
 and the human gate on delay notices.
+**Changes in v0.9** (28 Oct, team decision): the product shows what Halcyon's own data says and never models another
+company's product (CLAUDE.md). The routing-vendor replay scenario (`adopt_vendor`, 78.3%) is removed from §1.1, §2.4,
+§5.7, AC-REP-06 and the demo script (§11); "routing engine best case" is renamed "carrier lanes + routes" (80.4%). The
+route-detour points (3.2) remain the measure of what a routing engine could add.
 WMS entry still needs a person's approval (SEC-04). Gmail is read and sent through the Gmail REST API, not MCP (§14.1).
 
 **Conventions.** **MUST** / **SHOULD** / **MAY** follow RFC 2119. Every requirement has an ID (`REQ-<module>-NN`,
@@ -54,14 +58,13 @@ Headline (expected adoption: each fix works on 85% of address problems, 90% of b
 
 | Option | On-time (replay) | Late deliveries avoided (6 mo) | Cost avoided (6 mo) |
 |---|---|---|---|
-| Routing vendor only (fixes every carrier issue and 30% of detours) | 78.3% | 3,521 | ≈ $320K |
 | **Fix all five causes** (the programme) | **92.0%** | **10,150** | **≈ $981K** |
 | LateLens as built this week (email addresses, cut-off, nearest warehouse, lane rules) | 85.9% | 7,191 | ≈ $708K |
 
-Upper bounds (every fix works 100%): route overruns only 73.6%; routing engine best case (lanes + routes) 80.4%;
+Upper bounds (every fix works 100%): route overruns only 73.6%; carrier lanes + routes 80.4%;
 as built 88.5%; as built + API/EDI checks + stock placement 96.3%.
 
-The carrier part of the vendor case is reached by lane rules and a Friday cap on D (§5.2). What remains for a routing
+Lane rules and a Friday cap on D reach the carrier part of the problem (§5.2). What remains for a routing
 engine is route detours: 3.2 points of on-time, about $113K over 6 months (≈ $232K a year) against a $680K budget.
 Recommendation:
 1. Fix intake (address validation), promise rules (8am cut-off) and nearest-warehouse fulfilment first.
@@ -174,8 +177,7 @@ all shipments and breaks: that is a capacity problem, fixed by a Friday cap, not
 ### 2.4 Replay scenarios (method in §5.1 and §5.8)
 
 **Expected adoption (headline).** Each fix works on part of its cause: address 85%, lanes and Friday cap 90%, cut-off
-promise 85%, warehouse fallback 60%, last-mile watch 30%. The vendor case assumes it fixes every carrier issue and 30% of
-detours, a generous upper bound.
+promise 85%, warehouse fallback 60%, last-mile watch 30%.
 
 | Programme step (cumulative) | All | Email orders | At-risk accounts | Late avoided | Cost avoided (6 mo) |
 |---|---|---|---|---|---|
@@ -185,7 +187,6 @@ detours, a generous upper bound.
 | + cutoff-aware promise | 87.3% | 89.4% | 87.7% | 7,876 | $767,984 |
 | + warehouse fallback | 91.0% | 91.8% | 91.2% | 9,649 | $934,781 |
 | **+ last-mile watch: full programme** | **92.0%** | **92.6%** | **92.1%** | **10,150** | **$980,764** |
-| Routing vendor only | 78.3% | 74.1% | 77.0% | 3,521 | $320,482 |
 | LateLens as built (expected adoption) | 85.9% | 89.6% | 86.8% | 7,191 | $707,950 |
 
 **Full fix (upper bounds).** Every delivery with the cause is fixed.
@@ -645,7 +646,7 @@ is a client component that reads the Node API (`NEXT_PUBLIC_API_URL`).
 | Intake | Email | Email queue (Tier 1 and at-risk clients first, marked Priority) → extracted fields with checks and map confidence → reply draft → Approve; automatic replies marked "Auto-sent" with their text and time; order review for supervisors: `ALL_CLEAR` orders with Approve, Reject (reason) and a carrier choice among unblocked carriers (E18); last poll time; API/EDI orders (E11) and complaints (E12) |
 | Warehouses | Warehouse | Cut-off misses, out-of-stock and skipped-nearest by site; second pick run; placement suggestions (W5) |
 | Carriers | Carriers | Region/promise picker; ranked carriers Recommended / Backup / Blocked with reason; backtest; tracking (C8) |
-| Replay & decision | Warehouse | Programme waterfall (expected adoption) vs routing vendor; full-fix upper bounds; on-time vs 94% benchmark; cost avoided; 9 at-risk accounts; recommendation |
+| Replay & decision | Warehouse | Programme waterfall (expected adoption); full-fix upper bounds; on-time vs 94% benchmark; cost avoided; 9 at-risk accounts |
 
 | ID | Requirement |
 |---|---|
@@ -678,7 +679,7 @@ is a client component that reads the Node API (`NEXT_PUBLIC_API_URL`).
 | AC-REP-02 | Given the "As built" scenario, when cost is computed, then late avoided is 8,447 and cost avoided is $832,879 ± $1. |
 | AC-REP-04 | Given `backend/synthetic-data/out/` is deleted, when the replay runs, then every figure is unchanged. |
 | AC-REP-05 | Given any set of fixes at rate 1.0, when the adoption replay runs, then each delivery's estimate equals the full-fix estimate. |
-| AC-REP-06 | Given the adoption rates of §2.4, when the waterfall runs, then on-time is 71.0, 76.2, 82.5, 87.3, 91.0, 92.0% and the vendor case is 78.3%. |
+| AC-REP-06 | Given the adoption rates of §2.4, when the waterfall runs, then on-time is 71.0, 76.2, 82.5, 87.3, 91.0, 92.0%. |
 
 ### 5.9 Address checks on API and EDI orders (owner: Email; E11, synthetic)
 Synthetic inputs (SD-01): API JSON orders and simplified EDI 850 files generated from real API/EDI deliveries, with
@@ -932,8 +933,8 @@ Belief ($680K routing) → Overview (five causes explain every late delivery; ca
 deliveries start before pickup; 28 of 34 complaints) → Carriers (five bad lanes; F, the preferred supplier, fails two
 regions; D only fails on Fridays) → live: C190's messy email (Tier 1, priority), processed by the real AI model on the
 deployed app, showing the model's extracted JSON next to the code's address check and decision → agent asks for the
-address → client replies → ALL_CLEAR → one complaint triaged (cause found, draft response) → Warehouses (cut-off and stock) → Replay: flip from routing vendor only (78.3%) to the full programme
-(**92.0%**), step by step → "Ask LateLens" in Claude: "Which carrier lanes should we stop using, and why?" → Decision:
+address → client replies → ALL_CLEAR → one complaint triaged (cause found, draft response) → Warehouses (cut-off and stock) → Replay: the programme step by step, from 71.0% to the full programme
+(**92.0%**) → "Ask LateLens" in Claude: "Which carrier lanes should we stop using, and why?" → Decision:
 don't sign as scoped; run the programme and pilot; decide on routing at the gate. If the live AI call fails, switch to
 recorded responses (`LLM_PROVIDER=recorded`) and say so.
 

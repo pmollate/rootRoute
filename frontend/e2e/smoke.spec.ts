@@ -73,13 +73,13 @@ test.describe('figures match the SPEC', () => {
     await expect(main.getByText(/Carrier E for Northeast next-day: 97% on time vs 55% for F/)).toBeVisible();
   });
 
-  test('Replay: today 71.0%, full programme 92.0%, and the routing vendor alone at 78.3%', async ({ page }) => {
+  test('Replay: today 71.0%, full programme 92.0%, and no other company\'s product modelled', async ({ page }) => {
     await open(page, '/dashboard/replay');
     const main = page.locator('main');
     await expect(main.getByText('71.0%').first()).toBeVisible();
     await expect(main.getByText(/92\.0%/).first()).toBeVisible();
-    // The comparison the recommendation rests on (SPEC §1.1): LateLens's programme vs the $680K routing vendor.
-    await expect(main.getByText('78.3%').first(), 'routing vendor scenario missing from Replay').toBeVisible();
+    // Team decision (SPEC v0.9, CLAUDE.md): no routing-vendor scenario on the screen.
+    await expect(main.getByText('78.3%')).toHaveCount(0);
   });
 
   test('Order journey: D000213 is 4 days late, failing at the address and the carrier lane', async ({ page }) => {
