@@ -1,6 +1,6 @@
 # LateLens — Product and Technical Spec
 
-Repo: root-route · Status: draft v0.7 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
+Repo: root-route · Status: draft v0.8 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
 Hackathon: FDE AI Hackathon 5.0, Problem 2 (Halcyon Logistics). Coding: Mon 26 – Thu 29 Oct 2026. Code submission: 29 Oct, `[DEADLINE_TIME]`.
 Source brief: `docs/Halcyon.docx` (Participant Problem Statement). Data: `Halcyon-Hackathon-Dataset/` (supplied) and `backend/synthetic-data/` (ours, §12.1).
 
@@ -26,6 +26,11 @@ Gmail fetch, PII removal before the model, Azure Maps address confidence — and
 minutes, unknown senders skipped before any AI call, only a `high` map confidence counting as a verified address,
 automatic correction replies for address problems within safety checks (SEC-06), and an order review where a supervisor
 approves or rejects each ALL_CLEAR order and may change the carrier (E15–E18, §4.4, §5.3, §5.7, §6, §7, §8, §14.1).
+
+**Changes in v0.8** (Halcyon business answers to the team's question log, Q-001 to Q-005, received 28 Oct): five rows in
+§14.1; §12 confirms email timestamps are keying times and states the assumed WMS interface (`[WMS_CONTRACT]` open);
+§14 drops the answered questions. No requirement changed: the answers confirm the promise rule, the carrier baseline
+and the human gate on delay notices.
 WMS entry still needs a person's approval (SEC-04). Gmail is read and sent through the Gmail REST API, not MCP (§14.1).
 
 **Conventions.** **MUST** / **SHOULD** / **MAY** follow RFC 2119. Every requirement has an ID (`REQ-<module>-NN`,
@@ -936,6 +941,11 @@ Decisions (due Mon 26):
 Assumptions (how we would test each):
 - `[CAPACITY_SHARE]` per carrier per lane is not in the data; default 40%, or the synthetic contracts (SD-06). Test: ask procurement for contracted daily capacity.
 - Stock levels and SKUs are not in the data; W5 runs on synthetic stock (SD-05). Test: WMS inventory extract.
+- **WMS interface (assumed, Q-002):** Operations IT's WMS has an API for order and inventory records; for the hackathon
+  order entry, pick lists and stock allocation are simulated. We assume `POST /orders` (client, items, ship-to address,
+  promise date, warehouse, carrier) → WMS order number, and `GET /inventory` (warehouse × SKU on hand). Today
+  `send_to_wms` (§7) simulates the first by setting the order ENTERED after approval; W5 uses SD-05 for the second.
+  `[WMS_CONTRACT]`: Email owner to add the request and response shapes to `docs/CONTRACTS.md`.
 - "If fixed" estimates assume causes are independent of the other flags and that carrier volume can move. Test: the pilot (§9.2).
 - Adoption rates (address 85%, lanes 90%, cut-off 85%, warehouse 60%, route 30%) are the team's estimates. Test: per-cause KPIs in the pilot.
 - Carriers A, B and C have spare lane capacity for the volume moved off the bad lanes and D's Friday overflow. Test: procurement.
@@ -943,8 +953,9 @@ Assumptions (how we would test each):
 - Weekend picking and shipping is normal operation. Test: warehouse supervisor.
 - In this synthetic data a delivery with no flag is never late; real data will have unexplained lateness. Test: pilot control group.
 - Penalty savings assume 70.8% of penalty-eligible late deliveries are paid, as in the data. Test: ask the CFO.
-- Email timestamps are probably keying times, not arrival times (78% of email orders are stamped after 08:00 vs 55% for
-  API/EDI). We use them as given; the intake agent records true arrival time going forward. Test: ask the VP Customer Success.
+- **Confirmed (Q-005, §14.1):** email `order_received_ts` is the time the order was keyed into the WMS, not when the
+  email arrived (78% of email orders are stamped after 08:00 vs 55% for API/EDI). We use it as when the order entered
+  Halcyon's process; the intake agent records true arrival time going forward, so keying delay stops pushing orders past the cut-off.
 - `[HALCYON_TIMEZONE]`: the dataset has no time zone. Gmail arrival times and fixture `Date` headers use `America/New_York`
   (`backend/synthetic-data/reference/mailbox.json`) until confirmed. Test: ask which time zone the 08:00 cut-off is in.
 - The 450 "delivered before shipped" same-day orders are kept and flagged; leaving them out would lower on-time slightly
@@ -998,7 +1009,7 @@ Record each answer and what changed in this spec.
 | Sponsor | Questions |
 |---|---|
 | COO | What does the vendor's proof of concept measure, on which data? Is the $680K one-time or per year? Would you accept an 8-week pilot before signing? Is the ~75% you quoted on the same basis as the 71.0% in the data? |
-| VP Customer Success | How are email orders keyed and checked today? Who tells a client their delivery will be late, and when? Are email timestamps arrival or keying times? Is the order inbox Gmail or Outlook? May we email a client automatically about an address problem? |
+| VP Customer Success | How are email orders keyed and checked today? Is the order inbox Gmail or Outlook? May we email a client automatically about an address problem? (Answered in §14.1: who tells a client about a delay, and email timestamps.) |
 | Warehouse supervisor | What happens to a same-day order that arrives after 8am? Could a second pick run at 11:00 be staffed? Why would an order ship from a non-nearest warehouse that had stock (691 cases)? How is the carrier picked at despatch in practice, and why does D take 39% of Friday volume? What does the shipped time record, given 59% are before the collection window? Can the WMS give pick and pack timestamps? |
 | Head of Procurement | What daily capacity can each carrier take per lane, and on Fridays? What does the F agreement commit to (volume, lanes, penalties)? Can volume move off D and F within the contract? |
 | Onboarding team / COO | Could stock placement be reviewed weekly instead of quarterly? Can we get a WMS inventory extract? |
@@ -1026,6 +1037,11 @@ changed. A question with no answer yet stays in §12 and §14 until it gets one.
 | 28 Oct | May address corrections go to clients without an operator? | Email owner | Yes, within safety checks; WMS entry keeps approval | SEC-06, E17, REQ-INT-11 to 13; §4.4 human gate |
 | 28 Oct | What does the WMS team need? | Email owner | A supervisor view of email orders to approve or reject and assign the carrier | Order review (E18, REQ-INT-14/15, §5.7, §7) |
 | 28 Oct | Should the dataset be loaded with ORM (TypeORM) migrations? | Email owner; repo check | No: SQL migrations (`backend/db/migrations/`) create the Node tables; the Python pipeline loads the dataset into Postgres (48,340 deliveries); Azure Database for PostgreSQL is provisioned by `infra/setup.sh` | No change |
+| 26 Oct | Who chooses `commitment_type`, and how is `promised_date` set? Does "same day" mean despatched the same day and delivered next day? | Halcyon business, via the organisers' participant question log (Q-001) | The client chooses it on each order; Halcyon never sets or changes it. The system sets the promised date from it: same day +1, next day +2, standard +4 days from the order date; same day = despatched the day it arrives, delivered next day | Confirms `checkPromise` (§5.4) and the cut-off cause: a same-day order after 08:00 can't be despatched that day. Because the client chose same day, the honest next-day promise goes back to the client in the reply draft rather than being changed silently |
+| 26 Oct | Is the WMS Halcyon's own or a vendor's, does it have an API, and may we simulate it? | Halcyon business, question log (Q-002) | Operations IT runs it; it has an API for order and inventory records. For the hackathon, simulate order entry, pick lists and stock allocation and state the interface we assume | Assumed WMS interface recorded in §12; `[WMS_CONTRACT]` for the Email owner; `send_to_wms` and SD-05 stay simulated |
+| 26 Oct | Is `carriers.csv` the carrier preference spreadsheet, or should we infer preferences from `deliveries.csv`? | Halcyon business, question log (Q-003) | `carriers.csv` is the master list; the preference spreadsheet won't be provided and isn't needed (it reflects habit, not performance). Infer today's preferences from carriers used in `deliveries.csv` by region, warehouse and weekday | No change: lane scores and the backtest's "actual" baseline already come from `deliveries.csv` (§5.2); the weekday effect is the Friday cap on D. Adding the warehouse to the lane stays phase 2 |
+| 26 Oct | How do clients hear about delays today, and may we send delay notices? | Halcyon business, question log (Q-004 a–e) | Halcyon is the client's only contact; no proactive updates or tracking links today; clients learn of delays from their own customers or by chasing customer success, usually the day after. Delay notices may go to the client, not the end customer; whether a person reviews them is our decision to justify | Delay notices (E10, §5.5) go to the client only and keep "person sends": the at-risk flag (REQ-TRK-02) and late-risk score are estimates, and a wrong notice to a Tier 1 client costs trust. Tracking events (SD-07) give the at-risk list that feeds them |
+| 26 Oct | Is email `order_received_ts` the arrival time or the keying time? | Halcyon business, question log (Q-005) | Keying time into the WMS; arrival time isn't recorded and isn't needed. Treat keying time as when the order entered the process | §12 assumption confirmed. Strengthens the intake case: entering email orders on arrival (10-minute poll) removes keying delay before the 08:00 cut-off |
 
 ## 15. Mapping to the brief's task list
 | Brief asks | Where in this spec |
