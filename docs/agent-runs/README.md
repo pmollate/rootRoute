@@ -14,6 +14,8 @@ we build", Level 1 checklist §16). One file per run; keep them, never rewrite a
 | `numbers-auditor` | Numbers auditor | Before a demo, deploy or deck update | Nothing (reports only) | `…-numbers-auditor.md` |
 | `qa-evidence` | QA / test evidence | After a merge or deploy | `docs/TEST-EVIDENCE.md` | `…-qa-evidence.md` |
 | `discovery-recorder` | Discovery recorder | A question asked or an answer received | SPEC §14.1, §12, §14 | `…-discovery-recorder.md` |
+| `network-security-auditor` | Network and app security | Before a deploy or judging, after an infra or auth change | Nothing (read-only probes, reports only) | `…-network-security-auditor.md` |
+| `privacy-compliance-auditor` | Privacy and compliance (GDPR, US) | Before real data, after a change to personal data flows | Nothing (reports and drafts only; not legal advice) | `…-privacy-compliance-auditor.md` |
 
 The flow for a feature: `discovery-recorder` → `spec-writer` → `planner` → `implementer` → `reviewer` (then a teammate
 on the PR) → `qa-evidence` and `numbers-auditor` after merge and deploy. A person decides at every hand-off: agents
