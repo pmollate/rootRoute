@@ -36,14 +36,14 @@ let password = null;
 if (!current('AUTH_DEMO_USERS')) {
   password = randomBytes(12).toString('base64url');
   const hash = bcrypt.hashSync(password, 10);
-  const users = ROLES.map((r) => ({ email: `demo-${r}@latelens.test`, name: `Demo ${r.replace(/_/g, ' ')}`, roles: [r], hash }));
+  const users = ROLES.map((r) => ({ email: `demo-${r}@rootroute.test`, name: `Demo ${r.replace(/_/g, ' ')}`, roles: [r], hash }));
   // Single quotes keep the JSON whole; \$ stops @next/env expanding the bcrypt hash's $ signs.
   set('AUTH_DEMO_USERS', `'${JSON.stringify(users).replace(/\$/g, '\\$')}'`);
 }
 writeFileSync(FILE, env, { mode: 0o600 });
 
 if (password) {
-  console.log(`demo-users: ${ROLES.length} demo accounts written to .env (demo-<role>@latelens.test). Password, shown once:`);
+  console.log(`demo-users: ${ROLES.length} demo accounts written to .env (demo-<role>@rootroute.test). Password, shown once:`);
   console.log(`  ${password}`);
 } else {
   console.log('demo-users: AUTH_DEMO_USERS already set in .env; nothing changed (delete the line to make new accounts)');

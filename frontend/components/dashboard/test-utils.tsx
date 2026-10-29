@@ -21,4 +21,4 @@ export const renderScreen = (node: ReactNode, user: SessionUser | null = null) =
   render(<UserProvider user={user}>{node}</UserProvider>);
 
 export const asRole = (role: SessionUser['roles'][number]): SessionUser =>
-  ({ id: `demo:demo-${role}@latelens.test`, name: `Demo ${role}`, roles: [role], demo: true });
+  ({ id: `demo:demo-${role}@rootroute.test`, name: `Demo ${role}`, roles: [role], demo: true });

@@ -10,7 +10,7 @@ afterEach(() => { cleanup(); signOut.mockReset(); });
 
 describe('header user menu (REQ-AUTH-08, -09)', () => {
   it('AC-AUTH-09: a demo order_desk user sees their name, the role badge and "Demo account"', () => {
-    render(<UserMenu user={{ id: 'demo:demo-order_desk@latelens.test', name: 'Demo order desk', roles: ['order_desk'], demo: true }} />);
+    render(<UserMenu user={{ id: 'demo:demo-order_desk@rootroute.test', name: 'Demo order desk', roles: ['order_desk'], demo: true }} />);
     expect(screen.getByText('Demo order desk')).toBeTruthy();
     expect(screen.getByText('Order desk')).toBeTruthy();
     expect(screen.getByText('Demo account')).toBeTruthy();

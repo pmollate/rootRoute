@@ -34,8 +34,8 @@ describe('internal token (SPEC-auth §5.2)', () => {
   });
 
   it('AC-AUTH-03, AC-AUTH-07: only the six role ids count; a demo user is demo:<email>', async () => {
-    const u = await verifyToken(await token({ sub: 'demo:demo-admin@latelens.test', roles: ['admin', 'superuser'] }), SECRET);
-    expect(u).toMatchObject({ id: 'demo:demo-admin@latelens.test', roles: ['admin'], demo: true });
+    const u = await verifyToken(await token({ sub: 'demo:demo-admin@rootroute.test', roles: ['admin', 'superuser'] }), SECRET);
+    expect(u).toMatchObject({ id: 'demo:demo-admin@rootroute.test', roles: ['admin'], demo: true });
   });
 });
 

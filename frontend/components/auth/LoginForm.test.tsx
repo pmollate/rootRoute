@@ -26,18 +26,18 @@ describe('LoginForm (/login, SPEC-auth §5.6)', () => {
   it('AC-AUTH-02, AC-AUTH-01: a demo user signs in and goes back to the page asked for', async () => {
     signIn.mockResolvedValue({ ok: true, error: undefined, code: undefined, status: 200, url: '/' });
     render(<LoginForm demo entra next="/dashboard/journey?ref=delivery:D000213" />);
-    fill('demo-leadership@latelens.test', 'pw');
+    fill('demo-leadership@rootroute.test', 'pw');
     await waitFor(() => expect(assign).toHaveBeenCalledWith('/dashboard/journey?ref=delivery:D000213'));
-    expect(signIn).toHaveBeenCalledWith('demo', { email: 'demo-leadership@latelens.test', password: 'pw', redirect: false });
+    expect(signIn).toHaveBeenCalledWith('demo', { email: 'demo-leadership@rootroute.test', password: 'pw', redirect: false });
   });
 
   it('AC-SEC-AUTH-05: a failed sign-in shows one generic message; rate limiting its own', async () => {
     signIn.mockResolvedValue({ ok: false, error: 'CredentialsSignin', code: 'credentials', status: 401, url: null });
     render(<LoginForm demo entra next="/dashboard" />);
-    fill('nobody@latelens.test', 'x');
+    fill('nobody@rootroute.test', 'x');
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Sign-in failed. Check your email and password.');
     signIn.mockResolvedValue({ ok: false, error: 'CredentialsSignin', code: 'rate_limited', status: 401, url: null });
-    fill('nobody@latelens.test', 'x');
+    fill('nobody@rootroute.test', 'x');
     await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('Too many attempts. Try again in a minute.'));
     expect(assign).not.toHaveBeenCalled();
   });

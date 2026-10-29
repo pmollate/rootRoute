@@ -121,12 +121,12 @@ describe.skipIf(!hasDb)('roles and actors over HTTP (needs test database)', () =
   });
 
   it('AC-AUTH-07: a demo user is recorded as demo:<email>; an override takes its actor from the token', async () => {
-    const h = await as('demo:demo-carrier_manager@latelens.test', ['carrier_manager'], 'Demo carrier manager');
+    const h = await as('demo:demo-carrier_manager@rootroute.test', ['carrier_manager'], 'Demo carrier manager');
     const r = await app.inject({ method: 'POST', url: '/api/overrides', headers: h,
       payload: { orderRef: 'ORD-9', from: 'E', to: 'A', reason: 'client asked for A', user: 'spoofed' } });
     expect(r.statusCode).toBe(200);
     const [row] = await query<{ user_name: string }>('SELECT user_name FROM override_log WHERE id = $1', [r.json().id]);
-    expect(row.user_name).toBe('demo:demo-carrier_manager@latelens.test');
+    expect(row.user_name).toBe('demo:demo-carrier_manager@rootroute.test');
   });
 
   it('REQ-AUTH-07: writes with no actor column (pasted email, triage, recommendation, alerts) add an audit_log row', async () => {

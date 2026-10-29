@@ -44,34 +44,34 @@ describe('roles (SPEC-auth §4.1, §4.3)', () => {
 describe('demo accounts (SEC-AUTH-05)', () => {
   const hash = bcrypt.hashSync('right-password', 4);
   const users = parseDemoUsers(JSON.stringify([
-    { email: 'demo-order_desk@latelens.test', name: 'Demo order desk', roles: ['order_desk', 'root'], hash },
+    { email: 'demo-order_desk@rootroute.test', name: 'Demo order desk', roles: ['order_desk', 'root'], hash },
   ]));
 
   it('parses the account list and drops unknown roles; bad JSON gives no accounts', () => {
-    expect(users).toEqual([{ email: 'demo-order_desk@latelens.test', name: 'Demo order desk', roles: ['order_desk'], hash }]);
+    expect(users).toEqual([{ email: 'demo-order_desk@rootroute.test', name: 'Demo order desk', roles: ['order_desk'], hash }]);
     expect(parseDemoUsers('not json')).toEqual([]);
     expect(parseDemoUsers(undefined)).toEqual([]);
   });
 
   it('AC-SEC-AUTH-05: right password signs in; unknown email and wrong password give the same answer', async () => {
     const limiter = new RateLimiter();
-    expect(await checkDemo(users, 'DEMO-order_desk@latelens.test', 'right-password', '1.1.1.1', limiter))
-      .toEqual({ ok: true, user: { id: 'demo:demo-order_desk@latelens.test', name: 'Demo order desk', roles: ['order_desk'], demo: true } });
-    expect(await checkDemo(users, 'demo-order_desk@latelens.test', 'wrong', '1.1.1.1', limiter)).toEqual({ ok: false, reason: 'invalid' });
-    expect(await checkDemo(users, 'nobody@latelens.test', 'right-password', '1.1.1.1', limiter)).toEqual({ ok: false, reason: 'invalid' });
+    expect(await checkDemo(users, 'DEMO-order_desk@rootroute.test', 'right-password', '1.1.1.1', limiter))
+      .toEqual({ ok: true, user: { id: 'demo:demo-order_desk@rootroute.test', name: 'Demo order desk', roles: ['order_desk'], demo: true } });
+    expect(await checkDemo(users, 'demo-order_desk@rootroute.test', 'wrong', '1.1.1.1', limiter)).toEqual({ ok: false, reason: 'invalid' });
+    expect(await checkDemo(users, 'nobody@rootroute.test', 'right-password', '1.1.1.1', limiter)).toEqual({ ok: false, reason: 'invalid' });
   });
 
   it('AC-SEC-AUTH-05: after 5 failures from one IP in a minute the 6th is refused without checking the password', async () => {
     let now = 0;
     const limiter = new RateLimiter(5, 60_000, () => now);
-    for (let i = 0; i < 5; i++) expect((await checkDemo(users, 'x@latelens.test', 'bad', '2.2.2.2', limiter)).ok).toBe(false);
+    for (let i = 0; i < 5; i++) expect((await checkDemo(users, 'x@rootroute.test', 'bad', '2.2.2.2', limiter)).ok).toBe(false);
     const compare = vi.spyOn(bcrypt, 'compare');
-    expect(await checkDemo(users, 'demo-order_desk@latelens.test', 'right-password', '2.2.2.2', limiter))
+    expect(await checkDemo(users, 'demo-order_desk@rootroute.test', 'right-password', '2.2.2.2', limiter))
       .toEqual({ ok: false, reason: 'rate_limited' });
     expect(compare).not.toHaveBeenCalled();
-    expect((await checkDemo(users, 'demo-order_desk@latelens.test', 'right-password', '3.3.3.3', limiter)).ok).toBe(true);
+    expect((await checkDemo(users, 'demo-order_desk@rootroute.test', 'right-password', '3.3.3.3', limiter)).ok).toBe(true);
     now = 61_000;
-    expect((await checkDemo(users, 'demo-order_desk@latelens.test', 'right-password', '2.2.2.2', limiter)).ok).toBe(true);
+    expect((await checkDemo(users, 'demo-order_desk@rootroute.test', 'right-password', '2.2.2.2', limiter)).ok).toBe(true);
     compare.mockRestore();
   });
 });
