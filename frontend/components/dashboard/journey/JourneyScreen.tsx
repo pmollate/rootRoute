@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { useCanOpen } from '@/components/auth/UserContext';
 import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
 import s from './journey.module.css';
@@ -243,7 +244,8 @@ function headline(f: Facts, rr: boolean): { title: string; text: string } {
 export function JourneyScreen({ initialRef }: { initialRef: string }) {
   const [ref, setRef] = useState(initialRef);
   const j = useApi<Journey>(`/api/journey/${ref}`);
-  const inbox = useApi<Inbox>('/api/intake');
+  // Email orders only for roles that may read the inbox (REQ-AUTH-16); others pick from deliveries.
+  const inbox = useApi<Inbox>(useCanOpen('/dashboard/intake') ? '/api/intake' : null);
   const emails = inbox.data?.emails.slice(0, EMAILS_LISTED) ?? [];
   const listed = [...EXAMPLES.map(([r]) => r), ...emails.map((e) => `email:${e.id}`)];
   // "Another delivery ID" shows a box for the ID; it is also how a ref from the URL that is not in the list is shown.

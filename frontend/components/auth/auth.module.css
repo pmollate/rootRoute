@@ -17,10 +17,21 @@
 .primary { border-color: var(--navy); background: var(--navy); color: var(--on-navy); }
 
 /* Header: name, role badges, demo badge, sign out. Sits at the right of the dashboard bar. */
-.user { display: flex; align-items: center; gap: 6px; margin-left: 8px; min-width: 0; }
+.user { position: relative; display: flex; align-items: center; gap: 8px; margin-left: 8px; min-width: 0; }
+/* Profile icon: the user's initials on navy (the dashboard accent); opens the profile card below it. */
+.avatar { width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: var(--navy); color: var(--on-navy);
+  font: inherit; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; cursor: pointer; flex: none; }
+.avatar:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.profile { position: absolute; top: calc(100% + 10px); right: 0; z-index: 20; min-width: 200px; max-width: 280px; padding: 12px 14px;
+  display: grid; gap: 4px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 18px 40px -24px rgb(0 0 0 / 0.5); }
+.profileName { margin: 0; font-size: 0.9rem; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.profileMeta { margin: 0; font-size: 0.8rem; color: var(--ink-2); }
 .name { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 16ch; }
-.signOut { font: inherit; font-size: 0.8rem; font-weight: 600; border: 1px solid var(--line); background: transparent; color: var(--ink);
-  padding: 4px 10px; border-radius: var(--pill); cursor: pointer; white-space: nowrap; }
+.signOut { width: 32px; height: 32px; padding: 0; border-radius: 50%; border: 1.5px solid var(--bad); background: transparent;
+  color: var(--bad); cursor: pointer; flex: none; transition: background 0.15s; }
+.signOut:hover { background: var(--bad-soft); }
+.signOut:focus-visible { outline: 2px solid var(--bad); outline-offset: 2px; }
 @media (max-width: 900px) {
   .roles { display: none; }
 }
@@ -110,3 +121,10 @@
   .showcase { display: none; }
   .panel { padding: 28px 24px; }
 }
+
+/* The forbidden page (REQ-AUTH-15): the same card, inside the dashboard shell instead of a full screen. */
+.inShell { display: grid; place-items: center; padding: 64px 16px; }
+.links { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.9rem; }
+
+/* Icon + label on the Logout button (header and /no-access). */
+.signOut, .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }

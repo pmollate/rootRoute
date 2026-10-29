@@ -11,7 +11,15 @@ type Rule = { roles: readonly Role[]; legacyKey?: boolean };
 type ByAction = { byAction: Record<string, readonly Role[]>; legacyKey?: boolean };
 export type Permission = 'public' | Rule | ByAction;
 
-const READ = ROLES;
+// Reads (SPEC-auth §4.4, REQ-AUTH-16): each GET is open to the roles of the pages that call it, mirroring PAGE_ROLES in
+// frontend/lib/auth/roles.ts. A role reads only what its own screens show.
+const ALL = ROLES; // Overview and Order journey: every role
+const INTAKE_READ: readonly Role[] = ['order_desk', 'warehouse_supervisor', 'admin']; // Order emails (+ Journey picker)
+const COMPLAINTS_READ: readonly Role[] = ['customer_support', 'admin']; // Complaints
+const WAREHOUSE_READ: readonly Role[] = ['warehouse_supervisor', 'leadership', 'admin']; // Warehouses
+const CARRIER_READ: readonly Role[] = ['carrier_manager', 'leadership', 'admin']; // Carriers
+const ACCOUNTS_READ: readonly Role[] = ['warehouse_supervisor', 'carrier_manager', 'leadership', 'admin']; // Warehouses, Replay
+
 const ORDER_DESK: readonly Role[] = ['order_desk', 'admin'];
 // Q-AUTH-03 is open: the §4.2 default until A and B decide. One entry, so the answer changes one line.
 const WMS_ENTRY: readonly Role[] = ['warehouse_supervisor', 'admin'];
@@ -22,24 +30,24 @@ export const PERMISSIONS: Record<string, Permission> = {
   'GET /api/health': 'public',
   'POST /api/mcp': 'public', // its own Bearer MCP_TOKEN (REQ-MCP-02)
 
-  // Open any page; read any data
-  'GET /api/overview': { roles: READ },
-  'GET /api/causes': { roles: READ },
-  'GET /api/replay': { roles: READ },
-  'GET /api/accounts': { roles: READ },
-  'GET /api/attribution': { roles: READ },
-  'GET /api/cause-kpis': { roles: READ },
-  'GET /api/warehouses': { roles: READ },
-  'GET /api/penalties/unpaid': { roles: READ },
-  'GET /api/placement': { roles: READ },
-  'GET /api/intake': { roles: READ },
-  'GET /api/intake/:id': { roles: READ },
-  'GET /api/intake/review': { roles: READ },
-  'GET /api/complaints': { roles: READ },
-  'GET /api/carriers': { roles: READ },
-  'GET /api/carriers/backtest': { roles: READ },
-  'GET /api/tracking': { roles: READ },
-  'GET /api/journey/:ref': { roles: READ },
+  // Reads, by the pages that use them
+  'GET /api/overview': { roles: ALL },
+  'GET /api/causes': { roles: ALL },
+  'GET /api/replay': { roles: ALL },
+  'GET /api/attribution': { roles: ALL },
+  'GET /api/cause-kpis': { roles: ALL },
+  'GET /api/journey/:ref': { roles: ALL },
+  'GET /api/accounts': { roles: ACCOUNTS_READ },
+  'GET /api/warehouses': { roles: WAREHOUSE_READ },
+  'GET /api/penalties/unpaid': { roles: WAREHOUSE_READ },
+  'GET /api/placement': { roles: WAREHOUSE_READ },
+  'GET /api/intake': { roles: INTAKE_READ },
+  'GET /api/intake/:id': { roles: INTAKE_READ },
+  'GET /api/intake/review': { roles: INTAKE_READ },
+  'GET /api/complaints': { roles: COMPLAINTS_READ },
+  'GET /api/carriers': { roles: CARRIER_READ },
+  'GET /api/carriers/backtest': { roles: CARRIER_READ },
+  'GET /api/tracking': { roles: CARRIER_READ },
 
   // Agent gates
   'POST /api/intake/email': { roles: ORDER_DESK, legacyKey: true },
