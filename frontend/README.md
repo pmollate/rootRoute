@@ -48,7 +48,7 @@ scripts/        media pipeline (process-media.sh, cut-truck.py, globe-dots.mjs)
 - `config/copy.ts`: all text, nav and chapter names. `[bracketed]` figures are placeholders and show with a dotted underline.
 - `hooks/useScene.ts`: pins a scene, scrubs its beats, writes `[data-meter]` values, seeks its media, sets the chapter on the rail.
 - `hooks/useMotion.ts`: one-off GSAP setup for unpinned sections, skipped under reduced motion.
-- `lib/media.ts`: `videoScrub` / `scrubDriver` and `frameSeq` drivers; both start loading one viewport ahead (`lib/dom.ts` `whenNear`).
+- `lib/media.ts`: `videoScrub` / `scrubDriver` and `frameSeq` drivers. Each scene's media starts loading 1.5 s after page load or one viewport ahead, whichever is first (`lib/dom.ts` `whenNearOrIdle`), and scenes download one at a time in page order. Scrub clips are downloaded whole and seeked from memory; a scene shows its poster / first frame until all its media has arrived.
 - `lib/gsap.ts` registers ScrollTrigger once (import `gsap` / `ScrollTrigger` from there); `lib/chapter.ts` holds the chapter shown on the rail.
 - Theme: every colour, radius, shadow and stacking level is a token on `:root` in `styles/theme.css`. Base colours are RGB channels (`--bg-rgb`, `--accent-rgb`, …) so translucent variants read `rgb(var(--bg-rgb) / 0.5)`. `lib/theme.ts` holds the light/dark plumbing and `cssToken()` for reading tokens from JS. `app/globals.css` only imports `styles/` in cascade order. The brand name and the demo CTA live in `config/copy.ts` (`BRAND`, `copy.demo`).
 - Mobile (≤768px): scroll ×0.6, every second inspect frame, 9:16 scrub clips, S4 stacks vertically.

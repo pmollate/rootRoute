@@ -2,7 +2,7 @@ import type { RefObject } from 'react';
 import { MOBILE_QUERY, MOBILE_SCROLL, REDUCED_MOTION_QUERY, type Scene } from '@/config/scenes';
 import { useIsoLayoutEffect } from '@/hooks/useIsoLayoutEffect';
 import { chapter } from '@/lib/chapter';
-import { whenNear } from '@/lib/dom';
+import { whenNearOrIdle } from '@/lib/dom';
 import { group } from '@/lib/format';
 import { gsap, type ScrollTrigger } from '@/lib/gsap';
 import { lerp, local } from '@/lib/math';
@@ -55,8 +55,8 @@ export function useScene(ref: RefObject<HTMLElement | null>, s: Scene, opts: Sce
       const driver = opts.driver?.(c);
       const scroll = s.scroll * (mobile ? MOBILE_SCROLL : 1);
 
-      // Start fetching media when the scene is within one viewport of the screen.
-      const stopNear = whenNear(root, () => driver?.load?.());
+      // Start fetching media shortly after the page loads, or when the scene comes within a viewport.
+      const stopNear = whenNearOrIdle(root, () => driver?.load?.());
 
       const tl = gsap.timeline({
         defaults: { ease: 'none' },
