@@ -75,7 +75,7 @@ export async function processEmail(input: IncomingEmail, deps: Deps): Promise<Pr
   }
 
   const from = senderAddress(input.from);
-  const client = await repo.clientByDomain(from.split('@')[1] ?? '');
+  const client = await repo.clientByDomain(from.split('@')[1] ?? '', from);
   let id: number;
   let answers: EmailRow | null;
   if (existing) {

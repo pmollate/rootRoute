@@ -60,7 +60,8 @@ export interface ClientRow {
 }
 
 export interface Repo {
-  clientByDomain(domain: string): Promise<ClientRow | null>;
+  /** The sender's own address (client_emails) wins; otherwise the domain (client_domains). */
+  clientByDomain(domain: string, address?: string): Promise<ClientRow | null>;
   savedAddresses(clientId: string): Promise<SavedAddress[]>;
   findByHash(hash: string): Promise<EmailRow | null>;
   findByGmailId(gmailId: string): Promise<EmailRow | null>;
@@ -93,9 +94,12 @@ const POLL_LOCK = 7_301_015; // any fixed number, shared by every instance of th
 const one = async <T extends object>(sql: string, params: unknown[]): Promise<T | null> => (await query<T>(sql, params))[0] ?? null;
 
 export const repo: Repo = {
-  clientByDomain: (domain) => one<ClientRow>(
+  clientByDomain: (domain, address = '') => one<ClientRow>(
     `SELECT c.client_id, c.client_name, c.sla_penalty_clause, c.region, c.account_tier, c.account_status
-       FROM client_domains d JOIN clients c ON c.client_id = d.client_id WHERE d.domain = $1`, [domain.toLowerCase()]),
+       FROM clients c
+       JOIN (SELECT client_id, 0 AS rank FROM client_emails WHERE email = $2
+             UNION ALL SELECT client_id, 1 FROM client_domains WHERE domain = $1) m ON m.client_id = c.client_id
+      ORDER BY m.rank LIMIT 1`, [domain.toLowerCase(), address.toLowerCase()]),
   savedAddresses: (clientId) =>
     query<SavedAddress>('SELECT id, client_id, label, line1, line2, city, state, zip FROM saved_addresses WHERE client_id = $1 ORDER BY id', [clientId]),
   findByHash: (hash) => one<EmailRow>('SELECT * FROM intake_emails WHERE hash = $1', [hash]),

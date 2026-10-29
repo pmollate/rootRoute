@@ -1,6 +1,6 @@
 // Load SD-04 (client domains, saved addresses) into Postgres. Run: npm run seed (from backend/api) [-- --test]
 import { config as loadEnv } from 'dotenv';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 loadEnv({ path: fileURLToPath(new URL('../../../../../.env', import.meta.url)), quiet: true });
@@ -8,7 +8,8 @@ if (process.argv.includes('--test')) process.env.DATABASE_URL = process.env.TEST
 const { pool } = await import('../../core/db/pool.js');
 
 const OUT = fileURLToPath(new URL('../../../../synthetic-data/out/', import.meta.url));
-function csv(name: string): Record<string, string>[] {
+function csv(name: string, optional = false): Record<string, string>[] {
+  if (optional && !existsSync(OUT + name)) return [];
   const [header, ...lines] = readFileSync(OUT + name, 'utf8').trim().split('\n');
   const cols = header.split(',');
   return lines.map((l) => Object.fromEntries(l.split(',').map((v, i) => [cols[i], v])));
@@ -17,9 +18,13 @@ function csv(name: string): Record<string, string>[] {
 const client = await pool.connect();
 try {
   await client.query('BEGIN');
-  await client.query('TRUNCATE client_domains, saved_addresses');
+  await client.query('TRUNCATE client_domains, client_emails, saved_addresses');
   for (const r of csv('client_domains.csv')) {
     await client.query('INSERT INTO client_domains (domain, client_id) VALUES ($1,$2)', [r.domain, r.client_id]);
+  }
+  // Optional test senders on a shared domain (gmail.com): email,client_id. Not part of the generated data.
+  for (const r of csv('client_emails.csv', true)) {
+    await client.query('INSERT INTO client_emails (email, client_id) VALUES ($1,$2)', [r.email.toLowerCase(), r.client_id]);
   }
   for (const r of csv('saved_addresses.csv')) {
     await client.query(
@@ -28,7 +33,7 @@ try {
     );
   }
   await client.query('COMMIT');
-  console.log('seeded client_domains and saved_addresses');
+  console.log('seeded client_domains, client_emails and saved_addresses');
 } catch (err) {
   await client.query('ROLLBACK');
   throw err;

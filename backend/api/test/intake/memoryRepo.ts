@@ -11,7 +11,7 @@ export function memoryRepo(clients: Record<string, ClientRow>, saved: SavedAddre
   const lock = { held: false };
   let clock = Date.UTC(2026, 9, 28, 10, 0); // poll start times; tests move it with `advance`
   const repo: Repo = {
-    clientByDomain: async (domain) => clients[domain] ?? null,
+    clientByDomain: async (domain, address = '') => clients[address.toLowerCase()] ?? clients[domain] ?? null,
     savedAddresses: async (clientId) => saved.filter((s) => s.client_id === clientId),
     findByHash: async (hash) => emails.find((e) => e.hash === hash) ?? null,
     findByGmailId: async (gmailId) => emails.find((e) => e.gmail_id === gmailId) ?? null,
