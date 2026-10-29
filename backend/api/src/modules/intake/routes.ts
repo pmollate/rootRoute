@@ -3,21 +3,27 @@ import { z } from 'zod';
 import { allowList, config } from '../../core/config.js';
 import { restore } from '../../core/pii/redact.js';
 import { actorOf } from '../../core/auth.js';
+import { logOverride } from '../carriers/index.js';
 import { diagnosisApi } from '../warehouse/index.js';
 import { ACTIONS, applyAction } from './actions.js';
 import { runAlerts } from './alerts.js';
-import { listComplaints, saveTriage, triage } from './complaints.js';
+import { complaintQueue, listComplaints, savedTriages, saveTriage, triage } from './complaints.js';
 import { getDeps } from './deps.js';
 import { processEmail } from './pipeline.js';
-import { POLL_MAX, runPoll } from './poll.js';
+import { POLL_MAX, pollLogFields, runPoll } from './poll.js';
+import { reviewQueue } from './review.js';
 
 const EmailBody = z.object({
   from: z.string().min(3), subject: z.string(), body: z.string().min(1),
   receivedAt: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/), inReplyTo: z.number().int().optional(),
 });
 // `reply`: the operator's edited reply text (send_reply only); without it the stored draft is sent.
+// `reason`: why an order is rejected, or why its carrier changes. `carrier`: the supervisor's pick on approve (E18).
 // No `user`: the actor comes from the verified token (REQ-AUTH-07); an old client's `user` is ignored by the schema.
-const ActionBody = z.object({ action: z.enum(ACTIONS), reply: z.string().trim().min(1).max(5000).optional() });
+const ActionBody = z.object({
+  action: z.enum(ACTIONS), reply: z.string().trim().min(1).max(5000).optional(),
+  reason: z.string().trim().min(1).max(500).optional(), carrier: z.enum(['A', 'B', 'C', 'D', 'E', 'F']).optional(),
+});
 const FetchBody = z.object({ query: z.string().optional(), max: z.number().int().min(1).max(POLL_MAX).default(POLL_MAX) });
 
 /** The first lines of an email after the greeting, for the inbox row (as a mail client shows under the subject). */
@@ -62,6 +68,9 @@ const routes: FastifyPluginAsync = async (app) => {
     };
   });
 
+  /** E18 / REQ-INT-14: ALL_CLEAR orders awaiting approval, priority clients first, with the unblocked carriers of each lane. */
+  app.get('/intake/review', async () => ({ orders: await reviewQueue(getDeps().repo) }));
+
   // Roles for every route: core/permissions.ts, checked in server.ts before the handler runs (SPEC-auth §4.2).
   app.post('/intake/email', async (req, reply) => {
     const body = EmailBody.safeParse(req.body);
@@ -70,7 +79,7 @@ const routes: FastifyPluginAsync = async (app) => {
     const result = await processEmail({ ...body.data, source: 'paste' }, deps);
     const who = actorOf(req);
     await deps.repo.logAudit(who.id, 'paste_email', `email:${result.id}`, { name: who.name, roles: who.roles });
-    req.log.info({ emailId: result.id, decision: result.decision, status: result.status }, 'intake email decided');
+    req.log.info({ emailId: result.id, decision: result.decision, status: result.status, reason: result.reason ?? null }, 'intake email decided');
     return result;
   });
 
@@ -82,8 +91,7 @@ const routes: FastifyPluginAsync = async (app) => {
     if (!deps.gmail) return reply.code(503).send({ error: 'Gmail is not set up (GMAIL_* in .env)' });
     const r = await runPoll(deps, 'button', { ...body.data, actor: actorOf(req).id });
     if (!r) return reply.code(409).send({ error: 'Another Gmail check is running: try again in a minute' });
-    req.log.info({ pollId: r.pollId, fetched: r.fetched, processed: r.processed, retried: r.retried, ok: r.ok },
-      'intake fetched from Gmail');
+    req.log.info(pollLogFields(r), 'intake fetched from Gmail');
     return r;
   });
 
@@ -92,15 +100,15 @@ const routes: FastifyPluginAsync = async (app) => {
     if (!body.success) return reply.code(400).send({ error: body.error.message });
     const deps = getDeps();
     const result = await applyAction(deps.repo, Number(req.params.id), body.data.action, actorOf(req),
-      { gmail: deps.gmail, allow: allowList }, body.data.reply);
-    req.log.info({ emailId: Number(req.params.id), action: body.data.action, code: result.code }, 'intake action');
+      { gmail: deps.gmail, allow: allowList },
+      { edited: body.data.reply, reason: body.data.reason, carrier: body.data.carrier, overrides: logOverride });
+    req.log.info({ emailId: Number(req.params.id), action: body.data.action, carrier: body.data.carrier ?? null, code: result.code },
+      'intake action');
     return reply.code(result.code).send(result.error ? { error: result.error } : { status: result.status });
   });
 
-  app.get('/complaints', async () => ({
-    complaints: (await listComplaints()).map((c) => ({ complaintId: c.complaint_id, clientId: c.client_id, deliveryId: c.delivery_id,
-      category: c.category, date: c.complaint_date, text: c.text, atRisk: c.at_risk, tier: c.account_tier })),
-  }));
+  // E12 + E14: escalations (Tier 1 or at-risk clients) first, each with its latest saved triage.
+  app.get('/complaints', async () => ({ complaints: complaintQueue(await listComplaints(), await savedTriages()) }));
 
   app.post<{ Params: { id: string } }>('/complaints/:id/triage', async (req, reply) => {
     const row = (await listComplaints()).find((c) => c.complaint_id === req.params.id);
@@ -109,7 +117,8 @@ const routes: FastifyPluginAsync = async (app) => {
     const t = await triage(deps.llm, diagnosisApi, row);
     await saveTriage(t);
     const who = actorOf(req);
-    await deps.repo.logAudit(who.id, 'triage', `complaint:${row.complaint_id}`, { name: who.name, roles: who.roles });
+    await deps.repo.logAudit(who.id, 'triage', `complaint:${row.complaint_id}`, { name: who.name, roles: who.roles, escalate: t.escalate });
+    req.log.info({ complaintId: row.complaint_id, deliveryId: t.deliveryId, escalate: t.escalate, source: t.source }, 'complaint triaged');
     return t;
   });
 

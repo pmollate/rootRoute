@@ -34,6 +34,12 @@ export interface PollOutcome {
   results: Processed[];
 }
 
+/** NFR-03: the fields of a poll's log line, with the id of every email it stored or retried, so one email is traceable. */
+export function pollLogFields(r: PollOutcome) {
+  return { pollId: r.pollId, fetched: r.fetched, processed: r.processed, retried: r.retried, failed: r.failed, ok: r.ok,
+    error: r.error, emailIds: r.results.map((x) => x.id) };
+}
+
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err)).slice(0, 300);
 
 /** A stored email as the pipeline takes it, to run again an email that waited for the AI services. */
@@ -145,8 +151,7 @@ export function startIntakePolling(log: Log, minutes = config.INTAKE_POLL_MINUTE
     try {
       const r = await runPoll(getDeps(), 'schedule');
       if (!r) log.info({}, 'gmail poll skipped: another check is running');
-      else log.info({ pollId: r.pollId, fetched: r.fetched, processed: r.processed, retried: r.retried,
-        failed: r.failed, ok: r.ok, error: r.error }, 'gmail poll done');
+      else log.info(pollLogFields(r), 'gmail poll done');
     } catch (err) {
       log.error({ err: message(err) }, 'gmail poll failed');
     }

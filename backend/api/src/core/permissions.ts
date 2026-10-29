@@ -34,6 +34,7 @@ export const PERMISSIONS: Record<string, Permission> = {
   'GET /api/placement': { roles: READ },
   'GET /api/intake': { roles: READ },
   'GET /api/intake/:id': { roles: READ },
+  'GET /api/intake/review': { roles: READ },
   'GET /api/complaints': { roles: READ },
   'GET /api/carriers': { roles: READ },
   'GET /api/carriers/backtest': { roles: READ },

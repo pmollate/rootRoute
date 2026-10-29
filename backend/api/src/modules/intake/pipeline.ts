@@ -8,7 +8,7 @@ import type { Decision } from './decide.js';
 import { senderAddress } from './mailbox.js';
 import { type EarlierEmail, type IntakeDeps, readOrder } from './read.js';
 import { regionOfState } from './region.js';
-import { draftReply, type ReplyFacts } from './reply.js';
+import { draftReply, type ReplyFacts, templateReply } from './reply.js';
 import type { EmailRow, Repo } from './repo.js';
 
 export { mergeExtraction } from './read.js';
@@ -36,8 +36,11 @@ export interface Processed {
   id: number;
   status: string;
   decision: Decision | null; // null while WAITING
-  reason?: string;           // why it is waiting
+  reason?: string;           // why it is waiting, or UNKNOWN_SENDER
 }
+
+/** E16 / REQ-INT-10: the reason returned for an email whose sender domain is not a client's. */
+export const UNKNOWN_SENDER = 'unknown sender';
 
 export function emailHash(e: IncomingEmail): string {
   return createHash('sha256').update(`${senderAddress(e.from)}\n${e.body}`).digest('hex');
@@ -85,6 +88,22 @@ export async function processEmail(input: IncomingEmail, deps: Deps): Promise<Pr
       message_id: input.messageId ?? null, from_addr: from, subject: input.subject, body: input.body, redacted_body: null,
       pii_map: null, received_at: input.receivedAt, in_reply_to: answers?.id ?? null, hash, client_id: client?.client_id ?? null,
     });
+  }
+
+  // E16 / REQ-INT-10: an unknown sender is MISSING_INFO at once. No PII call and no model call, so nothing from a
+  // stranger reaches an AI service; no automatic reply. The stored draft is the fixed template, for an operator who
+  // decides to answer (the allow-list still applies to any send).
+  if (!client) {
+    const decision = 'MISSING_INFO' as const;
+    await repo.saveExtraction({
+      email_id: id, extraction: null, decision,
+      checks: { address: null, promise: null, warehouse: null, carrier: null },
+      reply_draft: templateReply({ decision, clientName: null, contact: null, items: [], promise: null, missing: [],
+        candidates: [], address: null, addressIssues: [], suggestion: null }),
+      reply_source: 'template',
+    });
+    await repo.setStatus(id, 'AWAITING_APPROVAL');
+    return { id, status: 'AWAITING_APPROVAL', decision, reason: UNKNOWN_SENDER };
   }
 
   const saved = client ? await repo.savedAddresses(client.client_id) : [];

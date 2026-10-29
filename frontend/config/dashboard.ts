@@ -2,6 +2,7 @@
 export const SCREENS = [
   { href: '/dashboard/overview', label: 'Overview', owner: 'B' },
   { href: '/dashboard/intake', label: 'Order emails', owner: 'A' },
+  { href: '/dashboard/complaints', label: 'Complaints', owner: 'A' },
   { href: '/dashboard/warehouses', label: 'Warehouses', owner: 'B' },
   { href: '/dashboard/carriers', label: 'Carriers', owner: 'C' },
   { href: '/dashboard/journey', label: 'Order journey', owner: 'C' },
