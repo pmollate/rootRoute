@@ -173,10 +173,6 @@ Served by `backend/api` (default `http://localhost:3001`); read by the dashboard
 All numbers are numbers (not strings). Rates are 0..1; the UI formats them. Panels backed by synthetic data include
 `"synthetic": true`.
 
-Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 for writes, §4.4 for reads). With
-`AUTH_REQUIRED=on` a GET is open only to the roles of the pages that use it (REQ-AUTH-16); any other role gets
-`403 { error: "forbidden" }`.
-
 | Endpoint | Owner | Response |
 |---|---|---|
 | `GET /api/health` | B | `{ db: "ok" \| "down", llm: string, version: string }` |

@@ -68,8 +68,7 @@ triage is recorded with the signed-in person's id. The API enforces this; hiding
 | `admin` | The LateLens team | Every action above |
 
 - A user **MAY** hold several roles; their permissions are the union.
-- Each role opens only the screens of its own flow, plus Overview and Order journey, and reads only the data those
-  screens use (§4.4, REQ-AUTH-15, -16). There are no row-level limits within a screen (§11).
+- Every role reads every screen and all data (no row-level limits, §11).
 - A signed-in user with none of these six role ids has no access (REQ-AUTH-03). Any other role value in a token is ignored.
 
 ### 4.2 Permission matrix (role × action)
@@ -80,7 +79,7 @@ the registered routes.
 
 | Action | Route | `order_desk` | `warehouse_supervisor` | `carrier_manager` | `customer_support` | `leadership` | `admin` | Built today |
 |---|---|---|---|---|---|---|---|---|
-| Read a screen's data | Every `GET /api/*` in SPEC §7 except health | per §4.4 | per §4.4 | per §4.4 | per §4.4 | per §4.4 | Y | Yes |
+| Open any page; read any data | Every `GET /api/*` in SPEC §7 except health | Y | Y | Y | Y | Y | Y | Yes |
 | Paste an email | `POST /api/intake/email` | Y | | | | | Y | Yes |
 | Check Gmail now | `POST /api/intake/fetch` | Y | | | | | Y | Yes |
 | Approve an `ALL_CLEAR` order (may change the carrier, REQ-AUTH-14) | `POST /api/intake/:id/action` `approve` | Y | | | | | Y | Yes |
@@ -111,38 +110,6 @@ reviews the change to their screen and routes.
 | Warehouse (B) | Overview, Warehouses, Replay & decision, landing page | Read-only today: only the fetch path changes (same-origin `/api`). The landing page `/` now needs sign-in (§2). No write route, so no role-gated buttons |
 | Carriers (C) | Carriers, tracking, Order journey | The override form drops "Full name" and shows only for `carrier_manager` and `admin`. Journey stays read-only; its stage 7 actor follows Q-AUTH-05 |
 | Shared | `DashboardShell.tsx`, `frontend/lib/api.ts`, `frontend/config/dashboard.ts`, `frontend/middleware.ts` | Header with name, roles, "Demo account" badge and "Sign out"; same-origin calls without a key; session redirect added next to maintenance mode |
-
-### 4.4 Page access and reads (least privilege)
-
-Each role sees its own workspace plus the two shared screens: Overview (the headline figures) and Order journey (one
-delivery or order, with no people's details, SEC-JRN-01). `PAGE_ROLES` in `frontend/lib/auth/roles.ts` holds the page
-matrix; `backend/api/src/core/permissions.ts` gives each GET the roles of the pages that call it.
-
-| Page | `order_desk` | `warehouse_supervisor` | `carrier_manager` | `customer_support` | `leadership` | `admin` |
-|---|---|---|---|---|---|---|
-| `/`, `/dashboard` (opens Overview) | Y | Y | Y | Y | Y | Y |
-| Overview | Y | Y | Y | Y | Y | Y |
-| Order emails (incl. order review) | Y | Y | | | | Y |
-| Complaints | | | | Y | | Y |
-| Warehouses | | Y | | | Y | Y |
-| Carriers | | | Y | | Y | Y |
-| Order journey | Y | Y | Y | Y | Y | Y |
-| Replay | | Y | Y | | Y | Y |
-
-| GET route | Pages that use it | Roles |
-|---|---|---|
-| `overview`, `causes`, `replay`, `attribution`, `cause-kpis`, `journey/:ref` | Overview, Order journey (and others) | every role |
-| `accounts` | Warehouses, Replay | `warehouse_supervisor`, `carrier_manager`, `leadership`, `admin` |
-| `warehouses`, `placement`, `penalties/unpaid` | Warehouses | `warehouse_supervisor`, `leadership`, `admin` |
-| `intake`, `intake/:id`, `intake/review` | Order emails (Order journey lists email orders only for these roles) | `order_desk`, `warehouse_supervisor`, `admin` |
-| `complaints` | Complaints | `customer_support`, `admin` |
-| `carriers`, `carriers/backtest`, `tracking` | Carriers | `carrier_manager`, `leadership`, `admin` |
-
-- The nav lists only the screens the role may open. A link to a screen the role cannot open shows as plain text.
-- Opening a screen outside the matrix shows "This page is not available for your role" with HTTP 403. The URL stays
-  as typed, and the page lists the screens the role can open.
-- `leadership` keeps no action buttons (REQ-AUTH-10) and does not see the order-email or complaint queues, which hold
-  client contact details.
 
 ## 5. Design
 
@@ -210,8 +177,8 @@ The token lives only on the server-to-server hop. It is signed per request and n
 
 | Screen | Content |
 |---|---|
-| `/login` | Product name and the email and password form (when `AUTH_DEMO=on`). No "Sign in with Microsoft" button, Microsoft notice or sign-out notice; Entra stays configurable in `auth.ts` |
-| Header (every page) | A profile icon with the user's initials, which opens a card with their name, roles and, for demo users, "Demo account"; and a round "Logout" icon button |
+| `/login` | Product name, "Sign in with Microsoft", the demo form below it when `AUTH_DEMO=on` |
+| Header (every page) | User's name, role badges, "Demo account" badge for demo users, "Sign out" |
 | `/no-access` | "You are signed in as <name> but have no LateLens role. Ask `[ROLE_ADMIN]` for access." and "Sign out" (Q-AUTH-02) |
 
 | Situation | What the user sees | HTTP | Logged (SEC-AUTH-06) |
@@ -258,14 +225,12 @@ The token lives only on the server-to-server hop. It is signed per request and n
 | REQ-AUTH-06 | A route or action not listed in §4.2 **MUST** be refused for every role (default deny), and a test **MUST** fail if a registered route has no entry. |
 | REQ-AUTH-07 | The actor recorded for every write (approve, reject, send, WMS entry, override, triage, alerts, recommendation, pasted or fetched email) **MUST** be the token's `sub`, with its `name`. Request bodies **MUST NOT** carry the actor: the `user` field is removed, and if sent it is ignored. |
 | REQ-AUTH-08 | Users **MUST** be able to sign out from every page; signing out **MUST** end the session, so the next page load goes to `/login`. |
-| REQ-AUTH-09 | The header **SHOULD** show a profile icon (the user's initials) that opens their name, roles and demo status, and a "Logout" icon button; no name, role or demo chips in the bar. |
+| REQ-AUTH-09 | The header **SHOULD** show the user's name and roles, and a "Demo account" badge for demo users. |
 | REQ-AUTH-10 | Buttons for actions the user's roles cannot do **SHOULD** be hidden; a `leadership` user sees no action buttons. |
 | REQ-AUTH-11 | When a session has ended, an action **MUST** return 401 `session_expired` without reaching the API, the screen **MUST** keep what the user typed (reply text, reason, carrier choice) through sign-in, and **MUST NOT** resend the action until the user clicks again. |
 | REQ-AUTH-12 | When Entra is unreachable or returns an error, `/login` **MUST** show a plain message without technical detail, sessions already open **MUST** keep working until they end, and demo sign-in **MUST** still work when `AUTH_DEMO=on`. |
 | REQ-AUTH-13 | With `AUTH_REQUIRED=off`, pages and API **MUST** behave as before P7 (no redirect; `x-api-key` on the keyed routes) and **MUST** log an `auth_would_deny` line for each request that `on` would refuse. With `AUTH_REQUIRED=on`, REQ-AUTH-01 to -07 apply and `x-api-key` **MUST** be ignored. |
 | REQ-AUTH-14 | A carrier change made while approving an order (REQ-INT-15) **MUST** be allowed by the approve permission and logged in `override_log` with the approver as actor; a direct `POST /api/overrides` still needs `carrier_manager` or `admin`. |
-| REQ-AUTH-15 | A dashboard screen outside the signed-in user's §4.4 page matrix **MUST** return 403 with the forbidden page and **MUST NOT** be listed in the nav. With `AUTH_REQUIRED=off` and no session, every screen opens as before. |
-| REQ-AUTH-16 | Every `GET /api/*` route **MUST** return 403 for a role outside its §4.4 read list, before the handler runs. |
 
 ### 7.2 Non-functional
 
@@ -310,14 +275,12 @@ in the journey) still holds.
 | AC-AUTH-06 | Given the routes registered by `buildApp()`, when the permissions test runs, then every route (and every `action` value of `/intake/:id/action`) has an entry in `permissions.ts`; given a test route added without an entry, then it returns 403 for an `admin` token and the test fails. |
 | AC-AUTH-07 | Given an `order_desk` user with `sub` `u1` approving with body `user: "someone-else"`, then `audit_log.actor` is `u1` and the payload holds `u1`'s name. Given a demo user, then the actor is `demo:<email>`. |
 | AC-AUTH-08 | Given a signed-in user, when they click "Sign out", then the session cookie is cleared and the next page load goes to `/login`. |
-| AC-AUTH-09 | Given a demo `admin` user, when any dashboard page loads, then the header shows a "DA" profile icon and a "Logout" icon button with no name, role or demo chip; when the profile icon is clicked, then "Demo admin", "Admin" and "Demo account" show. |
+| AC-AUTH-09 | Given a demo `order_desk` user, when any dashboard page loads, then the header shows their name, the `order_desk` badge and "Demo account". |
 | AC-AUTH-10 | Given a `leadership` user, when Intake and Carriers load, then no Fetch, Paste, Approve, Reject, Send reply, Send to WMS, Triage or override control is shown. |
 | AC-AUTH-11 | Given an `order_desk` user who has edited a reply and whose session has ended, when they click "Send reply", then the API is not called, the screen shows "Your session has ended", and after signing in the same email opens with the edited text in place and nothing sent until "Send reply" is clicked again. |
 | AC-AUTH-12 | Given the Entra issuer is unreachable, when `/login` loads and "Sign in with Microsoft" is clicked, then the plain message shows with no stack trace; a user signed in before keeps loading pages; with `AUTH_DEMO=on`, a demo user can sign in. |
 | AC-AUTH-13 | Given `AUTH_REQUIRED=off`, when a keyed route is called with the right `x-api-key` and no token, then it succeeds and an `auth_would_deny` line is logged; when `/dashboard` is opened without a session, then it loads. Given `AUTH_REQUIRED=on`, when the same call is made with only `x-api-key`, then 401. |
 | AC-AUTH-14 | Given an `order_desk` user approving an order with a different, unblocked carrier, then the approval succeeds and one `override_log` row names that user; given the same user calling `POST /api/overrides` directly, then 403. |
-| AC-AUTH-15 | Given an `order_desk` user, when any dashboard page loads, then the nav lists only Overview, Order emails and Order journey; when `/dashboard/carriers` is opened, then the response is 403 and the page says it is not available for the role. Given `leadership`, then the nav lists Overview, Warehouses, Carriers, Order journey and Replay. |
-| AC-AUTH-16 | Given `AUTH_REQUIRED=on`, when `GET /api/carriers` is called with an `order_desk` token, `GET /api/complaints` with `leadership` or `warehouse_supervisor`, `GET /api/intake` with `carrier_manager`, or `GET /api/warehouses` with `customer_support`, then each returns 403 `forbidden`. |
 | AC-NFR-AUTH-01 | Given the deployed apps, when 50 `GET /api/overview` calls go through the proxy and 50 go to the API with a token, then the p95 difference is ≤ 50 ms. |
 | AC-NFR-AUTH-02 | Given a session signed in 8 hours ago and used every minute since, when a page loads, then the browser lands on `/login`. |
 | AC-NFR-AUTH-03 | Given a fresh clone, when `npm run setup` and `npm run dev:all` run with no Entra settings, then a demo user signs in with the printed password. |

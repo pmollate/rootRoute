@@ -1,7 +1,6 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
 import { auth } from '@/auth';
-import { authLog } from '@/lib/auth/log';
-import { canOpen, toRoles } from '@/lib/auth/roles';
+import { toRoles } from '@/lib/auth/roles';
 
 /** Pages any visitor may open (REQ-AUTH-01). `/api/*` checks the session itself: the proxy answers 401, not a redirect. */
 const OPEN = ['/login', '/no-access', '/maintenance'];
@@ -16,13 +15,7 @@ const requireSession = auth((req) => {
     login.searchParams.set('next', path + req.nextUrl.search);
     return NextResponse.redirect(login);
   }
-  const roles = toRoles(req.auth.user.roles);
-  if (roles.length === 0) return NextResponse.redirect(new URL('/no-access', req.url));
-  // REQ-AUTH-15: a screen outside the role's page matrix answers 403 with the forbidden page, keeping the URL.
-  if (!canOpen(roles, path)) {
-    authLog('auth_forbidden', { user: req.auth.user.id, route: path, status: 403 });
-    return NextResponse.rewrite(new URL('/dashboard/forbidden', req.url), { status: 403 });
-  }
+  if (toRoles(req.auth.user.roles).length === 0) return NextResponse.redirect(new URL('/no-access', req.url));
   return NextResponse.next();
 });
 
