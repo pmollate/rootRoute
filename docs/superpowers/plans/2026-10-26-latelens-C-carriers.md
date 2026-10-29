@@ -1619,7 +1619,7 @@ chrome, C13 already changed them). No migration: D10 stores nothing (SEC-ASK-03,
   itself, so the dozen hand-written `LLM` stand-ins in the intake tests need no change; and `ToolChatRequest` gains an
   optional `answerSchema` (Structured Outputs for the final `{ answer, refused }`).
 
-- [ ] **Step 1: Write the failing registry test** `backend/api/test/assistant/tools.test.ts`:
+- [x] **Step 1: Write the failing registry test** `backend/api/test/assistant/tools.test.ts`:
 
 ```ts
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -1655,10 +1655,10 @@ describe('one tool registry for MCP and the assistant (D10, REQ-ASK-02)', () => 
 });
 ```
 
-- [ ] **Step 2: Run it.** `npm --prefix backend/api test -- test/assistant/tools.test.ts`
+- [x] **Step 2: Run it.** `npm --prefix backend/api test -- test/assistant/tools.test.ts`
   Expected: FAIL, `Cannot find module '../../src/modules/mcp/tools.js'`.
 
-- [ ] **Step 3: Create the registry** `backend/api/src/modules/mcp/tools.ts` (the six tools move here unchanged: same
+- [x] **Step 3: Create the registry** `backend/api/src/modules/mcp/tools.ts` (the six tools move here unchanged: same
   names, titles, descriptions, zod shapes and handler bodies as `server.ts` on `main`):
 
 ```ts
@@ -1748,7 +1748,7 @@ export const toolByName = (name: string): ToolDef | undefined => TOOLS.find((t) 
 export const toolParameters = (t: ToolDef): object => z.toJSONSchema(z.object(t.input), { io: 'input' });
 ```
 
-- [ ] **Step 4: Register from the registry.** In `backend/api/src/modules/mcp/server.ts` replace everything from
+- [x] **Step 4: Register from the registry.** In `backend/api/src/modules/mcp/server.ts` replace everything from
   `import { McpServer } …` down to (not including) the `/** REQ-MCP-02 …` comment with the block below. Keep the
   header comment, the `timingSafeEqual` import and `mcpAuth` as they are.
 
@@ -1774,10 +1774,10 @@ export function buildMcpServer(): McpServer {
 }
 ```
 
-- [ ] **Step 5: Run.** `npm --prefix backend/api test -- test/assistant/tools.test.ts test/mcp.test.ts`
+- [x] **Step 5: Run.** `npm --prefix backend/api test -- test/assistant/tools.test.ts test/mcp.test.ts`
   Expected: PASS (2 + 5). The 5 MCP tests are the regression guard: tool list, annotations, `check_promise`, bad input.
 
-- [ ] **Step 6: Write the failing `toolChat` tests** `backend/api/test/assistant/llm-tools.test.ts` (it imports
+- [x] **Step 6: Write the failing `toolChat` tests** `backend/api/test/assistant/llm-tools.test.ts` (it imports
   `FinalAnswer` from C15's `answer.ts`; until C15, inline it as
   `const FinalAnswer = z.object({ answer: z.string(), refused: z.boolean() });` and switch the import in C15 Step 5):
 
@@ -1834,7 +1834,7 @@ describe('LLM.toolChat (D10, REQ-ASK-10, SEC-ASK-03)', () => {
 
   Run `npm --prefix backend/api test -- test/assistant/llm-tools.test.ts`. Expected: FAIL, `llm.toolChat is not a function`.
 
-- [ ] **Step 7: Implement `toolChat`.**
+- [x] **Step 7: Implement `toolChat`.**
   1. Append to `backend/api/src/core/llm/types.ts`:
 
 ```ts
@@ -1916,7 +1916,7 @@ export interface ToolChatLLM extends LLM {
   5. `backend/api/src/core/llm/index.ts`: `import type { ToolChatLLM } from './types.js';` and
      `export function createLLM(): ToolChatLLM {`.
 
-- [ ] **Step 8: Write the database test for SEC-ASK-04** `backend/api/test/routes/assistant-tools.test.ts` (runs every
+- [x] **Step 8: Write the database test for SEC-ASK-04** `backend/api/test/routes/assistant-tools.test.ts` (runs every
   tool with every enum value, the real handlers, and scans the output):
 
 ```ts
@@ -1963,10 +1963,10 @@ describe.skipIf(!hasDb)('registry tools return aggregates only (needs test datab
   If a key such as `reason` or `note` trips a word in `PERSONAL_KEY`, narrow the pattern, never the tool output; if a
   real personal field shows up, remove it from the tool (SEC-ASK-04) and tell B (it reads B's queries).
 
-- [ ] **Step 9: Run.** `npm --prefix backend/api test -- test/assistant test/mcp.test.ts test/llm.test.ts test/routes/mcp.test.ts test/routes/assistant-tools.test.ts && npm run typecheck`
+- [x] **Step 9: Run.** `npm --prefix backend/api test -- test/assistant test/mcp.test.ts test/llm.test.ts test/routes/mcp.test.ts test/routes/assistant-tools.test.ts && npm run typecheck`
   Expected: PASS (without the test database the two `routes/` files are skipped).
 
-- [ ] **Step 10: Commit.**
+- [x] **Step 10: Commit.**
 
 ```bash
 git add backend/api/src/modules/mcp backend/api/src/core/llm backend/api/src/core/recordings.ts backend/api/test/assistant backend/api/test/routes/assistant-tools.test.ts

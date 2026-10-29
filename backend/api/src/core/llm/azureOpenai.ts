@@ -1,6 +1,6 @@
 import OpenAI, { type ClientOptions } from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod';
-import { type JsonRequest, type LLM, LLMError, parseJson, type TextRequest } from './types.js';
+import { type JsonRequest, LLMError, parseJson, type TextRequest, type ToolChatLLM, type ToolChatRequest, type ToolChatTurn } from './types.js';
 
 type ResponseFormat = OpenAI.Chat.ChatCompletionCreateParams['response_format'];
 
@@ -8,7 +8,7 @@ type ResponseFormat = OpenAI.Chat.ChatCompletionCreateParams['response_format'];
  * GPT on Azure AI Foundry through the v1 endpoint. JSON calls use Structured Outputs (strict schema).
  * Every call is kept as a stored completion (Foundry portal -> Stored completions, ~30 days), tagged by step.
  */
-export class AzureOpenAILLM implements LLM {
+export class AzureOpenAILLM implements ToolChatLLM {
   readonly name = 'azure-openai';
   private readonly client: OpenAI;
 
@@ -46,5 +46,36 @@ export class AzureOpenAILLM implements LLM {
 
   async text(req: TextRequest): Promise<string> {
     return (await this.complete(req)).trim();
+  }
+
+  /**
+   * D10 assistant (SPEC §5.16): one model turn with tools. `store: false` (SEC-ASK-03, PC-04): unlike the intake steps,
+   * assistant questions are never kept as stored completions. Arguments come back raw; the caller validates them.
+   */
+  async toolChat(req: ToolChatRequest): Promise<ToolChatTurn> {
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [{ role: 'system', content: req.system }, ...req.messages.map(
+      (m): OpenAI.Chat.ChatCompletionMessageParam => m.role === 'tool'
+        ? { role: 'tool', tool_call_id: m.toolCallId ?? '', content: m.content }
+        : m.role === 'assistant' && m.toolCalls?.length
+          ? { role: 'assistant', content: m.content || null, tool_calls: m.toolCalls.map((c) =>
+            ({ id: c.id, type: 'function' as const, function: { name: c.name, arguments: c.arguments } })) }
+          : { role: m.role as 'user' | 'assistant', content: m.content })];
+    let res: OpenAI.Chat.ChatCompletion;
+    try {
+      res = await this.client.chat.completions.create({
+        model: this.deployment, messages, store: false, reasoning_effort: 'low', max_completion_tokens: 4000,
+        tools: req.tools.map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters as Record<string, unknown> } })),
+        ...(req.answerSchema ? { response_format: zodResponseFormat(req.answerSchema, 'answer') } : {}),
+      });
+    } catch (err) {
+      if (err instanceof OpenAI.APIError && err.code === 'content_filter') throw new LLMError('blocked by the Azure content filter', 'refusal');
+      throw new LLMError(err instanceof Error ? err.message : String(err), 'transport');
+    }
+    const choice = res.choices[0];
+    if (choice?.finish_reason === 'content_filter' || choice?.message.refusal) throw new LLMError('model declined the request', 'refusal');
+    if (choice?.finish_reason === 'length') throw new LLMError('output cut off: raise max_completion_tokens', 'invalid');
+    const calls = (choice?.message.tool_calls ?? []).flatMap((c) => c.type === 'function'
+      ? [{ id: c.id, name: c.function.name, arguments: c.function.arguments }] : []);
+    return calls.length ? { kind: 'tool_calls', calls } : { kind: 'final', content: choice?.message.content ?? '' };
   }
 }

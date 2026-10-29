@@ -1,12 +1,17 @@
 import { readRecordedError, readRecording, RECORDINGS_DIR, writeRecording } from '../recordings.js';
-import { type JsonRequest, type LLM, LLMError, type LLMErrorKind, parseJson, type TextRequest } from './types.js';
+import {
+  type JsonRequest, type LLM, LLMError, type LLMErrorKind, parseJson, type TextRequest, type ToolChatLLM, type ToolChatRequest, type ToolChatTurn,
+} from './types.js';
+
+/** The recording key of one assistant turn: the whole conversation so far and the tools offered (D10, REQ-ASK-10). */
+export const toolChatKey = (req: ToolChatRequest) => JSON.stringify({ messages: req.messages, tools: req.tools });
 
 /** Replays responses saved by RecordingLLM. Used by tests and CI: fast, free, repeatable. */
-export class RecordedLLM implements LLM {
+export class RecordedLLM implements ToolChatLLM {
   readonly name = 'recorded';
   constructor(private readonly dir = RECORDINGS_DIR) {}
 
-  private read(kind: 'json' | 'text', system: string, user: string): string {
+  private read(kind: 'json' | 'text' | 'tool', system: string, user: string): string {
     const error = readRecordedError(this.dir, kind, system, user);
     if (error) throw new LLMError(error.message, error.kind as LLMErrorKind);
     const text = readRecording(this.dir, kind, system, user);
@@ -21,12 +26,16 @@ export class RecordedLLM implements LLM {
   async text(req: TextRequest): Promise<string> {
     return this.read('text', req.system, req.user);
   }
+
+  async toolChat(req: ToolChatRequest): Promise<ToolChatTurn> {
+    return JSON.parse(this.read('tool', req.system, toolChatKey(req))) as ToolChatTurn;
+  }
 }
 
 /** Wraps a real model and saves every response so RecordedLLM can replay it (RECORD=1). */
-export class RecordingLLM implements LLM {
+export class RecordingLLM implements ToolChatLLM {
   readonly name: string;
-  constructor(private readonly inner: LLM, private readonly dir = RECORDINGS_DIR) {
+  constructor(private readonly inner: LLM | ToolChatLLM, private readonly dir = RECORDINGS_DIR) {
     this.name = `${inner.name}+recording`;
   }
 
@@ -42,8 +51,16 @@ export class RecordingLLM implements LLM {
     return out;
   }
 
+  async toolChat(req: ToolChatRequest): Promise<ToolChatTurn> {
+    const inner = this.inner;
+    if (!('toolChat' in inner)) throw new LLMError(`${inner.name} has no toolChat`, 'transport');
+    const out = await this.saveErrors('tool', { system: req.system, user: toolChatKey(req) }, () => inner.toolChat(req));
+    writeRecording(this.dir, 'tool', req.system, toolChatKey(req), JSON.stringify(out));
+    return out;
+  }
+
   /** A refusal or invalid output is the model's answer and is replayed; a transport error is not saved. */
-  private async saveErrors<T>(kind: 'json' | 'text', req: TextRequest, call: () => Promise<T>): Promise<T> {
+  private async saveErrors<T>(kind: 'json' | 'text' | 'tool', req: TextRequest, call: () => Promise<T>): Promise<T> {
     try {
       return await call();
     } catch (err) {
