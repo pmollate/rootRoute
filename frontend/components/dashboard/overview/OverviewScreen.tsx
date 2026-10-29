@@ -77,16 +77,6 @@ const shortTarget = (t: string) => t.split(' (')[0];
 /** "Sales ops / warehouse" → "SO" */
 const initials = (name: string) => name.split(/[\s/]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 
-function downloadCsv(name: string, rows: (string | number)[][]) {
-  const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 interface Step { cause: string; stage: string; pointsLost: number; from: number; to: number }
 
 /** Ring chart for a 0–1 share. */
@@ -270,34 +260,12 @@ export function OverviewScreen() {
   const benchmark = o.data?.benchmark ?? 0.94;
   const largest = attribution[0]?.cause;
 
-  const exportTable = () => downloadCsv('halcyon-causes.csv', [
-    ['Cause', 'Stage', 'Points lost', 'Measure', 'Current', 'Target', 'Owner'],
-    ...attribution.map((x) => {
-      const m = measure(x.cause);
-      return [m?.label ?? x.label, x.stage, points(x.pointsLost), m?.kpi ?? '', m ? today(m) : '', m?.target ?? '', m?.owner ?? ''];
-    }),
-  ]);
-
   return (
     <div className={s.screen}>
       <div className={s.pageHead}>
         <div>
           <p className={s.eyebrow}>Delivery performance</p>
           <h1 className={s.title}>Overview</h1>
-        </div>
-        <div className={s.actions}>
-          {o.data && (
-            <span className={s.chip}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 8 12 3 3 8v8l9 5 9-5V8Z" /><path d="m3 8 9 5 9-5M12 13v8M7.5 5.5l9 5" />
-              </svg>{int(o.data.deliveries)} shipments analysed
-            </span>
-          )}
-          <button type="button" className={s.chip} onClick={exportTable} disabled={attribution.length === 0}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 15V3M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
-            </svg>Export
-          </button>
         </div>
       </div>
 

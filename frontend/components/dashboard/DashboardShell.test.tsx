@@ -10,7 +10,7 @@ vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: () => {},
 
 const navs = () => screen.getAllByRole('navigation', { name: 'Dashboard', hidden: true });
 const texts = (el: HTMLElement) => within(el).queryAllByRole('link', { hidden: true }).map((a) => a.textContent);
-/** The bar's own links (Order journey, Labs, Settings), with the Dashboard menu closed. */
+/** The bar's own links (Orders, Labs, Settings), with the Dashboard menu closed. */
 const bar = () => texts(navs()[0]);
 /** The Dashboard menu's reports, once opened. */
 const reports = () => {
@@ -24,23 +24,23 @@ const drawer = () => texts(navs()[1]);
 describe('dashboard navigation (master nav, REQ-AUTH-15)', () => {
   afterEach(cleanup);
 
-  it('Order journey, a Dashboard menu of the reports (Orders in its slot), Labs and Settings; the drawer lists the same, in order', () => {
+  it('a Dashboard menu of the reports, Orders, Labs and Settings; the drawer lists the same, in order', () => {
     render(<DashboardShell>x</DashboardShell>);
-    expect(bar()).toEqual(['Order journey', 'Labs', 'Settings']);
-    expect(reports()).toEqual(['Overview', 'Complaints', 'Warehouses', 'Carriers', 'Orders', 'Replay']);
-    expect(drawer()).toEqual(['Order journey', 'Overview', 'Complaints', 'Warehouses', 'Carriers', 'Orders', 'Replay', 'Labs', 'Settings']);
+    expect(bar()).toEqual(['Orders', 'Labs', 'Settings']);
+    expect(reports()).toEqual(['Overview', 'Complaints', 'Warehouses', 'Carriers', 'Order journey', 'Replay']);
+    expect(drawer()).toEqual(['Overview', 'Complaints', 'Warehouses', 'Carriers', 'Order journey', 'Replay', 'Orders', 'Labs', 'Settings']);
   });
 
   it('AC-AUTH-15: the order desk sees Orders and only its reports', () => {
     render(<DashboardShell user={asRole('order_desk')}>x</DashboardShell>);
-    expect(bar()).toEqual(['Order journey', 'Labs', 'Settings']);
-    expect(reports()).toEqual(['Overview', 'Orders']);
+    expect(bar()).toEqual(['Orders', 'Labs', 'Settings']);
+    expect(reports()).toEqual(['Overview', 'Order journey']);
   });
 
   it('AC-AUTH-15: leadership has no Orders, and the analytical reports', () => {
     render(<DashboardShell user={asRole('leadership')}>x</DashboardShell>);
-    expect(bar()).toEqual(['Order journey', 'Labs', 'Settings']);
-    expect(reports()).toEqual(['Overview', 'Warehouses', 'Carriers', 'Replay']);
+    expect(bar()).toEqual(['Labs', 'Settings']);
+    expect(reports()).toEqual(['Overview', 'Warehouses', 'Carriers', 'Order journey', 'Replay']);
   });
 
   it('the Dashboard menu reads as current on a report screen and marks that screen', () => {
