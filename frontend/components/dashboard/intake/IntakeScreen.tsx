@@ -20,7 +20,7 @@ interface Inbox { emails: EmailItem[]; lastPoll?: { startedAt: string; finishedA
 interface PollResult { processed: number; retried: number; ok: boolean }
 interface Address { line1: string; line2: string | null; city: string; state: string; zip: string }
 export interface Detail {
-  email: { id: number; from: string; subject: string; body: string; redactedBody: string | null; receivedAt: string; status: string; inReplyTo: number | null };
+  email: { id: number; from: string; subject: string; body: string; redactedBody: string | null; receivedAt: string; status: string; inReplyTo: number | null; clientId?: string | null };
   decision: Decision | null; replyDraft: string | null; replySource: 'model' | 'template' | null;
   extraction: { items: Item[] } | null;
   checks: {
@@ -161,6 +161,7 @@ function toThreads(emails: EmailItem[]): Thread[] {
 /** The thread's state in a few words, for its chip in the list. */
 function chip(e: EmailItem): { text: string; tone: string } {
   if (e.status === 'WAITING') return { text: 'Waiting for AI', tone: s.tNeutral };
+  if (e.clientId === null && e.decision === 'MISSING_INFO' && e.status === 'AWAITING_APPROVAL') return { text: 'Unknown sender', tone: s.tBad };
   if (e.status === 'ENTERED') return { text: 'In WMS', tone: s.tGood };
   if (waitingOnClient(e)) return { text: 'Waiting on client', tone: s.tNeutral };
   if (e.status === 'SENT') return { text: 'Ready for WMS', tone: s.tAccent };
@@ -282,6 +283,9 @@ function Summary({ d, e }: { d: Detail; e: EmailItem | undefined }) {
         {items.length ? <span className={`${s.chip} ${s.tGood}`}><Icon size={10}>{ICON.check}</Icon>Parsed</span>
           : <span className={`${s.chip} ${s.tBad}`}>Not read</span>}
       </header>
+      {d.email.clientId === null && d.decision === 'MISSING_INFO' && (
+        <p className={s.badText}><Icon size={12}>{ICON.alert}</Icon>Unknown sender: not read by the AI and no automatic reply. Check who sent it before answering.</p>
+      )}
       <div className={s.block}>
         <p className={s.label}>Items</p>
         {items.length ? (

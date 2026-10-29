@@ -70,7 +70,7 @@ const routes: FastifyPluginAsync = async (app) => {
     const result = await processEmail({ ...body.data, source: 'paste' }, deps);
     const who = actorOf(req);
     await deps.repo.logAudit(who.id, 'paste_email', `email:${result.id}`, { name: who.name, roles: who.roles });
-    req.log.info({ emailId: result.id, decision: result.decision, status: result.status }, 'intake email decided');
+    req.log.info({ emailId: result.id, decision: result.decision, status: result.status, reason: result.reason ?? null }, 'intake email decided');
     return result;
   });
 

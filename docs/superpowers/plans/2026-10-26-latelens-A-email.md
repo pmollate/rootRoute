@@ -3027,7 +3027,7 @@ already describes the skip ("Unknown sender: no AI call, no reply"), so this tas
   reply_source: 'template' }`. UI rule A14 and A15 keep: an email with `clientId === null` and decision `MISSING_INFO`
   is an unknown sender.
 
-- [ ] **Step 1: Write the failing backend test.** In `backend/api/test/intake/pipeline.test.ts` add
+- [x] **Step 1: Write the failing backend test.** In `backend/api/test/intake/pipeline.test.ts` add
   `import { loadFixtures } from './fixtures.js';` to the imports and replace the whole `it('unknown sender is MISSING_INFO', …)`
   block with:
 
@@ -3053,10 +3053,10 @@ already describes the skip ("Unknown sender: no AI call, no reply"), so this tas
   });
 ```
 
-- [ ] **Step 2: Run it.** `npm --prefix backend/api test -- test/intake/pipeline.test.ts`
+- [x] **Step 2: Run it.** `npm --prefix backend/api test -- test/intake/pipeline.test.ts`
   Expected: FAIL on `[piiCalls, llm.calls]` (today both are called) and on `reason`.
 
-- [ ] **Step 3: Implement.** In `backend/api/src/modules/intake/pipeline.ts`:
+- [x] **Step 3: Implement.** In `backend/api/src/modules/intake/pipeline.ts`:
 
 1. Change the imports: `import { draftReply, type ReplyFacts, templateReply } from './reply.js';`
 2. Above `emailHash`, add:
@@ -3091,10 +3091,10 @@ export const UNKNOWN_SENDER = 'unknown sender';
 5. In `backend/api/src/modules/intake/routes.ts`, `POST /intake/email` handler, change the log line to
    `req.log.info({ emailId: result.id, decision: result.decision, status: result.status, reason: result.reason ?? null }, 'intake email decided');`
 
-- [ ] **Step 4: Run it.** `npm --prefix backend/api test -- test/intake/pipeline.test.ts test/intake/poll.test.ts`
+- [x] **Step 4: Run it.** `npm --prefix backend/api test -- test/intake/pipeline.test.ts test/intake/poll.test.ts`
   Expected: PASS (all pipeline and poll tests; the poll tests use a known domain, so they are unchanged).
 
-- [ ] **Step 5: Write the failing UI test.** In `frontend/components/dashboard/intake/IntakeScreen.test.tsx`, inside
+- [x] **Step 5: Write the failing UI test.** In `frontend/components/dashboard/intake/IntakeScreen.test.tsx`, inside
   `describe('Order emails', …)`, add:
 
 ```tsx
@@ -3112,10 +3112,10 @@ export const UNKNOWN_SENDER = 'unknown sender';
   });
 ```
 
-- [ ] **Step 6: Run it.** `npm --prefix frontend test -- components/dashboard/intake/IntakeScreen.test.tsx`
+- [x] **Step 6: Run it.** `npm --prefix frontend test -- components/dashboard/intake/IntakeScreen.test.tsx`
   Expected: FAIL, `Unable to find an element with the text: Unknown sender`.
 
-- [ ] **Step 7: Implement the UI.** In `frontend/components/dashboard/intake/IntakeScreen.tsx`:
+- [x] **Step 7: Implement the UI.** In `frontend/components/dashboard/intake/IntakeScreen.tsx`:
 
 1. In `interface Detail`, change the `email` line to include the client id the API already returns:
    `email: { id: number; from: string; subject: string; body: string; redactedBody: string | null; receivedAt: string; status: string; inReplyTo: number | null; clientId?: string | null };`
@@ -3133,13 +3133,13 @@ export const UNKNOWN_SENDER = 'unknown sender';
       )}
 ```
 
-- [ ] **Step 8: Run.** `npm --prefix frontend test -- components/dashboard/intake/IntakeScreen.test.tsx && npm run typecheck`
+- [x] **Step 8: Run.** `npm --prefix frontend test -- components/dashboard/intake/IntakeScreen.test.tsx && npm run typecheck`
   Expected: PASS.
 
-- [ ] **Step 9: Contract.** In `docs/CONTRACTS.md` §6, `POST /api/intake/email` row, append:
+- [x] **Step 9: Contract.** In `docs/CONTRACTS.md` §6, `POST /api/intake/email` row, append:
   `; an unknown sender domain → status AWAITING_APPROVAL, decision MISSING_INFO, reason "unknown sender", with no PII or model call (E16)`.
 
-- [ ] **Step 10: Commit.**
+- [x] **Step 10: Commit.**
 
 ```bash
 git add backend/api/src/modules/intake/pipeline.ts backend/api/src/modules/intake/routes.ts backend/api/test/intake/pipeline.test.ts \

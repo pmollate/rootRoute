@@ -22,6 +22,19 @@ const detail = (id: number, over: object = {}) => ({
 describe('Order emails', () => {
   afterEach(() => { cleanup(); localStorage.clear(); });
 
+  it('AC-INT-10 (UI): an email from an unknown sender shows "Unknown sender" in the list and in the order summary', async () => {
+    const unknown = detail(50, {
+      email: { ...detail(50).email, from: 'buyer@unknown-co.example', clientId: null, redactedBody: null },
+      decision: 'MISSING_INFO', extraction: null, replySource: 'template',
+      checks: { address: null, promise: null, warehouse: null, carrier: null },
+    });
+    mockApi({ '/api/intake': { emails: [item(50, { clientId: null, from: 'buyer@unknown-co.example', decision: 'MISSING_INFO', priority: false })] },
+      '/api/intake/50': unknown });
+    renderScreen(<IntakeScreen />);
+    expect(await screen.findByText('Unknown sender')).toBeTruthy();
+    expect(await screen.findByText(/not read by the AI and no automatic reply/)).toBeTruthy();
+  });
+
   it('shows unread threads in bold until opened, and can mark a thread unread again', async () => {
     mockApi({ '/api/intake': { emails: [item(34), item(2, { priority: false })] }, '/api/intake/34': detail(34), '/api/intake/2': detail(2) });
     renderScreen(<IntakeScreen />);
