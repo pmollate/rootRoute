@@ -1511,6 +1511,20 @@ Add to `frontend/package.json` scripts:
 - [ ] **Step 6 (synthetic, not started):** simulated stages 10–13 for new orders (`order_events`, `journey_timing`,
   REQ-JRN-05/-06/-10), and the "Order journey" link on the Intake detail (REQ-JRN-09) once A's open changes are merged.
 
+### Task C12: UI automation of the order-to-delivery workflow (Order journey)
+
+Decision (28 Oct): Playwright automates the Order journey workflow end to end. Updated 29 Oct: the every-screen smoke
+test (`e2e/smoke.spec.ts`) stays, since A and B keep it current; the journey tests were rewritten for the hub map (B19).
+- [x] `frontend/e2e/journey.spec.ts`, against the deployed app or a local one, read-only, every call through `/api`:
+  - past deliveries: D000213 (address, carrier and delivery fail; synthetic tracking; approval "not done today") and,
+    with the With Root Route switch, CONFIRM_ADDRESS and the better lane; D000559 (cut-off: next-day promise and why);
+  - moving through it: the order list, the delivery ID box (Inspect and Enter, invalid IDs), unknown refs;
+  - new orders from the inbox: an email order opens with its steps and no `@` on the page and no Root Route switch; an
+    all-clear order awaiting approval (checks done, approval in progress, nothing shipped); an order waiting on its
+    address (warehouse and carrier not reached). Skipped when the inbox has no such email;
+  - phone width: no sideways scrolling, a place opens its stages.
+- [x] Local run (29 Oct): journey and smoke, 30 passed, 16 skipped (one width only, or no such email).
+- [ ] Live run needs a signed-in session now that `AUTH_REQUIRED=on` (C13 step 5, Q-AUTH-06).
 
 ### Task C13: Sign-in and roles (P7, `docs/SPEC-auth.md`) — after code submission
 
