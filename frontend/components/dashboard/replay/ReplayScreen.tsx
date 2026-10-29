@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useUser } from '@/components/auth/UserContext';
 import { Pager, Segmented, Status, usePage } from '@/components/dashboard/ui';
 import { BRAND } from '@/config/copy';
+import { canOpen } from '@/lib/auth/roles';
 import { useApi } from '@/hooks/useApi';
 import { int, pct, points, usd, usdShort } from '@/lib/metrics';
 import type { Overview } from '../overview/OverviewScreen';
@@ -126,6 +128,7 @@ function Head({ title, sub, id, children }: { title: string; sub?: ReactNode; id
 }
 
 export function ReplayScreen() {
+  const roles = useUser()?.roles ?? null; // REQ-AUTH-15: fix links only to screens this role may open
   const [segment, setSegment] = useState<Segment>('all');
   const [copied, setCopied] = useState(false);
   const all = useApi<{ scenarios: Scenario[] }>('/api/replay?segment=all');
@@ -452,7 +455,9 @@ export function ReplayScreen() {
                                 : <span className={s.cmp}>{x.complaints}</span>}
                             </td>
                             <td className={`${s.right} ${s.go}`}>
-                              <Link className={s.fixl} href={c.href} aria-label={`${x.clientName}: open the ${c.fix} screen`}>{c.fix}<Icon name="arrow" size={12} /></Link>
+                              {canOpen(roles, c.href)
+                                ? <Link className={s.fixl} href={c.href} aria-label={`${x.clientName}: open the ${c.fix} screen`}>{c.fix}<Icon name="arrow" size={12} /></Link>
+                                : <span>{c.fix}</span>}
                             </td>
                           </tr>
                         </Fragment>
