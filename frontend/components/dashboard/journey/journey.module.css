@@ -1,220 +1,164 @@
-/* Order journey screen: banner, picker, summary tiles, phase bar, stage table.
-   Sizes and colours follow the design file (Carrier clips/Order-journey.html); colours come from the theme tokens. */
-.screen { --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace; --pad: clamp(16px, 2.2vw, 24px);
-  --hot-f: color-mix(in srgb, var(--hot-bg) 35%, var(--surface)); --hot-line: rgb(var(--accent-rgb) / 0.3);
-  --live-f: color-mix(in srgb, var(--gain-soft) 45%, var(--surface)); --live-line: color-mix(in srgb, var(--live) 30%, var(--surface));
-  --warm-f: color-mix(in srgb, var(--warm-bg) 45%, var(--surface)); --warm-line: color-mix(in srgb, var(--warm-bar) 45%, var(--surface));
-  --idle: color-mix(in srgb, var(--line-strong) 70%, var(--line)); --navy-line: color-mix(in srgb, var(--navy) 18%, var(--surface));
-  width: 100%; display: grid; gap: 18px; }
+/* Order journey screen: picker, head with the With Root Route toggle, then the hub diorama across the full width, where a
+   selected place opens its stages beside its node. Sizes follow the design file
+   (Carrier clips/Root Route — Order Journey Map – Order journey — hub diorama.html); colours come from the theme tokens. */
+.screen { --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  width: 100%; display: grid; gap: 24px; }
 .screen > * { min-width: 0; }
+.bad { color: var(--hot-ink) !important; }
+.good { color: var(--gain-ink) !important; }
 
-@keyframes up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes slide { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
-@keyframes draw { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pop { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
-@keyframes ring { 0% { box-shadow: 0 0 0 0 rgb(var(--accent-rgb) / 0.45); } 100% { box-shadow: 0 0 0 9px rgb(var(--accent-rgb) / 0); } }
-@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes kb { from { transform: scale(1.08); } to { transform: scale(1); } }
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgb(74 99 151 / 0.5); } 100% { box-shadow: 0 0 0 8px rgb(74 99 151 / 0); } }
-
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); animation: up 0.5s 0.1s both; }
-
-/* Banner: always dark, the conveyor photo on the right (slow zoom in) behind a navy fade. */
-.ban { position: relative; display: flex; align-items: center; min-height: 150px; border-radius: var(--radius-lg); overflow: hidden; color: var(--cream);
-  background: var(--hero-ink); box-shadow: var(--shadow-lift); animation: up 0.5s both; }
-.banImg { position: absolute; top: 0; right: 0; width: 54%; height: 100%; object-fit: cover; animation: kb 6s ease-out both; }
-.banShade { position: absolute; inset: 0;
-  background: linear-gradient(90deg, var(--hero-ink) 0%, var(--hero-ink) 46%, rgb(26 36 64 / 0.8) 58%, rgb(26 36 64 / 0.3) 78%, rgb(26 36 64 / 0) 100%); }
-.banInner { position: relative; z-index: 1; display: flex; align-items: center; gap: 20px; max-width: 860px; padding: 22px 36px; }
-.banTitle { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0; font-family: var(--font-display); font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; }
-.banText { margin: 6px 0 0; max-width: 680px; font-size: 0.78rem; line-height: 1.5; color: rgb(var(--cream-rgb) / 0.78); }
-
-/* Picker */
-/* Picker: the box and Open on one line, the quick picks as tabs on the line below. */
-.pick { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 12px; padding: 18px 22px; }
-.field { display: block; flex: 0 1 560px; min-width: 0; }
-.lb { display: block; margin-bottom: 6px; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.inp { display: flex; align-items: center; gap: 10px; width: 100%; height: 44px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); color: var(--muted); }
-.inp:focus-within { border-color: var(--navy-2); box-shadow: 0 0 0 3px rgb(var(--navy-rgb) / 0.12); }
-.inp input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--ink); font-family: var(--mono); font-size: 0.8125rem; }
-.btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--navy); color: var(--on-navy);
-  font: inherit; font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: filter 0.2s; }
-.btn:hover { filter: brightness(1.18); }
-.chips { display: flex; flex: 1 1 100%; flex-wrap: wrap; gap: 10px; }
-.chip { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper);
-  font-family: var(--mono); font-size: 0.75rem; color: var(--ink-2); cursor: pointer; transition: border-color 0.2s, background 0.2s, color 0.2s; }
-.chip:hover { border-color: var(--line-strong); }
-.chipDash { border-style: dashed; }
-.chip em { font-family: var(--font-sans); font-style: normal; font-size: 0.6875rem; color: var(--muted); }
-.chipOn, .chipOn:hover { background: var(--navy); border-color: var(--navy); color: var(--on-navy); }
-.chipOn em { color: inherit; opacity: 0.7; }
-.btn:focus-visible, .chip:focus-visible, .back:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+/* Page head: what happened on the left; on the right, which order (a selector, and a box for any other delivery ID). */
+.top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 20px 48px; align-items: start; }
+.pick { display: grid; gap: 8px; min-width: 0; }
+.pickLab { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.select { position: relative; display: flex; align-items: center; color: var(--muted); }
+.select select { width: 100%; height: 42px; padding: 0 36px 0 12px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--surface);
+  color: var(--ink); font: inherit; font-size: 13.5px; text-overflow: ellipsis; appearance: none; cursor: pointer; outline: 0; }
+.select select:hover { border-color: var(--ink-2); }
+.select svg { position: absolute; right: 12px; pointer-events: none; }
+.searchRow { display: flex; gap: 8px; }
+.field { flex: 1; min-width: 0; display: flex; }
+.field input { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--surface);
+  color: var(--ink); font-family: var(--mono); font-size: 13px; outline: 0; }
+.field input[aria-invalid='true'] { border-color: var(--hot-ink); }
+.select select:focus-visible, .field input:focus { border-color: var(--navy); box-shadow: 0 0 0 3px rgb(var(--navy-rgb) / 0.12); }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.open { height: 40px; padding: 0 18px; border-radius: 4px; border: 1px solid var(--navy); background: var(--navy); color: var(--on-navy);
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter 0.2s, opacity 0.2s; }
+.open:hover { filter: brightness(1.15); }
+.open:disabled { opacity: 0.45; cursor: default; filter: none; }
 
 /* Not found */
-.nf { padding: 56px 40px; text-align: center; }
-.nfIcon { display: inline-grid; place-items: center; width: 68px; height: 68px; margin-bottom: 16px; border-radius: 20px; background: var(--hot-bg); color: var(--hot-ink); }
-.nf h2 { margin: 0; font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.nf { padding: 48px 32px; text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+.nf h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
 .nf p { margin: 6px 0 0; color: var(--ink-2); }
 
-/* Summary tiles */
-.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.tile { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 18px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
-  box-shadow: var(--shadow-card); animation: up 0.45s both; }
-.tile:nth-child(2) { animation-delay: 0.06s; }
-.tile:nth-child(3) { animation-delay: 0.12s; }
-.tile:nth-child(4) { animation-delay: 0.18s; }
-.k { display: flex; align-items: center; justify-content: space-between; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.kIcon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--paper); border: 1px solid var(--line); color: var(--ink-2); }
-.v { font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; letter-spacing: -0.025em; line-height: 1.15; overflow-wrap: anywhere; }
-.vLong { font-size: 1.375rem; }
-.hot { color: var(--hot-ink); }
-.nv { color: var(--navy); }
-.s { font-size: 0.78rem; color: var(--ink-2); }
+/* Head */
+.kicker { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.headText { max-width: 760px; min-width: 0; }
+.headText h1 { margin: 6px 0 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+.headText p { margin: 10px 0 0; font-size: 15px; line-height: 1.55; color: var(--ink-2); }
+/* The bar along the top of the map: a hint on the left, the With Root Route switch on the right (on, the map and the
+   stages show Root Route's rules). */
+.mapBar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 48px; padding: 4px 16px 4px 20px;
+  border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.toggle { display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 2px; border: 0; background: transparent;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; }
+.track { position: relative; flex: none; width: 36px; height: 20px; border-radius: 10px; background: var(--line-strong); transition: background 0.2s; }
+.knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25); transition: transform 0.2s cubic-bezier(0.3, 1.2, 0.5, 1); }
+.toggle[aria-checked='true'] .track { background: var(--navy); }
+.toggle[aria-checked='true'] .knob { transform: translateX(16px); }
+.pick button:focus-visible, .toggle:focus-visible, .hub:focus-visible, .popClose:focus-visible {
+  outline: 2px solid var(--navy); outline-offset: 2px; }
 
-/* Card headings */
-.hh { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px 16px; }
-.hh h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; letter-spacing: -0.015em; }
-.hh p { margin: 3px 0 0; font-size: 0.8125rem; color: var(--ink-2); }
-.hi { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 11px; }
-.tn { background: var(--navy-soft); color: var(--navy); }
-.tt { background: var(--teal-soft); color: var(--teal); }
-.back { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--navy-line); background: var(--navy-soft);
-  color: var(--navy); font-size: 0.8125rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.mapCard { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.scroll { overflow-x: auto; }
 
-/* Phase bar */
-.ph { padding: 22px 24px 20px; }
-.bar { display: grid; grid-template-columns: 3fr 3fr 2fr 4fr 2fr; gap: 6px; margin: 18px 0 0; padding: 0; list-style: none; }
-.seg { position: relative; min-width: 0; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); overflow: hidden; animation: up 0.4s both; }
-.seg:nth-child(2) { animation-delay: 0.07s; }
-.seg:nth-child(3) { animation-delay: 0.14s; }
-.seg:nth-child(4) { animation-delay: 0.21s; }
-.seg:nth-child(5) { animation-delay: 0.28s; }
-.seg::before { content: ''; position: absolute; inset: 0 0 auto; height: 4px; background: var(--idle); transform-origin: left; animation: grow 0.7s 0.3s both; }
-.seg b { display: block; font-family: var(--font-display); font-size: 0.94rem; }
-.seg span { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--ink-2); }
-.seg span svg { flex: none; }
-.seg.bad { background: var(--hot-f); border-color: var(--hot-line); }
-.seg.bad::before { background: var(--accent); }
-.seg.bad span { color: var(--hot-ink); }
-.seg.warn { background: var(--warm-f); border-color: var(--warm-line); }
-.seg.warn::before { background: var(--warm-bar); }
-.seg.warn span { color: var(--warm-ink); }
-.seg.good { background: var(--live-f); border-color: var(--live-line); }
-.seg.good::before { background: var(--live); }
-.seg.good span { color: var(--gain-ink); }
-.lgd { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font-size: 0.75rem; color: var(--ink-2); }
-.lgd span { display: inline-flex; align-items: center; gap: 7px; }
-.lgd i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--idle); }
-.lgd .lBad { background: var(--accent); }
-.lgd .lWarn { background: var(--warm-bar); }
-.lgd .lGood { background: var(--live); }
-
-/* Stage timeline: time on the left, a rail with a node per stage, what happened on the right.
-   The rail draws down stage by stage (--i is the stage's place), then each node pops and its card slides in. */
-.tl { padding: 22px 24px 18px; }
-.tline { --when: 116px; --node: 30px; --gap: 18px; position: relative; margin: 18px 0 0; padding: 0; list-style: none; }
-.ev { position: relative; display: grid; grid-template-columns: var(--when) var(--node) minmax(0, 1fr); column-gap: var(--gap); padding-bottom: 18px; }
-.ev::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--when) + var(--gap) + var(--node) / 2 - 1px); width: 2px;
-  background: var(--rail, var(--line-strong)); transform-origin: top; animation: draw 0.35s calc(var(--i) * 0.12s) ease-out both; }
-.ev:first-child::before { top: 15px; }
-.ev:last-child::before { bottom: auto; height: 15px; }
-.when { display: flex; flex-direction: column; align-items: flex-end; padding-top: 5px; text-align: right; font-variant-numeric: tabular-nums;
-  animation: fade 0.4s calc(var(--i) * 0.12s + 0.15s) both; }
-.when b { font-family: var(--mono); font-size: 0.9rem; font-weight: 600; color: var(--ink); }
-.when small { font-size: 0.72rem; color: var(--muted); }
-.when i { font-size: 0.72rem; color: var(--muted); }
-.node { position: relative; z-index: 1; display: grid; place-items: center; width: var(--node); height: var(--node); border-radius: 50%;
-  background: var(--dot, var(--surface)); color: var(--dot-ink, var(--muted)); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--rail, var(--line-strong));
-  animation: pop 0.4s calc(var(--i) * 0.12s + 0.1s) cubic-bezier(0.3, 1.5, 0.5, 1) both; }
-.evCard { min-width: 0; padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line);
-  animation: slide 0.45s calc(var(--i) * 0.12s + 0.15s) both; transition: box-shadow 0.2s, border-color 0.2s; }
-.evCard:hover { border-color: var(--line-strong); box-shadow: 0 12px 24px -20px rgb(var(--navy-rgb) / 0.6); }
-.evHead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
-.evHead .pl { margin: 0 0 0 auto; }
-.tGood { --rail: var(--live); --dot: var(--live); --dot-ink: #fff; }
-.tWarn { --rail: var(--warm-bar); --dot: var(--warm-bar); --dot-ink: #fff; }
-.tWarn .node { animation: pop 0.4s calc(var(--i) * 0.12s + 0.1s) cubic-bezier(0.3, 1.5, 0.5, 1) both, ring 1.8s calc(var(--i) * 0.12s + 0.6s) infinite; }
-.tBad { --rail: var(--accent); --dot: var(--accent); --dot-ink: #fff; }
-.tBad .evCard { background: var(--hot-f); border-color: var(--hot-line); }
-.tIdle::before { background: repeating-linear-gradient(180deg, var(--line-strong) 0 4px, transparent 4px 8px); }
-.tIdle .evCard { background: transparent; border-style: dashed; }
-.n { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 7px; background: var(--paper); border: 1px solid var(--line);
-  font-family: var(--font-display); font-size: 0.7rem; font-weight: 700; color: var(--ink-2); }
-.tBad .n { background: var(--hot-bg); border-color: var(--hot-line); color: var(--hot-ink); }
-.nm { min-width: 0; font-weight: 600; }
-.src { display: inline-flex; margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: var(--plum-soft); color: var(--plum); font-size: 0.66rem; font-weight: 600; vertical-align: middle; white-space: nowrap; }
-.pl { display: inline-flex; align-items: center; gap: 6px; width: max-content; max-width: 100%; height: 24px; margin-top: 2px; padding: 0 10px; border-radius: var(--pill);
-  font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
-.pDone { background: var(--gain-soft); color: var(--gain-ink); }
-.pProg { background: var(--navy-soft); color: var(--navy); }
-.pProg svg { border-radius: 50%; animation: pulse 1.6s infinite; }
-.pWait { background: var(--warm-bg); color: var(--warm-ink); }
-.pRisk { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--accent-text); }
-.pBad { background: var(--hot-bg); color: var(--hot-ink); }
-.pSkip { border: 1px dashed var(--line-strong); color: var(--muted); }
-.pNr { background: var(--paper); border: 1px solid var(--line); color: var(--muted); }
-.who { margin: 6px 0 0; font-size: 0.75rem; font-weight: 600; color: var(--ink-2); overflow-wrap: anywhere; }
-.dt { min-width: 0; margin: 6px 0 0; font-size: 0.8125rem; line-height: 1.5; color: var(--ink-2); }
-.dtQuiet { color: var(--muted); }
-.rr { display: grid; gap: 2px; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface);
-  border: 1px solid var(--navy-line); box-shadow: 0 12px 24px -20px rgb(var(--navy-rgb) / 0.6); }
-.rr b { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--navy); }
-.rr span { font-size: 0.78rem; color: var(--ink); }
-.evPk .node { width: 26px; height: 26px; margin-left: 2px; background: var(--paper); color: var(--muted); }
-.pk { display: flex; align-items: center; gap: 10px; padding-top: 5px; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.pk::after { content: ''; flex: 1; border-top: 1px dashed var(--line-strong); }
-.fut { display: flex; align-items: center; gap: 10px; margin: 6px 10px 14px; padding: 12px 14px; border-radius: 12px; background: var(--paper); border: 1px dashed var(--line-strong);
-  font-size: 0.78rem; color: var(--ink-2); }
-.fut svg { flex: none; color: var(--navy-2); }
-
-/* Laptops: narrower fixed columns. */
-@media (max-width: 1100px) {
-  .tiles { gap: 12px; }
+/* The board: the diorama picture, then the road, the parcel and the place labels, all placed in board percentages. */
+.board { position: relative; min-width: 880px; aspect-ratio: 1040 / 780; }
+.ground, .ground img, .ground svg, .route { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.roof { font-family: var(--font-sans); font-size: 38px; font-weight: 700; fill: #94a3b8; }
+/* The diorama is drawn light; in the dark theme it is inverted with its hues kept. */
+:global(:root[data-theme='dark']) .ground { filter: invert(0.88) hue-rotate(180deg); }
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme='light'])) .ground { filter: invert(0.88) hue-rotate(180deg); }
 }
-/* Tablets: two tiles a row, the banner photo fades further, the stage table folds into cards. */
-@media (max-width: 860px) {
-  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .banImg { width: 70%; }
-  .banShade { background: linear-gradient(90deg, var(--hero-ink) 0%, var(--hero-ink) 40%, rgb(26 36 64 / 0.82) 70%, rgb(26 36 64 / 0.55) 100%); }
-  .tline { --when: 92px; --gap: 12px; }
+.route line, .legend line { fill: none; stroke-width: 2.5; stroke-linecap: round; }
+.route circle { stroke: var(--surface); stroke-width: 1.5; stroke-dasharray: none; }
+.legRec { stroke: var(--ink); fill: var(--ink); }
+.legLate { stroke: var(--hot-ink); fill: var(--hot-ink); }
+.legFix { stroke: var(--gain-ink); fill: var(--gain-ink); }
+.legDash { stroke-dasharray: 6 5; }
+.legAhead { stroke: var(--line-strong); fill: var(--line-strong); stroke-dasharray: 2 6; }
+.route .lead { stroke: var(--muted); stroke-width: 0.75; stroke-dasharray: none; }
+/* Hover: a soft navy ring grows around the node, and the place's label gets a hairline border. */
+.route .halo { fill: rgb(var(--navy-rgb) / 0.12); stroke: var(--navy); stroke-width: 1.5; opacity: 0; transform: scale(0.5);
+  transform-box: fill-box; transform-origin: center; transition: opacity 0.2s, transform 0.2s; }
+.route .haloOn { opacity: 1; transform: scale(1); }
+.route .nodeHit { fill: transparent; stroke: none; pointer-events: auto; cursor: pointer; }
+.parcel { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--navy); border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--navy); pointer-events: none;
+  transition: left 650ms cubic-bezier(0.22, 1, 0.36, 1), top 650ms cubic-bezier(0.22, 1, 0.36, 1); }
+/* Two rings spread from the parcel once it has settled at its place (the move takes 650ms), and keep going. */
+.ripple { position: absolute; inset: -3px; border-radius: 50%; }
+.ripple::before, .ripple::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--navy); opacity: 0;
+  animation: ripple 1.8s 0.65s cubic-bezier(0.2, 0.6, 0.35, 1) infinite; }
+.ripple::after { animation-delay: 1.55s; }
+@keyframes ripple { from { transform: scale(1); opacity: 0.7; } to { transform: scale(3.4); opacity: 0; } }
+.hub { position: absolute; width: 190px; min-height: 44px; display: flex; flex-direction: column; gap: 1px; padding: 6px 2px 4px; text-align: left;
+  background: color-mix(in srgb, var(--surface) 92%, transparent); border: 0; border-top: 1px solid var(--line-strong);
+  font: inherit; color: inherit; cursor: pointer; transition: opacity 0.2s, box-shadow 0.2s, background 0.2s; }
+.hub:hover { background: var(--surface); box-shadow: 0 0 0 1px var(--line-strong); }
+.hub[aria-pressed='true'] { border-top: 2px solid var(--navy); padding-top: 5px; }
+.hubAhead { opacity: 0.5; }
+.hubAhead:hover, .hubAhead[aria-pressed='true'] { opacity: 1; }
+.hubTag { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+.hubName { font-size: 14px; font-weight: 600; letter-spacing: -0.005em; color: var(--ink); }
+.hubNote { font-size: 12px; line-height: 1.35; color: var(--ink-2); }
+.legend { position: absolute; left: 20px; top: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: var(--ink-2); }
+.legend span { display: flex; align-items: center; gap: 8px; }
+
+/* A place's stages, opened beside its node: a card with an arrow pointing at the node, the stages stacked on a rail. */
+/* 40% of the board, between 360px and 520px: wide enough to read, and still clear of the board edge from any node. */
+.pop { position: absolute; z-index: 6; width: clamp(360px, 40%, 520px); padding: 14px 20px 6px; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: 0 22px 44px -20px rgb(15 23 42 / 0.4);
+  translate: 22px -50%; animation: popIn 0.18s ease-out both; }
+.popL { translate: calc(-100% - 22px) -50%; }
+.pop::before { content: ''; position: absolute; top: 50%; width: 12px; height: 12px; margin-top: -6px; background: var(--surface);
+  border: 1px solid var(--line); rotate: 45deg; }
+.popR::before { left: -7px; border-top-color: transparent; border-right-color: transparent; }
+.popL::before { right: -7px; border-bottom-color: transparent; border-left-color: transparent; }
+@keyframes popIn { from { opacity: 0; transform: scale(0.96); } }
+.popHead { display: flex; align-items: baseline; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.popHead b { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.popClose { margin-left: auto; width: 26px; height: 26px; border: 0; border-radius: 4px; background: transparent; color: var(--muted);
+  font-size: 18px; line-height: 1; cursor: pointer; }
+.popClose:hover { background: var(--paper); color: var(--ink); }
+.popNote { margin: 4px 0 10px; padding: 8px 10px; border: 1px dashed var(--line-strong); border-radius: 4px; font-size: 12px; line-height: 1.5; color: var(--ink-2); }
+
+/* Stages: time on the left, a dot on a rail, what happened on the right. */
+.tl { --when: 72px; --dot: 11px; --gap: 14px; margin: 0; padding: 0; list-style: none; }
+.tl li { position: relative; display: grid; grid-template-columns: var(--when) var(--dot) minmax(0, 1fr); column-gap: var(--gap); padding: 12px 0; }
+/* The rail through the dots, stopping at the first and last. */
+.tl li::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--when) + var(--gap) + var(--dot) / 2 - 0.5px); width: 1px; background: var(--line-strong); }
+.tl li:first-child::before { top: 20px; }
+.tl li:last-child::before { bottom: auto; height: 20px; }
+.tl li:only-child::before { display: none; }
+.tlWhen { display: flex; flex-direction: column; align-items: flex-end; padding-top: 1px; font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+.tlWhen b { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.tlWhen small, .tlWhen i { font-size: 11px; font-style: normal; color: var(--muted); }
+.tlDot { position: relative; z-index: 1; width: var(--dot); height: var(--dot); margin-top: 5px; border-radius: 50%; box-shadow: 0 0 0 3px var(--surface); }
+.dotDone { background: var(--ink); }
+.dotBad { background: var(--hot-ink); }
+.dotWait { background: var(--warm-bar, var(--warm-ink)); }
+.dotSkip { background: var(--surface); border: 1.5px dashed var(--line-strong); }
+.dotNr { background: var(--line-strong); }
+.dotFix { background: var(--gain-ink); }
+.tlWas { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.tlBody { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tlHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.tlHead b { font-size: 14px; font-weight: 600; }
+.tlHead > span:last-child { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.tlHead .stDone { color: var(--ink-2); }
+.tlHead .stWait { color: var(--warm-ink); }
+.tlN { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.tlMeta { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.tlText { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+.tl li:has(.dotSkip) .tlBody, .tl li:has(.dotNr) .tlBody { opacity: 0.7; }
+
+/* Narrower screens: the picker drops under the head. */
+@media (max-width: 960px) {
+  .top { grid-template-columns: minmax(0, 1fr); }
+  .pick { max-width: 520px; }
 }
-/* Phones: full-width picker, phases as a list, banner stacks. */
 @media (max-width: 640px) {
-  .screen { gap: 14px; }
-  .ban { align-items: stretch; }
-  .banImg { width: 100%; object-position: 70% center; }
-  .banShade { background: linear-gradient(180deg, rgb(26 36 64 / 0.35) 0%, var(--hero-ink) 70%); }
-  .banInner { flex-direction: column; align-items: flex-start; gap: 14px; padding: 22px var(--pad); }
-  .banTitle { font-size: 1.6rem; }
-  .pick { padding: 16px var(--pad); gap: 12px; }
-  .field { flex: 1 1 100%; }
-  .inp { width: 100%; }
-  .btn { flex: 1 1 100%; justify-content: center; }
-  .ph, .tl { padding-left: var(--pad); padding-right: var(--pad); }
-  .bar { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .seg { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-left: 18px; }
-  .seg::before { inset: 0 auto 0 0; width: 4px; height: auto; transform-origin: top; }
-  .seg span { text-align: right; }
-  .nf { padding: 40px var(--pad); }
-  .nf h2 { font-size: 1.25rem; }
-  .fut { margin: 6px 0 14px; align-items: flex-start; }
-  /* Timeline: the time moves above its card, the rail runs down the left edge. */
-  .tline { --when: 0px; --gap: 12px; }
-  .ev { grid-template-columns: var(--node) minmax(0, 1fr); grid-template-areas: 'nd wn' 'nd cd'; row-gap: 4px; }
-  .ev::before { left: calc(var(--node) / 2 - 1px); }
-  .node { grid-area: nd; }
-  .when { grid-area: wn; flex-direction: row; align-items: baseline; gap: 8px; padding-top: 6px; }
-  .evCard { grid-area: cd; }
-  .evPk { grid-template-areas: 'nd wn'; }
-  .evPk > span:first-child { display: none; }
-  .evPk .pk { grid-area: wn; }
-  .evHead .pl { margin-left: 0; }
-}
-@media (max-width: 420px) {
-  .tiles { grid-template-columns: minmax(0, 1fr); }
-  .v { font-size: 1.5rem; }
+  .headText h1 { font-size: 22px; }
+  .headText p { font-size: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .card, .ban, .banImg, .tile, .seg, .seg::before, .ev::before, .when, .node, .tWarn .node, .evCard, .pProg svg { animation: none; }
+  .parcel { transition: none; }
+  .ripple { display: none; }
+  .route .halo, .hub, .track, .knob { transition: none; }
+  .pop { animation: none; }
 }

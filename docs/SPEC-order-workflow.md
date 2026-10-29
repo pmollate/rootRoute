@@ -106,7 +106,7 @@ delivery went wrong is marked `failed`, from the cause flags (SPEC §5.1):
 | `f_cutoff` | 4 Promise set | `checkPromise` result: next day, with the reason told to the client |
 | `f_stock` (non-nearest warehouse) | 5 Warehouse chosen | `pickWarehouse` result: the nearest warehouse with stock |
 | `f_lane` (incl. D on Friday) | 6 Carrier chosen | `recommendCarrier` result: carrier and reason |
-| `f_route` (stage Delivery) | 12 In transit | No LateLens check: route detours are left to the routing pilot (SPEC §1.1) |
+| `f_route` (stage Delivery) | 12 In transit | Not checked: route detours are left to the routing pilot (SPEC §1.1) |
 
 The "With LateLens" note shows the rule's output, never a promise that the delivery would have been on time. Replay
 (SPEC §5.8) remains the only place that states on-time rates.

@@ -103,7 +103,7 @@ export function buildDeliveryJourney(d: DeliveryFacts, f: CauseFlags, events: Tr
     transit: f.f_route
       ? { status: 'failed', at: transit?.at ?? null, actor: `Carrier ${d.carrier}`, source: 'synthetic',
         detail: `Route driven ${d.actualKm} km against ${d.plannedKm} km planned (more than 20% over).`,
-        withLateLens: 'No LateLens check: route detours are left to the routing pilot.' }
+        withLateLens: 'Not checked: route detours are left to the routing pilot.' }
       : { status: 'done', at: transit?.at ?? null, actor: `Carrier ${d.carrier}`, source: 'synthetic',
         detail: `Tracking events from the ${transit?.source ?? 'carrier'} feed.` },
     delivered: late

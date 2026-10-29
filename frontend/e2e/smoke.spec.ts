@@ -10,7 +10,7 @@ const SCREENS = [
   { path: '/dashboard/intake', title: 'Order emails', h1: 'Order emails' },
   { path: '/dashboard/warehouses', title: 'Warehouses', h1: 'Warehouses' },
   { path: '/dashboard/carriers', title: 'Carriers', h1: 'Carriers' },
-  { path: '/dashboard/journey', title: 'Order journey', h1: 'Order journey' },
+  { path: '/dashboard/journey', title: 'Order journey', h1: 'after the promise' },
   { path: '/dashboard/replay', title: 'Replay', h1: 'Replay' },
 ];
 
@@ -87,10 +87,16 @@ test.describe('figures match the SPEC', () => {
   test('Order journey: D000213 is 4 days late, failing at the address and the carrier lane', async ({ page }) => {
     await open(page, '/dashboard/journey?ref=delivery:D000213');
     const main = page.locator('main');
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText(/four days after the promise/);
     await expect(main.getByText('4 days late').first()).toBeVisible();
-    await expect(main.getByText('Went wrong here')).toHaveCount(3);
-    await expect(main.getByText(/CONFIRM_ADDRESS/)).toBeVisible();
-    await expect(main.getByText(/vs \d+% for F/)).toBeVisible();
+    const map = main.getByRole('region', { name: 'Journey map' });
+    // Selecting a place opens its stages beside its node; Root Route's rules show there once the toggle is on.
+    await map.getByRole('button', { name: /Order intake/ }).click();
+    await expect(main.getByRole('group', { name: 'Order intake: stages' }).getByText('Went wrong here')).toBeVisible();
+    await main.getByRole('switch', { name: 'With Root Route' }).click();
+    await expect(main.getByRole('group', { name: 'Order intake: stages' }).getByText(/CONFIRM_ADDRESS/)).toBeVisible();
+    await map.getByRole('button', { name: /Planning/ }).click();
+    await expect(main.getByRole('group', { name: 'Planning: stages' }).getByText(/vs \d+% for F/)).toBeVisible();
   });
 
   test('Order emails: the inbox lists emails, priority clients first', async ({ page }) => {
