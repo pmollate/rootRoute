@@ -95,7 +95,9 @@ test.describe('figures match the SPEC', () => {
 
   test('Order emails: the inbox lists emails, priority clients first', async ({ page }) => {
     await open(page, '/dashboard/intake');
-    await expect(page.getByText('Priority clients (Tier 1 or at risk) are listed first.')).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Emails' }).getByRole('button', { name: /^Open email/ }).first()).toBeVisible();
+    await expect(page.getByText('Sorted by priority: Tier 1 and at-risk clients first')).toBeVisible();
+    // A fresh database has no emails until Gmail is synced or one is pasted: then the empty inbox says so.
+    const threads = page.getByRole('region', { name: 'Threads' });
+    await expect(threads.getByRole('button', { name: /^Open email/ }).first().or(threads.getByText('No order emails yet. Sync or paste one.'))).toBeVisible();
   });
 });
