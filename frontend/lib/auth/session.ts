@@ -1,5 +1,4 @@
 import { auth } from '@/auth';
-import type { ProxySettings } from './proxy';
 import type { SessionUser } from './roles';
 
 // Server code only: reads secrets from the environment. Never import from a client component.
@@ -15,16 +14,4 @@ export async function currentUser(): Promise<SessionUser | null> {
   } catch {
     return null;
   }
-}
-
-/** Server-only settings for the proxy. API_URL falls back to the old build-time NEXT_PUBLIC_API_URL until step 7. */
-export function proxySettings(req: Request): ProxySettings {
-  const fallbackOrigin = new URL(req.url).origin;
-  return {
-    required: authRequired(),
-    apiUrl: process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
-    appOrigin: process.env.AUTH_URL ? new URL(process.env.AUTH_URL).origin : fallbackOrigin,
-    internalSecret: process.env.INTERNAL_AUTH_SECRET || undefined,
-    apiKey: process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || undefined,
-  };
 }

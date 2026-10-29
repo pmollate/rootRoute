@@ -1540,7 +1540,7 @@ since their screens' action calls change.
 - [x] **Step 3: Web** Auth.js (Entra + demo, rate limit, generic error), `/login`, `/no-access`, middleware after
   maintenance mode, header; proxy with Origin check and header stripping; safe return path (AC-AUTH-01, -02, -03, -08,
   -09, -12, AC-NFR-AUTH-02, -03, AC-SEC-AUTH-04, -05, -08, -12). Component tests for the login page and header.
-- [ ] **Step 4: Client calls** through `/api` same-origin; remove `NEXT_PUBLIC_API_KEY`; hide buttons by role; keep
+- [x] **Step 4: Client calls** through `/api` same-origin; remove `NEXT_PUBLIC_API_KEY`; hide buttons by role; keep
   typed input on `session_expired` (AC-AUTH-10, -11, AC-SEC-AUTH-01).
 - [ ] **Step 5: Playwright** sign-in setup per role; workflow tests run signed in; one test per role refusal
   (AC-NFR-AUTH-04). Tell A and B first.

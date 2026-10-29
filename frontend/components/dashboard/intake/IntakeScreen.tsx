@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCan } from '@/components/auth/UserContext';
 import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
-import { postJSON } from '@/lib/api';
+import { SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
 import s from './intake.module.css';
 
 export type Decision = 'ALL_CLEAR' | 'CONFIRM_ADDRESS' | 'MISSING_INFO';
@@ -176,6 +177,7 @@ function refusal(e: unknown): string {
   if (m.includes('allow-list')) return 'Not sent: this address is not on the test allow-list.';
   if (m.includes('Gmail is not set up')) return 'Not sent: Gmail is not connected yet.';
   if (m.includes('check is running')) return 'A Gmail check is already running. Try again in a minute.';
+  if (m === 'forbidden') return 'Your role cannot do this.';
   return 'Could not do that. Refresh and try again.';
 }
 
@@ -362,6 +364,13 @@ export function IntakeScreen() {
   // Phones show one screen at a time, as the Gmail app does: the list, or the open thread slid in over it.
   const [phone, setPhone] = useState(false);
   const [view, setView] = useState<'list' | 'thread'>('list');
+  // REQ-AUTH-11: set when an action found the session ended; holds the sign-in link back to this email.
+  const [expired, setExpired] = useState<string | null>(null);
+  // REQ-AUTH-10: controls follow the signed-in roles (SPEC-auth §4.3); the API refuses anyway.
+  const canFetch = useCan('fetch');
+  const canPaste = useCan('paste');
+  const canReply = useCan('send_reply');
+  const canWms = useCan('send_to_wms');
   const searchRef = useRef<HTMLInputElement>(null);
   const seen = useRef<Set<number> | null>(null);
   const d = detail.data && detail.data.email.id === selected ? detail.data : undefined;
@@ -377,6 +386,12 @@ export function IntakeScreen() {
     const saved = readDraft(dId);
     if (saved !== null) setEdit({ id: dId, text: saved });
   }, [dId]);
+
+  // Back from sign-in (REQ-AUTH-11): /dashboard/intake?email=<id> reopens that email, with its kept draft.
+  useEffect(() => {
+    const id = Number(new URLSearchParams(window.location.search).get('email'));
+    if (Number.isInteger(id) && id > 0) { setSelected(id); setView('thread'); }
+  }, []);
 
   // Open the first thread once the inbox loads, as a mail client does.
   useEffect(() => {
@@ -425,6 +440,12 @@ export function IntakeScreen() {
     try {
       say(await work(), 'ok');
     } catch (e) {
+      if (e instanceof SessionExpired) {
+        // Keep the typed reply for this email; nothing is resent until the operator clicks again after signing in.
+        if (selected !== null && pane === 'email') writeDraft(selected, reply);
+        setExpired(signInAgain(selected !== null ? `/dashboard/intake?email=${selected}` : '/dashboard/intake'));
+        return;
+      }
       say(refusal(e), 'bad');
     } finally {
       setBusy(null);
@@ -441,8 +462,9 @@ export function IntakeScreen() {
   };
   const back = () => { setView('list'); setMenu(false); };
 
+  // No `user`: the API takes the actor from the signed-in session (REQ-AUTH-07).
   const post = (id: number, action: 'approve' | 'send_reply' | 'send_to_wms') => postJSON<{ status: string }>(`/api/intake/${id}/action`,
-    { action, user: 'ops', ...(action === 'send_reply' ? { reply: reply.trim() } : {}) });
+    { action, ...(action === 'send_reply' ? { reply: reply.trim() } : {}) });
 
   /** Runs the actions in order; a refusal stops the rest, and the screen then shows the step that is left. */
   const act = (actions: ('approve' | 'send_reply' | 'send_to_wms')[]) => {
@@ -497,11 +519,13 @@ export function IntakeScreen() {
 
   // The one next step for this email, as the composer's main button.
   // An incomplete order is never approved: its button sends the request (the API still logs the operator's OK on the reply first).
+  // Roles decide which steps the button may take (SPEC-auth §4.2): WMS entry is the supervisor's (Q-AUTH-03).
   const request = d?.decision && d.decision !== 'ALL_CLEAR' ? REQUEST[d.decision] : null;
+  const wmsAfter = allClear && push && canWms;
   const primary = !d ? null
-    : status === 'AWAITING_APPROVAL' ? { label: request ?? 'Approve & send', run: () => act(['approve', 'send_reply', ...(allClear && push ? ['send_to_wms' as const] : [])]) }
-      : status === 'APPROVED' ? { label: request ?? 'Send reply', run: () => act(['send_reply', ...(allClear && push ? ['send_to_wms' as const] : [])]) }
-        : status === 'SENT' && allClear ? { label: 'Send to WMS', run: () => act(['send_to_wms']) }
+    : canReply && status === 'AWAITING_APPROVAL' ? { label: request ?? 'Approve & send', run: () => act(['approve', 'send_reply', ...(wmsAfter ? ['send_to_wms' as const] : [])]) }
+      : canReply && status === 'APPROVED' ? { label: request ?? 'Send reply', run: () => act(['send_reply', ...(wmsAfter ? ['send_to_wms' as const] : [])]) }
+        : canWms && allClear && (status === 'SENT' || status === 'APPROVED') ? { label: 'Send to WMS', run: () => act(['send_to_wms']) }
           : null;
   const onDraftKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && primary && !disabled && reply.trim()) { e.preventDefault(); primary.run(); }
@@ -526,9 +550,11 @@ export function IntakeScreen() {
           </nav>
           <p className={s.railHead}>Tools</p>
           <div className={s.folders}>
-            <button type="button" className={s.folder} aria-pressed={pane === 'paste'} onClick={() => pasteFor(null)}>
-              <Icon size={14}>{ICON.clipboard}</Icon><span>Paste an email</span>
-            </button>
+            {canPaste && (
+              <button type="button" className={s.folder} aria-pressed={pane === 'paste'} onClick={() => pasteFor(null)}>
+                <Icon size={14}>{ICON.clipboard}</Icon><span>Paste an email</span>
+              </button>
+            )}
           </div>
           <div className={s.synthetic} title="Built on data we generated (SPEC §12.1)">
             <b>Synthetic data</b><span>Generated order emails only. No real orders.</span>
@@ -543,9 +569,11 @@ export function IntakeScreen() {
                 <span>{plural(inFolder.reduce((n, t) => n + t.emails.length, 0), 'email')}</span>
               </div>
               <div className={`${s.titleCol} ${s.syncCol}`}>
-                <button type="button" className={s.sync} aria-label="Sync" onClick={fetchGmail} disabled={disabled}>
-                  <span className={busy === 'fetch' ? s.spin : s.iconWrap}><Icon size={13}>{ICON.fetch}</Icon></span>Sync Gmail
-                </button>
+                {canFetch && (
+                  <button type="button" className={s.sync} aria-label="Sync" onClick={fetchGmail} disabled={disabled}>
+                    <span className={busy === 'fetch' ? s.spin : s.iconWrap}><Icon size={13}>{ICON.fetch}</Icon></span>Sync Gmail
+                  </button>
+                )}
                 <span className={s.synced}>
                   <i className={!poll ? s.dotOff : poll.ok === false ? s.dotBad : s.dotOk} aria-hidden="true" />
                   {!poll ? 'Not synced yet' : `${poll.ok === false ? 'Sync failed' : 'Synced'} ${clock(new Date(poll.finishedAt ?? poll.startedAt))}`}
@@ -598,9 +626,12 @@ export function IntakeScreen() {
               <p className={s.done}><Icon size={17}>{ICON.check}</Icon>No other threads need you</p>
             )}
           </div>
-          <button type="button" className={s.fab} onClick={() => pasteFor(null)}><Icon size={16}>{ICON.plus}</Icon>Paste email</button>
-          {notes.length > 0 && (
+          {canPaste && <button type="button" className={s.fab} onClick={() => pasteFor(null)}><Icon size={16}>{ICON.plus}</Icon>Paste email</button>}
+          {(notes.length > 0 || expired) && (
             <div className={s.log} role="status">
+              {expired && (
+                <p className={s.logBad} role="alert"><Icon size={11}>{ICON.alert}</Icon>{SESSION_ENDED} <a href={expired}>Sign in again</a></p>
+              )}
               {notes.map((n) => (
                 <p key={n.id} className={n.tone === 'ok' ? s.logOk : n.tone === 'bad' ? s.logBad : undefined}>
                   <Icon size={11}>{n.tone === 'bad' ? ICON.alert : n.tone === 'ok' ? ICON.check : ICON.info}</Icon>{n.text}
@@ -655,8 +686,10 @@ export function IntakeScreen() {
                             <div className={s.menu} role="menu">
                               <button type="button" role="menuitem" onClick={() => { markRead(thread.emails.map((e) => e.id), false); setMenu(false); }}>
                                 <Icon size={12}>{ICON.mail}</Icon>Mark as unread</button>
-                              <button type="button" role="menuitem" onClick={() => pasteFor(d.email.id)}><Icon size={12}>{ICON.clipboard}</Icon>Paste client&apos;s reply</button>
-                              <button type="button" role="menuitem" onClick={() => pasteFor(null)}><Icon size={12}>{ICON.clipboard}</Icon>Paste a new email</button>
+                              {canPaste && <>
+                                <button type="button" role="menuitem" onClick={() => pasteFor(d.email.id)}><Icon size={12}>{ICON.clipboard}</Icon>Paste client&apos;s reply</button>
+                                <button type="button" role="menuitem" onClick={() => pasteFor(null)}><Icon size={12}>{ICON.clipboard}</Icon>Paste a new email</button>
+                              </>}
                             </div>
                           )}
                         </div>
@@ -709,20 +742,20 @@ export function IntakeScreen() {
                             )}
                           </div>
                           <textarea className={s.draft} aria-label="Reply" value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={onDraftKey}
-                            readOnly={status === 'SENT' || status === 'ENTERED'} rows={Math.min(12, Math.max(5, reply.split('\n').length + 1))} />
+                            readOnly={!canReply || status === 'SENT' || status === 'ENTERED'} rows={Math.min(12, Math.max(5, reply.split('\n').length + 1))} />
                           <div className={s.composerFoot}>
-                            {allClear && (status === 'AWAITING_APPROVAL' || status === 'APPROVED') && (
+                            {allClear && canReply && canWms && (status === 'AWAITING_APPROVAL' || status === 'APPROVED') && (
                               <label className={s.check}>
                                 <input type="checkbox" checked={push} onChange={(e) => setPush(e.target.checked)} />Push to WMS after sending
                               </label>
                             )}
                             {status === 'ENTERED' && <span className={s.doneNote}><Icon size={12}>{ICON.checkCircle}</Icon>Reply sent and order in the WMS</span>}
                             <div className={s.buttons}>
-                              {status !== 'SENT' && status !== 'ENTERED' && (
+                              {canReply && status !== 'SENT' && status !== 'ENTERED' && (
                                 <button type="button" className={s.btn} onClick={() => { writeDraft(d.email.id, reply); say('Draft saved in this browser.', 'info'); }}>
                                   Save draft</button>
                               )}
-                              {status === 'SENT' && !allClear && (
+                              {canPaste && status === 'SENT' && !allClear && (
                                 <button type="button" className={s.btn} onClick={() => pasteFor(d.email.id)}><Icon size={12}>{ICON.clipboard}</Icon>Paste client&apos;s reply</button>
                               )}
                               {primary && (

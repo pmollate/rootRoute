@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { UserProvider } from '@/components/auth/UserContext';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
@@ -63,7 +64,7 @@ export function DashboardShell({ children, user = null }: { children: ReactNode;
           <UserMenu user={user} />
         </div>
       </header>
-      <main className={s.main}>{children}</main>
+      <main className={s.main}><UserProvider user={user}>{children}</UserProvider></main>
       <footer className={s.foot}>
         <p>Computed from the supplied Halcyon dataset · 48,340 deliveries · Apr–Sep 2026 · 5 sites · 6 carriers.</p>
         <p><Pill tone="synthetic">Synthetic</Pill></p>

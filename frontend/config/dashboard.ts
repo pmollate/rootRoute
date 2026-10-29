@@ -8,7 +8,4 @@ export const SCREENS = [
   { href: '/dashboard/replay', label: 'Replay', owner: 'B' },
 ] as const;
 
-/** Node API (backend/api). Set in the repo-root .env; next.config.mjs loads it. */
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
-/** Shared demo key for write endpoints. Visible in the browser: synthetic data only (CONTRACTS §7). */
-export const API_KEY = process.env.NEXT_PUBLIC_API_KEY ?? '';
+// The API is reached through the same-origin proxy app/api/[...path] (lib/api.ts); its URL and keys are server-side only.

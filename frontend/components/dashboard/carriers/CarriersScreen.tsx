@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useCan } from '@/components/auth/UserContext';
 import { PageHero } from '@/components/dashboard/PageHero';
 import { Segmented, Status, SyntheticBadge, ui } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
-import { postJSON } from '@/lib/api';
+import { SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
 import { int, pct, points, usd2 } from '@/lib/metrics';
 import s from './carriers.module.css';
 
@@ -138,12 +139,37 @@ function OnTime({ value, benchmark, strong }: { value: number; benchmark?: numbe
 
 const Avatar = ({ children }: { children: ReactNode }) => <span className={s.av} aria-hidden="true">{children}</span>;
 
+/** REQ-AUTH-11: the override form and its lane, kept in this tab while the user signs in again. */
+const KEPT = 'rr.carriers.override';
+interface Kept { override: { orderRef: string; to: string; reason: string }; region: Region; commitment: Commitment; sla: boolean }
+const takeKept = (): Kept | null => {
+  try {
+    const raw = sessionStorage.getItem(KEPT);
+    sessionStorage.removeItem(KEPT);
+    return raw ? (JSON.parse(raw) as Kept) : null;
+  } catch {
+    return null;
+  }
+};
+const keep = (k: Kept) => { try { sessionStorage.setItem(KEPT, JSON.stringify(k)); } catch { /* storage blocked */ } };
+
 export function CarriersScreen() {
   const [region, setRegion] = useState<Region>('Northeast');
   const [commitment, setCommitment] = useState<Commitment>('next_day');
   const [sla, setSla] = useState(false);
-  const [override, setOverride] = useState({ orderRef: '', to: '', reason: '', user: '' });
+  // No name field: the API records the signed-in user (REQ-AUTH-07). Only carrier managers and admins override.
+  const [override, setOverride] = useState({ orderRef: '', to: '', reason: '' });
   const [overrideMsg, setOverrideMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [expired, setExpired] = useState(false);
+  const canOverride = useCan('override');
+  useEffect(() => {
+    const k = takeKept();
+    if (!k) return;
+    setRegion(k.region);
+    setCommitment(k.commitment);
+    setSla(k.sla);
+    setOverride(k.override);
+  }, []);
   const lane = useApi<{ recommendation: Rec }>(laneUrl(region, commitment, sla));
   const network = useNetwork();
   const bt = useApi<Backtest>('/api/carriers/backtest');
@@ -162,7 +188,12 @@ export function CarriersScreen() {
     try {
       const r = await postJSON<{ id: number }>('/api/overrides', { ...override, from: rec?.carrier ?? '' });
       setOverrideMsg({ ok: true, text: `Logged override #${r.id}. It will appear in the next lane-rule review.` });
-    } catch {
+    } catch (e) {
+      if (e instanceof SessionExpired) {
+        keep({ override, region, commitment, sla }); // nothing is resent: the user clicks again after signing in
+        setExpired(true);
+        return;
+      }
       // A fixed message: the error text can carry API paths, status codes or server internals.
       setOverrideMsg({ ok: false, text: 'Could not log the override. Check the fields and try again.' });
     }
@@ -347,7 +378,7 @@ export function CarriersScreen() {
         </section>
       </div>
 
-      <section className={s.panel}>
+      {canOverride && <section className={s.panel}>
         <Head title="Override a recommendation"
           sub="Every override is logged with a reason, so the lane rules can be reviewed." />
         <div className={s.form}>
@@ -360,8 +391,6 @@ export function CarriersScreen() {
             </select></label>
           <label className={`${s.fld} ${s.wide}`}><span className={s.lb}>Reason</span>
             <input className={s.input} placeholder="e.g. client asked for a named carrier" value={override.reason} onChange={(e) => setOverride({ ...override, reason: e.target.value })} /></label>
-          <label className={s.fld}><span className={s.lb}>Your name</span>
-            <input className={s.input} placeholder="Full name" value={override.user} onChange={(e) => setOverride({ ...override, user: e.target.value })} /></label>
           <button type="button" className={s.primary} onClick={saveOverride}><Icon>{ICON.clipboard}</Icon>Log override</button>
         </div>
         {overrideMsg && (
@@ -369,7 +398,13 @@ export function CarriersScreen() {
             <span className={s.toastIcon}><Icon size={14}>{overrideMsg.ok ? ICON.check : ICON.info}</Icon></span>{overrideMsg.text}
           </p>
         )}
-      </section>
+        {expired && (
+          <p className={`${s.toast} ${s.toastErr}`} role="alert">
+            <span className={s.toastIcon}><Icon size={14}>{ICON.info}</Icon></span>{SESSION_ENDED}{' '}
+            <a href={signInAgain('/dashboard/carriers')}>Sign in again</a>
+          </p>
+        )}
+      </section>}
     </div>
   );
 }
