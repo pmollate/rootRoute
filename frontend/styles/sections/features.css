@@ -1,0 +1,98 @@
+/* S6b Features: seven workspaces; Overview spans two columns so the grid closes evenly at 4 and 2 columns */
+.features {
+  padding: clamp(110px, 18vh, 200px) 0 0;
+  background: var(--bg);
+}
+
+.features-route {
+  display: block;
+  width: 100%;
+  height: 24px;
+  margin: 40px 0 28px;
+  overflow: visible;
+}
+
+.features-route path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
+    border-color 0.25s,
+    box-shadow 0.35s;
+}
+
+.feat:first-child {
+  grid-column: span 2;
+}
+
+.feat:hover {
+  transform: translateY(-4px);
+  border-color: rgb(var(--accent-rgb) / 0.55);
+  box-shadow: var(--shadow-lift);
+}
+
+.feat-n {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--accent-text);
+}
+
+.feat h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.feat p {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.feat-role {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--pill);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feat,
+  .feat:hover {
+    transition: none;
+    transform: none;
+  }
+}

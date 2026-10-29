@@ -1,6 +1,6 @@
 # root-route · frontend
 
-Next.js + GSAP ScrollTrigger landing page that tells one delivery as a scroll film: dispatch → detect → drive → network → optimize, then results and people, and finally deliver, which is also the page footer. Plan: `docs/website-design.md`.
+Next.js + GSAP ScrollTrigger landing page that tells one delivery as a scroll film: dispatch → detect → drive → network → optimize, then results, features and people, and finally deliver, followed by the page footer. Plan: `docs/website-design.md`.
 
 ## Run
 

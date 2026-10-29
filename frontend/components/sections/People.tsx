@@ -45,11 +45,11 @@ export function People() {
   );
 }
 
-/** A dispatcher's view of one order: each pick with its plain-language reason. */
+/** One delivery's journey: each check with its plain-language reason, and the root cause at the foot. */
 function DashboardMock() {
   const d = copy.people.dashboard;
   return (
-    <figure className="dash" data-dash aria-label="Example dispatcher view">
+    <figure className="dash" data-dash aria-label="Example order journey">
       <div className="dash-top">
         <span className="dash-dots" aria-hidden="true">
           <i />
@@ -73,9 +73,11 @@ function DashboardMock() {
               <span className="dash-k">{r.k}</span>
               <span className="dash-v">{r.v}</span>
               <span className="dash-why">{r.why}</span>
-              <button type="button" className="dash-override" tabIndex={-1} aria-hidden="true">
-                Override
-              </button>
+              {'act' in r && (
+                <button type="button" className="dash-override" tabIndex={-1} aria-hidden="true">
+                  {r.act}
+                </button>
+              )}
             </li>
           ))}
         </ul>

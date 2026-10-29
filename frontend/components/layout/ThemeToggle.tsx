@@ -1,20 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { currentTheme, DARK_QUERY, saveTheme, type Theme } from '@/lib/theme';
+import { currentTheme, saveTheme, type Theme } from '@/lib/theme';
 import styles from './SiteHeader.module.css';
 
-/** Sun / moon switch in the header. Remembers the choice; until then the page follows the system. */
+/** Sun / moon switch in the header. Remembers the choice; until then the page is light. */
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme | null>(null); // null until mounted, so SSR and client agree
 
-  useEffect(() => {
-    setTheme(currentTheme());
-    const mq = window.matchMedia(DARK_QUERY);
-    const onSystem = () => !document.documentElement.dataset.theme && setTheme(currentTheme());
-    mq.addEventListener('change', onSystem);
-    return () => mq.removeEventListener('change', onSystem);
-  }, []);
+  useEffect(() => setTheme(currentTheme()), []);
 
   const toggle = () => {
     const next: Theme = currentTheme() === 'dark' ? 'light' : 'dark';

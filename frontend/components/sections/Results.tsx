@@ -3,8 +3,9 @@
 import { useRef } from 'react';
 import { copy } from '@/config/copy';
 import { useMotion } from '@/hooks/useMotion';
+import { group } from '@/lib/format';
 import { gsap } from '@/lib/gsap';
-import { ph, PH_TITLE } from '@/lib/ph';
+import { ph } from '@/lib/ph';
 import { Kicker } from '../ui/Kicker';
 
 /** S6 · Results: the four stats count up when the section enters; the security line comes last. */
@@ -19,10 +20,11 @@ export function Results() {
     nums.forEach((el, i) => {
       const n = { v: 0 };
       const to = Number(el.dataset.count);
-      el.textContent = '0';
-      tl.to(n, { v: to, duration: 1.4, ease: 'power2.out', onUpdate: () => (el.textContent = String(Math.round(n.v))) }, 0.1 + i * 0.08);
+      const dp = Number(el.dataset.decimals ?? 0);
+      el.textContent = (0).toFixed(dp);
+      tl.to(n, { v: to, duration: 1.4, ease: 'power2.out', onUpdate: () => (el.textContent = group(n.v.toFixed(dp))) }, 0.1 + i * 0.08);
     });
-    tl.from('[data-security]', { autoAlpha: 0, y: 12, duration: 0.6 }, '-=0.4');
+    tl.from('[data-security]', { autoAlpha: 0, y: 12, duration: 0.6, stagger: 0.1 }, '-=0.4');
   });
 
   return (
@@ -37,14 +39,17 @@ export function Results() {
             <div key={st.label} className="stat" data-stat>
               <dt>{st.label}</dt>
               <dd>
-                <span className={st.ph ? 'ph' : undefined} title={st.ph ? PH_TITLE : undefined}>
-                  <span data-count={st.value}>{st.value}</span>
-                  <span className="stat-unit">{st.suffix}</span>
+                <span data-count={st.value} data-decimals={st.decimals}>
+                  {group(st.value.toFixed(st.decimals ?? 0))}
                 </span>
+                <span className="stat-unit">{st.suffix}</span>
               </dd>
             </div>
           ))}
         </dl>
+        <p className="results-note" data-security>
+          {c.note}
+        </p>
         <p className="security" data-security>
           {ph(c.security)}
         </p>
