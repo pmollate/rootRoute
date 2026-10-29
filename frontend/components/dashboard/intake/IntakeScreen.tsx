@@ -6,6 +6,7 @@ import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
 import { SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
 import s from './intake.module.css';
+import { OrderReview } from './OrderReview';
 
 export type Decision = 'ALL_CLEAR' | 'CONFIRM_ADDRESS' | 'MISSING_INFO';
 interface Item { sku: string; qty: number }
@@ -67,7 +68,7 @@ const ICON = {
 const DECISION: Record<Decision, string> = { ALL_CLEAR: 'All clear', CONFIRM_ADDRESS: 'Confirm address', MISSING_INFO: 'Missing info' };
 const STATUS: Record<string, string> = {
   RECEIVED: 'Received', WAITING: 'Waiting for AI services', AWAITING_APPROVAL: 'Awaiting approval', APPROVED: 'Approved',
-  SENT: 'Reply sent', ENTERED: 'In WMS',
+  SENT: 'Reply sent', ENTERED: 'In WMS', REJECTED: 'Rejected',
 };
 /** What the reply template is for, by decision. */
 const TEMPLATE: Record<Decision, string> = { ALL_CLEAR: 'Order confirmed', CONFIRM_ADDRESS: 'Confirm address', MISSING_INFO: 'Ask for missing info' };
@@ -163,6 +164,7 @@ function chip(e: EmailItem): { text: string; tone: string } {
   if (e.status === 'WAITING') return { text: 'Waiting for AI', tone: s.tNeutral };
   if (e.clientId === null && e.decision === 'MISSING_INFO' && e.status === 'AWAITING_APPROVAL') return { text: 'Unknown sender', tone: s.tBad };
   if (e.status === 'ENTERED') return { text: 'In WMS', tone: s.tGood };
+  if (e.status === 'REJECTED') return { text: 'Rejected', tone: s.tBad };
   if (waitingOnClient(e)) return { text: 'Waiting on client', tone: s.tNeutral };
   if (e.status === 'SENT') return { text: 'Ready for WMS', tone: s.tAccent };
   if (e.status === 'APPROVED') return e.decision === 'ALL_CLEAR' ? { text: 'Approved, reply to send', tone: s.tAccent } : { text: 'Request to send', tone: s.tWarn };
@@ -354,7 +356,7 @@ const saveRead = (ids: Set<number>) => { try { localStorage.setItem(READ_KEY, JS
 export function IntakeScreen() {
   const list = useApi<Inbox>('/api/intake');
   const [selected, setSelected] = useState<number | null>(null);
-  const [pane, setPane] = useState<'email' | 'paste'>('email');
+  const [pane, setPane] = useState<'email' | 'paste' | 'review'>('email');
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [folder, setFolder] = useState<Folder>('inbox');
   const [query, setQuery] = useState('');
@@ -554,6 +556,9 @@ export function IntakeScreen() {
           </nav>
           <p className={s.railHead}>Tools</p>
           <div className={s.folders}>
+            <button type="button" className={s.folder} aria-pressed={pane === 'review'} onClick={() => { setPane('review'); setMenu(false); setView('thread'); }}>
+              <Icon size={14}>{ICON.checkCircle}</Icon><span>Order review</span>
+            </button>
             {canPaste && (
               <button type="button" className={s.folder} aria-pressed={pane === 'paste'} onClick={() => pasteFor(null)}>
                 <Icon size={14}>{ICON.clipboard}</Icon><span>Paste an email</span>
@@ -646,7 +651,12 @@ export function IntakeScreen() {
         </section>
 
         <section className={s.read} aria-label="Thread" inert={phone && view === 'list'}>
-          {pane === 'paste' ? (
+          {pane === 'review' ? (
+            <div className={s.pasteWrap} key="review">
+              <button type="button" className={`${s.iconBtn} ${s.back}`} aria-label="Back to inbox" onClick={back}><Icon size={16}>{ICON.back}</Icon></button>
+              <OrderReview onChange={() => list.reload()} />
+            </div>
+          ) : pane === 'paste' ? (
             <div className={s.pasteWrap} key="paste">
               <div className={s.pasteForm}>
                 <div className={s.pasteTop}>

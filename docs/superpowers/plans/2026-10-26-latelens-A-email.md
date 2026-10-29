@@ -3200,7 +3200,7 @@ only line A adds in C's folder: ask the Carriers owner to review it on the PR.
   - API: `GET /api/intake/review` → `{ orders: ReviewOrder[] }`; `POST /api/intake/:id/action` body
     `{ action, reply?, reason?, carrier? }`.
 
-- [ ] **Step 1: Write the failing unit tests.** Create `backend/api/test/intake/review.test.ts`:
+- [x] **Step 1: Write the failing unit tests.** Create `backend/api/test/intake/review.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -3295,10 +3295,10 @@ describe('order review (E18)', () => {
 });
 ```
 
-- [ ] **Step 2: Run.** `npm --prefix backend/api test -- test/intake/review.test.ts`
+- [x] **Step 2: Run.** `npm --prefix backend/api test -- test/intake/review.test.ts`
   Expected: FAIL, cannot find module `review.js`.
 
-- [ ] **Step 3: Implement `review.ts`.** Create `backend/api/src/modules/intake/review.ts`:
+- [x] **Step 3: Implement `review.ts`.** Create `backend/api/src/modules/intake/review.ts`:
 
 ```ts
 import type { CarrierId, CarrierOption, CarrierRecommendation, PromiseResult, Region, WarehouseChoice } from '../../core/contracts.js';
@@ -3348,7 +3348,7 @@ export async function reviewQueue(repo: Repo): Promise<ReviewOrder[]> {
 }
 ```
 
-- [ ] **Step 4: Implement the actions.** Replace `backend/api/src/modules/intake/actions.ts` with:
+- [x] **Step 4: Implement the actions.** Replace `backend/api/src/modules/intake/actions.ts` with:
 
 ```ts
 import { allowList } from '../../core/config.js';
@@ -3449,10 +3449,10 @@ export async function applyAction(repo: Repo, id: number, action: Action, actor:
   `applyAction(mem.repo, id, 'send_reply', 'ops', { gmail, allow }, { edited })`. In `repo.ts` change the `status`
   comment of `EmailRow` to `// RECEIVED | WAITING | AWAITING_APPROVAL | APPROVED | SENT | ENTERED | REJECTED`.
 
-- [ ] **Step 5: Run.** `npm --prefix backend/api test -- test/intake/review.test.ts test/intake/pipeline.test.ts`
+- [x] **Step 5: Run.** `npm --prefix backend/api test -- test/intake/review.test.ts test/intake/pipeline.test.ts`
   Expected: PASS.
 
-- [ ] **Step 6: Write the failing HTTP tests.** In `backend/api/test/routes/permissions.test.ts`, test
+- [x] **Step 6: Write the failing HTTP tests.** In `backend/api/test/routes/permissions.test.ts`, test
   `REQ-AUTH-05: the matrix matches…`, add after the `GET /api/overview` line:
   `expect(who('GET', '/api/intake/review')).toEqual(ROLES);`. Create `backend/api/test/routes/review.test.ts`:
 
@@ -3526,10 +3526,10 @@ describe.skipIf(!hasDb)('order review over HTTP (needs test database)', () => {
 });
 ```
 
-- [ ] **Step 7: Run.** `npm --prefix backend/api test -- test/routes/permissions.test.ts test/routes/review.test.ts`
+- [x] **Step 7: Run.** `npm --prefix backend/api test -- test/routes/permissions.test.ts test/routes/review.test.ts`
   Expected: FAIL: `GET /api/intake/review` has no permission entry (and, with the database up, 404 on the route).
 
-- [ ] **Step 8: Implement the routes.**
+- [x] **Step 8: Implement the routes.**
 
 1. `backend/api/src/modules/carriers/index.ts`: change the queries import to
    `import { capacityLimits, insertOverride, laneRows, logRecommendation, usedToday } from './queries.js';` and add at the end:
@@ -3572,10 +3572,10 @@ const ActionBody = z.object({
       'intake action');
 ```
 
-- [ ] **Step 9: Run.** `npm --prefix backend/api test` and `npm run typecheck`
+- [x] **Step 9: Run.** `npm --prefix backend/api test` and `npm run typecheck`
   Expected: PASS (route tests skip without the test database; run them once with it up).
 
-- [ ] **Step 10: Write the failing screen tests.** Create `frontend/components/dashboard/intake/OrderReview.test.tsx`:
+- [x] **Step 10: Write the failing screen tests.** Create `frontend/components/dashboard/intake/OrderReview.test.tsx`:
 
 ```tsx
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
@@ -3648,10 +3648,10 @@ describe('Order review (E18)', () => {
   });
 ```
 
-- [ ] **Step 11: Run.** `npm --prefix frontend test -- components/dashboard/intake`
+- [x] **Step 11: Run.** `npm --prefix frontend test -- components/dashboard/intake`
   Expected: FAIL, cannot resolve `./OrderReview`.
 
-- [ ] **Step 12: Implement the screen.** Create `frontend/components/dashboard/intake/OrderReview.tsx`:
+- [x] **Step 12: Implement the screen.** Create `frontend/components/dashboard/intake/OrderReview.tsx`:
 
 ```tsx
 'use client';
@@ -3798,12 +3798,12 @@ export function OrderReview({ onChange }: { onChange?: () => void }) {
           ) : pane === 'paste' ? (
 ```
 
-- [ ] **Step 13: Run.** `npm --prefix frontend test && npm run typecheck`
+- [x] **Step 13: Run.** `npm --prefix frontend test && npm run typecheck`
   Expected: PASS. Then rehearse with `npm run dev:all`, signed in as the demo `order_desk`: paste fixture 02, open
   "Order review", pick a different carrier with a reason, Approve; open the order's journey
-  (`/dashboard/journey?ref=email:<id>`) and see "changed X → Y by demo:…". Check 375 px width (REQ-UI-03).
+  (`/dashboard/journey?ref=email:<id>`) and see "changed X → Y by demo:…". Check 375 px width (REQ-UI-03). (A14 run: automated suites only; the browser rehearsal is left for the reviewer.)
 
-- [ ] **Step 14: Contracts.** In `docs/CONTRACTS.md`:
+- [x] **Step 14: Contracts.** In `docs/CONTRACTS.md`:
   - §2 table, carriers row: add `logOverride({ orderRef, from, to, reason, user }) → id` (the one writer of
     `override_log`, used by A's order review).
   - §6: add row `GET /api/intake/review` | A | `{ orders: [{ id, from, clientId, clientName, tier, priority, receivedAt,
@@ -3814,7 +3814,7 @@ export function OrderReview({ onChange }: { onChange?: () => void }) {
     `approve` with a different `carrier` needs `reason`, refuses a blocked carrier (409) and logs `override_log` with the
     signed-in user; actor from the token, never the body. `GET /api/intake` `status` adds `REJECTED`.
 
-- [ ] **Step 15: Commit.**
+- [x] **Step 15: Commit.**
 
 ```bash
 git add backend/api/src/modules/intake backend/api/src/core/permissions.ts backend/api/src/modules/carriers/index.ts \

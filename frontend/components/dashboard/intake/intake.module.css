@@ -383,3 +383,11 @@
   .spin, .spinSlow { animation: none; }
   .row::before, .btn, .folder, .chev, .read { transition: none !important; }
 }
+
+/* Order review (E18): a scrolling column of order cards in the reading pane. */
+.review { display: flex; flex-direction: column; gap: 12px; padding: 16px; overflow-y: auto; min-width: 0; }
+.reviewHead { display: flex; align-items: center; gap: 10px; }
+.reviewHead h2 { margin: 0; font-size: 1.1rem; }
+.reviewCard { display: flex; flex-direction: column; gap: 8px; padding: 14px; }
+.reviewCard p { margin: 0; overflow-wrap: anywhere; }
+.reviewCard select, .reviewCard input { width: 100%; max-width: 100%; }

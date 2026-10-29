@@ -213,9 +213,9 @@ describe('actions', () => {
     const { mem, id } = await awaiting('orders@client190.example');
     const { sent, gmail } = fakeGmail();
     const edited = 'Hello Dana,\nConfirmed: your order ships Friday.';
-    expect(await applyAction(mem.repo, id, 'send_reply', 'ops', { gmail, allow }, edited)).toMatchObject({ code: 409 });
+    expect(await applyAction(mem.repo, id, 'send_reply', 'ops', { gmail, allow }, { edited })).toMatchObject({ code: 409 });
     await applyAction(mem.repo, id, 'approve', 'ops');
-    expect(await applyAction(mem.repo, id, 'send_reply', 'ops', { gmail, allow }, edited)).toMatchObject({ code: 200, status: 'SENT' });
+    expect(await applyAction(mem.repo, id, 'send_reply', 'ops', { gmail, allow }, { edited })).toMatchObject({ code: 200, status: 'SENT' });
     expect(sent[0].raw).toContain('Confirmed: your order ships Friday.');
     expect(sent[0].raw).not.toContain('Hello Dana Whitfield,');
     expect(mem.outbound[0]).toMatchObject({ status: 'sent', body: edited });

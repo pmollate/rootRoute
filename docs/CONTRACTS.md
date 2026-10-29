@@ -97,7 +97,7 @@ export interface DiagnosisApi {
 | Import from | Export | Owner | Real implementation lands in |
 |---|---|---|---|
 | `backend/api/src/modules/warehouse/index.ts` | `warehouseApi: WarehouseApi`, `diagnosisApi: DiagnosisApi` | B | B8 (warehouse), B9 (diagnosis) |
-| `backend/api/src/modules/carriers/index.ts` | `carriersApi: CarriersApi` | C | C4 |
+| `backend/api/src/modules/carriers/index.ts` | `carriersApi: CarriersApi`; `logOverride({ orderRef, from, to, reason, user }) → id` (the one writer of `override_log`, used by A's order review, E18) | C | C4; `logOverride` A14 |
 
 B1 creates both files with **stubs** so A can build against them on day 1:
 - `checkPromise` → promise = received date + 1 day, commitment unchanged, `downgraded: false`, `reason: null`
@@ -190,11 +190,12 @@ All numbers are numbers (not strings). Rates are 0..1; the UI formats them. Pane
 | `GET /api/tracking?asOf=YYYY-MM-DD` | C | `{ synthetic: true, asOf, freshness: [{ carrier, source, lastEventAt }], atRisk: [{ deliveryId, carrier, promisedDate }] }` |
 | `POST /api/recommend` | C | body `RecommendInput` → `CarrierRecommendation` |
 | `POST /api/overrides` | C | body `{ orderRef, from, to, reason, user }` → `{ id }` (needs `x-api-key`) |
-| `GET /api/intake` | A | `{ emails: [{ id, source, from, subject, receivedAt, clientId, status, decision, inReplyTo, priority }], pollMinutes, lastPoll: { trigger, startedAt, finishedAt, processed, retried, failed, ok } \| null }` — priority clients first; `pollMinutes` is 0 when the automatic check is off or Gmail is not set up; `status` RECEIVED \| WAITING \| AWAITING_APPROVAL \| APPROVED \| SENT \| ENTERED |
+| `GET /api/intake` | A | `{ emails: [{ id, source, from, subject, receivedAt, clientId, status, decision, inReplyTo, priority }], pollMinutes, lastPoll: { trigger, startedAt, finishedAt, processed, retried, failed, ok } \| null }` — priority clients first; `pollMinutes` is 0 when the automatic check is off or Gmail is not set up; `status` RECEIVED \| WAITING \| AWAITING_APPROVAL \| APPROVED \| SENT \| ENTERED \| REJECTED |
 | `GET /api/intake/:id` | A | `{ email: { id, source, from, subject, body, redactedBody, receivedAt, clientId, status, inReplyTo }, extraction, decision, checks: { address, promise, warehouse, carrier }, replyDraft, replySource }` — `redactedBody` is what the AI model saw; `replyDraft` has names put back (what would be sent) |
 | `POST /api/intake/email` | A | body `{ from, subject, body, receivedAt, inReplyTo? }` → `{ id, status, decision, reason? }` (needs `x-api-key`); `status: WAITING`, `decision: null` when PII redaction or the model is unreachable (posting again retries); an unknown sender domain → status AWAITING_APPROVAL, decision MISSING_INFO, reason "unknown sender", with no PII or model call (E16) |
 | `POST /api/intake/fetch` | A | body `{ query?, max? }` → `{ pollId, query, fetched, processed, retried, failed, ok, error, results: [{ id, status, decision }] }` — runs the same Gmail check as the timer (E15): waiting emails again, then new mail since the last successful check less 2 minutes; a message in a thread we hold is the client's answer (needs `x-api-key`; 503 without `GMAIL_*`; 409 while another check runs) |
-| `POST /api/intake/:id/action` | A | body `{ action: "approve" \| "send_reply" \| "send_to_wms", user }` → `{ status }` (needs `x-api-key`); `send_reply` 403 off the allow-list, 503 without Gmail |
+| `GET /api/intake/review` | A | `{ orders: [{ id, from, clientId, clientName, tier, priority, receivedAt, items, region, promiseDate, warehouseId, carrier, carrierReason, choices: [{ carrier, status, onTime, reason }], blocked }] }` — ALL_CLEAR orders awaiting approval, priority first; `choices` never holds a blocked carrier (E18) |
+| `POST /api/intake/:id/action` | A | body `{ action: "approve" \| "reject" \| "send_reply" \| "send_to_wms", reply?, reason?, carrier? }` → `{ status }` (needs `x-api-key` while `AUTH_REQUIRED=off`); `send_reply` 403 off the allow-list, 503 without Gmail; `reject` needs `reason` (400) and only for an ALL_CLEAR order awaiting approval (status REJECTED); `approve` with a different `carrier` needs `reason` (400), refuses a blocked carrier (409) and logs `override_log` (via C's `logOverride`) with the signed-in user; the actor comes from the token, never the body |
 | `POST /api/orders` | A | API order JSON `{ order_ref, client_id, ship_to, items }` → `201 { id, status, address }` or `422 { id, missing }` (needs `x-api-key`) |
 | `POST /api/orders/edi` | A | text/plain body (simplified EDI 850) → `{ id, status: "accepted" \| "held", missing }` (needs `x-api-key`) |
 | `GET /api/complaints` | A | `{ complaints: [{ complaintId, clientId, deliveryId, category, date, text, atRisk, tier }] }` |

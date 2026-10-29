@@ -22,6 +22,13 @@ const detail = (id: number, over: object = {}) => ({
 describe('Order emails', () => {
   afterEach(() => { cleanup(); localStorage.clear(); });
 
+  it('E18: "Order review" in the rail opens the review in the reading pane', async () => {
+    mockApi({ '/api/intake': { emails: [item(34)] }, '/api/intake/34': detail(34), '/api/intake/review': { orders: [] } });
+    renderScreen(<IntakeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Order review' }));
+    expect(await screen.findByText('No all-clear orders are waiting for approval.')).toBeTruthy();
+  });
+
   it('AC-INT-10 (UI): an email from an unknown sender shows "Unknown sender" in the list and in the order summary', async () => {
     const unknown = detail(50, {
       email: { ...detail(50).email, from: 'buyer@unknown-co.example', clientId: null, redactedBody: null },

@@ -37,6 +37,7 @@ describe('permission matrix (SPEC-auth §4.2)', () => {
   it('REQ-AUTH-05: the matrix matches SPEC-auth §4.2, including Q-AUTH-03 (send_to_wms) and default deny', () => {
     const who = (method: string, url: string, body?: object) => rolesFor(method, url, body);
     expect(who('GET', '/api/overview')).toEqual(ROLES);
+    expect(who('GET', '/api/intake/review')).toEqual(ROLES);
     expect(who('GET', '/api/health')).toBe('public');
     expect(who('POST', '/api/mcp')).toBe('public');
     expect(who('POST', '/api/intake/:id/action', { action: 'approve' })).toEqual(['order_desk', 'admin']);
