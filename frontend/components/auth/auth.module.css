@@ -1,0 +1,29 @@
+/* Sign-in pages (/login, /no-access) and the header user menu (SPEC-auth §5.6). Tokens from styles/theme.css. */
+.page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg); color: var(--ink); font-family: var(--font-sans); }
+.card { width: min(420px, 100%); display: grid; gap: 18px; padding: 32px; border-radius: 16px; background: var(--surface);
+  border: 1px solid var(--line); box-shadow: 0 18px 40px -28px rgb(0 0 0 / 0.5); }
+.brand { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 13px; letter-spacing: 0.28em; }
+.title { margin: 0; font-size: 1.4rem; }
+.lead, .note { margin: 0; color: var(--ink-2); font-size: 0.9rem; }
+.alert { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-size: 0.9rem; }
+.info { margin: 0; padding: 10px 12px; border-radius: 8px; background: rgb(var(--ink-rgb) / 0.05); font-size: 0.9rem; }
+.form { display: grid; gap: 10px; }
+.form label { display: grid; gap: 4px; font-size: 0.86rem; font-weight: 600; }
+.form input { font: inherit; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); }
+.or { margin: 0; text-align: center; color: var(--ink-2); font-size: 0.8rem; }
+.btn { font: inherit; font-weight: 600; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line-strong);
+  background: var(--surface); color: var(--ink); cursor: pointer; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.primary { border-color: var(--navy); background: var(--navy); color: var(--on-navy); }
+
+/* Header: name, role badges, demo badge, sign out. Sits at the right of the dashboard bar. */
+.user { display: flex; align-items: center; gap: 6px; margin-left: 8px; min-width: 0; }
+.name { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 16ch; }
+.signOut { font: inherit; font-size: 0.8rem; font-weight: 600; border: 1px solid var(--line); background: transparent; color: var(--ink);
+  padding: 4px 10px; border-radius: var(--pill); cursor: pointer; white-space: nowrap; }
+@media (max-width: 900px) {
+  .roles { display: none; }
+}
+@media (max-width: 480px) {
+  .name { display: none; }
+}

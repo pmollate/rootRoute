@@ -1,7 +1,7 @@
 import nextEnv from '@next/env';
 import { fileURLToPath } from 'node:url';
 
-/** One .env at the repo root serves the API, the pipeline and this app (NEXT_PUBLIC_API_URL, NEXT_PUBLIC_API_KEY). */
+/** One .env at the repo root serves the API, the pipeline and this app (API_URL, AUTH_*, INTERNAL_AUTH_SECRET). */
 // forceReload: Next has already loaded (and cached) frontend/'s env, which would skip the root .env
 nextEnv.loadEnvConfig(fileURLToPath(new URL('..', import.meta.url)), process.env.NODE_ENV !== 'production', console, true);
 

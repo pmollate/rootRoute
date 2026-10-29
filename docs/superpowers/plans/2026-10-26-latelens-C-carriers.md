@@ -1537,7 +1537,7 @@ since their screens' action calls change.
   `INTERNAL_AUTH_SECRET`.
 - [x] **Step 2: API** `requireUser(roles)`, `permissions.ts` (SPEC-auth §4.2), default deny, actor from `req.user`,
   `AUTH_REQUIRED=off` keeps `x-api-key` and logs `auth_would_deny`; CORS off and fail-closed startup when on.
-- [ ] **Step 3: Web** Auth.js (Entra + demo, rate limit, generic error), `/login`, `/no-access`, middleware after
+- [x] **Step 3: Web** Auth.js (Entra + demo, rate limit, generic error), `/login`, `/no-access`, middleware after
   maintenance mode, header; proxy with Origin check and header stripping; safe return path (AC-AUTH-01, -02, -03, -08,
   -09, -12, AC-NFR-AUTH-02, -03, AC-SEC-AUTH-04, -05, -08, -12). Component tests for the login page and header.
 - [ ] **Step 4: Client calls** through `/api` same-origin; remove `NEXT_PUBLIC_API_KEY`; hide buttons by role; keep
