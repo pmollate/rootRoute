@@ -167,7 +167,7 @@ The token lives only on the server-to-server hop. It is signed per request and n
 
 - Auth.js Credentials provider, registered only when `AUTH_DEMO=on`.
 - Accounts come from `AUTH_DEMO_USERS` (Key Vault secret `auth-demo-users` in Azure): JSON with email, display name,
-  roles and a bcrypt hash. One account per role, `demo-<role>@latelens.test` (Q-AUTH-04).
+  roles and a bcrypt hash. One account per role, `demo-<role>@rootroute.test` (Q-AUTH-04).
 - Locally, `npm run setup` writes `AUTH_DEMO_USERS` to the gitignored `.env` with a random password, and prints it once.
 - Passwords are never committed and never shown on a page. Judges get them in the submission notes; Playwright reads
   the GitHub Actions secret `E2E_DEMO_PASSWORD`.
@@ -268,7 +268,7 @@ in the journey) still holds.
 | Id | Criterion |
 |---|---|
 | AC-AUTH-01 | Given `AUTH_REQUIRED=on` and no session, when `/`, `/dashboard` or `/dashboard/journey?ref=delivery:D000213` is opened, then the browser lands on `/login`, and after signing in returns to the page asked for. Given `MAINTENANCE_MODE=true`, when `/dashboard` is opened without a session, then the maintenance page shows (503). Given no session, when a file under `/media` is requested, then it is served. |
-| AC-AUTH-02 | Given Entra is configured, when an assigned user signs in with Microsoft, then the dashboard opens. Given `AUTH_DEMO=on`, when `demo-leadership@latelens.test` signs in with the right password, then the dashboard opens. Given a user from another tenant, then sign-in is refused. |
+| AC-AUTH-02 | Given Entra is configured, when an assigned user signs in with Microsoft, then the dashboard opens. Given `AUTH_DEMO=on`, when `demo-leadership@rootroute.test` signs in with the right password, then the dashboard opens. Given a user from another tenant, then sign-in is refused. |
 | AC-AUTH-03 | Given an Entra user with no app role, or only a role id not in §4.1, when they sign in, then they see `/no-access` with their name and "Sign out", any other page sends them back to `/no-access`, and every API call returns 403. |
 | AC-AUTH-04 | Given `AUTH_REQUIRED=on`, when every registered route except health and MCP is called with no token, an expired token, or a token signed with another secret, then each returns 401. `GET /api/health` returns 200 with no token. |
 | AC-AUTH-05 | Given a `leadership` token, when `POST /api/intake/:id/action` (`approve`) or `POST /api/overrides` is called, then 403 and the row counts of `intake_emails`, `audit_log` and `override_log` are unchanged. Given `order_desk`, then `approve` succeeds and `send_to_wms` returns 403. Given `warehouse_supervisor`, then `send_to_wms` on an approved order succeeds. |

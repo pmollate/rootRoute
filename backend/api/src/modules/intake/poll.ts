@@ -1,3 +1,4 @@
+import { SYSTEM_INTAKE } from '../../core/auth.js';
 import { config } from '../../core/config.js';
 import { getDeps } from './deps.js';
 import { fetchRecentEmails } from './mailbox.js';
@@ -46,15 +47,17 @@ function stored(e: EmailRow): IncomingEmail {
  * One Gmail check (REQ-INT-08), from the timer or the button: runs waiting emails again, then every new message in
  * the window, oldest first so a client's answer follows our question. A message already stored is skipped (dedupe by
  * Gmail id). The check is recorded in intake_polls; a failed one keeps the window open, so nothing is missed.
- * Returns null when another check holds the lock.
+ * Returns null when another check holds the lock. The timer runs as system:intake with no role (SEC-AUTH-10); the
+ * button passes the signed-in user. Either way the check only stores and decides: it never approves or enters an order.
  */
 export async function runPoll(deps: Deps, trigger: PollRow['trigger'],
-  opts: { query?: string; max?: number; nowMs?: number } = {}): Promise<PollOutcome | null> {
+  opts: { query?: string; max?: number; nowMs?: number; actor?: string } = {}): Promise<PollOutcome | null> {
   const { repo, gmail } = deps;
   if (!gmail) throw new Error('Gmail is not set up (GMAIL_* settings)');
   return repo.withPollLock(async () => {
     const query = opts.query ?? pollQuery(await repo.lastPollStart(), Math.floor((opts.nowMs ?? Date.now()) / 1000));
     const pollId = await repo.startPoll(trigger, query);
+    await repo.logAudit(opts.actor ?? SYSTEM_INTAKE, 'gmail_check', `poll:${pollId}`, { trigger });
     const out = { fetched: 0, processed: 0, retried: 0, failed: 0 };
     const errors: string[] = [];
     const results: Processed[] = [];

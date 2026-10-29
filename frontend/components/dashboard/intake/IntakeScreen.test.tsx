@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
-import { mockApi, renderScreen } from '../test-utils';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { asRole, mockApi, renderScreen } from '../test-utils';
 import { IntakeScreen } from './IntakeScreen';
 
 /** The requests the screen made, as [url, init]. */
@@ -184,7 +184,7 @@ describe('Order emails', () => {
     const fetch = mockApi({ '/api/intake': { emails: [item(34, { status: 'APPROVED' })] },
       '/api/intake/34': detail(34, { email: { ...detail(34).email, status: 'APPROVED' } }) });
     fetch.mockImplementation(async (url: string) => {
-      const path = new URL(url).pathname;
+      const path = new URL(url, 'http://localhost').pathname;
       if (path === '/api/intake/34/action') return { ok: false, status: 503, json: async () => ({ error: 'Gmail is not set up (GMAIL_* in .env): reply not sent' }) } as Response;
       const body = path === '/api/intake' ? { emails: [item(34, { status: 'APPROVED' })] } : detail(34, { email: { ...detail(34).email, status: 'APPROVED' } });
       return { ok: true, status: 200, json: async () => body } as Response;
@@ -194,5 +194,74 @@ describe('Order emails', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Request address' }));
     expect(await screen.findByText('Not sent: Gmail is not connected yet.')).toBeTruthy();
     expect(screen.queryByText(/GMAIL_/)).toBeNull();
+  });
+
+  describe('sign-in and roles (P7)', () => {
+    const clear = detail(34, { decision: 'ALL_CLEAR' });
+    const routes = { '/api/intake': { emails: [item(34, { decision: 'ALL_CLEAR' })] }, '/api/intake/34': clear,
+      '/api/intake/34/action': { status: 'SENT' } };
+
+    it('AC-AUTH-10: leadership sees no Sync, Paste, Approve, Send reply or Send to WMS control', async () => {
+      mockApi(routes);
+      renderScreen(<IntakeScreen />, asRole('leadership'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
+      await screen.findByLabelText('Reply');
+      for (const name of ['Sync', 'Paste an email', 'Paste email', 'Approve & send', 'Send reply', 'Send to WMS', 'Save draft']) {
+        expect(screen.queryByRole('button', { name }), name).toBeNull();
+      }
+      expect(screen.queryByLabelText('Push to WMS after sending')).toBeNull();
+      expect((screen.getByLabelText('Reply') as HTMLTextAreaElement).readOnly).toBe(true);
+    });
+
+    it('REQ-AUTH-07, Q-AUTH-03: order_desk approves and sends without a user field, and does not send to the WMS', async () => {
+      const fetch = mockApi(routes);
+      renderScreen(<IntakeScreen />, asRole('order_desk'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
+      await screen.findByLabelText('Reply');
+      expect(screen.queryByLabelText('Push to WMS after sending')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Approve & send' }));
+      await waitFor(() => expect(actions(fetch, 34)).toEqual(['approve', 'send_reply']));
+      const bodies = calls(fetch).filter(([url]) => url.endsWith('/action')).map(([, init]) => JSON.parse(String(init.body)));
+      expect(bodies.every((b) => !('user' in b))).toBe(true);
+    });
+
+    it('AC-AUTH-05 (UI): a warehouse supervisor sees only Send to WMS on an approved all-clear order', async () => {
+      const approved = { ...clear.email, status: 'APPROVED' };
+      const fetch = mockApi({ ...routes, '/api/intake': { emails: [item(34, { decision: 'ALL_CLEAR', status: 'APPROVED' })] },
+        '/api/intake/34': { ...clear, email: approved }, '/api/intake/34/action': { status: 'ENTERED' } });
+      renderScreen(<IntakeScreen />, asRole('warehouse_supervisor'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Send to WMS' }));
+      await waitFor(() => expect(actions(fetch, 34)).toEqual(['send_to_wms']));
+      expect(screen.queryByRole('button', { name: 'Send reply' })).toBeNull();
+    });
+
+    it('AC-AUTH-11: an ended session keeps the edited reply, links to sign-in and back to the same email, and resends nothing', async () => {
+      const fetch = vi.fn(async (url: string) => {
+        const path = new URL(url, 'http://localhost').pathname;
+        if (path.endsWith('/action')) return { ok: false, status: 401, json: async () => ({ error: 'session_expired' }) } as Response;
+        const body = path === '/api/intake' ? routes['/api/intake'] : path === '/api/intake/34' ? detail(34) : null;
+        return { ok: Boolean(body), status: body ? 200 : 404, json: async () => body ?? { error: 'not found' } } as Response;
+      });
+      vi.stubGlobal('fetch', fetch);
+      const first = renderScreen(<IntakeScreen />, asRole('order_desk'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
+      fireEvent.change(await screen.findByLabelText('Reply'), { target: { value: 'Hello Sam,\nWhich dock number?' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Request address' }));
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toContain('Your session has ended. Sign in again; your changes are kept.');
+      expect(screen.getByRole('link', { name: 'Sign in again' }).getAttribute('href'))
+        .toBe(`/login?expired=1&next=${encodeURIComponent('/dashboard/intake?email=34')}`);
+      first.unmount();
+
+      // After signing in: /dashboard/intake?email=34 opens that email with the edited text, and nothing is sent by itself.
+      window.history.replaceState(null, '', '/dashboard/intake?email=34');
+      fetch.mockClear();
+      renderScreen(<IntakeScreen />, asRole('order_desk'));
+      await waitFor(() => expect((screen.getByLabelText('Reply') as HTMLTextAreaElement).value).toBe('Hello Sam,\nWhich dock number?'));
+      expect(fetch.mock.calls.some(([url]) => String(url).endsWith('/action'))).toBe(false);
+      window.history.replaceState(null, '', '/');
+      vi.unstubAllGlobals();
+    });
   });
 });

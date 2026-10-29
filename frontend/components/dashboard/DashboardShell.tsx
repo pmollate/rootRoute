@@ -3,12 +3,15 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { UserProvider } from '@/components/auth/UserContext';
+import { UserMenu } from '@/components/auth/UserMenu';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { BrandMark } from '@/components/ui/BrandMark';
 import h from '@/components/layout/SiteHeader.module.css';
 import { BRAND } from '@/config/copy';
 import { SCREENS } from '@/config/dashboard';
+import type { SessionUser } from '@/lib/auth/roles';
 import { Pill } from './ui';
 import s from './shell.module.css';
 
@@ -25,8 +28,11 @@ const Icon = ({ children }: { children: ReactNode }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
 );
 
-/** Chrome for every /dashboard screen: the landing page's floating pill bar (brand, screen links, theme toggle); pages run full width. */
-export function DashboardShell({ children }: { children: ReactNode }) {
+/**
+ * Chrome for every /dashboard screen: the landing page's floating pill bar (brand, screen links, theme toggle, and the
+ * signed-in user: REQ-AUTH-08, -09); pages run full width. `user` is null when nobody is signed in (AUTH_REQUIRED=off).
+ */
+export function DashboardShell({ children, user = null }: { children: ReactNode; user?: SessionUser | null }) {
   const path = usePathname();
   const current = SCREENS.find((sc) => path.startsWith(sc.href));
   const brand = (
@@ -55,9 +61,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             ))}
             <ThemeToggle />
           </nav>
+          <UserMenu user={user} />
         </div>
       </header>
-      <main className={s.main}>{children}</main>
+      <main className={s.main}><UserProvider user={user}>{children}</UserProvider></main>
       <footer className={s.foot}>
         <p>Computed from the supplied Halcyon dataset · 48,340 deliveries · Apr–Sep 2026 · 5 sites · 6 carriers.</p>
         <p><Pill tone="synthetic">Synthetic</Pill></p>

@@ -1530,17 +1530,17 @@ since their screens' action calls change.
   `infra/setup.sh` (Key Vault secrets and app settings), `.github/workflows/cd.yml` (`E2E_DEMO_PASSWORD`),
   `frontend/playwright.config.ts` (setup project, storage state), `npm run setup` (local demo users in `.env`)
 
-- [ ] **Step 1: API tests first** (AC-AUTH-04, -05, -06, -07, -13, -14, AC-SEC-AUTH-03, -09, -10, -13): no, expired,
+- [x] **Step 1: API tests first** (AC-AUTH-04, -05, -06, -07, -13, -14, AC-SEC-AUTH-03, -09, -10, -13): no, expired,
   wrong-secret, wrong-aud/iss, `alg: none` tokens → 401; leadership approve → 403 and no row change; `send_to_wms` by
   role; actor from the token (`demo:<email>` for demo users); every route and action has a permission entry; carrier
   change during approve logs the approver; poll runs as `system:intake`; no CORS header when on; startup fails without
   `INTERNAL_AUTH_SECRET`.
-- [ ] **Step 2: API** `requireUser(roles)`, `permissions.ts` (SPEC-auth §4.2), default deny, actor from `req.user`,
+- [x] **Step 2: API** `requireUser(roles)`, `permissions.ts` (SPEC-auth §4.2), default deny, actor from `req.user`,
   `AUTH_REQUIRED=off` keeps `x-api-key` and logs `auth_would_deny`; CORS off and fail-closed startup when on.
-- [ ] **Step 3: Web** Auth.js (Entra + demo, rate limit, generic error), `/login`, `/no-access`, middleware after
+- [x] **Step 3: Web** Auth.js (Entra + demo, rate limit, generic error), `/login`, `/no-access`, middleware after
   maintenance mode, header; proxy with Origin check and header stripping; safe return path (AC-AUTH-01, -02, -03, -08,
   -09, -12, AC-NFR-AUTH-02, -03, AC-SEC-AUTH-04, -05, -08, -12). Component tests for the login page and header.
-- [ ] **Step 4: Client calls** through `/api` same-origin; remove `NEXT_PUBLIC_API_KEY`; hide buttons by role; keep
+- [x] **Step 4: Client calls** through `/api` same-origin; remove `NEXT_PUBLIC_API_KEY`; hide buttons by role; keep
   typed input on `session_expired` (AC-AUTH-10, -11, AC-SEC-AUTH-01).
 - [ ] **Step 5: Playwright** sign-in setup per role; workflow tests run signed in; one test per role refusal
   (AC-NFR-AUTH-04). Tell A and B first.

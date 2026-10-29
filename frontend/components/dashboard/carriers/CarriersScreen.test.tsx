@@ -1,6 +1,6 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { mockApi, renderScreen } from '../test-utils';
+import { asRole, mockApi, renderScreen } from '../test-utils';
 import { CarriersScreen } from './CarriersScreen';
 
 const option = (carrier: string, status: string, reason = 'eligible') =>
@@ -28,7 +28,7 @@ const ROUTES = {
 };
 
 describe('Carriers', () => {
-  afterEach(cleanup);
+  afterEach(() => { cleanup(); sessionStorage.clear(); });
 
   it('shows the recommendation reason, a blocked carrier and the synthetic tracking badge', async () => {
     mockApi(ROUTES);
@@ -54,5 +54,53 @@ describe('Carriers', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log override' }));
     expect(await screen.findByText('Could not log the override. Check the fields and try again.')).toBeTruthy();
     expect(screen.queryByText(/404|\/api\//)).toBeNull();
+  });
+
+  it('AC-AUTH-10: leadership sees no override form', async () => {
+    mockApi(ROUTES);
+    renderScreen(<CarriersScreen />, asRole('leadership'));
+    await screen.findByText(/97% on time vs 55% for F/);
+    expect(screen.queryByRole('button', { name: 'Log override' })).toBeNull();
+    expect(screen.queryByLabelText('Reason')).toBeNull();
+  });
+
+  it('REQ-AUTH-07: a carrier manager logs an override with no name field; the actor comes from the sign-in', async () => {
+    const fetch = mockApi({ ...ROUTES, '/api/overrides': { id: 7 } });
+    renderScreen(<CarriersScreen />, asRole('carrier_manager'));
+    await screen.findByText(/97% on time vs 55% for F/);
+    expect(screen.queryByPlaceholderText('Full name')).toBeNull();
+    expect(screen.queryByText('Your name')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Order ref'), { target: { value: 'HX-1' } });
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'client asked for A' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Log override' }));
+    expect(await screen.findByText(/Logged override #7/)).toBeTruthy();
+    const [, init] = (fetch.mock.calls as unknown as [string, RequestInit][]).find(([u]) => u.endsWith('/api/overrides'))!;
+    expect(JSON.parse(String(init.body))).not.toHaveProperty('user');
+  });
+
+  it('AC-AUTH-11: an ended session keeps the order ref, carrier choice and reason through sign-in', async () => {
+    const routes = { ...ROUTES };
+    const fetch = mockApi(routes);
+    fetch.mockImplementation(async (url: string) => {
+      const u = new URL(url, 'http://localhost');
+      if (u.pathname === '/api/overrides') return { ok: false, status: 401, json: async () => ({ error: 'session_expired' }) } as Response;
+      const hit = (routes as Record<string, unknown>)[u.pathname + u.search];
+      return { ok: Boolean(hit), status: hit ? 200 : 404, json: async () => hit ?? {} } as Response;
+    });
+    const first = renderScreen(<CarriersScreen />, asRole('carrier_manager'));
+    await screen.findByText(/97% on time vs 55% for F/);
+    fireEvent.change(screen.getByLabelText('Order ref'), { target: { value: 'HX-2' } });
+    fireEvent.change(screen.getByLabelText('Use carrier'), { target: { value: 'A' } });
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'dock closes early' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Log override' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Your session has ended. Sign in again; your changes are kept.');
+    first.unmount();
+    fetch.mockClear();
+    renderScreen(<CarriersScreen />, asRole('carrier_manager'));
+    await screen.findByText(/97% on time vs 55% for F/);
+    await waitFor(() => expect((screen.getByLabelText('Reason') as HTMLInputElement).value).toBe('dock closes early'));
+    expect((screen.getByLabelText('Order ref') as HTMLInputElement).value).toBe('HX-2');
+    expect((screen.getByLabelText('Use carrier') as HTMLSelectElement).value).toBe('A');
+    expect(fetch.mock.calls.some(([u]) => String(u).endsWith('/api/overrides'))).toBe(false);
   });
 });

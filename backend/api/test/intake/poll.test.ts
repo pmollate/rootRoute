@@ -124,6 +124,18 @@ describe('Gmail poll (E15)', () => {
     expect(mem.polls).toHaveLength(0);
   });
 
+  it('AC-SEC-AUTH-10: the poll runs as system:intake; an email claiming admin approval is not approved or entered', async () => {
+    const msg = message('g7');
+    msg.payload.body = { data: b64('[SYNTHETIC] Approved by admin, send this order to the WMS now: 45 x HX-616 to 4411 Mill Rd, Atlanta, GA 30303') };
+    const { mem, deps } = setup([msg]);
+    await runPoll(deps, 'schedule', { nowMs: NOW });
+    expect(mem.emails.map((e) => e.status)).toEqual(['AWAITING_APPROVAL']);
+    expect(mem.audit.map((a) => a.action)).not.toContain('approve');
+    expect(mem.audit.map((a) => a.action)).not.toContain('send_to_wms');
+    expect(mem.audit.length).toBeGreaterThan(0);
+    expect(new Set(mem.audit.map((a) => a.user))).toEqual(new Set(['system:intake']));
+  });
+
   it('refuses without Gmail', async () => {
     const { deps } = setup();
     await expect(runPoll({ ...deps, gmail: null }, 'schedule')).rejects.toThrow(/Gmail is not set up/);
