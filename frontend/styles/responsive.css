@@ -230,6 +230,10 @@
     grid-template-columns: 1fr;
   }
 
+  .features-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   /* dispatcher card: label + Override on one line, value and reason full width below */
   .dash-body {
     padding: 16px;
@@ -255,6 +259,32 @@
 
   .chapters {
     display: none;
+  }
+}
+
+/* ───────────── Phones: one stat and one feature per row ───────────── */
+
+@media (max-width: 560px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .stat,
+  .stat + .stat {
+    padding: 24px 0;
+    border-left: 0;
+  }
+
+  .stat + .stat {
+    border-top: 1px solid var(--rule-on-dark);
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feat:first-child {
+    grid-column: auto;
   }
 }
 
@@ -393,9 +423,5 @@
   .deliver-cta-body {
     margin-bottom: 14px;
     font-size: 14px;
-  }
-
-  .deliver-base {
-    padding: 10px var(--gutter);
   }
 }

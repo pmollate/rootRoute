@@ -47,8 +47,7 @@ a {
 }
 
 /* keyboard focus on pill controls: the outline follows the pill and gets a soft orange halo */
-.btn:focus-visible,
-.deliver-links a:focus-visible {
+.btn:focus-visible {
   outline-offset: 4px;
   box-shadow: 0 0 0 6px rgb(var(--accent-rgb) / 0.22);
 }

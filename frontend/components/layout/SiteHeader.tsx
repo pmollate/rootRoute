@@ -12,7 +12,6 @@ export default function SiteHeader() {
           label="Primary"
           brand={<span className={styles.mark}><BrandMark className={styles.glyph} />{BRAND.toUpperCase()}</span>}
           items={copy.nav.map((n) => ({ href: n.href, label: n.label }))}
-          footer={<a className={`${styles.link} ${styles.menuCta}`} href={copy.demo.href}>{copy.demo.label}</a>}
         />
         <a className={styles.mark} href="#dispatch" aria-label={`${BRAND} home`}>
           <BrandMark className={styles.glyph} />
@@ -25,8 +24,8 @@ export default function SiteHeader() {
             </a>
           ))}
           <ThemeToggle />
-          <a className={styles.link} href={copy.demo.href}>
-            {copy.demo.label}
+          <a className={styles.login} href={copy.login.href}>
+            {copy.login.label}
           </a>
         </nav>
       </div>

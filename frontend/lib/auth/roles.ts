@@ -1,3 +1,5 @@
+import { SCREENS } from '@/config/dashboard';
+
 /** P7 roles (SPEC-auth §4.1). Same ids as backend/api/src/core/contracts.ts. */
 export const ROLES = ['order_desk', 'warehouse_supervisor', 'carrier_manager', 'customer_support', 'leadership', 'admin'] as const;
 export type Role = (typeof ROLES)[number];
@@ -46,6 +48,11 @@ export const PAGE_ROLES: Record<string, readonly Role[]> = {
   '/dashboard/journey': ROLES,
   '/dashboard/replay': ['warehouse_supervisor', 'carrier_manager', 'leadership', 'admin'],
 };
+
+/** Where a signed-in user starts: the first screen in nav order (config/dashboard.ts) their roles may open. */
+export function homeFor(roles: readonly Role[]): string {
+  return SCREENS.find((s) => canOpen(roles, s.href))?.href ?? SCREENS[0].href;
+}
 
 /** Whether a role may open `path`. Paths that are not a screen (`/`, `/dashboard`, the forbidden page) are open. */
 export function canOpen(roles: readonly Role[] | null | undefined, path: string): boolean {

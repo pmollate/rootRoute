@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { BRAND, copy } from '@/config/copy';
+import { copy } from '@/config/copy';
 import { sceneWith } from '@/config/scenes';
 import { useScene } from '@/hooks/useScene';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
@@ -12,9 +12,9 @@ import { ScrubVideo } from '../ui/ScrubVideo';
 const { s, media } = sceneWith('deliver', 'scrub');
 
 /**
- * 05 Deliver, which is also the page footer. The frame opens to full-bleed and the clip scrubs
- * from the truck's arrival up to the sky with the on-time card on screen; on the clip's last
- * frame the card gives way to the footer CTA and links.
+ * 05 Deliver, the film's last chapter. The frame opens to full-bleed and the clip scrubs from the
+ * truck's arrival up to the sky with the on-time card on screen; on the clip's last frame the card
+ * gives way to the closing call to action. The page footer (SiteFooter) follows.
  */
 export function Deliver() {
   const ref = useRef<HTMLElement>(null);
@@ -25,7 +25,7 @@ export function Deliver() {
   const f = copy.footer;
 
   return (
-    <footer ref={ref} id="deliver" className="scene deliver" aria-labelledby="footer-title">
+    <section ref={ref} id="deliver" className="scene deliver" aria-labelledby="footer-title">
       <div className="deliver-frame" data-deliver-frame>
         <ScrubVideo media={media} videoRef={vid} reduced={reduced} still="/media/fulfill-2-end.webp" />
         <div className="deliver-shade" data-deliver-shade aria-hidden="true" />
@@ -33,7 +33,7 @@ export function Deliver() {
 
       <div className="deliver-card" data-deliver-card>
         <p className="h2">{c.title}</p>
-        <Meter id="ontime" label={c.meterLabel} start="86%" size="lg" />
+        <Meter id="ontime" label={c.meterLabel} start="71.0%" size="lg" />
       </div>
 
       <div className="deliver-cta" data-deliver-cta>
@@ -46,17 +46,6 @@ export function Deliver() {
         </a>
       </div>
 
-      <div className="deliver-base" data-deliver-base>
-        <nav className="deliver-links" aria-label="Footer">
-          <span className="deliver-mark">{BRAND.toUpperCase()}</span>
-          {f.links.map((l) => (
-            <a key={l.label} href={l.href}>
-              {l.label}
-            </a>
-          ))}
-        </nav>
-        <p className="deliver-legal">© {new Date().getFullYear()} {BRAND}</p>
-      </div>
-    </footer>
+    </section>
   );
 }

@@ -37,7 +37,7 @@ export function Network() {
         <div className="net-counter" data-meter="orders" data-net-meter>
           <b>
             <span data-val>0.0</span>
-            <span className="net-unit">M</span>
+            <span className="net-unit">K</span>
           </b>
           <small>{c.meterLabel}</small>
         </div>

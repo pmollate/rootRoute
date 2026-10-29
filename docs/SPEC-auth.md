@@ -46,7 +46,7 @@ were **allowed** to.
 |---|---|
 | Identity provider | **Microsoft Entra ID**, single tenant, for real users. **Demo accounts** (Auth.js Credentials, only when `AUTH_DEMO=on`) for local dev, Playwright and judges |
 | Roles | **One per agent gate:** `order_desk`, `warehouse_supervisor`, `carrier_manager`, `customer_support`, `leadership` (read-only), `admin` |
-| What is public | **Nothing.** Every page, including the landing page, needs sign-in. Only `GET /api/health` and `POST /api/mcp` are exempt; MCP keeps its own bearer `MCP_TOKEN` (REQ-MCP-02) |
+| What is public | **The landing page `/` only.** It shows no data from the API. Every other page needs sign-in. Of the API, only `GET /api/health` and `POST /api/mcp` are exempt; MCP keeps its own bearer `MCP_TOKEN` (REQ-MCP-02) |
 | When | Spec on 29 Oct; build after the code submission, merged behind `AUTH_REQUIRED=off` first |
 | Architecture | Next.js backend-for-frontend. The browser calls same-origin `/api/*`; a Next route handler proxies to the Fastify API with a 60 s HS256 internal JWT (`iss: latelens-web`, `aud: latelens-api`, `sub`, `name`, `roles`) signed with `INTERNAL_AUTH_SECRET`. The API verifies it with `jose` in a `requireUser(roles)` preHandler. The actor written to the database comes only from the token |
 
@@ -116,7 +116,7 @@ reviews the change to their screen and routes.
 | Area | Screens and routes | What changes |
 |---|---|---|
 | Email (A) | Intake: order emails, order review, client replies, API/EDI orders, complaints | `user: 'ops'` removed from `IntakeScreen.tsx`. Fetch, Paste, Approve, Reject and Send reply show for `order_desk` and `admin`; Send to WMS for `warehouse_supervisor` and `admin`; Triage for `customer_support` and `admin`. `routes.ts` swaps `requireApiKey` for `requireUser`; triage gains a check it lacks today. An unsaved reply edit survives an expired session (REQ-AUTH-11) |
-| Warehouse (B) | Overview, Warehouses, Replay & decision, landing page | Read-only today: only the fetch path changes (same-origin `/api`). The landing page `/` now needs sign-in (§2). No write route, so no role-gated buttons |
+| Warehouse (B) | Overview, Warehouses, Replay & decision, landing page | Read-only today: only the fetch path changes (same-origin `/api`). The landing page `/` stays public (§2). No write route, so no role-gated buttons |
 | Carriers (C) | Carriers, tracking, Order journey | The override form drops "Full name" and shows only for `carrier_manager` and `admin`. Journey stays read-only; its stage 7 actor follows Q-AUTH-05 |
 | Shared | `DashboardShell.tsx`, `frontend/lib/api.ts`, `frontend/config/dashboard.ts`, `frontend/middleware.ts` | Header with name, roles, "Demo account" badge and "Sign out"; same-origin calls without a key; session redirect added next to maintenance mode |
 
@@ -128,7 +128,7 @@ matrix; `backend/api/src/core/permissions.ts` gives each GET the roles of the pa
 
 | Page | `order_desk` | `warehouse_supervisor` | `carrier_manager` | `customer_support` | `leadership` | `admin` |
 |---|---|---|---|---|---|---|
-| `/`, `/dashboard` (opens Overview) | Y | Y | Y | Y | Y | Y |
+| `/dashboard` (opens Overview) | Y | Y | Y | Y | Y | Y |
 | "Ask LateLens" panel on every screen (D10, when `ASK_ASSISTANT=on`) | Y | Y | Y | Y | Y | Y |
 | Overview | Y | Y | Y | Y | Y | Y |
 | Order emails (incl. order review) | Y | Y | | | | Y |
@@ -261,7 +261,7 @@ The token lives only on the server-to-server hop. It is signed per request and n
 
 | Id | Requirement |
 |---|---|
-| REQ-AUTH-01 | Every page, including `/`, **MUST** redirect a visitor without a session to `/login`, keeping the requested path as the return address. Exempt: `/login`, `/no-access`, `/maintenance`, `/api/auth/*`, static files (`/_next/static`, `/media`, files with an extension), and, with `CONFIRM_LINK=on`, the token-gated address-link pages under `/confirm/` (SPEC §5.17, SEC-LINK-05). Maintenance mode **MUST** still take precedence. |
+| REQ-AUTH-01 | Every page except the landing page `/` **MUST** redirect a visitor without a session to `/login`, keeping the requested path as the return address. Exempt: `/`, `/login`, `/no-access`, `/maintenance`, `/api/auth/*`, static files (`/_next/static`, `/media`, files with an extension), and, with `CONFIRM_LINK=on`, the token-gated address-link pages under `/confirm/` (SPEC §5.17, SEC-LINK-05). Maintenance mode **MUST** still take precedence. |
 | REQ-AUTH-02 | Users **MUST** be able to sign in with Microsoft Entra ID (single tenant) and, when `AUTH_DEMO=on`, with a demo account. |
 | REQ-AUTH-03 | Roles **MUST** come only from the Entra `roles` claim or the demo account entry, and only the six ids in §4.1 count. A signed-in user with none **MUST** see only `/no-access`, and every API call for them **MUST** return 403. |
 | REQ-AUTH-04 | Every API route except `GET /api/health`, `POST /api/mcp` and the token-gated `GET`/`POST /api/confirm/:token` (E19) **MUST** return 401 for a request without a valid internal token. |
@@ -313,7 +313,7 @@ in the journey) still holds.
 
 | Id | Criterion |
 |---|---|
-| AC-AUTH-01 | Given `AUTH_REQUIRED=on` and no session, when `/`, `/dashboard` or `/dashboard/journey?ref=delivery:D000213` is opened, then the browser lands on `/login`, and after signing in returns to the page asked for. Given `MAINTENANCE_MODE=true`, when `/dashboard` is opened without a session, then the maintenance page shows (503). Given no session, when a file under `/media` is requested, then it is served. |
+| AC-AUTH-01 | Given `AUTH_REQUIRED=on` and no session, when `/` is opened, then the landing page shows without a redirect; when `/dashboard` or `/dashboard/journey?ref=delivery:D000213` is opened, then the browser lands on `/login`, and after signing in returns to the page asked for. Given `MAINTENANCE_MODE=true`, when `/dashboard` is opened without a session, then the maintenance page shows (503). Given no session, when a file under `/media` is requested, then it is served. |
 | AC-AUTH-02 | Given Entra is configured, when an assigned user signs in with Microsoft, then the dashboard opens. Given `AUTH_DEMO=on`, when `demo-leadership@rootroute.test` signs in with the right password, then the dashboard opens. Given a user from another tenant, then sign-in is refused. |
 | AC-AUTH-03 | Given an Entra user with no app role, or only a role id not in §4.1, when they sign in, then they see `/no-access` with their name and "Sign out", any other page sends them back to `/no-access`, and every API call returns 403. |
 | AC-AUTH-04 | Given `AUTH_REQUIRED=on`, when every registered route except health, MCP and the token-gated `/api/confirm/:token` routes (covered by AC-SEC-LINK-05) is called with no token, an expired token, or a token signed with another secret, then each returns 401. `GET /api/health` returns 200 with no token. |
@@ -418,7 +418,6 @@ No new tables. The actor goes where each table already keeps it: `audit_log.acto
 |---|---|
 | We cannot create app roles or assign users in the tenant | Demo accounts cover the demo and e2e; Entra goes live when an admin registers the app (Q-AUTH-01) |
 | Moving every fetch behind the proxy breaks a screen | One proxy route, not per-screen changes; `AUTH_REQUIRED=off` first; workflow e2e runs signed in before step 4 |
-| "Nothing public" hides the landing page from judges | Demo accounts in the submission notes (Q-AUTH-04); `/login` names the product |
 | A new route ships with no permission entry | Default deny and the permissions test (REQ-AUTH-06) |
 | Demo passwords shared with judges leak | Writes reach only synthetic data, replies only the allow-list (SEC-03), the WMS is simulated; rotate after judging (SEC-AUTH-11) |
 | Session ends during an approval and work is lost | REQ-AUTH-11: typed input kept, nothing resent without a click |

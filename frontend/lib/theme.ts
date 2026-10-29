@@ -5,16 +5,14 @@
 export type Theme = 'light' | 'dark';
 
 export const THEME_KEY = 'theme';
-export const DARK_QUERY = '(prefers-color-scheme: dark)';
 /** browser chrome colour; matches --dark in styles/theme.css */
 export const THEME_COLOR = '#121211';
 
-/** Applies a saved choice before first paint; without one, CSS follows the system. */
-export const THEME_SCRIPT = `try{var t=localStorage.getItem('${THEME_KEY}');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}`;
+/** Applies a saved choice before first paint; without one the page is light, whatever the system setting. */
+export const THEME_SCRIPT = `try{var t=localStorage.getItem('${THEME_KEY}')}catch(e){}document.documentElement.dataset.theme=t==='dark'?'dark':'light'`;
 
-/** What the page is showing now: a saved choice on <html data-theme>, else the system setting. */
-export const currentTheme = (): Theme =>
-  (document.documentElement.dataset.theme as Theme | undefined) ?? (window.matchMedia(DARK_QUERY).matches ? 'dark' : 'light');
+/** What the page is showing now: <html data-theme>, light until the viewer picks dark. */
+export const currentTheme = (): Theme => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
 
 /** Shows `theme` now and remembers it for the next visit. */
 export function saveTheme(theme: Theme): void {

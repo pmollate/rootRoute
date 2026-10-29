@@ -95,7 +95,7 @@
 }
 
 /* ───────────── Dark theme ─────────────
-   Follows the system unless the header toggle has set data-theme on <html> (see ThemeToggle).
+   Light by default: lib/theme.ts sets data-theme on <html> before paint, dark only once the header toggle picks it.
    Only page surfaces flip; footage, the hero and anything using --cream / --on-dark stay as they are. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {

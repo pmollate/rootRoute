@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { RateLimiter, checkDemo, parseDemoUsers } from './demo';
 import { signInternalToken } from './internalToken';
 import { proxy, type ProxySettings } from './proxy';
-import { PAGE_ROLES, ROLES, can, canOpen, toRoles } from './roles';
+import { PAGE_ROLES, ROLES, can, canOpen, homeFor, toRoles } from './roles';
 import { safeReturnPath } from './safeNext';
 import { checkWebAuthEnv } from './startup';
 
@@ -57,6 +57,14 @@ describe('page access (SPEC-auth §4.4)', () => {
     expect(canOpen(['order_desk'], '/dashboard/carriers/x')).toBe(false);
     expect(canOpen(['order_desk'], '/dashboard/carriersx')).toBe(true); // not a screen: 404s on its own
     for (const p of ['/', '/dashboard', '/dashboard/forbidden']) expect(canOpen(['order_desk'], p), p).toBe(true);
+  });
+
+  it('after sign-in each role starts on the first screen in nav order it may open', () => {
+    for (const r of ROLES) {
+      const home = homeFor([r]);
+      expect(canOpen([r], home), r).toBe(true);
+      expect(home, r).toBe('/dashboard/overview'); // Overview is open to every role and first in the nav
+    }
   });
 });
 
