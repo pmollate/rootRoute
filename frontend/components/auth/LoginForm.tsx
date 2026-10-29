@@ -1,7 +1,6 @@
 'use client';
 
-import { signIn } from 'next-auth/react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { BRAND } from '@/config/copy';
 import s from './auth.module.css';
@@ -12,6 +11,26 @@ const MESSAGES = {
   limited: 'Too many attempts. Try again in a minute.',
 };
 
+/** What the button says while it works: checking the password, then loading the dashboard. */
+const BUSY = { checking: 'Signing in…', opening: 'Opening your dashboard…' };
+type Phase = 'idle' | keyof typeof BUSY;
+
+const csrf = () => fetch('/api/auth/csrf').then((r) => r.json() as Promise<{ csrfToken: string }>).then((d) => d.csrfToken);
+
+/**
+ * One POST to the demo callback, with a CSRF token fetched while the user types. next-auth/react's signIn() would add
+ * a providers lookup before it and a session refresh after it; the full page load that follows makes both redundant.
+ */
+async function demoSignIn(token: Promise<string>, email: string, password: string): Promise<{ ok: boolean; code?: string }> {
+  const res = await fetch('/api/auth/callback/demo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Auth-Return-Redirect': '1' },
+    body: new URLSearchParams({ email, password, csrfToken: await token }),
+  });
+  const url = new URL(((await res.json()) as { url: string }).url, window.location.origin);
+  return { ok: res.ok && !url.searchParams.has('error'), code: url.searchParams.get('code') ?? undefined };
+}
+
 interface Props {
   demo: boolean;          // AUTH_DEMO=on: the sign-in form is shown
   next: string;           // the safe return path (SEC-AUTH-12), already checked on the server
@@ -21,18 +40,39 @@ interface Props {
 /** Email and password only: the Microsoft button is not shown (Entra stays configurable in auth.ts). */
 export function LoginForm({ demo, next, expired }: Props) {
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState<Phase>('idle');
   const [showPw, setShowPw] = useState(false);
+  const token = useRef<Promise<string> | null>(null);
+
+  // Fetched on arrival, so pressing Sign in costs one request, not two.
+  useEffect(() => {
+    if (demo) token.current = csrf().catch(() => '');
+    // Back from the dashboard: the browser may restore this page as it was left, still "Opening".
+    const onShow = (e: PageTransitionEvent) => e.persisted && setPhase('idle');
+    window.addEventListener('pageshow', onShow);
+    return () => window.removeEventListener('pageshow', onShow);
+  }, [demo]);
 
   async function onDemo(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (phase !== 'idle') return;
     const form = new FormData(e.currentTarget);
-    setBusy(true);
+    setPhase('checking');
     setMessage(null);
-    const r = await signIn('demo', { email: String(form.get('email') ?? ''), password: String(form.get('password') ?? ''), redirect: false });
-    setBusy(false);
-    if (r?.ok && !r.error) window.location.assign(next);
-    else setMessage(r?.code === 'rate_limited' ? MESSAGES.limited : MESSAGES.failed);
+    try {
+      const r = await demoSignIn(token.current ?? csrf(), String(form.get('email') ?? ''), String(form.get('password') ?? ''));
+      if (r.ok) {
+        // Stays busy until the dashboard replaces this page; /dashboard sends the user on to their first page.
+        setPhase('opening');
+        window.location.assign(next);
+        return;
+      }
+      setMessage(r.code === 'rate_limited' ? MESSAGES.limited : MESSAGES.failed);
+    } catch {
+      setMessage(MESSAGES.failed);
+    }
+    token.current = csrf().catch(() => ''); // a failed attempt may have rotated the token
+    setPhase('idle');
   }
 
   return (
@@ -54,7 +94,10 @@ export function LoginForm({ demo, next, expired }: Props) {
                 <button type="button" className={s.eye} aria-label={showPw ? 'Hide password' : 'Show password'} aria-pressed={showPw}
                   onClick={() => setShowPw((v) => !v)}><EyeIcon off={showPw} /></button>
               </div>
-              <button type="submit" className={`${s.cta} ${s.ctaPrimary}`} disabled={busy}>Sign in </button>
+              <button type="submit" className={`${s.cta} ${s.ctaPrimary}`} disabled={phase !== 'idle'} aria-busy={phase !== 'idle'}>
+                {phase === 'idle' ? 'Sign in' : <><span className={s.spinner} aria-hidden="true" />{BUSY[phase]}</>}
+              </button>
+              <p className={s.srOnly} role="status">{phase === 'idle' ? '' : BUSY[phase]}</p>
             </form>
           </>
         )}
