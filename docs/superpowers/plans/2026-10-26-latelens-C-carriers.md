@@ -1535,7 +1535,7 @@ since their screens' action calls change.
   role; actor from the token (`demo:<email>` for demo users); every route and action has a permission entry; carrier
   change during approve logs the approver; poll runs as `system:intake`; no CORS header when on; startup fails without
   `INTERNAL_AUTH_SECRET`.
-- [ ] **Step 2: API** `requireUser(roles)`, `permissions.ts` (SPEC-auth §4.2), default deny, actor from `req.user`,
+- [x] **Step 2: API** `requireUser(roles)`, `permissions.ts` (SPEC-auth §4.2), default deny, actor from `req.user`,
   `AUTH_REQUIRED=off` keeps `x-api-key` and logs `auth_would_deny`; CORS off and fail-closed startup when on.
 - [ ] **Step 3: Web** Auth.js (Entra + demo, rate limit, generic error), `/login`, `/no-access`, middleware after
   maintenance mode, header; proxy with Origin check and header stripping; safe return path (AC-AUTH-01, -02, -03, -08,

@@ -76,3 +76,15 @@ export interface CarriersApi {
 export interface DiagnosisApi {
   getDeliveryCauses(deliveryId: string): Promise<DeliveryCauses | null>;
 }
+
+/** P7 sign-in (SPEC-auth §4.1): one role per agent gate, plus read-only leadership and admin. */
+export const ROLES = ['order_desk', 'warehouse_supervisor', 'carrier_manager', 'customer_support', 'leadership', 'admin'] as const;
+export type Role = (typeof ROLES)[number];
+
+/** The signed-in person, from the verified internal token only (REQ-AUTH-07). Demo users have `id` `demo:<email>`. */
+export interface AuthUser {
+  id: string;
+  name: string;
+  roles: Role[];
+  demo: boolean;
+}

@@ -82,8 +82,10 @@ describe.skipIf(!hasDb)('roles and actors over HTTP (needs test database)', () =
     `SELECT (SELECT count(*) FROM intake_emails)::int AS e, (SELECT count(*) FROM audit_log)::int AS a,
             (SELECT count(*) FROM override_log)::int AS o`))[0];
 
+  let since = 0; // audit_log keeps rows for email ids that earlier test files reused: read only this file's rows
   beforeAll(async () => {
     await query('TRUNCATE intake_extractions, outbound_messages, intake_emails RESTART IDENTITY CASCADE');
+    since = (await query<{ m: number }>('SELECT coalesce(max(id), 0)::int AS m FROM audit_log'))[0].m;
     setDeps({ gmail: null });
     app = await buildApp({ auth: AUTH_ON });
   });
@@ -111,7 +113,7 @@ describe.skipIf(!hasDb)('roles and actors over HTTP (needs test database)', () =
     expect((await act(id, 'send_to_wms', await as('w1', ['warehouse_supervisor'], 'Wes Site'))).json()).toEqual({ status: 'ENTERED' });
     const rows = await query<{ actor: string; action: string; name: string; roles: string[] }>(
       `SELECT actor, action, payload->>'name' AS name, payload->'roles' AS roles FROM audit_log
-        WHERE ref = $1 AND action IN ('approve', 'send_to_wms') ORDER BY id`, [`email:${id}`]);
+        WHERE ref = $1 AND action IN ('approve', 'send_to_wms') AND id > $2 ORDER BY id`, [`email:${id}`, since]);
     expect(rows).toEqual([
       { actor: 'u1', action: 'approve', name: 'Una Desk', roles: ['order_desk'] },
       { actor: 'w1', action: 'send_to_wms', name: 'Wes Site', roles: ['warehouse_supervisor'] },
@@ -133,7 +135,7 @@ describe.skipIf(!hasDb)('roles and actors over HTTP (needs test database)', () =
     await app.inject({ method: 'POST', url: '/api/recommend', headers: await as('c1', ['carrier_manager']),
       payload: { region: 'Northeast', commitment: 'next_day', slaClause: false, date: '2026-09-10' } });
     const rows = await query<{ actor: string; action: string }>(
-      "SELECT actor, action FROM audit_log WHERE action IN ('paste_email', 'triage', 'recommend') ORDER BY id");
+      "SELECT actor, action FROM audit_log WHERE action IN ('paste_email', 'triage', 'recommend') AND id > $1 ORDER BY id", [since]);
     expect(rows).toEqual(expect.arrayContaining([{ actor: 'desk', action: 'paste_email' }, { actor: 'c1', action: 'recommend' }]));
     expect(rows).toEqual(expect.arrayContaining([{ actor: 's1', action: 'triage' }]));
   });

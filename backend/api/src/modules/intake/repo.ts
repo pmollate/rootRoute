@@ -73,7 +73,9 @@ export interface Repo {
   saveExtraction(r: Omit<ExtractionRow, 'id'>): Promise<void>;
   latestExtraction(emailId: number): Promise<ExtractionRow | null>;
   listEmails(): Promise<ListedEmail[]>;
-  logApproval(emailId: number, action: string, user: string): Promise<void>;
+  logApproval(emailId: number, action: string, user: string, payload?: object): Promise<void>;
+  /** Any other audited write: actor is a user id or system:intake (REQ-AUTH-07, SEC-AUTH-10). */
+  logAudit(actor: string, action: string, ref: string, payload?: object): Promise<void>;
   logOutbound(emailId: number, to: string, body: string, status: 'sent' | 'refused', gmailId?: string | null): Promise<void>;
   /** Emails parked because PII detection, the model or the map could not be reached; the next poll runs them again. */
   waitingEmails(): Promise<EmailRow[]>;
@@ -132,8 +134,11 @@ export const repo: Repo = {
             c.client_name, c.account_tier
        FROM intake_emails e LEFT JOIN clients c ON c.client_id = e.client_id
       ORDER BY priority DESC, e.id DESC LIMIT 200`, []),
-  async logApproval(emailId, action, user) {
-    await query('INSERT INTO audit_log (actor, action, ref, payload) VALUES ($1,$2,$3,$4)', [user, action, `email:${emailId}`, '{}']);
+  async logApproval(emailId, action, user, payload = {}) {
+    await repo.logAudit(user, action, `email:${emailId}`, payload);
+  },
+  async logAudit(actor, action, ref, payload = {}) {
+    await query('INSERT INTO audit_log (actor, action, ref, payload) VALUES ($1,$2,$3,$4)', [actor, action, ref, JSON.stringify(payload)]);
   },
   async logOutbound(emailId, to, body, status, gmailId = null) {
     await query('INSERT INTO outbound_messages (email_id, to_addr, body, gmail_id, status) VALUES ($1,$2,$3,$4,$5)',

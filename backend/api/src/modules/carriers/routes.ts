@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requireApiKey } from '../../core/auth.js';
+import { actorOf } from '../../core/auth.js';
+import { query } from '../../core/db/pool.js';
 import { carriersApi } from './index.js';
 import { warehouseApi } from '../warehouse/index.js';
 import type { Commitment as CommitmentId, Region as RegionId, WarehouseId } from '../../core/contracts.js';
@@ -11,8 +12,10 @@ import { backtestRows, deliveryFacts, emailFacts, insertOverride, laneRows, trac
 const Region = z.enum(['Midwest', 'Northeast', 'Southeast', 'West']);
 const Commitment = z.enum(['same_day', 'next_day', 'standard']);
 const RecommendBody = z.object({ region: Region, commitment: Commitment, slaClause: z.boolean(), date: z.string().optional() });
-const OverrideBody = z.object({ orderRef: z.string().min(1), from: z.string().min(1), to: z.string().min(1), reason: z.string().min(3), user: z.string().min(1) });
+// No `user`: the actor is the signed-in person from the verified token (REQ-AUTH-07); a `user` sent anyway is ignored.
+const OverrideBody = z.object({ orderRef: z.string().min(1), from: z.string().min(1), to: z.string().min(1), reason: z.string().min(3) });
 
+// Roles for every route: core/permissions.ts, checked in server.ts before the handler runs (SPEC-auth §4.2).
 const routes: FastifyPluginAsync = async (app) => {
   app.get<{ Querystring: { region?: string; commitment?: string; sla?: string } }>('/carriers', async (req, reply) => {
     const region = Region.safeParse(req.query.region ?? 'Northeast');
@@ -33,13 +36,17 @@ const routes: FastifyPluginAsync = async (app) => {
   app.post('/recommend', async (req, reply) => {
     const body = RecommendBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: body.error.message });
-    return carriersApi.recommendCarrier(body.data);
+    const rec = await carriersApi.recommendCarrier(body.data);
+    const who = actorOf(req);
+    await query('INSERT INTO audit_log (actor, action, ref, payload) VALUES ($1,$2,$3,$4)', [who.id, 'recommend',
+      `lane:${body.data.region}/${body.data.commitment}`, JSON.stringify({ name: who.name, roles: who.roles, carrier: rec.carrier })]);
+    return rec;
   });
 
-  app.post('/overrides', { preHandler: requireApiKey }, async (req, reply) => {
+  app.post('/overrides', async (req, reply) => {
     const body = OverrideBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: body.error.message });
-    return { id: await insertOverride(body.data) };
+    return { id: await insertOverride({ ...body.data, user: actorOf(req).id }) };
   });
 
   /** D9 Order journey: `email:<id>` (an intake order) or `delivery:<id>` (a past delivery). Read-only. */
