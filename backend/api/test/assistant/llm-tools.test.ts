@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -47,5 +47,35 @@ describe('LLM.toolChat (D10, REQ-ASK-10, SEC-ASK-03)', () => {
     expect(await replay.toolChat(REQ)).toEqual(first);
     expect(await replay.toolChat(REQ)).toEqual(first);
     await expect(replay.toolChat({ ...REQ, system: 'changed' })).rejects.toMatchObject({ kind: 'missing_recording' });
+  });
+
+  it('an empty tool list is left out of the request, and a tool message without its call id is refused as invalid', async () => {
+    const { sent, llm } = fakeAzure({ content: '{"answer":"x","refused":false}' }, 'stop');
+    await llm.toolChat({ ...REQ, tools: [] });
+    expect(sent[0]).not.toHaveProperty('tools');
+    await expect(llm.toolChat({ ...REQ, messages: [...REQ.messages, { role: 'tool', content: '{}' }] }))
+      .rejects.toMatchObject({ kind: 'invalid' });
+    expect(sent).toHaveLength(1);
+  });
+
+  it('a damaged recording replays as an invalid answer, not a raw parse error', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rec-'));
+    const live: ToolChatLLM = { name: 'live', json: async () => { throw new Error('x'); }, text: async () => '',
+      toolChat: async () => ({ kind: 'final', content: 'ok' }) };
+    await new RecordingLLM(live, dir).toolChat(REQ);
+    const [file] = readdirSync(dir).map((f) => join(dir, f));
+    for (const text of ['{"kind":"final"', '{"kind":"tool_calls","calls":[]}', '{"answer":"71.0%"}']) {
+      writeFileSync(file, JSON.stringify({ kind: 'tool', text }));
+      await expect(new RecordedLLM(dir).toolChat(REQ), text).rejects.toMatchObject({ kind: 'invalid' });
+    }
+  });
+
+  it('AC-ASK-10: a changed answer schema is a new recording, not a stale replay', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rec-'));
+    const live: ToolChatLLM = { name: 'live', json: async () => { throw new Error('x'); }, text: async () => '',
+      toolChat: async () => ({ kind: 'final', content: 'ok' }) };
+    await new RecordingLLM(live, dir).toolChat(REQ);
+    const changed = { ...REQ, answerSchema: FinalAnswer.extend({ sources: z.array(z.string()) }) };
+    await expect(new RecordedLLM(dir).toolChat(changed)).rejects.toMatchObject({ kind: 'missing_recording' });
   });
 });

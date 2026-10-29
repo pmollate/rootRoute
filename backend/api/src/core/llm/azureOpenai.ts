@@ -6,7 +6,8 @@ type ResponseFormat = OpenAI.Chat.ChatCompletionCreateParams['response_format'];
 
 /**
  * GPT on Azure AI Foundry through the v1 endpoint. JSON calls use Structured Outputs (strict schema).
- * Every call is kept as a stored completion (Foundry portal -> Stored completions, ~30 days), tagged by step.
+ * json and text calls (the intake) are kept as stored completions (Foundry portal -> Stored completions, ~30 days), tagged
+ * by step; toolChat (the D10 assistant) is not stored.
  */
 export class AzureOpenAILLM implements ToolChatLLM {
   readonly name = 'azure-openai';
@@ -53,9 +54,10 @@ export class AzureOpenAILLM implements ToolChatLLM {
    * assistant questions are never kept as stored completions. Arguments come back raw; the caller validates them.
    */
   async toolChat(req: ToolChatRequest): Promise<ToolChatTurn> {
+    if (req.messages.some((m) => m.role === 'tool' && !m.toolCallId)) throw new LLMError('a tool result has no tool call id', 'invalid');
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [{ role: 'system', content: req.system }, ...req.messages.map(
       (m): OpenAI.Chat.ChatCompletionMessageParam => m.role === 'tool'
-        ? { role: 'tool', tool_call_id: m.toolCallId ?? '', content: m.content }
+        ? { role: 'tool', tool_call_id: m.toolCallId!, content: m.content }
         : m.role === 'assistant' && m.toolCalls?.length
           ? { role: 'assistant', content: m.content || null, tool_calls: m.toolCalls.map((c) =>
             ({ id: c.id, type: 'function' as const, function: { name: c.name, arguments: c.arguments } })) }
@@ -64,7 +66,9 @@ export class AzureOpenAILLM implements ToolChatLLM {
     try {
       res = await this.client.chat.completions.create({
         model: this.deployment, messages, store: false, reasoning_effort: 'low', max_completion_tokens: 4000,
-        tools: req.tools.map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters as Record<string, unknown> } })),
+        // An empty tools list is a 400 from the API: a role with no tools sends none.
+        ...(req.tools.length ? { tools: req.tools.map((t) => ({ type: 'function' as const,
+          function: { name: t.name, description: t.description, parameters: t.parameters as Record<string, unknown> } })) } : {}),
         ...(req.answerSchema ? { response_format: zodResponseFormat(req.answerSchema, 'answer') } : {}),
       });
     } catch (err) {

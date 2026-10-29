@@ -1,10 +1,19 @@
+import { z } from 'zod';
 import { readRecordedError, readRecording, RECORDINGS_DIR, writeRecording } from '../recordings.js';
 import {
   type JsonRequest, type LLM, LLMError, type LLMErrorKind, parseJson, type TextRequest, type ToolChatLLM, type ToolChatRequest, type ToolChatTurn,
 } from './types.js';
 
-/** The recording key of one assistant turn: the whole conversation so far and the tools offered (D10, REQ-ASK-10). */
-export const toolChatKey = (req: ToolChatRequest) => JSON.stringify({ messages: req.messages, tools: req.tools });
+/** The recording key of one assistant turn: the conversation so far, the tools offered and the answer's shape (D10, REQ-ASK-10). */
+export const toolChatKey = (req: ToolChatRequest) => JSON.stringify({ messages: req.messages, tools: req.tools,
+  answer: req.answerSchema ? z.toJSONSchema(req.answerSchema) : null });
+
+const Call = z.object({ id: z.string(), name: z.string(), arguments: z.string() });
+/** A saved turn is checked like any model output: a damaged or old recording is an invalid answer. */
+const Turn = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('tool_calls'), calls: z.array(Call).min(1) }),
+  z.object({ kind: z.literal('final'), content: z.string() }),
+]);
 
 /** Replays responses saved by RecordingLLM. Used by tests and CI: fast, free, repeatable. */
 export class RecordedLLM implements ToolChatLLM {
@@ -28,7 +37,7 @@ export class RecordedLLM implements ToolChatLLM {
   }
 
   async toolChat(req: ToolChatRequest): Promise<ToolChatTurn> {
-    return JSON.parse(this.read('tool', req.system, toolChatKey(req))) as ToolChatTurn;
+    return parseJson(this.read('tool', req.system, toolChatKey(req)), Turn);
   }
 }
 

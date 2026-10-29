@@ -15,7 +15,7 @@ export interface ToolDef<I extends z.ZodRawShape = z.ZodRawShape> {
   name: ToolName;
   title: string;
   description: string;
-  input: I;               // zod shape; validated before run (REQ-ASK-03)
+  input: I;               // zod shape; MCP's SDK checks it, the assistant calls runTool (REQ-ASK-03)
   readOnly: true;
   run(args: z.infer<z.ZodObject<I>>): Promise<unknown>;
 }
@@ -82,3 +82,10 @@ export const toolByName = (name: string): ToolDef | undefined => TOOLS.find((t) 
 
 /** The JSON schema of a tool's input, as sent to the model (CONTRACTS §1.1 ToolChatRequest.tools). */
 export const toolParameters = (t: ToolDef): object => z.toJSONSchema(z.object(t.input), { io: 'input' });
+
+/** Runs a tool on arguments from the model: checked against the tool's input first, so a bad value never reaches a query. */
+export async function runTool(t: ToolDef, raw: unknown): Promise<unknown> {
+  const args = z.object(t.input).safeParse(raw ?? {});
+  if (!args.success) throw new Error(`${t.name}: ${args.error.issues.map((i) => `${i.path.join('.') || 'arguments'} ${i.message}`).join('; ')}`);
+  return t.run(args.data as never);
+}

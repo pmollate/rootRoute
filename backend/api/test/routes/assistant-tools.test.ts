@@ -1,13 +1,13 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { pool } from '../../src/core/db/pool.js';
 import { TOOLS } from '../../src/modules/mcp/tools.js';
+import { REPLAY_SEGMENTS, SEGMENTS } from '../../src/modules/warehouse/queries.js';
 import { hasDb } from '../db.js';
 
-const SEGMENTS = ['all', 'email', 'at_risk'];
 const CALLS: Record<string, object[]> = {
   overview: [{}],
   delivery_causes: SEGMENTS.map((segment) => ({ segment })),
-  scenario: [...SEGMENTS, 'aug_sep'].map((segment) => ({ segment })),
+  scenario: REPLAY_SEGMENTS.map((segment) => ({ segment })),
   lane_scores: [{}, ...['Midwest', 'Northeast', 'Southeast', 'West'].flatMap((region) =>
     ['same_day', 'next_day', 'standard'].map((commitment) => ({ region, commitment })))],
   recommend_carrier: ['Midwest', 'Northeast', 'Southeast', 'West'].flatMap((region) =>
