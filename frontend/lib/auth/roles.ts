@@ -32,3 +32,24 @@ export function can(roles: readonly Role[] | null | undefined, action: UiAction)
   if (!roles) return true;
   return roles.some((r) => UI[action].includes(r));
 }
+
+/**
+ * Which dashboard screens each role may open (SPEC-auth §4.4, REQ-AUTH-15): least privilege, each role its own workspace
+ * plus Overview and Order journey. The API limits each GET to the same roles (backend/api/src/core/permissions.ts).
+ */
+export const PAGE_ROLES: Record<string, readonly Role[]> = {
+  '/dashboard/overview': ROLES,
+  '/dashboard/intake': ['order_desk', 'warehouse_supervisor', 'admin'],
+  '/dashboard/complaints': ['customer_support', 'admin'],
+  '/dashboard/warehouses': ['warehouse_supervisor', 'leadership', 'admin'],
+  '/dashboard/carriers': ['carrier_manager', 'leadership', 'admin'],
+  '/dashboard/journey': ROLES,
+  '/dashboard/replay': ['warehouse_supervisor', 'carrier_manager', 'leadership', 'admin'],
+};
+
+/** Whether a role may open `path`. Paths that are not a screen (`/`, `/dashboard`, the forbidden page) are open. */
+export function canOpen(roles: readonly Role[] | null | undefined, path: string): boolean {
+  if (!roles) return true;
+  const screen = Object.keys(PAGE_ROLES).find((href) => path === href || path.startsWith(`${href}/`));
+  return !screen || roles.some((r) => PAGE_ROLES[screen].includes(r));
+}
