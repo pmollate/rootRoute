@@ -1530,7 +1530,7 @@ since their screens' action calls change.
   `infra/setup.sh` (Key Vault secrets and app settings), `.github/workflows/cd.yml` (`E2E_DEMO_PASSWORD`),
   `frontend/playwright.config.ts` (setup project, storage state), `npm run setup` (local demo users in `.env`)
 
-- [ ] **Step 1: API tests first** (AC-AUTH-04, -05, -06, -07, -13, -14, AC-SEC-AUTH-03, -09, -10, -13): no, expired,
+- [x] **Step 1: API tests first** (AC-AUTH-04, -05, -06, -07, -13, -14, AC-SEC-AUTH-03, -09, -10, -13): no, expired,
   wrong-secret, wrong-aud/iss, `alg: none` tokens → 401; leadership approve → 403 and no row change; `send_to_wms` by
   role; actor from the token (`demo:<email>` for demo users); every route and action has a permission entry; carrier
   change during approve logs the approver; poll runs as `system:intake`; no CORS header when on; startup fails without
