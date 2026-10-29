@@ -27,3 +27,86 @@
 @media (max-width: 480px) {
   .name { display: none; }
 }
+
+/* /login: form on the left, drifting photos with a frosted caption on the right. */
+.loginPage { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg); color: var(--ink);
+  font-family: var(--font-sans); }
+.shell { width: min(1180px, 100%); height: min(720px, calc(100vh - 48px)); min-height: 560px; display: grid;
+  grid-template-columns: minmax(380px, 0.85fr) 1.15fr; border-radius: 28px; overflow: hidden; background: var(--surface);
+  border: 1px solid var(--line); box-shadow: 0 30px 70px -40px rgb(var(--shadow-rgb) / 0.45); }
+
+.panel { display: flex; flex-direction: column; padding: 36px 56px 28px; min-height: 0; overflow-y: auto; }
+.logo { margin: 0; display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 700;
+  font-size: 13px; letter-spacing: 0.28em; }
+.logoMark { width: 30px; height: 30px; }
+.panelBody { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 16px; width: 100%; max-width: 360px;
+  margin: 0 auto; padding: 24px 0; }
+.hello { margin: 0 0 2px; text-align: center; font-family: var(--font-display); font-size: 2.2rem; font-weight: 700;
+  letter-spacing: -0.02em; }
+.sub { margin: 0 auto 14px; max-width: 30ch; text-align: center; color: var(--ink-2); font-size: 0.92rem; line-height: 1.5; }
+.divider { margin: 4px 0; display: flex; align-items: center; gap: 12px; color: var(--ink-2); font-size: 0.8rem; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.fields { display: grid; gap: 12px; }
+.fields label { display: block; }
+.fields input { width: 100%; font: inherit; font-size: 0.92rem; height: 48px; padding: 0 16px; border-radius: 12px;
+  border: 1px solid transparent; background: rgb(var(--ink-rgb) / 0.05); color: var(--ink); transition: border-color 0.15s, background 0.15s; }
+.fields input::placeholder { color: var(--muted); }
+.fields input:focus { outline: none; border-color: var(--navy-2); background: var(--surface); }
+.pwField { position: relative; }
+.pwField input { padding-right: 48px; }
+.eye { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); display: grid; place-items: center; width: 36px; height: 36px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); cursor: pointer; }
+.eye:hover { color: var(--ink); background: rgb(var(--ink-rgb) / 0.06); }
+.eye:focus-visible { outline: 2px solid var(--navy-2); outline-offset: 1px; }
+.cta { font: inherit; font-weight: 600; font-size: 0.92rem; height: 48px; padding: 0 18px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); transition: filter 0.15s; }
+.cta:hover:not(:disabled) { filter: brightness(0.96); }
+.cta:disabled { opacity: 0.5; cursor: default; }
+.ctaPrimary { border-color: var(--navy); background: var(--navy); color: var(--on-navy); }
+.ctaPrimary:hover:not(:disabled) { filter: brightness(1.12); }
+.foot { margin: 0; text-align: center; color: var(--ink-2); font-size: 0.78rem; }
+.srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Four slides (the pair twice): hold A, slide to B, hold, slide to A's copy, then restart on the identical frame, so the loop is seamless. */
+.showcase { position: relative; overflow: hidden; background: var(--dark); }
+.showcase::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgb(var(--night-rgb) / 0.05) 30%, rgb(var(--night-rgb) / 0.45)); }
+.strip { display: flex; height: 100%; animation: drift 14s infinite; will-change: transform; }
+.slide { flex: 0 0 100%; width: 100%; height: 100%; object-fit: cover; user-select: none; }
+@keyframes drift {
+  0%, 42% { transform: translateX(0); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  50%, 92% { transform: translateX(-100%); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  100% { transform: translateX(-200%); }
+}
+
+.glass { position: absolute; z-index: 1; left: 50%; bottom: 40px; transform: translateX(-50%); width: min(460px, calc(100% - 64px));
+  display: grid; text-align: center; padding: 26px 32px 28px; border-radius: 20px; color: var(--cream);
+  background: rgb(255 255 255 / 0.14); border: 1px solid rgb(255 255 255 / 0.28);
+  backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 20px 50px -24px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.25); }
+/* Both captions share one grid cell; each fades out as its photo leaves and in as it settles (same 14s clock as .strip). */
+.caption { grid-area: 1 / 1; }
+.captionA { animation: captionA 14s ease-in-out infinite; }
+.captionB { animation: captionB 14s ease-in-out infinite; }
+@keyframes captionA {
+  0%, 40%, 100% { opacity: 1; transform: none; }
+  45%, 95% { opacity: 0; transform: translateY(8px); }
+}
+@keyframes captionB {
+  0%, 45%, 95%, 100% { opacity: 0; transform: translateY(8px); }
+  52%, 90% { opacity: 1; transform: none; }
+}
+.glassTitle { margin: 0 0 12px; font-family: var(--font-display); font-size: 1.75rem; line-height: 1.2; font-weight: 700;
+  letter-spacing: -0.01em; text-shadow: 0 1px 12px rgb(0 0 0 / 0.25); }
+.glassBody { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--on-dark); }
+
+@media (prefers-reduced-motion: reduce) {
+  .strip, .captionA, .captionB { animation: none; }
+  .captionB { opacity: 0; }
+}
+@media (max-width: 900px) {
+  .loginPage { padding: 0; }
+  .shell { grid-template-columns: 1fr; height: auto; min-height: 100vh; border-radius: 0; border: 0; }
+  .showcase { display: none; }
+  .panel { padding: 28px 24px; }
+}
