@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Pill } from '@/components/dashboard/ui';
 import s from '@/components/auth/auth.module.css';
 import { SCREENS } from '@/config/dashboard';
 import { ROLE_LABELS, canOpen } from '@/lib/auth/roles';
@@ -17,8 +16,9 @@ export default async function Forbidden() {
     <div className={s.inShell}>
       <div className={s.card}>
         <h1 className={s.title}>This page is not available for your role</h1>
-        <p className={s.lead}>Signed in as {user?.name ?? 'an unknown user'}{roles.length > 0 && ' with'}</p>
-        {roles.length > 0 && <p className={s.lead}>{roles.map((r) => <Pill key={r}>{ROLE_LABELS[r]}</Pill>)}</p>}
+        <p className={s.lead}>
+          Signed in as {user?.name ?? 'an unknown user'}{roles.length > 0 && ` (${roles.map((r) => ROLE_LABELS[r]).join(', ')})`}.
+        </p>
         <p className={s.note}>You can open:</p>
         <ul className={s.links}>
           {open.map((sc) => <li key={sc.href}><Link href={sc.href}>{sc.label}</Link></li>)}
