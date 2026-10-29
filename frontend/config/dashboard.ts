@@ -9,4 +9,14 @@ export const SCREENS = [
   { href: '/dashboard/replay', label: 'Replay', owner: 'B' },
 ] as const;
 
+/**
+ * Master navigation, left to right: Orders (the order-email queue), the Dashboard menu (every other screen, a report
+ * each), Labs and Settings. Labs and Settings are open to every role.
+ */
+export const ORDERS = { href: '/dashboard/intake', label: 'Orders' } as const;
+export const MORE = [
+  { href: '/dashboard/labs', label: 'Labs' },
+  { href: '/dashboard/settings', label: 'Settings' },
+] as const;
+
 // The API is reached through the same-origin proxy app/api/[...path] (lib/api.ts); its URL and keys are server-side only.

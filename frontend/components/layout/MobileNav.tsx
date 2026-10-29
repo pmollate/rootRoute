@@ -5,7 +5,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './MobileNav.module.css';
 
-export interface MobileNavItem { href: string; label: string; icon?: ReactNode; current?: boolean }
+/** `group`: a small heading shown above the first item of each run of items that share it. */
+export interface MobileNavItem { href: string; label: string; icon?: ReactNode; current?: boolean; group?: string }
 
 /** Matches the breakpoint where the landing nav links and the dashboard side nav hide. */
 const MOBILE = '(max-width: 860px)';
@@ -78,12 +79,14 @@ export function MobileNav({ label, brand, items, footer }: {
             </div>
             <nav aria-label={label}>
               <ul className={styles.list}>
-                {items.map((it) => {
+                {items.map((it, i) => {
                   const inner = <>{it.icon}{it.label}</>;
                   const props = { className: styles.item, onClick: close, 'aria-current': it.current ? ('page' as const) : undefined };
                   // In-page anchors stay plain links so Lenis (anchors: true) runs the smooth scroll.
+                  const heading = it.group && it.group !== items[i - 1]?.group;
                   return (
                     <li key={it.href}>
+                      {heading && <p className={styles.group}>{it.group}</p>}
                       {it.href.startsWith('#') ? <a href={it.href} {...props}>{inner}</a> : <Link href={it.href} {...props}>{inner}</Link>}
                     </li>
                   );

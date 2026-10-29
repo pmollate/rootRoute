@@ -10,8 +10,9 @@ import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { BrandMark } from '@/components/ui/BrandMark';
 import h from '@/components/layout/SiteHeader.module.css';
 import { BRAND } from '@/config/copy';
-import { SCREENS } from '@/config/dashboard';
+import { MORE, ORDERS, SCREENS } from '@/config/dashboard';
 import { canOpen, type SessionUser } from '@/lib/auth/roles';
+import { ReportsMenu } from './ReportsMenu';
 import { Pill } from './ui';
 import s from './shell.module.css';
 
@@ -24,20 +25,31 @@ const ICONS: Record<string, ReactNode> = {
   '/dashboard/carriers': <><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="18" r="2" /></>,
   '/dashboard/journey': <><circle cx="6" cy="19" r="2" /><circle cx="18" cy="5" r="2" /><path d="M8 19h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7" /></>,
   '/dashboard/replay': <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></>,
+  '/dashboard/labs': <><path d="M9 3h6M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3" /><path d="M7.5 15h9" /></>,
+  '/dashboard/settings': <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>,
 };
 const Icon = ({ children }: { children: ReactNode }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
 );
 
 /**
- * Chrome for every /dashboard screen: the landing page's floating pill bar (brand, screen links, theme toggle, and the
- * signed-in user: REQ-AUTH-08, -09); pages run full width. `user` is null when nobody is signed in (AUTH_REQUIRED=off).
+ * Chrome for every /dashboard screen: the landing page's floating pill bar (brand, the master navigation, theme toggle,
+ * and the signed-in user: REQ-AUTH-08, -09); pages run full width. `user` is null when nobody is signed in
+ * (AUTH_REQUIRED=off). Navigation: Orders, a Dashboard menu of the report screens, Labs, Settings (config/dashboard.ts).
  */
 export function DashboardShell({ children, user = null }: { children: ReactNode; user?: SessionUser | null }) {
   const path = usePathname();
   // REQ-AUTH-15: only the screens the user's roles may open; everything with nobody signed in (AUTH_REQUIRED=off).
   const screens = SCREENS.filter((sc) => canOpen(user?.roles ?? null, sc.href));
-  const current = screens.find((sc) => path.startsWith(sc.href));
+  const orders = screens.find((sc) => sc.href === ORDERS.href);
+  const reports = screens.filter((sc) => sc !== orders);
+  const current = [...screens, ...MORE].find((sc) => path.startsWith(sc.href))?.href;
+  // One list for the phone drawer, in bar order, with the reports under a "Dashboard" heading.
+  const drawer = [
+    ...(orders ? [{ href: orders.href, label: ORDERS.label }] : []),
+    ...reports.map((sc) => ({ href: sc.href, label: sc.label, group: 'Dashboard' })),
+    ...MORE,
+  ];
   const brand = (
     <Link className={h.mark} href="/" aria-label={`${BRAND} home`}>
       <BrandMark className={h.glyph} />
@@ -56,11 +68,18 @@ export function DashboardShell({ children, user = null }: { children: ReactNode;
       <header className={s.header}>
         <div className={h.bar}>
           <MobileNav label="Dashboard" brand={brand} footer={dataset}
-            items={screens.map((sc) => ({ href: sc.href, label: sc.label, icon: <Icon>{ICONS[sc.href]}</Icon>, current: sc === current }))} />
+            items={drawer.map((it) => ({ ...it, icon: <Icon>{ICONS[it.href]}</Icon>, current: it.href === current }))} />
           {brand}
           <nav className={`${h.nav} ${s.nav}`} aria-label="Dashboard">
-            {screens.map((sc) => (
-              <Link key={sc.href} className={h.navLink} href={sc.href} aria-current={sc === current ? 'page' : undefined}>{sc.label}</Link>
+            {orders && (
+              <Link className={h.navLink} href={orders.href} aria-current={orders.href === current ? 'page' : undefined}>{ORDERS.label}</Link>
+            )}
+            {reports.length > 0 && (
+              <ReportsMenu label="Dashboard" current={reports.some((sc) => sc.href === current) ? current : undefined}
+                items={reports.map((sc) => ({ href: sc.href, label: sc.label, icon: <Icon>{ICONS[sc.href]}</Icon> }))} />
+            )}
+            {MORE.map((it) => (
+              <Link key={it.href} className={h.navLink} href={it.href} aria-current={it.href === current ? 'page' : undefined}>{it.label}</Link>
             ))}
             <ThemeToggle />
           </nav>
