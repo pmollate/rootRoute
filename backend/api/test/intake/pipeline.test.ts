@@ -119,6 +119,18 @@ describe('intake pipeline', () => {
     expect(mem.emails).toHaveLength(2);
   });
 
+  it('AC-INT-10: a sender registered by full address is a known client; another sender on the same domain stays unknown', async () => {
+    const mem = memoryRepo({ 'tester@gmail.example': C190 }, SAVED);
+    const llm = fakeLLM();
+    const stranger = await processEmail({ from: 'Someone <other@gmail.example>', subject: 's', body: 'b', receivedAt: '2026-10-28T09:00:00Z' },
+      deps(mem, llm));
+    expect(stranger).toMatchObject({ decision: 'MISSING_INFO', reason: 'unknown sender' });
+    const known = await processEmail({ from: 'Tester <Tester@Gmail.example>', subject: 's2', body: 'b2', receivedAt: '2026-10-28T09:00:00Z' },
+      deps(mem, llm));
+    expect(known.reason).not.toBe('unknown sender');
+    expect(mem.emails[1]).toMatchObject({ client_id: 'C190' });
+  });
+
   it('AC-INT-10: fixture 50 (unknown domain) is MISSING_INFO with no PII call, no model call and no reply', async () => {
     const f = loadFixtures().find((x) => x.gold.id === '50')!;
     const mem = memoryRepo({ 'client190.example': C190 }, SAVED);
