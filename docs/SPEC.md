@@ -1,6 +1,6 @@
 # LateLens — Product and Technical Spec
 
-Repo: root-route · Status: draft v0.9 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
+Repo: root-route · Status: draft v0.10 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
 Hackathon: FDE AI Hackathon 5.0, Problem 2 (Halcyon Logistics). Coding: Mon 26 – Thu 29 Oct 2026. Code submission: 29 Oct, `[DEADLINE_TIME]`.
 Source brief: `docs/Halcyon.docx` (Participant Problem Statement). Data: `Halcyon-Hackathon-Dataset/` (supplied) and `backend/synthetic-data/` (ours, §12.1).
 
@@ -35,6 +35,10 @@ and the human gate on delay notices.
 company's product (CLAUDE.md). The routing-vendor replay scenario (`adopt_vendor`, 78.3%) is removed from §1.1, §2.4,
 §5.7, AC-REP-06 and the demo script (§11); "routing engine best case" is renamed "carrier lanes + routes" (80.4%). The
 route-detour points (3.2) remain the measure of what a routing engine could add.
+**Changes in v0.10** (29 Oct, team decision on sign-in): P7 "Sign-in and roles" is specified in `docs/SPEC-auth.md` v0.2
+and built after the code submission, behind `AUTH_REQUIRED=off` first (§3 pitch line, §13). Its open questions
+Q-AUTH-01 to -06 are added to §12 and the decision to §14.1. No requirement in this file changes; SEC-JRN-02 in
+`docs/SPEC-order-workflow.md` is replaced by REQ-AUTH-04 once P7 ships.
 WMS entry still needs a person's approval (SEC-04). Gmail is read and sent through the Gmail REST API, not MCP (§14.1).
 
 **Conventions.** **MUST** / **SHOULD** / **MAY** follow RFC 2119. Every requirement has an ID (`REQ-<module>-NN`,
@@ -305,8 +309,8 @@ Four tiers. **Core** must work at submission. **Synthetic** features are built o
 | P5 | Azure deployment | Carriers | Core | §9.3 |
 | P6 | Playwright smoke test against the deployed app | Carriers | Core | §9.3 |
 
-**Pitch only:** C9 routing engine for route overruns (the vendor's product; revisit after the pilot); P7 Entra login,
-full Bicep, Logic App on a real mailbox; live carrier portal automation (needs carrier permission); demand forecasting
+**Pitch only:** C9 routing engine for route overruns (the vendor's product; revisit after the pilot); P7 sign-in and
+roles (Entra ID plus demo accounts, one role per agent gate; specified in `docs/SPEC-auth.md`, built after submission), full Bicep, Logic App on a real mailbox; live carrier portal automation (needs carrier permission); demand forecasting
 for stock replenishment.
 
 **Drop order if behind schedule** (never drop Core for these): E13 → C8 → W5 → E11 → E10. The three core agents
@@ -982,6 +986,14 @@ Open questions:
   test mailbox mapped to a synthetic client in `client_domains` (labelled synthetic). Owner: Email.
 - Gmail sending limits (about 500 a day for a personal account, about 2,000 for Workspace; to be checked) are enough for
   the demo, not for Halcyon's volume. Test: confirm the production mailbox and its quota.
+- Sign-in and roles (P7, `docs/SPEC-auth.md` §13; build after submission):
+  - Q-AUTH-01: tenant users may create app registrations (§14.1, 26 Oct); may we also add app roles, require assignment
+    and assign users without a tenant admin, and which tenant holds real users? Ask the Azure admin.
+  - Q-AUTH-02: who assigns LateLens roles to real users after go-live (`[ROLE_ADMIN]` on the no-access page)? Ask the team / Halcyon ops lead.
+  - Q-AUTH-03: is `send_to_wms` a warehouse supervisor's action, or the order desk's after the supervisor review (E18)? Ask the Email and Warehouse owners.
+  - Q-AUTH-04: one `admin` demo account for judges, or one per role? Team.
+  - Q-AUTH-05: may the Order journey show a staff member's name at stage 7, given SEC-JRN-01? Team (Carriers with Email).
+  - Q-AUTH-06: once demo accounts are off for real data, how does the CD Playwright job sign in? Team (Carriers).
 
 ### 12.1 Synthetic data register
 Rules: (1) generated **from** the supplied data, same ids, dates and clients, so they agree; (2) one seeded generator per
@@ -1009,6 +1021,7 @@ screens using synthetic data show a badge (REQ-UI-04).
 - Team diagnostic deck: `docs/Halcyon_Delivery_Diagnostic.pdf` (source of the five-cause definitions, adoption rates, per-cause KPIs and open questions in v0.4)
 - Clickable prototype: https://claude.ai/artifact/3e3anPMEBFDUEsbz89rYc5
 - Order to delivery workflow ("Order journey", D9, draft for team review): `docs/SPEC-order-workflow.md`
+- Sign-in and roles ("Login", P7, v0.2 for team review, build after submission): `docs/SPEC-auth.md` (replaces SEC-JRN-02 with REQ-AUTH-04)
 
 ## 14. Sponsor questions
 Record each answer and what changed in this spec.
@@ -1049,6 +1062,7 @@ changed. A question with no answer yet stays in §12 and §14 until it gets one.
 | 26 Oct | Is `carriers.csv` the carrier preference spreadsheet, or should we infer preferences from `deliveries.csv`? | Halcyon business, question log (Q-003) | `carriers.csv` is the master list; the preference spreadsheet won't be provided and isn't needed (it reflects habit, not performance). Infer today's preferences from carriers used in `deliveries.csv` by region, warehouse and weekday | No change: lane scores and the backtest's "actual" baseline already come from `deliveries.csv` (§5.2); the weekday effect is the Friday cap on D. Adding the warehouse to the lane stays phase 2 |
 | 26 Oct | How do clients hear about delays today, and may we send delay notices? | Halcyon business, question log (Q-004 a–e) | Halcyon is the client's only contact; no proactive updates or tracking links today; clients learn of delays from their own customers or by chasing customer success, usually the day after. Delay notices may go to the client, not the end customer; whether a person reviews them is our decision to justify | Delay notices (E10, §5.5) go to the client only and keep "person sends": the at-risk flag (REQ-TRK-02) and late-risk score are estimates, and a wrong notice to a Tier 1 client costs trust. Tracking events (SD-07) give the at-risk list that feeds them |
 | 26 Oct | Is email `order_received_ts` the arrival time or the keying time? | Halcyon business, question log (Q-005) | Keying time into the WMS; arrival time isn't recorded and isn't needed. Treat keying time as when the order entered the process | §12 assumption confirmed. Strengthens the intake case: entering email orders on arrival (10-minute poll) removes keying delay before the 08:00 cut-off |
+| 29 Oct | Who may use LateLens, and who may pass each agent's human gate? | Team (Priyank); code check of today's API key and actor fields | Microsoft Entra ID (single tenant) plus demo accounts; one role per agent gate plus read-only leadership and admin; nothing public except health and MCP; build after submission behind `AUTH_REQUIRED=off` | `docs/SPEC-auth.md` v0.2 (P7); SEC-JRN-02 replaced by REQ-AUTH-04; Q-AUTH-01 to -06 in §12; Task C13 in the Carriers plan |
 
 ## 15. Mapping to the brief's task list
 | Brief asks | Where in this spec |
