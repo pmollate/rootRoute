@@ -18,7 +18,7 @@ export interface EmailRow {
   in_reply_to: number | null;
   hash: string;
   client_id: string | null;
-  status: string;                             // RECEIVED | WAITING | AWAITING_APPROVAL | APPROVED | SENT | ENTERED
+  status: string;                             // RECEIVED | WAITING | AWAITING_APPROVAL | APPROVED | SENT | ENTERED | REJECTED
 }
 
 export type NewEmail = Omit<EmailRow, 'id' | 'status'>;

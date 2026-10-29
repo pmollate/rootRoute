@@ -1,7 +1,7 @@
 // Public entry point of the Carriers area (CONTRACTS §2). Other areas import only this file.
 import type { CarriersApi } from '../../core/contracts.js';
 import { isFriday, recommendFromLane } from './domain.js';
-import { capacityLimits, laneRows, logRecommendation, usedToday } from './queries.js';
+import { capacityLimits, insertOverride, laneRows, logRecommendation, usedToday } from './queries.js';
 
 export const carriersApi: CarriersApi = {
   async recommendCarrier({ region, commitment, slaClause, date }) {
@@ -12,3 +12,6 @@ export const carriersApi: CarriersApi = {
     return rec;
   },
 };
+
+/** REQ-CAR-06: the one writer of override_log, for other areas (the order review, E18). Same function as POST /api/overrides. */
+export const logOverride = insertOverride;

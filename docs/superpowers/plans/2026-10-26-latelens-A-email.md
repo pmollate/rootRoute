@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node 22, TypeScript, Fastify 5, zod 4, `openai` SDK (Azure OpenAI in Azure AI Foundry, GPT-5-family mini deployment, v1 endpoint), Vitest · Python 3.12, pandas · Next.js 15 + React 19 (Order emails screen in `frontend/`) · Playwright (stretch bot).
 
-**Read first:** `docs/SPEC.md` §5.3, §5.5, §5.6, §5.9, §5.10, §8 (SEC-02 to SEC-05), §12.1 (SD-01 to SD-04, SD-08); `docs/CONTRACTS.md` §1–3, §4 (`complaints`, `risk_lookup`), §5 (100–199), §6 (A rows).
+**Read first:** `docs/SPEC.md` §5.3, §5.5, §5.6, §5.9, §5.10, §8 (SEC-02 to SEC-05), §12.1 (SD-01 to SD-04, SD-08); `docs/CONTRACTS.md` §1–3, §4 (`complaints`, `risk_lookup`), §5 (100–199), §6 (A rows). For A13–A15 also `docs/SPEC-auth.md` §4.2–4.3.
 
 **Prototype status:** every block below ran before this plan was written. Python tests pass on the supplied data; Node unit tests pass (including all 50 fixtures through the address and decision rules with a perfect extraction). Tests marked "needs test database" and live AI-model calls could not run on the planning machine.
 
@@ -40,7 +40,12 @@ backend/analytics/intake/{__init__,reference,synthetic,fixtures,orders,risk}.py 
 backend/tests/fixtures/emails/NN.eml + NN.json (generated, committed)
 frontend/components/dashboard/intake/  frontend/app/dashboard/intake/page.tsx  (Order emails screen)
 frontend/public/mock-wms.html  frontend/bots/wms-entry.ts (stretch)
+backend/api/src/modules/intake/review.ts  backend/api/test/intake/review.test.ts  backend/api/test/routes/review.test.ts  (A14)
+frontend/components/dashboard/intake/OrderReview.tsx (+ .test.tsx)  (A14: a mode of the Order emails desk)
+frontend/components/dashboard/complaints/ComplaintsScreen.tsx (+ .test.tsx)  frontend/app/dashboard/complaints/page.tsx  (A15)
 ```
+Outside A's folders, by agreement: one export in `backend/api/src/modules/carriers/index.ts` (`logOverride`, A14, C
+reviews), one entry each in `backend/api/src/core/permissions.ts` (A14) and the shared `frontend/config/dashboard.ts` (A15).
 
 ## Schedule
 
@@ -50,6 +55,13 @@ frontend/public/mock-wms.html  frontend/bots/wms-entry.ts (stretch)
 | Tue 27 | A4, A5, A6, A7 | B8 real `warehouseApi` for the full A7 flow (stubs work before that) |
 | Wed 28 | A8, A9, A10 | B5 `delivery_causes` for A10 |
 | Thu 29 AM | A11 (stretch), A12 (stretch) | B3 `f_lane` flag for A11 |
+| Thu 29 (added 29 Oct) | A13 (E16), A14 (E18), A15 (E12 screen, E14, NFR-03), in that order; A9 (E11), A11 (E10), A12 (E13) skipped by decision | C13 sign-in and roles on `main` (done, c350a93); C's `insertOverride` (done) |
+
+**Schedule risk (29 Oct):** Thursday is code-submission day and all three tasks land on it. A13 is small (one early
+return and a chip). A14 is the largest (backend, HTTP tests, a new component) and touches one line in C's
+`carriers/index.ts`, so it needs the Carriers owner's review. If time runs short, merge A13, then A14's backend
+(Steps 1–9) as its own PR before the review screen, and A15's backend (Steps 1–5) before the Complaints screen.
+Each backend half is usable on its own through the API.
 
 `[AI_MODEL]` is decided: Azure OpenAI in Azure AI Foundry. Before A1, get the endpoint, key and deployment name into everyone's `.env` (never commit it).
 
@@ -2967,3 +2979,1204 @@ Add to `frontend/package.json` scripts:
 Expected: `email N -> WMS-123456 (200)` and a screenshot in `frontend/bots/out/` (AC-BOT-01: CONFIRM_ADDRESS emails are never picked; AC-BOT-02: order number and screenshot saved). `npm run typecheck` still passes.
 
 - [ ] **Step 4: Commit.** `git add frontend && git commit -m "feat(a): mock WMS form and entry bot (E13)"`
+
+---
+
+## Remaining A work (added 29 Oct, planner)
+
+E10 (A11), E11 (A9) and E13 (A12) are skipped by decision. The three tasks below finish A on `main` as of c350a93 (C13
+sign-in and roles merged). Do them in order **A13 → A14 → A15**, each on its own branch cut from the latest `main`
+after the previous one merged. Each task is one PR.
+
+**Read first for all three:** `docs/SPEC-auth.md` §4.2 (permission matrix) and §4.3 (Email row);
+`backend/api/src/core/permissions.ts` (default deny; `test/routes/permissions.test.ts` fails for a route with no entry);
+`frontend/lib/auth/roles.ts` (`can`, `UiAction`) and `frontend/components/dashboard/test-utils.tsx` (`mockApi`,
+`renderScreen`, `asRole`). The actor of every write is `actorOf(req)` from the verified token, never a body field
+(REQ-AUTH-07). Tests that need the database are `describe.skipIf(!hasDb)`; run them with the test database up
+(`npm run migrate:test` in `backend/api`, then `python -m analytics.pipeline --test-db`).
+
+**Commands used below.** Backend unit tests: `npm --prefix backend/api test -- <files>`. Frontend: `npm --prefix frontend
+test -- <files>`. Types: `npm run typecheck` (root). Everything: `npm test`.
+
+---
+
+### Task A13 (E16): Unknown senders skipped before any AI call
+
+**Branch:** `A13-unknown-sender` · **REQ:** REQ-INT-10 · **AC:** AC-INT-10 · **SPEC:** §5.3 step 3, §3 E16
+
+Today `processEmail` looks up `clientByDomain` but still calls `readOrder` (PII detection, then the model) for an
+unknown domain; `decide()` only returns MISSING_INFO afterwards. The Order journey (`carriers/journey.ts`, `read:` stage)
+already describes the skip ("Unknown sender: no AI call, no reply"), so this task makes the pipeline match it and shows
+"Unknown sender" on the Order emails desk.
+
+**Files:**
+- Modify: `backend/api/src/modules/intake/pipeline.ts` (early return after the email is stored; export `UNKNOWN_SENDER`)
+- Modify: `backend/api/src/modules/intake/routes.ts` (paste log line carries `reason`)
+- Modify: `frontend/components/dashboard/intake/IntakeScreen.tsx` (`Detail.email.clientId`, chip, summary line)
+- Modify: `docs/CONTRACTS.md` §6 (`POST /api/intake/email` row: `reason: "unknown sender"`)
+- Test: `backend/api/test/intake/pipeline.test.ts` (replace the test `unknown sender is MISSING_INFO`),
+  `frontend/components/dashboard/intake/IntakeScreen.test.tsx`
+
+**Interfaces:**
+- Consumes: `Repo.clientByDomain`, `Repo.saveExtraction`, `templateReply(f: ReplyFacts)` from `reply.ts`,
+  `loadFixtures()` from `test/intake/fixtures.ts` (fixture 50 is `buyer@unknown-co.example`).
+- Produces: `export const UNKNOWN_SENDER = 'unknown sender'` in `pipeline.ts`; `processEmail` returns
+  `{ id, status: 'AWAITING_APPROVAL', decision: 'MISSING_INFO', reason: UNKNOWN_SENDER }` for an unknown domain, with
+  `intake_emails.redacted_body` and `pii_map` left null and one `intake_extractions` row
+  `{ extraction: null, decision: 'MISSING_INFO', checks: { address: null, promise: null, warehouse: null, carrier: null },
+  reply_source: 'template' }`. UI rule A14 and A15 keep: an email with `clientId === null` and decision `MISSING_INFO`
+  is an unknown sender.
+
+- [x] **Step 1: Write the failing backend test.** In `backend/api/test/intake/pipeline.test.ts` add
+  `import { loadFixtures } from './fixtures.js';` to the imports and replace the whole `it('unknown sender is MISSING_INFO', …)`
+  block with:
+
+```ts
+  it('AC-INT-10: fixture 50 (unknown domain) is MISSING_INFO with no PII call, no model call and no reply', async () => {
+    const f = loadFixtures().find((x) => x.gold.id === '50')!;
+    const mem = memoryRepo({ 'client190.example': C190 }, SAVED);
+    let piiCalls = 0;
+    const spyPii: PiiDetector = { name: 'spy-pii', detect: async () => { piiCalls += 1; return []; } };
+    const llm = { name: 'spy-llm', calls: 0,
+      json: async () => { llm.calls += 1; return FULL as never; },
+      text: async () => { llm.calls += 1; return 'model text'; } };
+    const r = await processEmail({ from: f.gold.from, subject: f.subject, body: f.body, receivedAt: f.gold.received_at },
+      deps(mem, llm, { pii: spyPii }));
+    expect(r).toMatchObject({ status: 'AWAITING_APPROVAL', decision: 'MISSING_INFO', reason: 'unknown sender' });
+    expect([piiCalls, llm.calls]).toEqual([0, 0]);
+    expect(mem.emails[0]).toMatchObject({ client_id: null, redacted_body: null, pii_map: null });
+    expect(mem.extractions).toHaveLength(1);
+    expect(mem.extractions[0]).toMatchObject({ extraction: null, decision: 'MISSING_INFO', reply_source: 'template',
+      checks: { address: null, promise: null, warehouse: null, carrier: null } });
+    expect(mem.outbound).toEqual([]);
+    expect(mem.audit).toEqual([]);
+  });
+```
+
+- [x] **Step 2: Run it.** `npm --prefix backend/api test -- test/intake/pipeline.test.ts`
+  Expected: FAIL on `[piiCalls, llm.calls]` (today both are called) and on `reason`.
+
+- [x] **Step 3: Implement.** In `backend/api/src/modules/intake/pipeline.ts`:
+
+1. Change the imports: `import { draftReply, type ReplyFacts, templateReply } from './reply.js';`
+2. Above `emailHash`, add:
+
+```ts
+/** E16 / REQ-INT-10: the reason returned for an email whose sender domain is not a client's. */
+export const UNKNOWN_SENDER = 'unknown sender';
+```
+
+3. In `interface Processed`, change the comment on `reason` to `// why it is waiting, or UNKNOWN_SENDER`.
+4. In `processEmail`, directly after the `if (existing) { … } else { … }` block that sets `id` (before
+   `const saved = …`), insert:
+
+```ts
+  // E16 / REQ-INT-10: an unknown sender is MISSING_INFO at once. No PII call and no model call, so nothing from a
+  // stranger reaches an AI service; no automatic reply. The stored draft is the fixed template, for an operator who
+  // decides to answer (the allow-list still applies to any send).
+  if (!client) {
+    const decision = 'MISSING_INFO' as const;
+    await repo.saveExtraction({
+      email_id: id, extraction: null, decision,
+      checks: { address: null, promise: null, warehouse: null, carrier: null },
+      reply_draft: templateReply({ decision, clientName: null, contact: null, items: [], promise: null, missing: [],
+        candidates: [], address: null, addressIssues: [], suggestion: null }),
+      reply_source: 'template',
+    });
+    await repo.setStatus(id, 'AWAITING_APPROVAL');
+    return { id, status: 'AWAITING_APPROVAL', decision, reason: UNKNOWN_SENDER };
+  }
+```
+
+5. In `backend/api/src/modules/intake/routes.ts`, `POST /intake/email` handler, change the log line to
+   `req.log.info({ emailId: result.id, decision: result.decision, status: result.status, reason: result.reason ?? null }, 'intake email decided');`
+
+- [x] **Step 4: Run it.** `npm --prefix backend/api test -- test/intake/pipeline.test.ts test/intake/poll.test.ts`
+  Expected: PASS (all pipeline and poll tests; the poll tests use a known domain, so they are unchanged).
+
+- [x] **Step 5: Write the failing UI test.** In `frontend/components/dashboard/intake/IntakeScreen.test.tsx`, inside
+  `describe('Order emails', …)`, add:
+
+```tsx
+  it('AC-INT-10 (UI): an email from an unknown sender shows "Unknown sender" in the list and in the order summary', async () => {
+    const unknown = detail(50, {
+      email: { ...detail(50).email, from: 'buyer@unknown-co.example', clientId: null, redactedBody: null },
+      decision: 'MISSING_INFO', extraction: null, replySource: 'template',
+      checks: { address: null, promise: null, warehouse: null, carrier: null },
+    });
+    mockApi({ '/api/intake': { emails: [item(50, { clientId: null, from: 'buyer@unknown-co.example', decision: 'MISSING_INFO', priority: false })] },
+      '/api/intake/50': unknown });
+    renderScreen(<IntakeScreen />);
+    expect(await screen.findByText('Unknown sender')).toBeTruthy();
+    expect(await screen.findByText(/not read by the AI and no automatic reply/)).toBeTruthy();
+  });
+```
+
+- [x] **Step 6: Run it.** `npm --prefix frontend test -- components/dashboard/intake/IntakeScreen.test.tsx`
+  Expected: FAIL, `Unable to find an element with the text: Unknown sender`.
+
+- [x] **Step 7: Implement the UI.** In `frontend/components/dashboard/intake/IntakeScreen.tsx`:
+
+1. In `interface Detail`, change the `email` line to include the client id the API already returns:
+   `email: { id: number; from: string; subject: string; body: string; redactedBody: string | null; receivedAt: string; status: string; inReplyTo: number | null; clientId?: string | null };`
+2. In `chip(e)`, after the `WAITING` line, add:
+
+```tsx
+  if (e.clientId === null && e.decision === 'MISSING_INFO' && e.status === 'AWAITING_APPROVAL') return { text: 'Unknown sender', tone: s.tBad };
+```
+
+3. In `Summary`, as the first child of the `<section>` after `</header>`, add:
+
+```tsx
+      {d.email.clientId === null && d.decision === 'MISSING_INFO' && (
+        <p className={s.badText}><Icon size={12}>{ICON.alert}</Icon>Unknown sender: not read by the AI and no automatic reply. Check who sent it before answering.</p>
+      )}
+```
+
+- [x] **Step 8: Run.** `npm --prefix frontend test -- components/dashboard/intake/IntakeScreen.test.tsx && npm run typecheck`
+  Expected: PASS.
+
+- [x] **Step 9: Contract.** In `docs/CONTRACTS.md` §6, `POST /api/intake/email` row, append:
+  `; an unknown sender domain → status AWAITING_APPROVAL, decision MISSING_INFO, reason "unknown sender", with no PII or model call (E16)`.
+
+- [x] **Step 10: Commit.**
+
+```bash
+git add backend/api/src/modules/intake/pipeline.ts backend/api/src/modules/intake/routes.ts backend/api/test/intake/pipeline.test.ts \
+  frontend/components/dashboard/intake/IntakeScreen.tsx frontend/components/dashboard/intake/IntakeScreen.test.tsx docs/CONTRACTS.md
+git commit -m "feat(a): unknown senders skip PII and the model (E16, REQ-INT-10)"
+```
+
+---
+
+### Task A14 (E18): Order review: approve or reject ALL_CLEAR orders, change the carrier
+
+**Branch:** `A14-order-review` · **REQ:** REQ-INT-14, REQ-INT-15, REQ-AUTH-05, REQ-AUTH-07 · **AC:** AC-INT-14,
+AC-INT-15, AC-AUTH-14 · **SPEC:** §5.3 step 12, §5.7 (Intake row), §7 (`GET /api/intake/review`, action body),
+§14.1 (28 Oct row), SPEC-auth §4.2
+
+**Where the review lives.** SPEC §5.7 puts the order review inside the Intake screen ("order review for supervisors:
+ALL_CLEAR orders with Approve, Reject (reason) and a carrier choice"), and SPEC-auth §4.3 lists it under the Intake
+screen. So it is a **mode of the Order emails desk**, not a new nav entry: a rail button "Order review" under Tools
+switches the reading pane to an `OrderReview` component (its own file, so `IntakeScreen.tsx`, already ~790 lines, grows
+by a few lines only). Approve here only approves: the confirmation reply and WMS entry stay on the thread view.
+
+**Permissions (already in `core/permissions.ts`):** `approve` and `reject` = `order_desk` + `admin`; `send_to_wms`
+stays `warehouse_supervisor` + `admin` (Q-AUTH-03 open). New: `GET /api/intake/review` = every role (a read).
+A carrier change needs only the approve permission (AC-AUTH-14): the order desk does not get `POST /api/overrides`.
+
+**One writer per table.** `override_log` is the Carriers module's table. The change is written by C's existing
+`insertOverride` (`modules/carriers/queries.ts`), exported from C's public entry point as `logOverride`. This is the
+only line A adds in C's folder: ask the Carriers owner to review it on the PR.
+
+**Files:**
+- Create: `backend/api/src/modules/intake/review.ts`
+- Modify: `backend/api/src/modules/intake/actions.ts` (reject; approve with carrier; options object)
+- Modify: `backend/api/src/modules/intake/routes.ts` (`GET /intake/review`; action body `reason`, `carrier`)
+- Modify: `backend/api/src/modules/intake/repo.ts` (status comment adds REJECTED)
+- Modify: `backend/api/src/core/permissions.ts` (one line: `GET /api/intake/review`)
+- Modify: `backend/api/src/modules/carriers/index.ts` (one export, owner C reviews)
+- Modify: `frontend/components/dashboard/intake/IntakeScreen.tsx` (rail button, pane, REJECTED label)
+- Create: `frontend/components/dashboard/intake/OrderReview.tsx`; Modify: `frontend/components/dashboard/intake/intake.module.css`
+- Modify: `docs/CONTRACTS.md` §2 and §6
+- Test: `backend/api/test/intake/review.test.ts` (new), `backend/api/test/intake/pipeline.test.ts` (two call sites),
+  `backend/api/test/routes/review.test.ts` (new, needs test database), `backend/api/test/routes/permissions.test.ts`,
+  `frontend/components/dashboard/intake/OrderReview.test.tsx` (new), `frontend/components/dashboard/intake/IntakeScreen.test.tsx`
+
+**Interfaces:**
+- Consumes: `Repo.listEmails`, `Repo.latestExtraction`, `Repo.saveExtraction`, `Repo.setStatus`, `Repo.logApproval`;
+  `CarrierRecommendation` / `CarrierOption` (stored in `intake_extractions.checks.carrier` by A7); `regionOfState`;
+  `insertOverride({ orderRef, from, to, reason, user }): Promise<number>` from C (as `logOverride`);
+  `actorOf(req)`; `useCan('approve' | 'reject')`.
+- Produces:
+  - `review.ts`: `carrierChoices(rec: CarrierRecommendation): CarrierChoice[]` (never a blocked carrier) and
+    `reviewQueue(repo: Repo): Promise<ReviewOrder[]>` (ALL_CLEAR + AWAITING_APPROVAL, inbox order = priority first).
+  - `actions.ts`: `ACTIONS = ['approve', 'reject', 'send_reply', 'send_to_wms']`; `ActionResult.code` adds `400`;
+    `type OverrideLog`; `interface ActionOptions { edited?; reason?; carrier?; overrides? }`;
+    `applyAction(repo, id, action, actor, outbox?, opts?: ActionOptions)` (the 6th argument was `edited?: string`).
+  - `carriers/index.ts`: `export const logOverride = insertOverride`.
+  - Status `REJECTED` (audit action `reject`, `payload.reason`; the journey already reads both). Override rows use
+    `order_ref = 'email:<id>'` (the journey reads that too).
+  - API: `GET /api/intake/review` → `{ orders: ReviewOrder[] }`; `POST /api/intake/:id/action` body
+    `{ action, reply?, reason?, carrier? }`.
+
+- [x] **Step 1: Write the failing unit tests.** Create `backend/api/test/intake/review.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest';
+import type { AuthUser, CarrierRecommendation, CarriersApi, WarehouseApi } from '../../src/core/contracts.js';
+import type { LLM } from '../../src/core/llm/types.js';
+import type { AddressValidator } from '../../src/core/maps/types.js';
+import type { PiiDetector } from '../../src/core/pii/types.js';
+import { type OverrideLog, applyAction } from '../../src/modules/intake/actions.js';
+import { processEmail } from '../../src/modules/intake/pipeline.js';
+import { carrierChoices, reviewQueue } from '../../src/modules/intake/review.js';
+import type { Extraction } from '../../src/modules/intake/schema.js';
+import { checkPromise } from '../../src/modules/warehouse/domain.js';
+import { memoryRepo } from './memoryRepo.js';
+
+// A Northeast lane as C's recommender returns it: E recommended, F blocked (F -> Northeast is a bad lane).
+// Test values only; the screen shows whatever lane_scores holds.
+const NE: CarrierRecommendation = { carrier: 'E', backup: 'A', reason: 'E: best on this lane', blocked: ['F'], options: [
+  { carrier: 'E', onTime: 0.9, meanRate: 2.1, n: 400, score: 0.9, status: 'recommended', reason: 'eligible' },
+  { carrier: 'A', onTime: 0.88, meanRate: 2.4, n: 380, score: 0.85, status: 'backup', reason: 'eligible' },
+  { carrier: 'B', onTime: 0.86, meanRate: 2.0, n: 350, score: 0.8, status: 'eligible', reason: 'eligible' },
+  { carrier: 'F', onTime: 0.6, meanRate: 1.8, n: 300, score: null, status: 'blocked', reason: 'unreliable on this lane' },
+] };
+const C025 = { client_id: 'C025', client_name: 'Client 25', sla_penalty_clause: 'N', region: 'Northeast', account_tier: 'Tier 2', account_status: 'active' };
+const ORDER: Extraction = { items: [{ sku: 'HX-616', qty: 45 }], requested_commitment: 'next_day', confidence: { items: 0.95, address: 0.9 },
+  address: { line1: '12 Main St', line2: null, city: 'Boston', state: 'MA', zip: '02110', raw: null } };
+const BODY = '[SYNTHETIC] Please ship 45 x HX-616 to 12 Main St, Boston, MA 02110';
+const warehouse: WarehouseApi = { checkPromise, nearestWarehouse: async () => 'W4',
+  pickWarehouse: async (i) => ({ warehouseId: i.nearestWarehouseId, reason: 'nearest', warnClient: false }) };
+const carriers: CarriersApi = { recommendCarrier: async () => structuredClone(NE) };
+const llm: LLM = { name: 'fake', json: async () => structuredClone(ORDER) as never, text: async () => { throw new Error('offline'); } };
+const pii: PiiDetector = { name: 'fake-pii', detect: async () => [] };
+const maps: AddressValidator = { name: 'fake-map', geocode: async (q) => ({ features: [{ properties: { type: 'Address',
+  confidence: 'High', matchCodes: ['Good'], address: { addressLine: q.line1, locality: q.city, postalCode: q.zip,
+    adminDistricts: [{ shortName: q.state }] } } }] }) };
+const desk: AuthUser = { id: 'u1', name: 'Una Desk', roles: ['order_desk'], demo: false };
+
+async function allClear() {
+  const mem = memoryRepo({ 'client025.example': C025 }, []);
+  const r = await processEmail({ from: 'orders@client025.example', subject: '[SYNTHETIC] Order', body: BODY, receivedAt: '2026-10-22 07:30' },
+    { llm, pii, maps, repo: mem.repo, warehouse, carriers, gmail: null });
+  expect(r.decision).toBe('ALL_CLEAR');
+  const overrides: Parameters<OverrideLog>[0][] = [];
+  const log: OverrideLog = async (o) => { overrides.push(o); return overrides.length; };
+  return { mem, id: r.id, overrides, log };
+}
+
+describe('order review (E18)', () => {
+  it('REQ-INT-15: a blocked carrier is never offered', () => {
+    expect(carrierChoices(NE).map((c) => c.carrier)).toEqual(['E', 'A', 'B']);
+    expect(carrierChoices({ ...NE, options: [] })).toEqual([{ carrier: 'E', status: 'recommended', onTime: null, reason: 'E: best on this lane' }]);
+  });
+
+  it('REQ-INT-14: lists ALL_CLEAR orders awaiting approval with their lane choices', async () => {
+    const { mem, id } = await allClear();
+    const [o] = await reviewQueue(mem.repo);
+    expect(o).toMatchObject({ id, clientId: 'C025', region: 'Northeast', warehouseId: 'W4', carrier: 'E', blocked: ['F'],
+      items: [{ sku: 'HX-616', qty: 45 }] });
+    expect(o.choices.map((c) => c.carrier)).toEqual(['E', 'A', 'B']);
+  });
+
+  it('AC-INT-15, AC-AUTH-14: approving with carrier A logs one override with the approver; the order shows A', async () => {
+    const { mem, id, overrides, log } = await allClear();
+    const r = await applyAction(mem.repo, id, 'approve', desk, undefined, { carrier: 'A', reason: 'client asked for A', overrides: log });
+    expect(r).toEqual({ code: 200, status: 'APPROVED' });
+    expect(overrides).toEqual([{ orderRef: `email:${id}`, from: 'E', to: 'A', reason: 'client asked for A', user: 'u1' }]);
+    expect((await mem.repo.latestExtraction(id))?.checks.carrier).toMatchObject({ carrier: 'A' });
+    expect(mem.audit.at(-1)).toMatchObject({ action: 'approve', user: 'u1', payload: { carrier: 'A', from: 'E', reason: 'client asked for A' } });
+    expect(await reviewQueue(mem.repo)).toEqual([]);
+  });
+
+  it('AC-INT-15: a blocked carrier is refused, a change needs a reason, and the same carrier logs nothing', async () => {
+    const { mem, id, overrides, log } = await allClear();
+    expect(await applyAction(mem.repo, id, 'approve', desk, undefined, { carrier: 'F', reason: 'cheaper', overrides: log }))
+      .toMatchObject({ code: 409 });
+    expect(await applyAction(mem.repo, id, 'approve', desk, undefined, { carrier: 'A', overrides: log })).toMatchObject({ code: 400 });
+    expect((await mem.repo.getEmail(id))?.status).toBe('AWAITING_APPROVAL');
+    expect(await applyAction(mem.repo, id, 'approve', desk, undefined, { carrier: 'E', overrides: log })).toMatchObject({ code: 200 });
+    expect(overrides).toEqual([]);
+  });
+
+  it('AC-INT-14: a rejection needs a reason, records it with the user, sets REJECTED, and the WMS refuses the order', async () => {
+    const { mem, id } = await allClear();
+    expect(await applyAction(mem.repo, id, 'reject', desk)).toMatchObject({ code: 400 });
+    expect(await applyAction(mem.repo, id, 'reject', desk, undefined, { reason: 'duplicate of order 12' }))
+      .toEqual({ code: 200, status: 'REJECTED' });
+    expect(mem.audit.at(-1)).toMatchObject({ action: 'reject', user: 'u1', ref: `email:${id}`,
+      payload: { reason: 'duplicate of order 12', name: 'Una Desk' } });
+    expect(await applyAction(mem.repo, id, 'send_to_wms', 'w1')).toMatchObject({ code: 409 });
+    expect(await applyAction(mem.repo, id, 'approve', desk)).toMatchObject({ code: 409 });
+    expect(await reviewQueue(mem.repo)).toEqual([]);
+  });
+});
+```
+
+- [x] **Step 2: Run.** `npm --prefix backend/api test -- test/intake/review.test.ts`
+  Expected: FAIL, cannot find module `review.js`.
+
+- [x] **Step 3: Implement `review.ts`.** Create `backend/api/src/modules/intake/review.ts`:
+
+```ts
+import type { CarrierId, CarrierOption, CarrierRecommendation, PromiseResult, Region, WarehouseChoice } from '../../core/contracts.js';
+import { regionOfState } from './region.js';
+import type { Repo } from './repo.js';
+
+export interface CarrierChoice {
+  carrier: CarrierId;
+  status: Exclude<CarrierOption['status'], 'blocked'>;
+  onTime: number | null; // lane on-time share from lane_scores (C); null when the lane gave no options
+  reason: string;
+}
+
+export interface ReviewOrder {
+  id: number; from: string; clientId: string | null; clientName: string | null; tier: string | null; priority: boolean;
+  receivedAt: string; items: { sku: string; qty: number }[]; region: Region | null; promiseDate: string | null;
+  warehouseId: string | null; carrier: CarrierId; carrierReason: string; choices: CarrierChoice[]; blocked: CarrierId[];
+}
+
+/** REQ-INT-15: the carriers a supervisor may pick on the order's lane. A blocked carrier is never offered. */
+export function carrierChoices(rec: CarrierRecommendation): CarrierChoice[] {
+  const open = rec.options
+    .filter((o) => o.status !== 'blocked' && !rec.blocked.includes(o.carrier))
+    .map((o) => ({ carrier: o.carrier, status: o.status as CarrierChoice['status'], onTime: o.onTime, reason: o.reason }));
+  return open.length ? open : [{ carrier: rec.carrier, status: 'recommended', onTime: null, reason: rec.reason }];
+}
+
+/** REQ-INT-14: ALL_CLEAR orders awaiting approval, in inbox order (priority clients first), with their carrier choices. */
+export async function reviewQueue(repo: Repo): Promise<ReviewOrder[]> {
+  const out: ReviewOrder[] = [];
+  for (const e of await repo.listEmails()) {
+    if (e.status !== 'AWAITING_APPROVAL') continue;
+    const x = await repo.latestExtraction(e.id);
+    const rec = (x?.checks.carrier ?? null) as CarrierRecommendation | null;
+    if (!x || x.decision !== 'ALL_CLEAR' || !rec) continue;
+    const promise = x.checks.promise as PromiseResult | null;
+    const warehouse = x.checks.warehouse as WarehouseChoice | null;
+    const state = x.checks.address?.address?.state;
+    out.push({
+      id: e.id, from: e.from_addr, clientId: e.client_id, clientName: e.client_name, tier: e.account_tier, priority: e.priority,
+      receivedAt: e.received_at, items: x.extraction?.items ?? [], region: state ? regionOfState(state) : null,
+      promiseDate: promise?.promiseDate ?? null, warehouseId: warehouse?.warehouseId ?? null,
+      carrier: rec.carrier, carrierReason: rec.reason, choices: carrierChoices(rec), blocked: rec.blocked,
+    });
+  }
+  return out;
+}
+```
+
+- [x] **Step 4: Implement the actions.** Replace `backend/api/src/modules/intake/actions.ts` with:
+
+```ts
+import { allowList } from '../../core/config.js';
+import type { AuthUser, CarrierId, CarrierRecommendation } from '../../core/contracts.js';
+import type { GmailClient } from '../../core/gmail.js';
+import { restore } from '../../core/pii/redact.js';
+import { senderAddress, sendReply } from './mailbox.js';
+import type { Repo } from './repo.js';
+import { carrierChoices } from './review.js';
+
+export const ACTIONS = ['approve', 'reject', 'send_reply', 'send_to_wms'] as const;
+export type Action = (typeof ACTIONS)[number];
+export interface ActionResult { code: 200 | 400 | 403 | 404 | 409 | 503; status?: string; error?: string }
+export interface Outbox { gmail: Pick<GmailClient, 'sendMessage'> | null; allow: Set<string> }
+/** The Carriers module's override log (`logOverride` in modules/carriers/index.ts), the one writer of override_log. */
+export type OverrideLog = (o: { orderRef: string; from: string; to: string; reason: string; user: string }) => Promise<number>;
+/**
+ * `edited`: the operator's own reply text (send_reply). `reason`: why an order is rejected, or why its carrier changes.
+ * `carrier`: the supervisor's carrier for an ALL_CLEAR order (approve only). `overrides`: where that change is logged.
+ */
+export interface ActionOptions { edited?: string; reason?: string; carrier?: CarrierId; overrides?: OverrideLog }
+
+const MIN_REASON = 3;
+
+/**
+ * E8 / E18 / SEC-03 / SEC-04: nothing leaves without an operator's approval; replies go only to allow-listed addresses,
+ * and the names (PII tags) are put back into the reply only now, just before it is sent.
+ * A supervisor approves or rejects an ALL_CLEAR order (REQ-INT-14) and may pick another unblocked carrier on approve
+ * (REQ-INT-15); the change is logged through the Carriers module, with the approver as the user (AC-AUTH-14).
+ * `actor` is the signed-in person from the verified token (REQ-AUTH-07); their name and roles go in the audit payload.
+ */
+export async function applyAction(repo: Repo, id: number, action: Action, actor: string | AuthUser,
+  outbox: Outbox = { gmail: null, allow: allowList }, opts: ActionOptions = {}): Promise<ActionResult> {
+  const user = typeof actor === 'string' ? actor : actor.id;
+  const who = typeof actor === 'string' ? {} : { name: actor.name, roles: actor.roles };
+  const email = await repo.getEmail(id);
+  if (!email) return { code: 404, error: 'not found' };
+  const x = await repo.latestExtraction(id);
+  const reason = opts.reason?.trim() ?? '';
+
+  if (action === 'reject') {
+    if (email.status !== 'AWAITING_APPROVAL') return { code: 409, error: `cannot reject from ${email.status}` };
+    if (x?.decision !== 'ALL_CLEAR') return { code: 409, error: 'only ALL_CLEAR orders are rejected; other emails wait for the client' };
+    if (reason.length < MIN_REASON) return { code: 400, error: 'a rejection needs a reason' };
+    await repo.setStatus(id, 'REJECTED');
+    await repo.logApproval(id, 'reject', user, { ...who, reason });
+    return { code: 200, status: 'REJECTED' };
+  }
+
+  if (action === 'approve') {
+    if (email.status !== 'AWAITING_APPROVAL') return { code: 409, error: `cannot approve from ${email.status}` };
+    const rec = (x?.checks.carrier ?? null) as CarrierRecommendation | null;
+    if (opts.carrier && !rec) return { code: 409, error: 'only ALL_CLEAR orders have a carrier to change' };
+    const change = x && rec && opts.carrier && opts.carrier !== rec.carrier ? opts.carrier : null;
+    if (x && rec && change) {
+      if (!carrierChoices(rec).some((c) => c.carrier === change)) return { code: 409, error: `carrier ${change} is not offered on this lane` };
+      if (reason.length < MIN_REASON) return { code: 400, error: 'a carrier change needs a reason' };
+      if (!opts.overrides) return { code: 503, error: 'the carrier override log is not available' };
+      await opts.overrides({ orderRef: `email:${id}`, from: rec.carrier, to: change, reason, user });
+      await repo.saveExtraction({ email_id: id, extraction: x.extraction, decision: x.decision,
+        checks: { ...x.checks, carrier: { ...rec, carrier: change } }, reply_draft: x.reply_draft, reply_source: x.reply_source });
+    }
+    await repo.setStatus(id, 'APPROVED');
+    await repo.logApproval(id, 'approve', user, change && rec ? { ...who, carrier: change, from: rec.carrier, reason } : who);
+    return { code: 200, status: 'APPROVED' };
+  }
+
+  // After approval both can happen, in either order: an ALL_CLEAR order goes to the WMS and gets its confirmation.
+  // A REJECTED order is in neither list, so both are refused.
+  const ready = action === 'send_reply' ? ['APPROVED', 'ENTERED'] : ['APPROVED', 'SENT'];
+  if (!ready.includes(email.status)) return { code: 409, error: `${action} needs an approved email (status ${email.status})` };
+  if (action === 'send_reply') {
+    const to = senderAddress(email.from_addr);
+    if (!outbox.allow.has(to)) {
+      await repo.logOutbound(id, to, opts.edited ?? x?.reply_draft ?? '', 'refused');
+      return { code: 403, error: `${to} is not on the allow-list` };
+    }
+    if (!outbox.gmail) return { code: 503, error: 'Gmail is not set up (GMAIL_* in .env): reply not sent' };
+    const body = opts.edited ?? restore(x?.reply_draft ?? '', email.pii_map ?? {});
+    const gmailId = await sendReply(outbox.gmail,
+      { to, subject: email.subject, body, threadId: email.thread_id, inReplyTo: email.message_id }, outbox.allow);
+    await repo.logOutbound(id, to, body, 'sent', gmailId);
+    const status = email.status === 'ENTERED' ? 'ENTERED' : 'SENT';
+    await repo.setStatus(id, status);
+    await repo.logApproval(id, 'send_reply', user, who);
+    return { code: 200, status };
+  }
+  if (x?.decision !== 'ALL_CLEAR') return { code: 409, error: 'only ALL_CLEAR orders go to the WMS' };
+  await repo.setStatus(id, 'ENTERED');
+  await repo.logApproval(id, 'send_to_wms', user, who);
+  return { code: 200, status: 'ENTERED' };
+}
+```
+
+  Then update the two callers that passed the edited text as the 6th argument, in
+  `backend/api/test/intake/pipeline.test.ts` (test "sends the operator's edited reply…"): change both
+  `applyAction(mem.repo, id, 'send_reply', 'ops', { gmail, allow }, edited)` to
+  `applyAction(mem.repo, id, 'send_reply', 'ops', { gmail, allow }, { edited })`. In `repo.ts` change the `status`
+  comment of `EmailRow` to `// RECEIVED | WAITING | AWAITING_APPROVAL | APPROVED | SENT | ENTERED | REJECTED`.
+
+- [x] **Step 5: Run.** `npm --prefix backend/api test -- test/intake/review.test.ts test/intake/pipeline.test.ts`
+  Expected: PASS.
+
+- [x] **Step 6: Write the failing HTTP tests.** In `backend/api/test/routes/permissions.test.ts`, test
+  `REQ-AUTH-05: the matrix matches…`, add after the `GET /api/overview` line:
+  `expect(who('GET', '/api/intake/review')).toEqual(ROLES);`. Create `backend/api/test/routes/review.test.ts`:
+
+```ts
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { FastifyInstance } from 'fastify';
+import { pool, query } from '../../src/core/db/pool.js';
+import { setDeps } from '../../src/modules/intake/deps.js';
+import { buildApp } from '../../src/server.js';
+import { hasDb } from '../db.js';
+import { loadFixtures } from '../intake/fixtures.js';
+import { AUTH_ON, bearer } from '../token.js';
+
+interface Choice { carrier: string }
+interface Order { id: number; carrier: string; choices: Choice[]; blocked: string[] }
+
+// Fixture 02 (client004, WA, ALL_CLEAR) through the real chain: recorded PII/model/map answers, B's and C's real code.
+describe.skipIf(!hasDb)('order review over HTTP (needs test database)', () => {
+  let app: FastifyInstance;
+  const f = loadFixtures().find((x) => x.gold.id === '02')!;
+  const desk = () => bearer({ sub: 'u1', name: 'Una Desk', roles: ['order_desk'] });
+  const paste = async () => (await app.inject({ method: 'POST', url: '/api/intake/email', headers: await desk(),
+    payload: { from: f.gold.from, subject: f.subject, body: f.body, receivedAt: f.gold.received_at } })).json() as { id: number; decision: string };
+  const act = async (id: number, payload: object, headers?: Record<string, string>) =>
+    app.inject({ method: 'POST', url: `/api/intake/${id}/action`, headers: headers ?? await desk(), payload });
+  const review = async () => ((await app.inject({ method: 'GET', url: '/api/intake/review', headers: await desk() })).json() as { orders: Order[] }).orders;
+
+  // Email ids restart at 1 in every test, and override_log (C's table) keeps rows from earlier runs: read only newer rows.
+  let since = 0;
+  beforeAll(async () => { setDeps({ gmail: null }); app = await buildApp({ auth: AUTH_ON }); });
+  beforeEach(async () => {
+    await query('TRUNCATE intake_extractions, outbound_messages, intake_emails RESTART IDENTITY CASCADE');
+    since = (await query<{ m: number }>('SELECT coalesce(max(id), 0)::int AS m FROM override_log'))[0].m;
+  });
+  afterAll(async () => { await app.close(); await pool.end(); });
+
+  it('AC-INT-15, AC-AUTH-14: unblocked carriers only; order_desk approves another carrier, logged once with that user', async () => {
+    const r = await paste();
+    expect(r.decision).toBe('ALL_CLEAR');
+    const o = (await review()).find((x) => x.id === r.id)!;
+    const offered = o.choices.map((c) => c.carrier);
+    for (const b of o.blocked) expect(offered).not.toContain(b);
+    if (o.blocked[0]) expect((await act(r.id, { action: 'approve', carrier: o.blocked[0], reason: 'cheaper' })).statusCode).toBe(409);
+    const other = o.choices.find((c) => c.carrier !== o.carrier)!;
+    expect((await act(r.id, { action: 'approve', carrier: other.carrier, reason: 'client asked for this carrier' })).json())
+      .toEqual({ status: 'APPROVED' });
+    const rows = await query<{ from_carrier: string; to_carrier: string; user_name: string }>(
+      'SELECT from_carrier, to_carrier, user_name FROM override_log WHERE order_ref = $1 AND id > $2', [`email:${r.id}`, since]);
+    expect(rows).toEqual([{ from_carrier: o.carrier, to_carrier: other.carrier, user_name: 'u1' }]);
+    const d = (await app.inject({ method: 'GET', url: `/api/intake/${r.id}`, headers: await desk() })).json();
+    expect(d.checks.carrier.carrier).toBe(other.carrier);
+    expect((await review()).map((x) => x.id)).not.toContain(r.id);
+  });
+
+  it('AC-INT-14: reject with a reason sets REJECTED, audit_log has the reason and user, and the WMS refuses it', async () => {
+    const r = await paste();
+    expect((await act(r.id, { action: 'reject' })).statusCode).toBe(400);
+    expect((await act(r.id, { action: 'reject', reason: 'client cancelled by phone' })).json()).toEqual({ status: 'REJECTED' });
+    const [row] = await query<{ actor: string; reason: string }>(
+      "SELECT actor, payload->>'reason' AS reason FROM audit_log WHERE ref = $1 AND action = 'reject' ORDER BY id DESC LIMIT 1", [`email:${r.id}`]);
+    expect(row).toEqual({ actor: 'u1', reason: 'client cancelled by phone' });
+    const wms = await act(r.id, { action: 'send_to_wms' }, await bearer({ sub: 'w1', roles: ['warehouse_supervisor'] }));
+    expect(wms.statusCode).toBe(409);
+  });
+
+  it('REQ-AUTH-05: leadership cannot reject', async () => {
+    const r = await paste();
+    const lead = await bearer({ sub: 'boss', roles: ['leadership'] });
+    expect((await act(r.id, { action: 'reject', reason: 'no' }, lead)).statusCode).toBe(403);
+  });
+});
+```
+
+- [x] **Step 7: Run.** `npm --prefix backend/api test -- test/routes/permissions.test.ts test/routes/review.test.ts`
+  Expected: FAIL: `GET /api/intake/review` has no permission entry (and, with the database up, 404 on the route).
+
+- [x] **Step 8: Implement the routes.**
+
+1. `backend/api/src/modules/carriers/index.ts`: change the queries import to
+   `import { capacityLimits, insertOverride, laneRows, logRecommendation, usedToday } from './queries.js';` and add at the end:
+
+```ts
+/** REQ-CAR-06: the one writer of override_log, for other areas (the order review, E18). Same function as POST /api/overrides. */
+export const logOverride = insertOverride;
+```
+
+2. `backend/api/src/core/permissions.ts`: after `'GET /api/intake/:id': { roles: READ },` add
+   `'GET /api/intake/review': { roles: READ },`.
+3. `backend/api/src/modules/intake/routes.ts`:
+   - imports: add `import { logOverride } from '../carriers/index.js';` and `import { reviewQueue } from './review.js';`
+   - replace `ActionBody` with:
+
+```ts
+// `reply`: the operator's edited reply text (send_reply only); without it the stored draft is sent.
+// `reason`: why an order is rejected, or why its carrier changes. `carrier`: the supervisor's pick on approve (E18).
+// No `user`: the actor comes from the verified token (REQ-AUTH-07); an old client's `user` is ignored by the schema.
+const ActionBody = z.object({
+  action: z.enum(ACTIONS), reply: z.string().trim().min(1).max(5000).optional(),
+  reason: z.string().trim().min(1).max(500).optional(), carrier: z.enum(['A', 'B', 'C', 'D', 'E', 'F']).optional(),
+});
+```
+
+   - add, after the `GET /intake/:id` route:
+
+```ts
+  /** E18 / REQ-INT-14: ALL_CLEAR orders awaiting approval, priority clients first, with the unblocked carriers of each lane. */
+  app.get('/intake/review', async () => ({ orders: await reviewQueue(getDeps().repo) }));
+```
+
+   - in `POST /intake/:id/action`, replace the `applyAction(…)` call and the log line with:
+
+```ts
+    const result = await applyAction(deps.repo, Number(req.params.id), body.data.action, actorOf(req),
+      { gmail: deps.gmail, allow: allowList },
+      { edited: body.data.reply, reason: body.data.reason, carrier: body.data.carrier, overrides: logOverride });
+    req.log.info({ emailId: Number(req.params.id), action: body.data.action, carrier: body.data.carrier ?? null, code: result.code },
+      'intake action');
+```
+
+- [x] **Step 9: Run.** `npm --prefix backend/api test` and `npm run typecheck`
+  Expected: PASS (route tests skip without the test database; run them once with it up).
+
+- [x] **Step 10: Write the failing screen tests.** Create `frontend/components/dashboard/intake/OrderReview.test.tsx`:
+
+```tsx
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { asRole, mockApi, renderScreen } from '../test-utils';
+import { OrderReview } from './OrderReview';
+
+const order = { id: 8, from: 'orders@client025.example', clientId: 'C025', clientName: 'Client 25', tier: 'Tier 1', priority: true,
+  receivedAt: '2026-10-22 07:30', items: [{ sku: 'HX-616', qty: 45 }], region: 'Northeast', promiseDate: '2026-10-23', warehouseId: 'W4',
+  carrier: 'E', carrierReason: 'E: best on this lane', blocked: ['F'],
+  choices: [{ carrier: 'E', status: 'recommended', onTime: 0.9, reason: 'eligible' }, { carrier: 'A', status: 'backup', onTime: 0.88, reason: 'eligible' }] };
+const routes = { '/api/intake/review': { orders: [order] }, '/api/intake/8/action': { status: 'APPROVED' } };
+const bodies = (fetch: ReturnType<typeof mockApi>) => (fetch.mock.calls as unknown as [string, RequestInit][])
+  .filter(([url]) => url.endsWith('/action')).map(([, init]) => JSON.parse(String(init.body)));
+
+describe('Order review (E18)', () => {
+  afterEach(() => cleanup());
+
+  it('REQ-INT-15 (UI): offers only unblocked carriers and names the blocked ones', async () => {
+    mockApi(routes);
+    renderScreen(<OrderReview />, asRole('order_desk'));
+    const select = (await screen.findByLabelText('Carrier for order 8')) as HTMLSelectElement;
+    expect([...select.options].map((o) => o.value)).toEqual(['E', 'A']);
+    expect(screen.getByText(/Blocked on this lane, not offered: F/)).toBeTruthy();
+    expect(screen.getByText('Priority')).toBeTruthy();
+    expect(screen.getByText('Synthetic data')).toBeTruthy();
+  });
+
+  it('AC-INT-15, AC-AUTH-14 (UI): changing the carrier needs a reason, then approve sends carrier and reason, no user', async () => {
+    const fetch = mockApi(routes);
+    renderScreen(<OrderReview />, asRole('order_desk'));
+    fireEvent.change(await screen.findByLabelText('Carrier for order 8'), { target: { value: 'A' } });
+    const approve = screen.getByRole('button', { name: 'Approve' }) as HTMLButtonElement;
+    expect(approve.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Reason for order 8'), { target: { value: 'client asked for A' } });
+    fireEvent.click(approve);
+    await waitFor(() => expect(bodies(fetch)).toEqual([{ action: 'approve', carrier: 'A', reason: 'client asked for A' }]));
+  });
+
+  it('AC-INT-14 (UI): reject is enabled only with a reason and sends it', async () => {
+    const fetch = mockApi({ ...routes, '/api/intake/8/action': { status: 'REJECTED' } });
+    renderScreen(<OrderReview />, asRole('order_desk'));
+    const reject = (await screen.findByRole('button', { name: 'Reject' })) as HTMLButtonElement;
+    expect(reject.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Reason for order 8'), { target: { value: 'client cancelled' } });
+    fireEvent.click(reject);
+    await waitFor(() => expect(bodies(fetch)).toEqual([{ action: 'reject', reason: 'client cancelled' }]));
+    expect(await screen.findByText('Order 8: rejected.')).toBeTruthy();
+  });
+
+  it('AC-AUTH-10: leadership sees the queue but no Approve, Reject or carrier change', async () => {
+    mockApi(routes);
+    renderScreen(<OrderReview />, asRole('leadership'));
+    expect(((await screen.findByLabelText('Carrier for order 8')) as HTMLSelectElement).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reject' })).toBeNull();
+    expect(screen.queryByLabelText('Reason for order 8')).toBeNull();
+  });
+});
+```
+
+  And in `IntakeScreen.test.tsx`, inside `describe('Order emails', …)`:
+
+```tsx
+  it('E18: "Order review" in the rail opens the review in the reading pane', async () => {
+    mockApi({ '/api/intake': { emails: [item(34)] }, '/api/intake/34': detail(34), '/api/intake/review': { orders: [] } });
+    renderScreen(<IntakeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Order review' }));
+    expect(await screen.findByText('No all-clear orders are waiting for approval.')).toBeTruthy();
+  });
+```
+
+- [x] **Step 11: Run.** `npm --prefix frontend test -- components/dashboard/intake`
+  Expected: FAIL, cannot resolve `./OrderReview`.
+
+- [x] **Step 12: Implement the screen.** Create `frontend/components/dashboard/intake/OrderReview.tsx`:
+
+```tsx
+'use client';
+
+import { useState } from 'react';
+import { useCan } from '@/components/auth/UserContext';
+import { Pill, Status, SyntheticBadge } from '@/components/dashboard/ui';
+import { useApi } from '@/hooks/useApi';
+import { SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
+import s from './intake.module.css';
+
+export interface CarrierChoice { carrier: string; status: 'recommended' | 'backup' | 'eligible'; onTime: number | null; reason: string }
+export interface ReviewOrder {
+  id: number; from: string; clientId: string | null; clientName: string | null; tier: string | null; priority: boolean;
+  receivedAt: string; items: { sku: string; qty: number }[]; region: string | null; promiseDate: string | null;
+  warehouseId: string | null; carrier: string; carrierReason: string; choices: CarrierChoice[]; blocked: string[];
+}
+
+const pct = (x: number | null) => (x === null ? 'no lane data' : `${(x * 100).toFixed(1)}% on time`);
+const MIN_REASON = 3;
+
+/**
+ * E18 (SPEC §5.3 step 12, §5.7): ALL_CLEAR orders waiting for approval. Approve (optionally with another unblocked
+ * carrier and a reason) or reject with a reason. The reply and WMS entry stay on the thread view. Buttons follow the
+ * signed-in roles (SPEC-auth §4.3); the API refuses anyway.
+ */
+export function OrderReview({ onChange }: { onChange?: () => void }) {
+  const q = useApi<{ orders: ReviewOrder[] }>('/api/intake/review');
+  const canApprove = useCan('approve');
+  const canReject = useCan('reject');
+  const [pick, setPick] = useState<Record<number, string>>({});
+  const [reason, setReason] = useState<Record<number, string>>({});
+  const [busy, setBusy] = useState<number | null>(null);
+  const [note, setNote] = useState<{ text: string; bad: boolean; link?: string } | null>(null);
+
+  async function act(o: ReviewOrder, action: 'approve' | 'reject') {
+    const carrier = pick[o.id] ?? o.carrier;
+    const why = (reason[o.id] ?? '').trim();
+    const body = action === 'reject' ? { action, reason: why } : carrier !== o.carrier ? { action, carrier, reason: why } : { action };
+    setBusy(o.id);
+    try {
+      await postJSON<{ status: string }>(`/api/intake/${o.id}/action`, body);
+      setNote({ text: action === 'reject' ? `Order ${o.id}: rejected.` : `Order ${o.id}: approved with carrier ${carrier}.`, bad: false });
+      q.reload();
+      onChange?.();
+    } catch (e) {
+      // The typed reason stays in state, so nothing is lost when the session has ended (REQ-AUTH-11).
+      if (e instanceof SessionExpired) setNote({ text: SESSION_ENDED, bad: true, link: signInAgain('/dashboard/intake') });
+      else setNote({ text: e instanceof Error && e.message === 'forbidden' ? 'Your role cannot do this.' : 'Could not do that. Refresh and try again.', bad: true });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <section className={s.review} aria-label="Order review">
+      <header className={s.reviewHead}><h2>Order review</h2><SyntheticBadge /></header>
+      <p className={s.muted}>All-clear orders waiting for approval, priority clients first. Nothing reaches the WMS before approval.</p>
+      <Status loading={q.loading && !q.data} error={q.error} />
+      {q.data && q.data.orders.length === 0 && <p className={s.empty}>No all-clear orders are waiting for approval.</p>}
+      {q.data?.orders.map((o) => {
+        const chosen = pick[o.id] ?? o.carrier;
+        const why = (reason[o.id] ?? '').trim();
+        const changed = chosen !== o.carrier;
+        return (
+          <article key={o.id} className={`${s.card} ${s.reviewCard}`} aria-label={`Order ${o.id}`}>
+            <p>
+              <b>{o.clientName ?? o.clientId ?? o.from}</b>{o.tier && <> · {o.tier}</>}{' '}
+              {o.priority && <Pill tone="bad" title="Tier 1 or at-risk client: handled first">Priority</Pill>}
+              <span className={s.muted}> · email {o.id} · {o.receivedAt}</span>
+            </p>
+            <p>
+              {o.items.map((i) => `${i.qty} x ${i.sku}`).join(', ')} · {o.region ?? 'region not known'} · promise {o.promiseDate ?? '—'}
+              {' '}· warehouse {o.warehouseId ?? '—'}
+            </p>
+            <label className={s.field}><span>Carrier</span>
+              <select aria-label={`Carrier for order ${o.id}`} value={chosen} disabled={!canApprove}
+                onChange={(e) => setPick({ ...pick, [o.id]: e.target.value })}>
+                {o.choices.map((c) => <option key={c.carrier} value={c.carrier}>{c.carrier} · {c.status} · {pct(c.onTime)}</option>)}
+              </select>
+            </label>
+            <p className={s.muted}>{o.carrierReason}</p>
+            {o.blocked.length > 0 && <p className={s.muted}>Blocked on this lane, not offered: {o.blocked.join(', ')}</p>}
+            {(canApprove || canReject) && (
+              <label className={s.field}><span>Reason</span>
+                <input aria-label={`Reason for order ${o.id}`} value={reason[o.id] ?? ''}
+                  placeholder={changed ? 'Why this carrier (logged)' : 'Needed to reject'}
+                  onChange={(e) => setReason({ ...reason, [o.id]: e.target.value })} />
+              </label>
+            )}
+            <div className={s.buttons}>
+              {canReject && (
+                <button type="button" className={s.btn} disabled={busy !== null || why.length < MIN_REASON} onClick={() => act(o, 'reject')}>Reject</button>
+              )}
+              {canApprove && (
+                <button type="button" className={`${s.btn} ${s.btnPrimary}`} disabled={busy !== null || (changed && why.length < MIN_REASON)}
+                  onClick={() => act(o, 'approve')}>Approve</button>
+              )}
+            </div>
+          </article>
+        );
+      })}
+      {note && (
+        <p role="status" className={note.bad ? s.logBad : s.logOk}>{note.text}{note.link && <> <a href={note.link}>Sign in again</a></>}</p>
+      )}
+    </section>
+  );
+}
+```
+
+  Add to `frontend/components/dashboard/intake/intake.module.css`:
+
+```css
+/* Order review (E18): a scrolling column of order cards in the reading pane. */
+.review { display: flex; flex-direction: column; gap: 12px; padding: 16px; overflow-y: auto; min-width: 0; }
+.reviewHead { display: flex; align-items: center; gap: 10px; }
+.reviewHead h2 { margin: 0; font-size: 1.1rem; }
+.reviewCard { display: flex; flex-direction: column; gap: 8px; padding: 14px; }
+.reviewCard p { margin: 0; overflow-wrap: anywhere; }
+.reviewCard select, .reviewCard input { width: 100%; max-width: 100%; }
+```
+
+  In `IntakeScreen.tsx`:
+  1. `import { OrderReview } from './OrderReview';`
+  2. `const [pane, setPane] = useState<'email' | 'paste' | 'review'>('email');`
+  3. In `STATUS` add `REJECTED: 'Rejected'`; in `chip(e)`, after the `ENTERED` line add
+     `if (e.status === 'REJECTED') return { text: 'Rejected', tone: s.tBad };`
+  4. In the rail's Tools `<div className={s.folders}>`, before the paste button, add:
+
+```tsx
+            <button type="button" className={s.folder} aria-pressed={pane === 'review'} onClick={() => { setPane('review'); setMenu(false); setView('thread'); }}>
+              <Icon size={14}>{ICON.checkCircle}</Icon><span>Order review</span>
+            </button>
+```
+
+  5. In the reading section, replace `{pane === 'paste' ? (` with:
+
+```tsx
+          {pane === 'review' ? (
+            <div className={s.pasteWrap} key="review">
+              <button type="button" className={`${s.iconBtn} ${s.back}`} aria-label="Back to inbox" onClick={back}><Icon size={16}>{ICON.back}</Icon></button>
+              <OrderReview onChange={() => list.reload()} />
+            </div>
+          ) : pane === 'paste' ? (
+```
+
+- [x] **Step 13: Run.** `npm --prefix frontend test && npm run typecheck`
+  Expected: PASS. Then rehearse with `npm run dev:all`, signed in as the demo `order_desk`: paste fixture 02, open
+  "Order review", pick a different carrier with a reason, Approve; open the order's journey
+  (`/dashboard/journey?ref=email:<id>`) and see "changed X → Y by demo:…". Check 375 px width (REQ-UI-03). (A14 run: automated suites only; the browser rehearsal is left for the reviewer.)
+
+- [x] **Step 14: Contracts.** In `docs/CONTRACTS.md`:
+  - §2 table, carriers row: add `logOverride({ orderRef, from, to, reason, user }) → id` (the one writer of
+    `override_log`, used by A's order review).
+  - §6: add row `GET /api/intake/review` | A | `{ orders: [{ id, from, clientId, clientName, tier, priority, receivedAt,
+    items, region, promiseDate, warehouseId, carrier, carrierReason, choices: [{ carrier, status, onTime, reason }],
+    blocked }] }` — ALL_CLEAR orders awaiting approval, priority first; `choices` never holds a blocked carrier.
+  - §6 `POST /api/intake/:id/action`: body `{ action: "approve" | "reject" | "send_reply" | "send_to_wms", reply?,
+    reason?, carrier? }` → `{ status }`; `reject` needs `reason` (400) and only for an ALL_CLEAR order awaiting approval;
+    `approve` with a different `carrier` needs `reason`, refuses a blocked carrier (409) and logs `override_log` with the
+    signed-in user; actor from the token, never the body. `GET /api/intake` `status` adds `REJECTED`.
+
+- [x] **Step 15: Commit.**
+
+```bash
+git add backend/api/src/modules/intake backend/api/src/core/permissions.ts backend/api/src/modules/carriers/index.ts \
+  backend/api/test/intake/review.test.ts backend/api/test/intake/pipeline.test.ts backend/api/test/routes/review.test.ts \
+  backend/api/test/routes/permissions.test.ts frontend/components/dashboard/intake docs/CONTRACTS.md
+git commit -m "feat(a): order review: approve or reject ALL_CLEAR orders, change the carrier (E18, REQ-INT-14/15)"
+```
+
+  PR description names REQ-INT-14, REQ-INT-15, REQ-AUTH-05, REQ-AUTH-07 and asks the Carriers owner to review the
+  `logOverride` export.
+
+---
+
+### Task A15 (E12 screen, E14 escalation, poll emailIds)
+
+**Branch:** `A15-complaints-screen` · **REQ:** REQ-CMP-01, REQ-CMP-02, REQ-CMP-03, REQ-PRI-02, NFR-03 · **AC:** AC-CMP-01,
+AC-CMP-02, AC-CMP-03, AC-PRI-02 (ordering), AC-NFR-03 (poll part), AC-AUTH-10 (triage control) · **SPEC:** §5.10,
+§5.15, §8 NFR-03, SPEC-auth §4.2 (triage = `customer_support` + `admin`, already in `permissions.ts`)
+
+The triage agent and its routes exist (A10): `GET /api/complaints`, `POST /api/complaints/:id/triage`, `complaints.ts`.
+Missing: a screen; the list does not say which complaints escalate nor put them first (REQ-PRI-02); the latest saved
+triage is not returned, so a reload loses it; and the Gmail poll log line has counts only, so an email cannot be traced
+from the poll in App Insights (NFR-03).
+
+**Screen choice.** Complaints are not order emails (no thread, no reply to the client from the desk), so they get their
+own screen `/dashboard/complaints` (owner A) next to Order emails, rather than a desk mode. The complaint text is the
+real `complaints.csv` text (SD-03's synthetic emails are only the demo inbox files), so the panel shows no Synthetic badge;
+the draft is labelled "AI draft" or "template".
+
+**Files:**
+- Modify: `backend/api/src/modules/intake/complaints.ts` (`isPrePickup`, `SavedTriage`, `savedTriages`, `complaintQueue`)
+- Modify: `backend/api/src/modules/intake/routes.ts` (`GET /complaints` uses the queue; triage and fetch log lines)
+- Modify: `backend/api/src/modules/intake/poll.ts` (`pollLogFields`)
+- Create: `frontend/components/dashboard/complaints/ComplaintsScreen.tsx`, `frontend/app/dashboard/complaints/page.tsx`
+- Modify: `frontend/config/dashboard.ts` (shared: one nav entry), `frontend/lib/metrics.test.ts` (screen list)
+- Modify: `docs/CONTRACTS.md` §6 (`GET /api/complaints` row)
+- Test: `backend/api/test/intake/complaints.test.ts`, `backend/api/test/intake/poll.test.ts`,
+  `backend/api/test/routes/complaints.test.ts` (needs test database),
+  `frontend/components/dashboard/complaints/ComplaintsScreen.test.tsx` (new)
+
+**Interfaces:**
+- Consumes: `ComplaintRow`, `listComplaints()`, `triage()`, `saveTriage()` (A10); `isPriority`, `byPriority` (A7);
+  `PollOutcome` (`poll.ts`); `useCan('triage')`; `/dashboard/journey?ref=delivery:<id>` (C's journey screen).
+- Produces: `isPrePickup(stages: string[]): boolean`; `interface SavedTriage`; `savedTriages(): Promise<SavedTriage[]>`;
+  `complaintQueue(rows: ComplaintRow[], saved: SavedTriage[]): ComplaintItem[]` (priority first, stable);
+  `pollLogFields(r: PollOutcome)` with `emailIds: number[]`; `GET /api/complaints` →
+  `{ complaints: [{ complaintId, clientId, deliveryId, category, date, text, atRisk, tier, escalate,
+  triage: { stages, prePickup, escalate, draft, source, at } | null }] }`; screen `/dashboard/complaints`.
+
+- [x] **Step 1: Write the failing backend unit tests.** Append to `backend/api/test/intake/complaints.test.ts`
+  (and add `complaintQueue, isPrePickup` to its import from `complaints.js`):
+
+```ts
+describe('complaint queue (E12, E14)', () => {
+  const base = { complaint_date: '2026-07-03', channel: 'Email', category: 'Late', escalated_to_account_owner: 'N', text: 't' };
+  const rows = [
+    { ...base, complaint_id: 'CMP001', client_id: 'C010', delivery_id: 'D000001', at_risk: false, account_tier: 'Tier 3' },
+    { ...base, complaint_id: 'CMP002', client_id: 'C055', delivery_id: 'D000002', at_risk: true, account_tier: 'Tier 1' },
+    { ...base, complaint_id: 'CMP003', client_id: 'C020', delivery_id: 'D000003', at_risk: false, account_tier: 'Tier 2' },
+    { ...base, complaint_id: 'CMP004', client_id: 'C077', delivery_id: 'D000004', at_risk: true, account_tier: 'Tier 2' },
+  ];
+
+  it('REQ-PRI-02, AC-PRI-02: Tier 1 and at-risk complaints are flagged to escalate and come first, order kept', () => {
+    const q = complaintQueue(rows, []);
+    expect(q.map((c) => [c.complaintId, c.escalate])).toEqual([['CMP002', true], ['CMP004', true], ['CMP001', false], ['CMP003', false]]);
+  });
+
+  it('AC-CMP-01 (unit): the latest saved triage comes back with its stages and before-pickup flag', () => {
+    const q = complaintQueue(rows, [{ complaint_id: 'CMP002', stages: ['Intake'], escalate: true, draft: 'Sorry', draft_source: 'template', at: '2026-10-29 10:00' }]);
+    expect(q[0].triage).toEqual({ stages: ['Intake'], prePickup: true, escalate: true, draft: 'Sorry', source: 'template', at: '2026-10-29 10:00' });
+    expect(q[1].triage).toBeNull();
+    expect([isPrePickup(['Carrier']), isPrePickup(['Fulfilment', 'Carrier'])]).toEqual([false, true]);
+  });
+});
+```
+
+  Append to `backend/api/test/intake/poll.test.ts` (add `pollLogFields` to its import from `poll.js`), inside
+  `describe('Gmail poll (E15)', …)`:
+
+```ts
+  it('NFR-03: the poll log line names every email it stored or retried', async () => {
+    const { deps } = setup();
+    const r = await runPoll(deps, 'button', { nowMs: NOW });
+    expect(pollLogFields(r!)).toEqual({ pollId: 1, fetched: 2, processed: 2, retried: 0, failed: 0, ok: true, error: null, emailIds: [1, 2] });
+  });
+```
+
+- [x] **Step 2: Run.** `npm --prefix backend/api test -- test/intake/complaints.test.ts test/intake/poll.test.ts`
+  Expected: FAIL, `complaintQueue` / `pollLogFields` is not exported.
+
+- [x] **Step 3: Implement.** In `backend/api/src/modules/intake/complaints.ts`:
+  1. Change the priority import to `import { byPriority, isPriority } from './priority.js';`
+  2. After `const PRE_PICKUP = …`, add:
+
+```ts
+/** AC-CMP-01: a cause before pickup is one at the Intake, Promise or Fulfilment stage. */
+export const isPrePickup = (stages: string[]): boolean => stages.some((s) => PRE_PICKUP.has(s));
+
+/** The latest complaint_triage row of a complaint. */
+export interface SavedTriage {
+  complaint_id: string; stages: string[]; escalate: boolean; draft: string; draft_source: 'model' | 'template'; at: string;
+}
+
+/**
+ * E12 + E14 (REQ-CMP-03, REQ-PRI-02): every complaint with its escalation flag (Tier 1 or at-risk client) and its
+ * latest triage; escalations first, otherwise in the given order.
+ */
+export function complaintQueue(rows: ComplaintRow[], saved: SavedTriage[]) {
+  const last = new Map(saved.map((t) => [t.complaint_id, t]));
+  const items = rows.map((c) => {
+    const t = last.get(c.complaint_id);
+    return {
+      complaintId: c.complaint_id, clientId: c.client_id, deliveryId: c.delivery_id, category: c.category,
+      date: c.complaint_date, text: c.text, atRisk: c.at_risk, tier: c.account_tier, escalate: isPriority(c.account_tier, c.at_risk),
+      triage: t ? { stages: t.stages, prePickup: isPrePickup(t.stages), escalate: t.escalate, draft: t.draft, source: t.draft_source, at: t.at } : null,
+    };
+  });
+  return byPriority(items, (c) => c.escalate);
+}
+export type ComplaintItem = ReturnType<typeof complaintQueue>[number];
+
+export const savedTriages = () => query<SavedTriage>(
+  `SELECT DISTINCT ON (complaint_id) complaint_id, stages, escalate, draft, draft_source,
+          to_char(created_at, 'YYYY-MM-DD HH24:MI') AS at
+     FROM complaint_triage ORDER BY complaint_id, id DESC`, []);
+```
+
+  3. In `triage()`, replace `prePickup: stages.some((s) => PRE_PICKUP.has(s))` with `prePickup: isPrePickup(stages)`.
+
+  In `backend/api/src/modules/intake/poll.ts`, after `interface PollOutcome`, add:
+
+```ts
+/** NFR-03: the fields of a poll's log line, with the id of every email it stored or retried, so one email is traceable. */
+export function pollLogFields(r: PollOutcome) {
+  return { pollId: r.pollId, fetched: r.fetched, processed: r.processed, retried: r.retried, failed: r.failed, ok: r.ok,
+    error: r.error, emailIds: r.results.map((x) => x.id) };
+}
+```
+
+  and in `startIntakePolling` replace the `else log.info({ pollId: r.pollId, … }, 'gmail poll done');` statement with
+  `else log.info(pollLogFields(r), 'gmail poll done');`.
+
+  In `backend/api/src/modules/intake/routes.ts`:
+  - imports: `import { complaintQueue, listComplaints, savedTriages, saveTriage, triage } from './complaints.js';` and
+    `import { POLL_MAX, pollLogFields, runPoll } from './poll.js';`
+  - `POST /intake/fetch`: replace its `req.log.info({ pollId: r.pollId, … }, 'intake fetched from Gmail');` with
+    `req.log.info(pollLogFields(r), 'intake fetched from Gmail');`
+  - replace the `GET /complaints` handler with:
+
+```ts
+  // E12 + E14: escalations (Tier 1 or at-risk clients) first, each with its latest saved triage.
+  app.get('/complaints', async () => ({ complaints: complaintQueue(await listComplaints(), await savedTriages()) }));
+```
+
+  - in `POST /complaints/:id/triage`, change the audit call's payload to
+    `{ name: who.name, roles: who.roles, escalate: t.escalate }` and add before `return t;`:
+    `req.log.info({ complaintId: row.complaint_id, deliveryId: t.deliveryId, escalate: t.escalate, source: t.source }, 'complaint triaged');`
+
+- [x] **Step 4: Run.** `npm --prefix backend/api test -- test/intake/complaints.test.ts test/intake/poll.test.ts`
+  Expected: PASS.
+
+- [x] **Step 5: Extend the database test.** In `backend/api/test/routes/complaints.test.ts`, add after the existing `it`:
+
+```ts
+  it('AC-CMP-03, REQ-PRI-02: the list flags the 24 Tier 1 or at-risk complaints first, and returns each saved triage', async () => {
+    const { complaints } = (await app.inject({ method: 'GET', url: '/api/complaints' })).json() as
+      { complaints: { escalate: boolean; triage: { prePickup: boolean } | null }[] };
+    const flags = complaints.map((c) => c.escalate);
+    expect(flags.filter(Boolean)).toHaveLength(24);
+    expect(flags.slice(0, 24).every(Boolean)).toBe(true);
+    expect(complaints.every((c) => c.triage !== null)).toBe(true); // the test above triaged all 34
+    expect(complaints.filter((c) => c.triage?.prePickup)).toHaveLength(28);
+  });
+```
+
+  Run with the test database up: `npm --prefix backend/api test -- test/routes/complaints.test.ts`. Expected: PASS.
+
+- [x] **Step 6: Write the failing screen test.** Create `frontend/components/dashboard/complaints/ComplaintsScreen.test.tsx`:
+
+```tsx
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { asRole, mockApi, renderScreen } from '../test-utils';
+import { ComplaintsScreen } from './ComplaintsScreen';
+
+const c = (id: string, over: object = {}) => ({ complaintId: id, clientId: 'C055', deliveryId: 'D023590', category: 'Redelivery needed',
+  date: '2026-07-03', text: 'It did not arrive.', atRisk: true, tier: 'Tier 1', escalate: true, triage: null, ...over });
+const triaged = { complaintId: 'CMP001', deliveryId: 'D023590', stages: ['Intake'], prePickup: true, escalate: true,
+  draft: 'We checked delivery D023590: the delivery address was incomplete when the order arrived.', source: 'template' };
+const routes = {
+  '/api/complaints': { complaints: [c('CMP001'), c('CMP002', { clientId: 'C010', tier: 'Tier 3', atRisk: false, escalate: false })] },
+  '/api/complaints/CMP001/triage': triaged,
+};
+
+describe('Complaints (E12, E14)', () => {
+  afterEach(() => cleanup());
+
+  it('REQ-PRI-02 (UI): flags escalations and counts them', async () => {
+    mockApi(routes);
+    renderScreen(<ComplaintsScreen />);
+    expect(await screen.findByText('1 of 2 escalate')).toBeTruthy();
+    expect(screen.getAllByText('Escalate')).toHaveLength(1);
+  });
+
+  it('AC-CMP-02 (UI): customer support triages a complaint and sees the cause and the draft', async () => {
+    const fetch = mockApi(routes);
+    renderScreen(<ComplaintsScreen />, asRole('customer_support'));
+    fireEvent.click(await screen.findByRole('button', { name: 'CMP001' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Triage' }));
+    expect(await screen.findByText(/address was incomplete/)).toBeTruthy();
+    expect(screen.getByText(/cause before pickup/)).toBeTruthy();
+    await waitFor(() => expect((fetch.mock.calls as unknown as [string, RequestInit][])
+      .some(([url, init]) => url === '/api/complaints/CMP001/triage' && init?.method === 'POST')).toBe(true));
+  });
+
+  it('AC-AUTH-10: leadership and the order desk see no Triage button', async () => {
+    for (const role of ['leadership', 'order_desk'] as const) {
+      mockApi(routes);
+      renderScreen(<ComplaintsScreen />, asRole(role));
+      fireEvent.click(await screen.findByRole('button', { name: 'CMP001' }));
+      expect(screen.queryByRole('button', { name: 'Triage' }), role).toBeNull();
+      cleanup();
+    }
+  });
+});
+```
+
+  In `frontend/lib/metrics.test.ts`, test `lists the six screens under /dashboard`: rename to `lists the seven screens
+  under /dashboard` and insert `'/dashboard/complaints'` after `'/dashboard/intake'` in the expected list.
+
+- [x] **Step 7: Run.** `npm --prefix frontend test -- components/dashboard/complaints lib/metrics.test.ts`
+  Expected: FAIL, cannot resolve `./ComplaintsScreen`, and the screen list differs.
+
+- [x] **Step 8: Implement the screen.** Create `frontend/components/dashboard/complaints/ComplaintsScreen.tsx`:
+
+```tsx
+'use client';
+
+import { useState } from 'react';
+import { useCan } from '@/components/auth/UserContext';
+import { Pill, ScreenHead, Section, Status, Table, ui } from '@/components/dashboard/ui';
+import { useApi } from '@/hooks/useApi';
+import { SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
+
+export interface Triage { stages: string[]; prePickup: boolean; escalate: boolean; draft: string; source: 'model' | 'template'; at?: string }
+export interface Complaint {
+  complaintId: string; clientId: string; deliveryId: string; category: string; date: string; text: string;
+  atRisk: boolean; tier: string; escalate: boolean; triage: Triage | null;
+}
+
+/**
+ * E12 + E14 (SPEC §5.10, §5.15): the 34 complaints from complaints.csv, Tier 1 and at-risk clients first and marked
+ * Escalate. Triage links each to its delivery's causes and drafts a response from those facts only. The Triage button
+ * shows for customer_support and admin (SPEC-auth §4.2); the API refuses anyone else.
+ */
+export function ComplaintsScreen() {
+  const list = useApi<{ complaints: Complaint[] }>('/api/complaints');
+  const canTriage = useCan('triage');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [fresh, setFresh] = useState<Record<string, Triage>>({});
+  const [note, setNote] = useState<{ text: string; link?: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const rows = list.data?.complaints ?? [];
+  const c = rows.find((x) => x.complaintId === selected) ?? null;
+  const t = c ? fresh[c.complaintId] ?? c.triage : null;
+  const escalating = rows.filter((x) => x.escalate).length;
+
+  async function runTriage(id: string) {
+    setBusy(true);
+    try {
+      const r = await postJSON<Triage>(`/api/complaints/${id}/triage`, {});
+      setFresh({ ...fresh, [id]: r });
+      setNote({ text: `Complaint ${id} triaged${r.escalate ? ' and flagged to escalate' : ''}.` });
+      list.reload();
+    } catch (e) {
+      if (e instanceof SessionExpired) setNote({ text: SESSION_ENDED, link: signInAgain('/dashboard/complaints') });
+      else setNote({ text: e instanceof Error && e.message === 'forbidden' ? 'Your role cannot do this.' : 'Could not triage. Refresh and try again.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <ScreenHead title="Complaints" />
+      <div className={ui.grid2}>
+        <Section title="Complaints" badge={list.data && <Pill>{escalating} of {rows.length} escalate</Pill>}>
+          <p className={ui.lede}>From complaints.csv. Tier 1 and at-risk clients first, marked Escalate.</p>
+          <Status loading={list.loading} error={list.error} skeleton="rows" />
+          {list.data && (
+            <Table rows={rows} columns={[
+              { key: 'id', label: 'Complaint', render: (x) => (
+                <button type="button" className={ui.button} aria-pressed={x.complaintId === selected} onClick={() => setSelected(x.complaintId)}>{x.complaintId}</button>) },
+              { key: 'client', label: 'Client', render: (x) => (
+                <>{x.clientId} · {x.tier} {x.escalate && <Pill tone="bad" title="Tier 1 or at-risk client: the account owner follows up">Escalate</Pill>}</>) },
+              { key: 'cat', label: 'Category', render: (x) => x.category },
+              { key: 'del', label: 'Delivery', render: (x) => x.deliveryId },
+              { key: 'tri', label: 'Triage', render: (x) => ((fresh[x.complaintId] ?? x.triage) ? 'Done' : '—') },
+            ]} />
+          )}
+        </Section>
+        <Section title={c ? `Complaint ${c.complaintId}` : 'Select a complaint'}>
+          {c && (
+            <>
+              <p>{c.date} · {c.category} · delivery <a href={`/dashboard/journey?ref=delivery:${c.deliveryId}`}>{c.deliveryId}</a></p>
+              <pre className={ui.pre}>{c.text}</pre>
+              {c.escalate && <p>{c.tier}{c.atRisk ? ', threatening to leave' : ''}: escalate to the account owner.</p>}
+              {t ? (
+                <>
+                  <h3>Cause found</h3>
+                  <p>Stages: {t.stages.join(', ') || 'none found'} · {t.prePickup ? 'cause before pickup' : 'no cause before pickup'}</p>
+                  <h3>Draft response <span className={ui.lede}>({t.source === 'model' ? 'AI draft' : 'template'})</span></h3>
+                  <pre className={ui.pre}>{t.draft}</pre>
+                </>
+              ) : <p className={ui.lede}>Not triaged yet.</p>}
+              {canTriage && (
+                <button type="button" className={`${ui.button} ${ui.primary}`} disabled={busy} onClick={() => runTriage(c.complaintId)}>
+                  {t ? 'Triage again' : 'Triage'}
+                </button>
+              )}
+            </>
+          )}
+          {note && <p role="status" className={ui.lede}>{note.text}{note.link && <> <a href={note.link}>Sign in again</a></>}</p>}
+        </Section>
+      </div>
+    </>
+  );
+}
+```
+
+  Note: the escalation text in the detail panel is a sentence, so `getAllByText('Escalate')` in the test matches only
+  the pill. Create `frontend/app/dashboard/complaints/page.tsx`:
+
+```tsx
+import type { Metadata } from 'next';
+import { ComplaintsScreen } from '@/components/dashboard/complaints/ComplaintsScreen';
+
+export const metadata: Metadata = { title: 'Complaints' };
+
+export default function Page() {
+  return <ComplaintsScreen />;
+}
+```
+
+  In `frontend/config/dashboard.ts` insert after the Order emails entry:
+  `{ href: '/dashboard/complaints', label: 'Complaints', owner: 'A' },`
+
+- [x] **Step 9: Run.** `npm --prefix frontend test && npm run typecheck`
+  Expected: PASS. Rehearse with `npm run dev:all` as the demo `customer_support`: open Complaints, the first rows carry
+  Escalate, triage one, reload the page and the draft is still there (saved triage). Check 375 px width (REQ-UI-03).
+
+- [x] **Step 10: Contract.** In `docs/CONTRACTS.md` §6, replace the `GET /api/complaints` row's shape with
+  `{ complaints: [{ complaintId, clientId, deliveryId, category, date, text, atRisk, tier, escalate, triage: { stages,
+  prePickup, escalate, draft, source, at } | null }] }` — escalations (Tier 1 or at-risk) first, then complaint id order;
+  `triage` is the latest saved one. Add to the `POST /api/intake/fetch` row: the log line `intake fetched from Gmail`
+  (and the timer's `gmail poll done`) carries `emailIds` (NFR-03).
+
+- [x] **Step 11: Commit.**
+
+```bash
+git add backend/api/src/modules/intake backend/api/test/intake/complaints.test.ts backend/api/test/intake/poll.test.ts \
+  backend/api/test/routes/complaints.test.ts frontend/components/dashboard/complaints frontend/app/dashboard/complaints \
+  frontend/config/dashboard.ts frontend/lib/metrics.test.ts docs/CONTRACTS.md
+git commit -m "feat(a): complaints screen, escalation first, poll log names its emails (E12, E14, NFR-03)"
+```

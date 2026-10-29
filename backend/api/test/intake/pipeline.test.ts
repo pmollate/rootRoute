@@ -7,6 +7,7 @@ import { applyAction } from '../../src/modules/intake/actions.js';
 import { type Deps, mergeExtraction, processEmail } from '../../src/modules/intake/pipeline.js';
 import type { Extraction } from '../../src/modules/intake/schema.js';
 import { checkPromise } from '../../src/modules/warehouse/domain.js';
+import { loadFixtures } from './fixtures.js';
 import { memoryRepo } from './memoryRepo.js';
 
 const C190 = { client_id: 'C190', client_name: 'Client 190', sla_penalty_clause: 'Y', region: 'Southeast', account_tier: 'Tier 1', account_status: 'threatening_to_leave' };
@@ -118,10 +119,24 @@ describe('intake pipeline', () => {
     expect(mem.emails).toHaveLength(2);
   });
 
-  it('unknown sender is MISSING_INFO', async () => {
-    const mem = memoryRepo({}, []);
-    const r = await processEmail({ from: 'x@unknown.example', subject: 's', body: 'b', receivedAt: '2026-10-21 09:00' }, deps(mem, fakeLLM(FIRST)));
-    expect(r.decision).toBe('MISSING_INFO');
+  it('AC-INT-10: fixture 50 (unknown domain) is MISSING_INFO with no PII call, no model call and no reply', async () => {
+    const f = loadFixtures().find((x) => x.gold.id === '50')!;
+    const mem = memoryRepo({ 'client190.example': C190 }, SAVED);
+    let piiCalls = 0;
+    const spyPii: PiiDetector = { name: 'spy-pii', detect: async () => { piiCalls += 1; return []; } };
+    const llm = { name: 'spy-llm', calls: 0,
+      json: async () => { llm.calls += 1; return FULL as never; },
+      text: async () => { llm.calls += 1; return 'model text'; } };
+    const r = await processEmail({ from: f.gold.from, subject: f.subject, body: f.body, receivedAt: f.gold.received_at },
+      deps(mem, llm, { pii: spyPii }));
+    expect(r).toMatchObject({ status: 'AWAITING_APPROVAL', decision: 'MISSING_INFO', reason: 'unknown sender' });
+    expect([piiCalls, llm.calls]).toEqual([0, 0]);
+    expect(mem.emails[0]).toMatchObject({ client_id: null, redacted_body: null, pii_map: null });
+    expect(mem.extractions).toHaveLength(1);
+    expect(mem.extractions[0]).toMatchObject({ extraction: null, decision: 'MISSING_INFO', reply_source: 'template',
+      checks: { address: null, promise: null, warehouse: null, carrier: null } });
+    expect(mem.outbound).toEqual([]);
+    expect(mem.audit).toEqual([]);
   });
 
   it('fails closed: if redaction is down the email waits, the model is not called, and a retry processes it', async () => {
@@ -198,9 +213,9 @@ describe('actions', () => {
     const { mem, id } = await awaiting('orders@client190.example');
     const { sent, gmail } = fakeGmail();
     const edited = 'Hello Dana,\nConfirmed: your order ships Friday.';
-    expect(await applyAction(mem.repo, id, 'send_reply', 'ops', { gmail, allow }, edited)).toMatchObject({ code: 409 });
+    expect(await applyAction(mem.repo, id, 'send_reply', 'ops', { gmail, allow }, { edited })).toMatchObject({ code: 409 });
     await applyAction(mem.repo, id, 'approve', 'ops');
-    expect(await applyAction(mem.repo, id, 'send_reply', 'ops', { gmail, allow }, edited)).toMatchObject({ code: 200, status: 'SENT' });
+    expect(await applyAction(mem.repo, id, 'send_reply', 'ops', { gmail, allow }, { edited })).toMatchObject({ code: 200, status: 'SENT' });
     expect(sent[0].raw).toContain('Confirmed: your order ships Friday.');
     expect(sent[0].raw).not.toContain('Hello Dana Whitfield,');
     expect(mem.outbound[0]).toMatchObject({ status: 'sent', body: edited });
