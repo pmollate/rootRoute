@@ -133,6 +133,16 @@
   text-decoration: none;
 }
 
+/* a group heading above a run of items (the dashboard's Dashboard reports) */
+.group {
+  margin: 12px 12px 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
 .item svg {
   flex: none;
   color: var(--ink-2);

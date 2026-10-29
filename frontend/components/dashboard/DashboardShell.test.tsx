@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DashboardShell } from './DashboardShell';
 import { asRole } from './test-utils';
@@ -8,28 +8,48 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/overview', us
 // jsdom has no matchMedia; the theme toggle asks it for the system theme.
 vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }));
 
-/** The links of the bar and of the phone drawer, which must match. */
-const links = () => {
-  const [bar, ...rest] = screen.getAllByRole('navigation', { name: 'Dashboard', hidden: true })
-    .map((nav) => within(nav).getAllByRole('link', { hidden: true }).map((a) => a.textContent));
-  for (const other of rest) expect(other).toEqual(bar);
-  return bar;
+const navs = () => screen.getAllByRole('navigation', { name: 'Dashboard', hidden: true });
+const texts = (el: HTMLElement) => within(el).queryAllByRole('link', { hidden: true }).map((a) => a.textContent);
+/** The bar's own links (Orders, Labs, Settings), with the Dashboard menu closed. */
+const bar = () => texts(navs()[0]);
+/** The Dashboard menu's reports, once opened. */
+const reports = () => {
+  const button = screen.getByRole('button', { name: 'Dashboard' });
+  fireEvent.click(button);
+  return texts(document.getElementById(button.getAttribute('aria-controls')!)!);
 };
+/** The phone drawer: every destination in bar order. */
+const drawer = () => texts(navs()[1]);
 
-describe('dashboard navigation (REQ-AUTH-15)', () => {
+describe('dashboard navigation (master nav, REQ-AUTH-15)', () => {
   afterEach(cleanup);
-  it('AC-AUTH-15: the bar lists only the screens the role may open', () => {
-    render(<DashboardShell user={asRole('order_desk')}>x</DashboardShell>);
-    expect(links()).toEqual(['Overview', 'Order emails', 'Order journey']);
-  });
 
-  it('AC-AUTH-15: leadership sees the analytical screens, not the email or complaint queues', () => {
-    render(<DashboardShell user={asRole('leadership')}>x</DashboardShell>);
-    expect(links()).toEqual(['Overview', 'Warehouses', 'Carriers', 'Order journey', 'Replay']);
-  });
-
-  it('with nobody signed in (AUTH_REQUIRED=off) every screen shows, as before', () => {
+  it('Orders, a Dashboard menu of the reports, Labs and Settings; the drawer lists the same, in order', () => {
     render(<DashboardShell>x</DashboardShell>);
-    expect(links()).toHaveLength(7);
+    expect(bar()).toEqual(['Orders', 'Labs', 'Settings']);
+    expect(reports()).toEqual(['Overview', 'Complaints', 'Warehouses', 'Carriers', 'Order journey', 'Replay']);
+    expect(drawer()).toEqual(['Orders', 'Overview', 'Complaints', 'Warehouses', 'Carriers', 'Order journey', 'Replay', 'Labs', 'Settings']);
+  });
+
+  it('AC-AUTH-15: the order desk sees Orders and only its reports', () => {
+    render(<DashboardShell user={asRole('order_desk')}>x</DashboardShell>);
+    expect(bar()).toEqual(['Orders', 'Labs', 'Settings']);
+    expect(reports()).toEqual(['Overview', 'Order journey']);
+  });
+
+  it('AC-AUTH-15: leadership has no Orders, and the analytical reports', () => {
+    render(<DashboardShell user={asRole('leadership')}>x</DashboardShell>);
+    expect(bar()).toEqual(['Labs', 'Settings']);
+    expect(reports()).toEqual(['Overview', 'Warehouses', 'Carriers', 'Order journey', 'Replay']);
+  });
+
+  it('the Dashboard menu reads as current on a report screen and marks that screen', () => {
+    render(<DashboardShell>x</DashboardShell>);
+    const button = screen.getByRole('button', { name: 'Dashboard' });
+    expect(button.dataset.current).toBe('true');
+    fireEvent.click(button);
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    const menu = document.getElementById(button.getAttribute('aria-controls')!)!;
+    expect(within(menu).getByRole('link', { name: 'Overview' }).getAttribute('aria-current')).toBe('page');
   });
 });

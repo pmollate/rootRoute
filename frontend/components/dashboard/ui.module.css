@@ -84,3 +84,7 @@
   .table th, .table td { padding: 10px 8px; }
   .callout { padding: 18px; }
 }
+/* Label / value pairs (Settings): labels in a narrow column, values beside them */
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 10px 24px; margin: 0; font-size: 0.9rem; }
+.facts dt { color: var(--ink-2); }
+.facts dd { margin: 0; font-weight: 600; }
