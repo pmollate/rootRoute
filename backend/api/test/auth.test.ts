@@ -126,6 +126,13 @@ describe('AUTH_REQUIRED=off (the default)', () => {
     expect(denied.map((l) => [l.route, l.status])).toEqual([['POST /api/alerts/run', 401], ['POST /api/alerts/run', 401]]);
   });
 
+  it('NS-02: recommend and triage need the x-api-key too (they call the model or write a row)', async () => {
+    const a = await app();
+    for (const url of ['/api/recommend', '/api/complaints/CMP001/triage']) {
+      expect((await a.inject({ method: 'POST', url, payload: {} })).statusCode).toBe(401);
+    }
+  });
+
   it('AC-AUTH-13: CORS stays on as before', async () => {
     const a = await app();
     const r = await a.inject({ method: 'GET', url: '/api/health', headers: { origin: 'http://localhost:3000' } });

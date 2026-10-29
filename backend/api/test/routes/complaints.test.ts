@@ -15,7 +15,7 @@ describe.skipIf(!hasDb)('complaint routes (needs test database)', () => {
     let prePickup = 0;
     let escalated = 0;
     for (const c of complaints) {
-      const t = (await app.inject({ method: 'POST', url: `/api/complaints/${c.complaintId}/triage` })).json();
+      const t = (await app.inject({ method: 'POST', url: `/api/complaints/${c.complaintId}/triage`, headers: { 'x-api-key': 'test-key' } })).json();
       expect(t.deliveryId).toMatch(/^D\d{6}$/);
       prePickup += Number(t.prePickup);
       escalated += Number(t.escalate);
