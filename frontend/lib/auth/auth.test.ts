@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { RateLimiter, checkDemo, parseDemoUsers } from './demo';
 import { signInternalToken } from './internalToken';
 import { proxy, type ProxySettings } from './proxy';
-import { PAGE_ROLES, ROLES, can, canOpen, toRoles } from './roles';
+import { can, toRoles } from './roles';
 import { safeReturnPath } from './safeNext';
 import { checkWebAuthEnv } from './startup';
 
@@ -38,25 +38,6 @@ describe('roles (SPEC-auth §4.1, §4.3)', () => {
     expect(can(['customer_support'], 'triage')).toBe(true);
     expect(can(['admin'], 'paste')).toBe(true);
     expect(can(null, 'approve')).toBe(true);
-  });
-});
-
-describe('page access (SPEC-auth §4.4)', () => {
-  it('AC-AUTH-15: each role opens only the screens in its page matrix; admin opens all; no session hides nothing', () => {
-    const opens = (role: (typeof ROLES)[number]) => Object.keys(PAGE_ROLES).filter((p) => canOpen([role], p)).map((p) => p.slice(11));
-    expect(opens('order_desk')).toEqual(['overview', 'intake', 'journey']);
-    expect(opens('warehouse_supervisor')).toEqual(['overview', 'intake', 'warehouses', 'journey', 'replay']);
-    expect(opens('carrier_manager')).toEqual(['overview', 'carriers', 'journey', 'replay']);
-    expect(opens('customer_support')).toEqual(['overview', 'complaints', 'journey']);
-    expect(opens('leadership')).toEqual(['overview', 'warehouses', 'carriers', 'journey', 'replay']);
-    expect(opens('admin')).toEqual(Object.keys(PAGE_ROLES).map((p) => p.slice(11)));
-    expect(canOpen(null, '/dashboard/complaints')).toBe(true);
-  });
-
-  it('AC-AUTH-15: sub-paths follow their screen; pages that are not a screen are open to any role', () => {
-    expect(canOpen(['order_desk'], '/dashboard/carriers/x')).toBe(false);
-    expect(canOpen(['order_desk'], '/dashboard/carriersx')).toBe(true); // not a screen: 404s on its own
-    for (const p of ['/', '/dashboard', '/dashboard/forbidden']) expect(canOpen(['order_desk'], p), p).toBe(true);
   });
 });
 

@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
-import { useCanOpen } from '@/components/auth/UserContext';
 import { PageHero } from '@/components/dashboard/PageHero';
 import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
@@ -114,7 +113,6 @@ interface AssistantProps {
 /** Recommendations as a conversation. Answers are worked out from the same replay and attribution figures as the rest of the page. */
 function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, loading, error }: AssistantProps) {
   const [picked, setPicked] = useState(0);
-  const carriersOpen = useCanOpen('/dashboard/carriers');
   const [asked, setAsked] = useState<string[]>([]);
   /** The assistant is a side popup behind a floating icon. */
   const [open, setOpen] = useState(false);
@@ -136,7 +134,7 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
     if (/carrier|friday|lane/i.test(q)) {
       const lane = steps.find((x) => x.cause === 'f_lane');
       return <p>Carrier D on Fridays is a capacity problem on specific lanes and costs {lane ? points(lane.pointsLost) : '—'} points of on-time.
-        The lane-by-lane view is on {carriersOpen ? <Link href="/dashboard/carriers">Lanes &amp; carriers</Link> : 'Lanes & carriers'}.</p>;
+        The lane-by-lane view is on <Link href="/dashboard/carriers">Lanes &amp; carriers</Link>.</p>;
     }
     if (/last|close|gap|target|95/i.test(q) && final != null && ceiling != null) {
       return <p>At expected adoption the fixes reach {pct(final)}, {points(Math.max(0, TARGET - final))} points short of {pct(TARGET, 0)}.

@@ -11,7 +11,7 @@ import { BrandMark } from '@/components/ui/BrandMark';
 import h from '@/components/layout/SiteHeader.module.css';
 import { BRAND } from '@/config/copy';
 import { SCREENS } from '@/config/dashboard';
-import { canOpen, type SessionUser } from '@/lib/auth/roles';
+import type { SessionUser } from '@/lib/auth/roles';
 import { Pill } from './ui';
 import s from './shell.module.css';
 
@@ -35,9 +35,7 @@ const Icon = ({ children }: { children: ReactNode }) => (
  */
 export function DashboardShell({ children, user = null }: { children: ReactNode; user?: SessionUser | null }) {
   const path = usePathname();
-  // REQ-AUTH-15: only the screens the user's roles may open; everything with nobody signed in (AUTH_REQUIRED=off).
-  const screens = SCREENS.filter((sc) => canOpen(user?.roles ?? null, sc.href));
-  const current = screens.find((sc) => path.startsWith(sc.href));
+  const current = SCREENS.find((sc) => path.startsWith(sc.href));
   const brand = (
     <Link className={h.mark} href="/" aria-label={`${BRAND} home`}>
       <BrandMark className={h.glyph} />
@@ -56,10 +54,10 @@ export function DashboardShell({ children, user = null }: { children: ReactNode;
       <header className={s.header}>
         <div className={h.bar}>
           <MobileNav label="Dashboard" brand={brand} footer={dataset}
-            items={screens.map((sc) => ({ href: sc.href, label: sc.label, icon: <Icon>{ICONS[sc.href]}</Icon>, current: sc === current }))} />
+            items={SCREENS.map((sc) => ({ href: sc.href, label: sc.label, icon: <Icon>{ICONS[sc.href]}</Icon>, current: sc === current }))} />
           {brand}
           <nav className={`${h.nav} ${s.nav}`} aria-label="Dashboard">
-            {screens.map((sc) => (
+            {SCREENS.map((sc) => (
               <Link key={sc.href} className={h.navLink} href={sc.href} aria-current={sc === current ? 'page' : undefined}>{sc.label}</Link>
             ))}
             <ThemeToggle />
