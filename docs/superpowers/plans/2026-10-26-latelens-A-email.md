@@ -43,7 +43,13 @@ frontend/public/mock-wms.html  frontend/bots/wms-entry.ts (stretch)
 backend/api/src/modules/intake/review.ts  backend/api/test/intake/review.test.ts  backend/api/test/routes/review.test.ts  (A14)
 frontend/components/dashboard/intake/OrderReview.tsx (+ .test.tsx)  (A14: a mode of the Order emails desk)
 frontend/components/dashboard/complaints/ComplaintsScreen.tsx (+ .test.tsx)  frontend/app/dashboard/complaints/page.tsx  (A15)
+backend/db/migrations/102_address_links.sql   backend/api/src/modules/intake/{linkRules,link,linkDeps}.ts  (E19, A16–A18)
+backend/api/test/intake/{link-rules,link-draft,link}.test.ts  backend/api/test/intake/memoryLinks.ts  backend/api/test/routes/link.test.ts
+frontend/app/confirm/[token]/{page,not-found}.tsx  frontend/components/confirm/  frontend/lib/confirm/load.ts  frontend/e2e/confirm.spec.ts  (A19)
 ```
+E19 also touches, by agreement: `frontend/lib/auth/{proxy,demo}.ts`, new `lib/auth/{open,linkGate}.ts`,
+`frontend/middleware.ts`, `frontend/auth.ts` (C13's files; C reviews), `core/maps/*`, `core/config.ts`,
+`core/permissions.ts`, `backend/api/src/server.ts` (log redaction; B reviews).
 Outside A's folders, by agreement: one export in `backend/api/src/modules/carriers/index.ts` (`logOverride`, A14, C
 reviews), one entry each in `backend/api/src/core/permissions.ts` (A14) and the shared `frontend/config/dashboard.ts` (A15).
 
@@ -56,6 +62,7 @@ reviews), one entry each in `backend/api/src/core/permissions.ts` (A14) and the 
 | Wed 28 | A8, A9, A10 | B5 `delivery_causes` for A10 |
 | Thu 29 AM | A11 (stretch), A12 (stretch) | B3 `f_lane` flag for A11 |
 | Thu 29 (added 29 Oct) | A13 (E16), A14 (E18), A15 (E12 screen, E14, NFR-03), in that order; A9 (E11), A11 (E10), A12 (E13) skipped by decision | C13 sign-in and roles on `main` (done, c350a93); C's `insertOverride` (done) |
+| After submission (from Fri 30) | **A16 → A17 → A18 → A19 → A20** (E19 address link), one PR each; owner A, built by C if A agrees | Q-LINK-01 answered (29 Oct: A agrees, C builds); A20 also on Q-LINK-02 and the Maps account; real clients on Q-LINK-06 |
 
 **Schedule risk (29 Oct):** Thursday is code-submission day and all three tasks land on it. A13 is small (one early
 return and a chip). A14 is the largest (backend, HTTP tests, a new component) and touches one line in C's
@@ -4180,3 +4187,1298 @@ git add backend/api/src/modules/intake backend/api/test/intake/complaints.test.t
   frontend/config/dashboard.ts frontend/lib/metrics.test.ts docs/CONTRACTS.md
 git commit -m "feat(a): complaints screen, escalation first, poll log names its emails (E12, E14, NFR-03)"
 ```
+
+
+---
+
+## After submission: E19 one-time address link (added 29 Oct, planner)
+
+> **Owner A; built by C (Q-LINK-01 answered 29 Oct: A agrees, A reviews); after submission.** E19 lives in A's folders (intake module,
+> migration 102, the order review), so nothing below starts until the Email owner agrees and says who builds it.
+> `CONFIRM_LINK` defaults to off (REQ-LINK-09): every PR can merge with the feature dark. Other open questions use the
+> SPEC default and are named on the step they touch: Q-LINK-02 (tile credential: A20 only), Q-LINK-03 (lifetime and
+> time zone: A16 Step 3 uses `MAILBOX_TIMEZONE`, today `[HALCYON_TIMEZONE]`), Q-LINK-04 (promise from the arrival time:
+> A17 Step 3), Q-LINK-05 (no link in automatic replies: A17 Step 1), Q-LINK-06 (real clients: A20 Step 5).
+
+Five tasks, one PR each, in order **A16 → A17 → A18 → A19 → A20**. A16–A18 are backend and run in CI with no Azure key
+(recorded maps, memory repos, the test database). A19 is the web app. A20 is the Azure part and the only one that needs
+the Maps account (not in our resource group today).
+
+**Read first:** SPEC §5.3 steps 11–14, REQ-INT-09, §5.17 (flow, lifetime, threat model L1–L11, REQ/NFR/SEC-LINK-*),
+§12 Q-LINK-01 to -06; CONTRACTS §1.1 (`LinkView`, `MapReading`, `LinkState`), §5 (migration 102), §6 (confirm routes
+and the intake rows), §7; SPEC-auth §4.2, REQ-AUTH-01, -04, T15; `docs/SPEC-email-address-resolution.md` §9 (token
+rules only). Code: `modules/intake/{actions,pipeline,reply,repo,review,routes,address,decide,mailbox,seed}.ts`,
+`core/maps/*`, `frontend/middleware.ts`, `frontend/lib/auth/{proxy,demo}.ts`, `frontend/auth.ts` (`clientIp`).
+
+**Prototype status (29 Oct):** in a throwaway worktree of `main` be3894b, the code of A16 Steps 1–6 and A17 Steps 1–6
+ran: API `tsc` clean; `link-rules.test.ts` 6, `link-draft.test.ts` 3, `link.test.ts` 10 passing; the whole backend
+suite 289 passing with two failures that only lack the gitignored `synthetic-data/out/` files (`oracle`, `eval`; they
+pass in a normal checkout). A19 Steps 1–3 ran: frontend `tsc` clean, `link.test.ts` 5 passing, all 81 frontend tests
+passing. Not run: migration 102 (A16 Step 7) and the SQL in `linkRepo` (A17 Step 4b), the routes on the test database (A18), the
+confirm page and map (A19 Steps 4–8), anything in Azure (A20).
+
+**Commands.** Backend: `npm --prefix backend/api test -- <files>`. Frontend: `npm --prefix frontend test -- <files>`
+(already `vitest run`; Vitest only collects `components/**` and `lib/**`, so page logic lives there). Types:
+`npm run typecheck`. Database: `npm run migrate:test`, `npm run seed:test`, `npm run pipeline:test`.
+
+**Security notes that shape the tasks.**
+- The token must never be logged (SEC-LINK-01). Fastify logs `req.url` on every request, and `/api/confirm/<token>`
+  carries the token in the path, so A18 Step 1 redacts it in the request serializer first. App Service HTTP logs on the
+  web and API apps would also record the path; A20 Step 4 checks they are off or excluded (residual risk, for the
+  `network-security-auditor`).
+- `seed.ts` runs `TRUNCATE client_domains, saved_addresses`: re-seeding would delete link-confirmed addresses. A16 Step 7
+  makes it delete only `source = 'seed'` rows.
+- `send_reply` today needs status APPROVED or ENTERED; a `CONFIRM_ADDRESS` email is approved by the desk, then the reply
+  is sent (status SENT). Confirmation moves that email back to AWAITING_APPROVAL with a new `ALL_CLEAR` extraction
+  (REQ-LINK-04), and approval saves the address (REQ-LINK-05).
+
+---
+
+### Task A16 (E19, part 1): Migration 102, link rules, reply placeholder
+
+**Branch:** `A16-link-data` · **REQ:** REQ-LINK-01 (draft half), REQ-LINK-09 (drafts), SEC-LINK-01, SEC-LINK-02
+(lifetime), SEC-LINK-10, REQ-INT-09 (`confirmed` status) · **AC:** AC-LINK-01 (draft half), AC-LINK-03 (rule),
+AC-LINK-09 (drafts), AC-SEC-LINK-01 (token shape), AC-SEC-LINK-02 (lifetime examples), AC-SEC-LINK-10 ·
+**Blocked by:** Q-LINK-01 (whole task); Q-LINK-03 (lifetime numbers are the SPEC defaults).
+
+**Files:**
+- Create: `backend/db/migrations/102_address_links.sql`, `backend/api/src/modules/intake/linkRules.ts`,
+  `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link-draft.test.ts`
+- Modify: `backend/api/src/modules/intake/reply.ts` (`ReplyFacts.link`, required phrase, template line),
+  `backend/api/src/modules/intake/pipeline.ts` (`Deps.confirmLink`), `backend/api/src/modules/intake/deps.ts`,
+  `backend/api/src/modules/intake/address.ts` (`AddressStatus` gains `'confirmed'`),
+  `backend/api/src/modules/intake/seed.ts`,
+  `backend/api/src/core/config.ts` (`CONFIRM_LINK`, `CONFIRM_LINK_HOURS`, `AUTH_URL`), `.env.example`
+
+**Interfaces:**
+- Consumes: `MAILBOX_TIMEZONE` (`mailbox.ts`, `[HALCYON_TIMEZONE]`), `isUsState` (`region.ts`), `query` (`core/db/pool.ts`).
+- Produces: tables `address_confirm_tokens` and the new `saved_addresses` columns (CONTRACTS §5); `linkRules.ts`:
+  `LINK_PLACEHOLDER`, `newToken`, `hashToken`, `hashPrefix`, `TOKEN_SHAPE`, `linkExpiry(receivedAt, sentAt, hours)`,
+  `localToInstant(local, tz)`, `distanceM`, `ConfirmBody`, `needsSecondConfirm`, the design settings;
+  `ReplyFacts.link?: boolean`; `Deps.confirmLink?: boolean`. (The SQL for the new table, `linkRepo`, comes in A17 with
+  the `LinkRepo` interface it implements.)
+- With the flag off nothing a user sees changes: same drafts, same required phrases, same recordings.
+
+- [ ] **Step 1: Write the failing rule tests** `backend/api/test/intake/link-rules.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest';
+import { ConfirmBody, distanceM, hashToken, linkExpiry, localToInstant, needsSecondConfirm, newToken, TOKEN_SHAPE } from '../../src/modules/intake/linkRules.js';
+
+const ADDRESS = { line1: '400 S Orange Ave', line2: null, city: 'Orlando', state: 'FL', zip: '32801' };
+const START = { lat: 28.537664, lon: -81.37965 };
+/** A point `m` metres north of START (1° latitude ≈ 111,195 m). */
+const north = (m: number) => ({ lat: START.lat + m / 111_195, lon: START.lon });
+
+describe('E19 link rules', () => {
+  it('AC-SEC-LINK-01: a token is 43 base64url characters from 32 random bytes; the stored hash is its SHA-256 hex', () => {
+    const t = newToken();
+    expect(t).toMatch(TOKEN_SHAPE);
+    expect(newToken()).not.toBe(t);
+    expect(hashToken(t)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('AC-SEC-LINK-02: the lifetime examples', () => {
+    expect(linkExpiry('2026-10-29 05:00', '2026-10-29 05:10', 24)).toBe('2026-10-30 05:10');
+    expect(linkExpiry('2026-10-29 09:00', '2026-10-29 09:30', 24)).toBe('2026-10-30 06:00');
+    expect(linkExpiry('2026-10-29 07:00', '2026-10-29 07:30', 24)).toBe('2026-10-30 06:00');
+  });
+
+  it('a link sent days after the email uses the next cut-off at least 3 hours away', () => {
+    expect(linkExpiry('2026-09-25 10:00', '2026-10-29 14:00', 24)).toBe('2026-10-30 06:00');
+    expect(linkExpiry('2026-09-25 10:00', '2026-10-30 05:30', 24)).toBe('2026-10-31 05:30');
+  });
+
+  it('a local time converts to its instant in the mailbox time zone', () => {
+    expect(localToInstant('2026-10-30 06:00', 'UTC').toISOString()).toBe('2026-10-30T06:00:00.000Z');
+    expect(localToInstant('2026-10-30 06:00', 'America/Chicago').toISOString()).toBe('2026-10-30T11:00:00.000Z');
+  });
+
+  it('AC-LINK-03: 600 m or a changed ZIP or no start pin needs a second Confirm; 400 m with the same ZIP does not', () => {
+    const body = (pin: { lat: number; lon: number }, zip = '32801') => ConfirmBody.parse({ address: { ...ADDRESS, zip }, pin });
+    expect(Math.round(distanceM(START, north(600)))).toBe(600);
+    expect(needsSecondConfirm({ pin: START, zip: '32801' }, body(north(600)))).toBe(true);
+    expect(needsSecondConfirm({ pin: START, zip: '32801' }, body(north(400)))).toBe(false);
+    expect(needsSecondConfirm({ pin: START, zip: '32801' }, body(START, '32803'))).toBe(true);
+    expect(needsSecondConfirm({ pin: null, zip: null }, body(START))).toBe(true);
+  });
+
+  it('AC-SEC-LINK-10: state XX, ZIP 1234, a 101-character city, latitude 91 and unknown keys are refused', () => {
+    const bad = [{ state: 'XX' }, { zip: '1234' }, { city: 'x'.repeat(101) }];
+    for (const b of bad) expect(ConfirmBody.safeParse({ address: { ...ADDRESS, ...b }, pin: START }).success, JSON.stringify(b)).toBe(false);
+    expect(ConfirmBody.safeParse({ address: ADDRESS, pin: { lat: 91, lon: 0 } }).success).toBe(false);
+    expect(ConfirmBody.safeParse({ address: ADDRESS, pin: START, notMoved: true }).success).toBe(false);
+    expect(ConfirmBody.safeParse({ address: { ...ADDRESS, zip: '32801-1234' }, pin: START }).success).toBe(true);
+  });
+});
+```
+
+  Run `npm --prefix backend/api test -- test/intake/link-rules.test.ts`. Expected: FAIL, module not found.
+
+- [ ] **Step 2: Implement** `backend/api/src/modules/intake/linkRules.ts` (no AI anywhere in E19):
+
+```ts
+// E19 one-time address link (SPEC §5.17, owner A): the pure rules. No AI model anywhere in this flow.
+import { createHash, randomBytes } from 'node:crypto';
+import { z } from 'zod';
+import type { LocalTimestamp } from '../../core/contracts.js';
+import { isUsState } from './region.js';
+
+/** REQ-LINK-01: the reply draft's placeholder; send_reply replaces it in the sent text only. */
+export const LINK_PLACEHOLDER = '[CONFIRM_LINK]';
+
+/** SEC-LINK-01: 32 bytes from the OS's cryptographic source, base64url (43 characters). Only its hash is stored. */
+export const newToken = (): string => randomBytes(32).toString('base64url');
+export const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex');
+/** SEC-LINK-11: what a log line may carry instead of the token. */
+export const hashPrefix = (hash: string): string => hash.slice(0, 8);
+export const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
+
+// Design settings (SPEC §5.17), not data.
+export const CUTOFF_HOUR = 8;          // the 08:00 pick-list cut-off (CONTRACTS §3)
+export const MARGIN_HOURS = 2;         // the link stops 2 h before the cut-off
+export const FLOOR_HOURS = 1;          // ...and lasts at least 1 h (Q-LINK-03)
+export const SECOND_CONFIRM_M = 500;   // REQ-LINK-03
+export const MAX_MAP_LOOKUPS = 20;     // SEC-LINK-04
+
+// Local timestamps are wall-clock "YYYY-MM-DD HH:mm" in MAILBOX_TIMEZONE; arithmetic on them is done in whole minutes.
+const toMin = (t: LocalTimestamp) => Date.parse(`${t.replace(' ', 'T')}:00Z`) / 60_000;
+const fromMin = (m: number): LocalTimestamp => new Date(m * 60_000).toISOString().slice(0, 16).replace('T', ' ');
+
+/**
+ * SEC-LINK-02 lifetime: the earlier of `hours` after sending and MARGIN_HOURS before the order's cut-off. The cut-off is
+ * 08:00 on the pick-list date (arrival date if before 08:00, else the next day); while it is less than
+ * MARGIN_HOURS + FLOOR_HOURS after sending, the next day's 08:00 is used, so a link lasts at least FLOOR_HOURS.
+ */
+export function linkExpiry(receivedAt: LocalTimestamp, sentAt: LocalTimestamp, hours: number): LocalTimestamp {
+  const day = 24 * 60;
+  const arrivalDay = toMin(`${receivedAt.slice(0, 10)} 00:00`);
+  let cutoff = arrivalDay + CUTOFF_HOUR * 60 + (toMin(receivedAt) - arrivalDay < CUTOFF_HOUR * 60 ? 0 : day);
+  const sent = toMin(sentAt);
+  if (cutoff < sent) cutoff += Math.ceil((sent - cutoff) / day) * day; // a link sent days later: the next cut-off
+  while (cutoff - sent < (MARGIN_HOURS + FLOOR_HOURS) * 60) cutoff += day;
+  return fromMin(Math.min(sent + hours * 60, cutoff - MARGIN_HOURS * 60));
+}
+
+/** The instant of a wall-clock time in `timeZone` (for `expires_at timestamptz`). */
+export function localToInstant(local: LocalTimestamp, timeZone: string): Date {
+  const guess = toMin(local) * 60_000;
+  const offset = (ms: number) => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+    return toMin(`${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`) * 60_000 - ms;
+  };
+  const first = guess - offset(guess);
+  return new Date(guess - offset(first));
+}
+
+/** Great-circle distance in metres (REQ-LINK-03: the API measures it, never the browser). */
+export function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lon - a.lon) / 2) ** 2;
+  return 2 * 6_371_000 * Math.asin(Math.sqrt(h));
+}
+
+/** SEC-LINK-10: the confirm body. Anything else is 400 and the link stays unused. */
+const text = (max: number) => z.string().trim().min(1).max(max);
+export const ConfirmBody = z.object({
+  address: z.object({
+    line1: text(100), line2: z.string().trim().max(100).nullable().transform((v) => v || null), city: text(100),
+    state: z.string().trim().toUpperCase().refine(isUsState, 'US state code'), zip: z.string().trim().regex(/^\d{5}(-\d{4})?$/),
+  }).strict(),
+  pin: z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }).strict(),
+  checkId: z.string().max(100).optional(),
+}).strict();
+export type ConfirmInput = z.infer<typeof ConfirmBody>;
+
+/** REQ-LINK-03: a second Confirm is needed when the pin moved > 500 m, the ZIP changed, or there was no start pin. */
+export function needsSecondConfirm(start: { pin: { lat: number; lon: number } | null; zip?: string | null }, input: ConfirmInput): boolean {
+  if (!start.pin) return true;
+  if ((start.zip ?? '') !== input.address.zip) return true;
+  return distanceM(start.pin, input.pin) > SECOND_CONFIRM_M;
+}
+```
+
+- [ ] **Step 3: Run.** Expected: PASS (6). The three AC-SEC-LINK-02 examples are wall-clock times in
+  `MAILBOX_TIMEZONE`; arithmetic is in whole minutes, so a link that spans a daylight-saving change is off by the
+  shift (at most one hour, and only twice a year). Q-LINK-03 (time zone and margin) is open: the numbers are the SPEC
+  defaults, held as named constants.
+
+- [ ] **Step 4: Write the failing draft tests** `backend/api/test/intake/link-draft.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest';
+import type { LLM } from '../../src/core/llm/types.js';
+import { draftReply, type ReplyFacts, requiredPhrases, templateReply } from '../../src/modules/intake/reply.js';
+
+const FACTS: ReplyFacts = { decision: 'CONFIRM_ADDRESS', clientName: 'Client 25', contact: null, items: [{ sku: 'HX-616', qty: 45 }],
+  promise: null, missing: ['address.zip'], candidates: [], address: null, addressIssues: [], suggestion: null };
+const saying = (text: string): LLM => ({ name: 'fake', json: async () => { throw new Error('unused'); }, text: async () => text });
+
+describe('E19 reply draft (REQ-LINK-01, -09)', () => {
+  it('AC-LINK-01: with the link on, the template and the required phrases carry [CONFIRM_LINK]', () => {
+    expect(templateReply({ ...FACTS, link: true })).toContain('[CONFIRM_LINK]');
+    expect(requiredPhrases({ ...FACTS, link: true })).toContain('[CONFIRM_LINK]');
+  });
+
+  it('AC-LINK-01: a model draft without the placeholder falls back to the template', async () => {
+    const r = await draftReply(saying('Hello, please send the ZIP code. Halcyon Logistics'), { ...FACTS, link: true });
+    expect(r).toMatchObject({ source: 'template' });
+    expect(r.text).toContain('[CONFIRM_LINK]');
+  });
+
+  it('AC-LINK-09: with the link off, nothing changes: no placeholder, same required phrases', () => {
+    expect(templateReply(FACTS)).not.toContain('[CONFIRM_LINK]');
+    expect(requiredPhrases(FACTS)).toEqual(['ZIP code']);
+    expect(templateReply({ ...FACTS, decision: 'ALL_CLEAR', link: true })).not.toContain('[CONFIRM_LINK]');
+  });
+});
+```
+
+  Run. Expected: FAIL on the first test (`[CONFIRM_LINK]` not in the template).
+
+- [ ] **Step 5: Implement the placeholder.**
+  1. `reply.ts`: `import { LINK_PLACEHOLDER } from './linkRules.js';`; add to `ReplyFacts`
+     `link?: boolean; // E19 CONFIRM_LINK=on: a CONFIRM_ADDRESS reply carries [CONFIRM_LINK] (REQ-LINK-01)`; in
+     `requiredPhrases`, inside the `CONFIRM_ADDRESS` branch, after the ZIP line:
+     `if (f.link) out.push(LINK_PLACEHOLDER); // a model draft without it falls back to the template`; in
+     `templateReply`'s `CONFIRM_ADDRESS` branch:
+
+```ts
+    const link = f.link ? `\n\nOr confirm the address on a map with this one-time link: ${LINK_PLACEHOLDER}` : '';
+    return `${hello}\n\nThank you for your order:\n${items}\n\n${ask}${options}${link}\n\n${promise}\n\nHalcyon Logistics`;
+```
+
+     `prompts/reply.md` does not change: it already says "Include every string in `required_phrases` exactly as
+     written". Changing the prompt would invalidate every recorded reply.
+  2. `pipeline.ts`: add to `Deps` `confirmLink?: boolean; // E19 CONFIRM_LINK=on (REQ-LINK-01, -09); off or absent = no placeholder`
+     and to `facts`: `...(deps.confirmLink ? { link: true } : {}),`. The unknown-sender template stays as it is.
+  3. `deps.ts`: `confirmLink: config.CONFIRM_LINK === 'on'` in `getDeps()` (import `config`).
+  4. `address.ts`: `AddressStatus` gains `'confirmed'` with the comment "the client confirmed it through the one-time
+     address link (E19, REQ-INT-09, REQ-LINK-04)". `decide()` needs no change: it returns `CONFIRM_ADDRESS` only for
+     `incomplete` and `unverified`; add a case to `test/intake/address.test.ts` (or `pipeline.test.ts` where `decide`
+     is tested): `decide('C025', ORDER, { status: 'confirmed', … })` is `ALL_CLEAR` (REQ-INT-09).
+  5. `config.ts`, after `ALLOW_LIST`:
+
+```ts
+  // E19 one-time address link (SPEC §5.17; design settings, not data). Off by default (REQ-LINK-09).
+  CONFIRM_LINK: z.enum(['on', 'off']).default('off'),
+  CONFIRM_LINK_HOURS: z.coerce.number().int().min(1).max(72).default(24),
+  // The web app's address (same value as the web's AUTH_URL): the link is <AUTH_URL>/confirm/<token>
+  AUTH_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
+```
+
+     and at the end of the file, fail closed:
+     `if (config.CONFIRM_LINK === 'on' && !config.AUTH_URL) throw new Error('CONFIRM_LINK=on needs AUTH_URL: refusing to start');`
+
+- [ ] **Step 6: Run.** `npm --prefix backend/api test -- test/intake && npm run typecheck`
+  Expected: PASS. Every existing intake test and recording is unchanged because the flag is off in `test/setup.ts`.
+
+- [ ] **Step 7: Migration and seed** (needs the test database; not run on the planning machine).
+  1. `backend/db/migrations/102_address_links.sql`:
+
+```sql
+-- Owner A. E19 one-time address link (SPEC §5.17, CONTRACTS §5). After submission; CONFIRM_LINK defaults to off.
+-- The token itself is never stored: only its SHA-256 hex (SEC-LINK-01).
+CREATE TABLE address_confirm_tokens (
+  id serial PRIMARY KEY,
+  token_hash char(64) NOT NULL UNIQUE,
+  email_id int NOT NULL REFERENCES intake_emails (id),  -- the email the reply was sent for (see the run record)
+  issued_at timestamptz NOT NULL,
+  expires_at timestamptz NOT NULL,                      -- SPEC §5.17 lifetime
+  issued_by text NOT NULL,                              -- the operator's sub who sent the reply
+  used_at timestamptz,
+  revoked_at timestamptz,
+  prefill jsonb NOT NULL,                               -- { address, pin } shown on the page
+  confirmed_address jsonb,                              -- LinkAddress, set on confirmation
+  lat double precision,
+  lon double precision,
+  map_reading jsonb,                                    -- pending second-confirm check, then the reading shown
+  map_lookups int NOT NULL DEFAULT 0,                   -- capped at 20 (SEC-LINK-04)
+  synthetic boolean NOT NULL
+);
+CREATE INDEX address_confirm_tokens_live ON address_confirm_tokens (email_id) WHERE used_at IS NULL AND revoked_at IS NULL;
+
+ALTER TABLE saved_addresses
+  ADD COLUMN source text NOT NULL DEFAULT 'seed',       -- seed | link
+  ADD COLUMN lat double precision,
+  ADD COLUMN lon double precision,
+  ADD COLUMN email_id int REFERENCES intake_emails (id),
+  ADD COLUMN confirmed_at timestamptz;
+```
+
+  2. `seed.ts`: replace `TRUNCATE client_domains, saved_addresses` with `TRUNCATE client_domains` and
+     `DELETE FROM saved_addresses WHERE source = 'seed'`, so re-seeding keeps link-confirmed addresses.
+  3. `.env.example` (API block): `CONFIRM_LINK=off`, `CONFIRM_LINK_HOURS=24`, `AUTH_URL` "also read by the API for E19".
+  4. Run `npm run migrate:test && npm run seed:test`, then
+     `psql "$TEST_DATABASE_URL" -c '\d address_confirm_tokens' -c '\d saved_addresses'`: the columns of CONTRACTS §5.
+
+- [ ] **Step 8: Commit.**
+
+```bash
+git add backend/db/migrations/102_address_links.sql backend/api/src/modules/intake backend/api/src/core/config.ts \
+  backend/api/test/intake/link-rules.test.ts backend/api/test/intake/link-draft.test.ts .env.example
+git commit -m "feat(a): address link data, rules and reply placeholder (E19, REQ-LINK-01, SEC-LINK-01, -02, -10)"
+```
+
+---
+
+### Task A17 (E19, part 2): Mint at `send_reply`, open, confirm, decide again, save on approval
+
+**Branch:** `A17-link-service` · **REQ:** REQ-LINK-01 (send half), -03, -04, -05, -07, -08, SEC-LINK-01, -02, -03,
+-04 (look-ups), -06, -09, -11, REQ-INT-09 · **AC:** AC-LINK-01, -03, -04, -05, -07, -08, AC-SEC-LINK-01, -02, -03, -04
+(look-ups), -06, -09 (allow-list half), -10, -11 · **Blocked by:** Q-LINK-01; Q-LINK-04 (Step 3 keeps the arrival
+time); Q-LINK-05 (Step 1: minting lives only in `send_reply`).
+
+**Files:**
+- Create: `backend/api/src/modules/intake/link.ts`, `backend/api/test/intake/memoryLinks.ts`,
+  `backend/api/test/intake/link.test.ts`
+- Modify: `backend/api/src/modules/intake/actions.ts` (`ActionOptions.link`), `backend/api/src/modules/intake/repo.ts`
+  (`linkRepo`), `backend/api/src/core/maps/types.ts`
+  (`GeocodeFeature.geometry`, optional `reverse`), `backend/api/src/core/maps/{azureMaps,recorded}.ts` (`reverse`)
+
+**Interfaces:**
+- Consumes: A16's rules and migration 102; `Deps` (intake: `repo`, `warehouse`, `carriers`); `decide`, `regionOfState`,
+  `templateReply`; `AddressValidator.geocode` (start pin from the recorded feature's `geometry`, which every saved map
+  recording already holds) and `reverse` (new).
+- Produces: `link.ts`: `LinkRepo`, `LinkRow`, `LinkDeps`, `MapCredentials`, `LinkView`, `MapReading`, `LinkState`,
+  `INVALID`, `linkState`, `mintLink`, `viewLink`, `confirmLink` → `ConfirmResult`, `decideAgain`, `saveOnApproval`;
+  `applyAction(..., { link })`: `send_reply` mints only for a `CONFIRM_ADDRESS` reply holding the placeholder, after
+  the allow-list and Gmail checks (so a 403 or 503 leaves no token row); `approve` saves a link-confirmed address.
+- `outbound_messages.body` keeps `[CONFIRM_LINK]`; the Gmail text holds the link. With the flag off, a placeholder in
+  an old draft is removed from both (never sent as text).
+
+- [ ] **Step 1: Write the failing service tests** with a memory store. `backend/api/test/intake/memoryLinks.ts`:
+
+```ts
+import type { LinkRepo, LinkRow } from '../../src/modules/intake/link.js';
+
+/** In-memory stand-in for migration 102 (address_confirm_tokens, saved_addresses source 'link'). */
+export function memoryLinks(parents: () => { id: number; in_reply_to: number | null }[]) {
+  const rows: LinkRow[] = [];
+  const saved: Parameters<LinkRepo['saveAddress']>[0][] = [];
+  const links: LinkRepo = {
+    orderEmailIds: async (emailId) => {
+      const all = parents();
+      let root = emailId;
+      for (let e = all.find((x) => x.id === root); e?.in_reply_to; e = all.find((x) => x.id === root)) root = e.in_reply_to;
+      const ids = [root];
+      for (let i = 0; i < ids.length; i += 1) ids.push(...all.filter((x) => x.in_reply_to === ids[i]).map((x) => x.id));
+      return ids;
+    },
+    revokeUnused: async (ids, at) => {
+      const hit = rows.filter((r) => ids.includes(r.email_id) && !r.used_at && !r.revoked_at);
+      for (const r of hit) r.revoked_at = at;
+      return hit.length;
+    },
+    insert: async (l) => {
+      rows.push({ ...l, id: rows.length + 1, used_at: null, revoked_at: null, confirmed_address: null, lat: null, lon: null,
+        map_reading: null, map_lookups: 0 });
+      return rows.length;
+    },
+    byHash: async (h) => rows.find((r) => r.token_hash === h) ?? null,
+    countLookup: async (id) => (rows[id - 1].map_lookups += 1),
+    setReading: async (id, reading) => { rows[id - 1].map_reading = reading; },
+    markUsed: async (id, address, pin, reading, at) => {
+      const r = rows[id - 1];
+      if (r.used_at || r.revoked_at || r.expires_at <= at) return false;
+      Object.assign(r, { used_at: at, confirmed_address: address, lat: pin.lat, lon: pin.lon, map_reading: reading });
+      return true;
+    },
+    newestFor: async (ids) => new Map(ids.flatMap((id) => {
+      const r = rows.filter((x) => x.email_id === id).at(-1);
+      return r ? [[id, r] as const] : [];
+    })),
+    saveAddress: async (a) => { saved.push(a); },
+  };
+  return { links, rows, saved };
+}
+```
+
+  `backend/api/test/intake/link.test.ts` (memory intake repo from `memoryRepo.ts`, fake map with a start pin and a
+  reverse reading, clock at 29 Oct 10:00 UTC, `timeZone: 'UTC'`). There is no automatic-reply path on `main`
+  (`INTAKE_AUTO_REPLY` is not built), so AC-SEC-LINK-09's first half holds by construction: only `applyAction`'s
+  `send_reply` calls `mintLink`; when SEC-06 is built, its test must assert no token row (Q-LINK-05).
+
+```ts
+import { describe, expect, it } from 'vitest';
+import type { CarrierRecommendation, CarriersApi, WarehouseApi } from '../../src/core/contracts.js';
+import type { AddressValidator } from '../../src/core/maps/types.js';
+import { applyAction } from '../../src/modules/intake/actions.js';
+import { confirmLink, INVALID, type LinkDeps, linkState, viewLink } from '../../src/modules/intake/link.js';
+import { hashToken } from '../../src/modules/intake/linkRules.js';
+import type { Deps } from '../../src/modules/intake/pipeline.js';
+import { checkPromise } from '../../src/modules/warehouse/domain.js';
+import { memoryLinks } from './memoryLinks.js';
+import { memoryRepo } from './memoryRepo.js';
+
+const C025 = { client_id: 'C025', client_name: 'Client 25', sla_penalty_clause: 'N', region: 'Northeast', account_tier: 'Tier 2', account_status: 'active' };
+const REC: CarrierRecommendation = { carrier: 'E', backup: 'A', reason: 'E: best on this lane', blocked: [], options: [] };
+const START = { lat: 42.3523, lon: -71.0466 };
+const north = (m: number) => ({ lat: START.lat + m / 111_195, lon: START.lon });
+const ADDRESS = { line1: '415 Summer St', line2: 'Dock 1', city: 'Boston', state: 'MA', zip: '02210' };
+const maps: AddressValidator = { name: 'fake-map',
+  geocode: async () => ({ features: [{ geometry: { type: 'Point', coordinates: [START.lon, START.lat] }, properties: { type: 'Address', confidence: 'Medium' } }] }),
+  reverse: async () => ({ features: [{ properties: { type: 'Address', confidence: 'High', address: { addressLine: '1 Other St', locality: 'Boston', postalCode: '02210', adminDistricts: [{ shortName: 'MA' }] } } }] }) };
+const warehouse: WarehouseApi = { checkPromise, nearestWarehouse: async () => 'W4', pickWarehouse: async (i) => ({ warehouseId: i.nearestWarehouseId, reason: 'nearest', warnClient: false }) };
+const carriers: CarriersApi = { recommendCarrier: async () => structuredClone(REC) };
+
+/** A CONFIRM_ADDRESS order from C025, approved by the desk, ready for send_reply; the clock is 29 Oct 10:00 UTC. */
+async function setup(draft = 'Hello,\nPlease confirm: [CONFIRM_LINK]\nHalcyon Logistics') {
+  const mem = memoryRepo({ 'client025.example': C025 }, []);
+  const id = await mem.repo.insertEmail({ source: 'paste', gmail_id: null, thread_id: null, message_id: null, from_addr: 'orders@client025.example',
+    subject: '[SYNTHETIC] Order', body: '[SYNTHETIC] 45 x HX-616 to 415 Summer St Dock 1, Boston, MA 02210', redacted_body: null, pii_map: {},
+    received_at: '2026-10-29 09:00', in_reply_to: null, hash: 'h1', client_id: 'C025' });
+  await mem.repo.saveExtraction({ email_id: id, decision: 'CONFIRM_ADDRESS', reply_draft: draft, reply_source: 'template',
+    extraction: { items: [{ sku: 'HX-616', qty: 45 }], requested_commitment: 'next_day', confidence: { items: 1, address: 1 }, address: { ...ADDRESS, raw: null } },
+    checks: { address: { status: 'unverified', address: ADDRESS, missing: [], candidates: [], validation: null }, promise: null, warehouse: null, carrier: null } });
+  await mem.repo.setStatus(id, 'APPROVED');
+  const store = memoryLinks(() => mem.emails);
+  let now = new Date('2026-10-29T10:00:00Z');
+  const events: { event: string; fields: Record<string, unknown> }[] = [];
+  const link: LinkDeps = { enabled: true, hours: 24, timeZone: 'UTC', appUrl: 'https://app.example', links: store.links, maps,
+    credentials: { issue: async (e) => ({ kind: 'sas', token: 'recorded-sas', expiresAt: e.toISOString() }) },
+    now: () => now, log: (event, fields) => events.push({ event, fields }) };
+  const intake: Deps = { llm: null as never, pii: null as never, maps, repo: mem.repo, warehouse, carriers, gmail: null };
+  const sentTexts: string[] = [];
+  const gmail = { sendMessage: async (raw: string) => { sentTexts.push(raw); return 'g1'; } };
+  const send = () => applyAction(mem.repo, id, 'send_reply', 'u1', { gmail: gmail as never, allow: new Set(['orders@client025.example']) }, { link });
+  const tokenOf = () => /\/confirm\/([A-Za-z0-9_-]{43})/.exec(sentTexts.at(-1) ?? '')?.[1];
+  return { mem, id, store, link, intake, send, sentTexts, tokenOf, events, at: (iso: string) => { now = new Date(iso); } };
+}
+
+describe('E19 address link (memory)', () => {
+  it('AC-LINK-01, AC-SEC-LINK-01: send_reply puts a 43-character token in the sent text only; one hashed row; the stored copy keeps the placeholder', async () => {
+    const t = await setup();
+    expect((await t.send()).code).toBe(200);
+    const token = t.tokenOf()!;
+    expect(token).toHaveLength(43);
+    expect(t.store.rows).toHaveLength(1);
+    expect(t.store.rows[0].token_hash).toBe(hashToken(token));
+    expect(t.mem.outbound[0].body).toContain('[CONFIRM_LINK]');
+    expect(JSON.stringify([t.store.rows, t.mem.outbound, t.mem.audit, t.events])).not.toContain(token);
+    expect(t.store.rows[0].expires_at.toISOString()).toBe('2026-10-30T06:00:00.000Z');
+  });
+
+  it('AC-SEC-LINK-09: off the allow-list → 403 and no token row', async () => {
+    const t = await setup();
+    const r = await applyAction(t.mem.repo, t.id, 'send_reply', 'u1', { gmail: { sendMessage: async () => 'g' } as never, allow: new Set() }, { link: t.link });
+    expect(r.code).toBe(403);
+    expect(t.store.rows).toEqual([]);
+  });
+
+  it('AC-SEC-LINK-03, AC-SEC-LINK-06: the view holds only address, pin, expiresAt, synthetic, map; opening 3 times leaves it unused', async () => {
+    const t = await setup(); await t.send();
+    for (let i = 0; i < 3; i += 1) expect(Object.keys((await viewLink(t.link, t.tokenOf()!))!).sort()).toEqual(['address', 'expiresAt', 'map', 'pin', 'synthetic']);
+    expect(t.store.rows[0].used_at).toBeNull();
+  });
+
+  it('AC-LINK-03: 600 m → 409 with the reading and an unused link; again with the checkId → confirmed', async () => {
+    const t = await setup(); await t.send();
+    const first = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(600) });
+    expect(first.code).toBe(409);
+    expect(t.store.rows[0].used_at).toBeNull();
+    const checkId = (first.body as { checkId: string }).checkId;
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(600), checkId })).code).toBe(200);
+  });
+
+  it('AC-LINK-04, AC-SEC-LINK-11: 400 m confirms at once; new ALL_CLEAR extraction, AWAITING_APPROVAL, audit by client-link', async () => {
+    const t = await setup(); await t.send();
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(400) })).code).toBe(200);
+    expect(t.mem.extractions.at(-1)).toMatchObject({ decision: 'ALL_CLEAR', checks: { address: { status: 'confirmed' } }, reply_source: 'template' });
+    expect(t.mem.emails[0].status).toBe('AWAITING_APPROVAL');
+    expect(t.mem.audit.at(-1)).toMatchObject({ user: `client-link:${t.id}`, action: 'link_confirmed' });
+    expect((await applyAction(t.mem.repo, t.id, 'send_to_wms', 'u2')).code).toBe(409);
+  });
+
+  it('AC-LINK-05: saved_addresses gets the link address only on approval', async () => {
+    const t = await setup(); await t.send();
+    await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(100) });
+    expect(t.store.saved).toEqual([]);
+    expect((await applyAction(t.mem.repo, t.id, 'approve', 'u1', undefined, { link: t.link })).code).toBe(200);
+    expect(t.store.saved).toEqual([expect.objectContaining({ clientId: 'C025', emailId: t.id, pin: north(100) })]);
+  });
+
+  it('AC-LINK-07, AC-SEC-LINK-02: random, expired, used and revoked links all get the same 404 body', async () => {
+    const t = await setup(); await t.send();
+    const used = t.tokenOf()!;
+    await confirmLink(t.link, t.intake, used, { address: ADDRESS, pin: START });
+    expect(await confirmLink(t.link, t.intake, 'B'.repeat(43), {})).toEqual({ code: 404, body: INVALID });
+    expect(await confirmLink(t.link, t.intake, used, { address: ADDRESS, pin: START })).toEqual({ code: 404, body: INVALID });
+    expect(await viewLink(t.link, used)).toBeNull();
+    t.at('2026-10-31T00:00:00Z');
+    expect(linkState(t.store.rows[0], new Date())).toBe('confirmed');
+  });
+
+  it('AC-LINK-08: sending again revokes the first link; the second works', async () => {
+    const t = await setup(); await t.send();
+    const first = t.tokenOf()!;
+    await t.mem.repo.setStatus(t.id, 'APPROVED');
+    await t.send();
+    expect(await viewLink(t.link, first)).toBeNull();
+    expect(await viewLink(t.link, t.tokenOf()!)).not.toBeNull();
+  });
+
+  it('AC-SEC-LINK-10: a bad body is 400 and the link stays unused', async () => {
+    const t = await setup(); await t.send();
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: { ...ADDRESS, state: 'XX' }, pin: START })).code).toBe(400);
+    expect(t.store.rows[0].used_at).toBeNull();
+  });
+
+  it('AC-SEC-LINK-04: the 21st map look-up for one link is refused', async () => {
+    const t = await setup(); await t.send();
+    for (let i = 0; i < 20; i += 1) expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(600 + i) })).code).toBe(409);
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(700) })).code).toBe(429);
+  });
+});
+```
+
+  Run `npm --prefix backend/api test -- test/intake/link.test.ts`. Expected: FAIL, module not found.
+
+- [ ] **Step 2: Maps.** `core/maps/types.ts`: in `GeocodeFeature` add
+  `geometry?: { type: 'Point'; coordinates: [number, number] }; // [longitude, latitude] (E19 start pin)`; in
+  `AddressValidator` add
+  `reverse?(pin: { lat: number; lon: number }): Promise<GeocodeResponse>; // E19 REQ-LINK-03; optional so stand-ins need not implement it`;
+  `AddressValidatorErrorKind` gains `'unsupported'`.
+  `azureMaps.ts`, method on `AzureMapsValidator` (same `subscription-key` header and error handling as `geocode`):
+
+```ts
+  /** Azure Maps Get Reverse Geocoding: the address at a pin (E19 second Confirm, REQ-LINK-03). */
+  async reverse(pin: { lat: number; lon: number }): Promise<GeocodeResponse> {
+    const params = new URLSearchParams({ 'api-version': API_VERSION, coordinates: `${pin.lon},${pin.lat}` });
+    let res: Response;
+    try {
+      res = await this.fetchFn(`https://atlas.microsoft.com/reverseGeocode?${params}`, { headers: { 'subscription-key': this.key } });
+    } catch (err) {
+      throw new AddressValidatorError(err instanceof Error ? err.message : String(err), 'transport');
+    }
+    if (!res.ok) throw new AddressValidatorError(`Azure Maps returned ${res.status}: ${await res.text()}`, 'transport');
+    const body = (await res.json()) as Partial<GeocodeResponse>;
+    return { features: body.features ?? [] };
+  }
+```
+
+  `recorded.ts`: `RecordedAddressValidator.reverse` reads `readRecording(this.dir, 'address', 'reverse', JSON.stringify(pin))`
+  (missing → `AddressValidatorError(..., 'missing_recording')`); `RecordingAddressValidator.reverse` writes the same
+  key. Add a `test/maps.test.ts` case: a fake `fetchFn` sees `/reverseGeocode?` with `coordinates=lon,lat`. Live
+  check in A20 (`npm --prefix backend/api run maps:check`): confirm `API_VERSION` serves `reverseGeocode`.
+
+- [ ] **Step 3: Implement** `backend/api/src/modules/intake/link.ts`. `decideAgain` runs SPEC §5.3 steps 8–10 with
+  code only, the confirmed address as `status: 'confirmed'`; the promise uses the email's arrival time (REQ-INT-03,
+  **Q-LINK-04 open**); the new draft is the fixed template (no model call in E19).
+
+```ts
+// E19 one-time address link (SPEC §5.17; owner A, built by C if A agrees, Q-LINK-01). Mint at send_reply, open (never
+// uses the link), confirm (with a second Confirm when the pin moved), decide again with code, save on approval.
+// No AI model is used anywhere here. The token is never stored, logged or kept in outbound_messages (SEC-LINK-01).
+import { randomUUID } from 'node:crypto';
+import type { CarrierRecommendation, PromiseResult, WarehouseChoice } from '../../core/contracts.js';
+import type { AddressValidator, GeocodeResponse } from '../../core/maps/types.js';
+import type { AddressCheck } from './address.js';
+import { decide } from './decide.js';
+import { ConfirmBody, type ConfirmInput, distanceM, hashPrefix, hashToken, LINK_PLACEHOLDER, linkExpiry, localToInstant, MAX_MAP_LOOKUPS,
+  needsSecondConfirm, newToken, TOKEN_SHAPE } from './linkRules.js';
+import type { Deps } from './pipeline.js';
+import { regionOfState } from './region.js';
+import { templateReply } from './reply.js';
+import type { EmailRow, ExtractionRow } from './repo.js';
+
+export { LINK_PLACEHOLDER } from './linkRules.js';
+export const INVALID = { error: 'link_invalid' } as const;   // byte-identical for every invalid link (REQ-LINK-07)
+
+export interface LinkAddress { line1: string; line2: string | null; city: string; state: string; zip: string }
+export interface LinkPin { lat: number; lon: number }
+export interface MapReading { line1: string | null; city: string | null; state: string | null; zip: string | null; distanceM: number }
+export type LinkState = 'sent' | 'confirmed' | 'expired' | 'revoked';
+export interface MapCredential { kind: 'sas' | 'entra'; token: string; expiresAt: string }
+export interface LinkView { address: Partial<LinkAddress>; pin: LinkPin | null; expiresAt: string; synthetic: boolean; map: MapCredential }
+
+interface PendingCheck { checkId: string; pin: LinkPin; zip: string; reading: MapReading }
+export interface LinkRow {
+  id: number; token_hash: string; email_id: number; issued_at: Date; expires_at: Date; issued_by: string;
+  used_at: Date | null; revoked_at: Date | null;
+  prefill: { address: Partial<LinkAddress>; pin: LinkPin | null };
+  confirmed_address: LinkAddress | null; lat: number | null; lon: number | null;
+  map_reading: (PendingCheck | MapReading) | null; map_lookups: number; synthetic: boolean;
+}
+export type NewLink = Pick<LinkRow, 'token_hash' | 'email_id' | 'issued_at' | 'expires_at' | 'issued_by' | 'prefill' | 'synthetic'>;
+
+/** Migration 102's tables (A). Implemented in repo.ts (`linkRepo`) and test/intake/memoryLinks.ts. */
+export interface LinkRepo {
+  /** Every email of the order: the first email and every client answer below it (REQ-LINK-08). */
+  orderEmailIds(emailId: number): Promise<number[]>;
+  revokeUnused(emailIds: number[], at: Date): Promise<number>;
+  insert(l: NewLink): Promise<number>;
+  byHash(hash: string): Promise<LinkRow | null>;
+  /** +1 map look-up; returns the new count (SEC-LINK-04). */
+  countLookup(id: number): Promise<number>;
+  setReading(id: number, reading: PendingCheck | MapReading): Promise<void>;
+  /** Single use: sets used_at only if the link is still live at `at`; false if another request got there first. */
+  markUsed(id: number, address: LinkAddress, pin: LinkPin, reading: MapReading | null, at: Date): Promise<boolean>;
+  /** The newest link of each email (for GET /api/intake and the review). */
+  newestFor(emailIds: number[]): Promise<Map<number, LinkRow>>;
+  saveAddress(a: { clientId: string; address: LinkAddress; pin: LinkPin; emailId: number; confirmedAt: Date; synthetic: boolean }): Promise<void>;
+}
+
+/** Issues the short-lived map tile credential for a valid link (SEC-LINK-08, Q-LINK-02). */
+export interface MapCredentials { issue(expiresAt: Date): Promise<MapCredential> }
+
+export interface LinkDeps {
+  enabled: boolean;      // CONFIRM_LINK=on (REQ-LINK-09)
+  hours: number;         // CONFIRM_LINK_HOURS (24)
+  timeZone: string;      // MAILBOX_TIMEZONE ([HALCYON_TIMEZONE], Q-LINK-03)
+  appUrl: string;        // AUTH_URL: https://<host>; the link is <appUrl>/confirm/<token>
+  links: LinkRepo;
+  maps: AddressValidator;
+  credentials: MapCredentials;
+  now: () => Date;
+  log: (event: string, fields: Record<string, unknown>) => void; // SEC-LINK-11: email id + hash prefix, never the token
+}
+
+export function linkState(l: LinkRow, now: Date): LinkState {
+  if (l.used_at) return 'confirmed';
+  if (l.revoked_at) return 'revoked';
+  return l.expires_at <= now ? 'expired' : 'sent';
+}
+const live = (l: LinkRow | null, now: Date): l is LinkRow => l !== null && linkState(l, now) === 'sent';
+
+/** A wall-clock "YYYY-MM-DD HH:mm" in `timeZone` for an instant. */
+function localOf(d: Date, timeZone: string): string {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+}
+
+const pinOf = (g: GeocodeResponse): LinkPin | null => {
+  const c = g.features[0]?.geometry?.coordinates;
+  return c ? { lat: c[1], lon: c[0] } : null;
+};
+
+/** What the email gave, part by part (grounded extraction; SEC-LINK-03: nothing else about the order). */
+function prefillAddress(x: ExtractionRow | null): Partial<LinkAddress> {
+  const checked = x?.checks.address?.address;
+  const raw = x?.extraction?.address;
+  const pick = (k: keyof LinkAddress) => (checked?.[k] ?? raw?.[k]) || undefined;
+  const out: Partial<LinkAddress> = {};
+  for (const k of ['line1', 'line2', 'city', 'state', 'zip'] as const) { const v = pick(k); if (v) out[k] = v; }
+  return out;
+}
+
+/**
+ * REQ-LINK-01, -08, SEC-LINK-09: called by send_reply only, after the allow-list and Gmail checks passed. Revokes every
+ * earlier unused link of the order, stores the hash and returns the text to send (placeholder replaced by the link).
+ */
+export async function mintLink(d: LinkDeps, email: EmailRow, x: ExtractionRow | null, actor: string, text: string): Promise<string> {
+  const now = d.now();
+  const address = prefillAddress(x);
+  let pin: LinkPin | null = null;
+  if (address.line1 && address.city && address.state && address.zip) {
+    try { pin = pinOf(await d.maps.geocode({ line1: address.line1, city: address.city, state: address.state, zip: address.zip })); } catch { pin = null; }
+  }
+  const token = newToken();
+  const hash = hashToken(token);
+  await d.links.revokeUnused(await d.links.orderEmailIds(email.id), now);
+  const expires = localToInstant(linkExpiry(email.received_at, localOf(now, d.timeZone), d.hours), d.timeZone);
+  // Every intake email and client in this build is synthetic (SD-02, SD-04, SD-08); a real mailbox sets this per client.
+  await d.links.insert({ token_hash: hash, email_id: email.id, issued_at: now, expires_at: expires, issued_by: actor,
+    prefill: { address, pin }, synthetic: true });
+  d.log('link_sent', { emailId: email.id, hash: hashPrefix(hash) });
+  return text.replaceAll(LINK_PLACEHOLDER, `${d.appUrl.replace(/\/$/, '')}/confirm/${token}`);
+}
+
+async function find(d: LinkDeps, token: string): Promise<LinkRow | null> {
+  if (!d.enabled || !TOKEN_SHAPE.test(token)) return null;
+  const l = await d.links.byHash(hashToken(token));
+  return live(l, d.now()) ? l : null;
+}
+
+/** GET /api/confirm/:token. Never uses up or changes the link (SEC-LINK-06). Null = the one invalid answer. */
+export async function viewLink(d: LinkDeps, token: string): Promise<LinkView | null> {
+  const l = await find(d, token);
+  if (!l) return null;
+  d.log('link_opened', { emailId: l.email_id, hash: hashPrefix(l.token_hash) });
+  return { address: l.prefill.address, pin: l.prefill.pin, expiresAt: l.expires_at.toISOString(), synthetic: l.synthetic,
+    map: await d.credentials.issue(l.expires_at) };
+}
+
+export type ConfirmResult =
+  | { code: 200; body: { status: 'confirmed' } }
+  | { code: 409; body: { error: 'needs_second_confirm'; reading: MapReading; checkId: string } }
+  | { code: 400; body: { error: 'invalid' } }
+  | { code: 404; body: typeof INVALID }
+  | { code: 429; body: { error: 'rate_limited' } };
+
+function reading(g: GeocodeResponse, from: LinkPin | null, pin: LinkPin): MapReading {
+  const a = g.features[0]?.properties.address ?? {};
+  return { line1: a.addressLine ?? null, city: a.locality ?? null, state: a.adminDistricts?.[0]?.shortName ?? null,
+    zip: a.postalCode?.slice(0, 5) ?? null, distanceM: from ? Math.round(distanceM(from, pin)) : 0 };
+}
+const samePin = (a: LinkPin, b: LinkPin) => distanceM(a, b) < 1;
+
+/** POST /api/confirm/:token (REQ-LINK-03, -04, SEC-LINK-02, -04, -10). */
+export async function confirmLink(d: LinkDeps, intake: Deps, token: string, body: unknown): Promise<ConfirmResult> {
+  const l = await find(d, token);
+  if (!l) return { code: 404, body: INVALID };
+  const parsed = ConfirmBody.safeParse(body);
+  if (!parsed.success) {
+    d.log('link_refused', { emailId: l.email_id, hash: hashPrefix(l.token_hash), why: 'invalid' });
+    return { code: 400, body: { error: 'invalid' } };
+  }
+  const input: ConfirmInput = parsed.data;
+  const start = { pin: l.prefill.pin, zip: l.prefill.address.zip ?? null };
+  let seen: MapReading | null = null;
+  if (needsSecondConfirm(start, input)) {
+    const pending = l.map_reading && 'checkId' in l.map_reading ? l.map_reading : null;
+    if (pending && input.checkId === pending.checkId && samePin(pending.pin, input.pin) && pending.zip === input.address.zip) {
+      seen = pending.reading; // the client saw this reading and confirmed again
+    } else {
+      if ((await d.links.countLookup(l.id)) > MAX_MAP_LOOKUPS) {
+        d.log('link_refused', { emailId: l.email_id, hash: hashPrefix(l.token_hash), why: 'map_lookups' });
+        return { code: 429, body: { error: 'rate_limited' } };
+      }
+      if (!d.maps.reverse) throw new Error('the map provider cannot reverse-geocode');
+      const r = reading(await d.maps.reverse(input.pin), l.prefill.pin, input.pin);
+      const checkId = randomUUID();
+      await d.links.setReading(l.id, { checkId, pin: input.pin, zip: input.address.zip, reading: r });
+      d.log('link_second_confirm', { emailId: l.email_id, hash: hashPrefix(l.token_hash), distanceM: r.distanceM });
+      return { code: 409, body: { error: 'needs_second_confirm', reading: r, checkId } };
+    }
+  }
+  if (!(await d.links.markUsed(l.id, input.address, input.pin, seen, d.now()))) return { code: 404, body: INVALID };
+  await decideAgain(intake, l.email_id, input.address);
+  await intake.repo.logAudit(`client-link:${l.email_id}`, 'link_confirmed', `email:${l.email_id}`, { hash: hashPrefix(l.token_hash) });
+  d.log('link_confirmed', { emailId: l.email_id, hash: hashPrefix(l.token_hash) });
+  return { code: 200, body: { status: 'confirmed' } };
+}
+
+/**
+ * REQ-LINK-04: §5.3 steps 8–10 with code only. The confirmed address counts as verified (REQ-INT-09). The promise uses
+ * the email's arrival time, as every intake promise does (REQ-INT-03; Q-LINK-04). The reply is the fixed template.
+ */
+export async function decideAgain(intake: Deps, emailId: number, address: LinkAddress): Promise<void> {
+  const { repo, warehouse, carriers } = intake;
+  const email = (await repo.getEmail(emailId))!;
+  const x = await repo.latestExtraction(emailId);
+  const client = email.client_id;
+  const check: AddressCheck = { status: 'confirmed', address, missing: [], candidates: [], validation: null };
+  const decision = decide(client, x?.extraction ?? null, check);
+  const extraction = x?.extraction ? { ...x.extraction, address: { ...address, raw: x.extraction.address.raw } } : null;
+  const promise: PromiseResult | null = extraction ? warehouse.checkPromise(extraction.requested_commitment ?? 'standard', email.received_at) : null;
+  let warehouseChoice: WarehouseChoice | null = null;
+  let carrier: CarrierRecommendation | null = null;
+  const region = regionOfState(address.state);
+  const facts = await repo.clientByDomain(email.from_addr.split('@')[1] ?? '');
+  if (decision === 'ALL_CLEAR' && client && region && promise) {
+    const nearest = await warehouse.nearestWarehouse(client, region);
+    warehouseChoice = await warehouse.pickWarehouse({ destinationRegion: region, nearestWarehouseId: nearest, stock: {} });
+    carrier = await carriers.recommendCarrier({ region, commitment: promise.commitment, slaClause: facts?.sla_penalty_clause === 'Y' });
+  }
+  const contact = Object.keys(email.pii_map ?? {}).find((t) => t.startsWith('[PERSON_')) ?? null;
+  await repo.saveExtraction({ email_id: emailId, extraction, decision, checks: { address: check, promise, warehouse: warehouseChoice, carrier },
+    reply_draft: templateReply({ decision, clientName: facts?.client_name ?? null, contact, items: extraction?.items ?? [], promise, missing: [], candidates: [],
+      address: null, addressIssues: [], suggestion: null }), reply_source: 'template' });
+  await repo.setStatus(emailId, 'AWAITING_APPROVAL');
+}
+
+/** REQ-LINK-05: on approval only, the confirmed address joins the client's saved addresses (source 'link'). */
+export async function saveOnApproval(d: LinkDeps, email: EmailRow, x: ExtractionRow | null): Promise<boolean> {
+  if (!d.enabled || x?.checks.address?.status !== 'confirmed' || !email.client_id) return false;
+  const l = (await d.links.newestFor([email.id])).get(email.id);
+  if (!l?.used_at || !l.confirmed_address || l.lat === null || l.lon === null) return false;
+  await d.links.saveAddress({ clientId: email.client_id, address: l.confirmed_address, pin: { lat: l.lat, lon: l.lon },
+    emailId: email.id, confirmedAt: l.used_at, synthetic: l.synthetic });
+  return true;
+}
+```
+
+- [ ] **Step 4: Wire `applyAction`.** In `actions.ts`:
+  1. `import { LINK_PLACEHOLDER, type LinkDeps, mintLink, saveOnApproval } from './link.js';`
+  2. `ActionOptions` gains `link?: LinkDeps`, and below it:
+
+```ts
+/** With CONFIRM_LINK off a stored draft may still hold the placeholder (drafted while on): it is never sent as text. */
+const withoutPlaceholder = (text: string) => text.split('\n').filter((l) => !l.includes(LINK_PLACEHOLDER)).join('\n');
+```
+
+  3. In the `approve` branch replace the `setStatus` + `logApproval` pair with:
+
+```ts
+    await repo.setStatus(id, 'APPROVED');
+    // E19 REQ-LINK-05: a link-confirmed address joins the client's saved addresses only now.
+    const saved = opts.link ? await saveOnApproval(opts.link, email, x) : false;
+    await repo.logApproval(id, 'approve', user, { ...(change && rec ? { ...who, carrier: change, from: rec.carrier, reason } : who),
+      ...(saved ? { savedAddress: 'link' } : {}) });
+```
+
+  4. In `send_reply`, replace from `const body = opts.edited ?? …` to `await repo.logOutbound(…)` with:
+
+```ts
+    let body = opts.edited ?? restore(x?.reply_draft ?? '', email.pii_map ?? {});
+    // E19 REQ-LINK-01, SEC-LINK-01, -09: only here, after the allow-list and Gmail checks, a CONFIRM_ADDRESS reply's
+    // placeholder becomes a new one-time link in the sent text; the stored copy keeps the placeholder, never the token.
+    const linked = opts.link?.enabled && x?.decision === 'CONFIRM_ADDRESS' && body.includes(LINK_PLACEHOLDER);
+    if (!linked) body = body.includes(LINK_PLACEHOLDER) ? withoutPlaceholder(body) : body;
+    const sent = linked ? await mintLink(opts.link!, email, x, user, body) : body;
+    let gmailId: string;
+    try {
+      gmailId = await sendReply(outbox.gmail,
+        { to, subject: email.subject, body: sent, threadId: email.thread_id, inReplyTo: email.message_id }, outbox.allow);
+    } catch (err) {
+      if (linked) await opts.link!.links.revokeUnused([id], opts.link!.now()); // a link nobody received never works
+      throw err;
+    }
+    await repo.logOutbound(id, to, body, 'sent', gmailId);
+```
+
+  If the operator edits the placeholder out of the reply, no link is minted and the reply goes as written (see the run
+  record: SPEC does not say; this keeps the operator in charge of the text).
+
+- [ ] **Step 4b: The SQL store** (runs against the test database in A18). `repo.ts`, after `repo`, with
+  `import type { LinkRepo, LinkRow } from './link.js';`:
+
+```ts
+/** Migration 102 (E19). Only the token's hash is ever read or written (SEC-LINK-01). */
+export const linkRepo: LinkRepo = {
+  async orderEmailIds(emailId) {
+    const rows = await query<{ id: number }>(
+      `WITH RECURSIVE up AS (
+         SELECT id, in_reply_to FROM intake_emails WHERE id = $1
+         UNION ALL SELECT e.id, e.in_reply_to FROM intake_emails e JOIN up ON e.id = up.in_reply_to),
+       down AS (
+         SELECT id FROM up WHERE in_reply_to IS NULL
+         UNION ALL SELECT e.id FROM intake_emails e JOIN down ON e.in_reply_to = down.id)
+       SELECT id FROM down ORDER BY id`, [emailId]);
+    return rows.map((r) => r.id);
+  },
+  async revokeUnused(ids, at) {
+    return (await query<{ id: number }>(
+      `UPDATE address_confirm_tokens SET revoked_at = $2
+        WHERE email_id = ANY($1::int[]) AND used_at IS NULL AND revoked_at IS NULL RETURNING id`, [ids, at])).length;
+  },
+  async insert(l) {
+    return (await query<{ id: number }>(
+      `INSERT INTO address_confirm_tokens (token_hash, email_id, issued_at, expires_at, issued_by, prefill, synthetic)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [l.token_hash, l.email_id, l.issued_at, l.expires_at, l.issued_by, JSON.stringify(l.prefill), l.synthetic]))[0].id;
+  },
+  byHash: (h) => one<LinkRow>('SELECT * FROM address_confirm_tokens WHERE token_hash = $1', [h]),
+  async countLookup(id) {
+    return (await query<{ n: number }>(
+      'UPDATE address_confirm_tokens SET map_lookups = map_lookups + 1 WHERE id = $1 RETURNING map_lookups AS n', [id]))[0].n;
+  },
+  async setReading(id, reading) {
+    await query('UPDATE address_confirm_tokens SET map_reading = $2 WHERE id = $1', [id, JSON.stringify(reading)]);
+  },
+  // Single use under concurrency: the WHERE clause, not a read-then-write, decides who confirms (SEC-LINK-02).
+  async markUsed(id, address, pin, reading, at) {
+    return (await query<{ id: number }>(
+      `UPDATE address_confirm_tokens SET used_at = $5, confirmed_address = $2, lat = $3, lon = $4, map_reading = $6
+        WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > $5 RETURNING id`,
+      [id, JSON.stringify(address), pin.lat, pin.lon, at, reading && JSON.stringify(reading)])).length === 1;
+  },
+  async newestFor(ids) {
+    const rows = await query<LinkRow>(
+      `SELECT DISTINCT ON (email_id) * FROM address_confirm_tokens WHERE email_id = ANY($1::int[]) ORDER BY email_id, id DESC`, [ids]);
+    return new Map(rows.map((r) => [r.email_id, r]));
+  },
+  async saveAddress(a) {
+    await query(
+      `INSERT INTO saved_addresses (client_id, label, line1, line2, city, state, zip, synthetic, source, lat, lon, email_id, confirmed_at)
+       VALUES ($1,'Confirmed by client link',$2,$3,$4,$5,$6,$7,'link',$8,$9,$10,$11)`,
+      [a.clientId, a.address.line1, a.address.line2, a.address.city, a.address.state, a.address.zip, a.synthetic,
+        a.pin.lat, a.pin.lon, a.emailId, a.confirmedAt]);
+  },
+};
+```
+
+- [ ] **Step 5: Run.** `npm --prefix backend/api test -- test/intake test/maps.test.ts && npm run typecheck`
+  Expected: PASS (`link.test.ts` 10; every A13–A15 test unchanged: `link` is optional).
+
+- [ ] **Step 6: Commit.**
+
+```bash
+git add backend/api/src/modules/intake/link.ts backend/api/src/modules/intake/actions.ts backend/api/src/modules/intake/repo.ts backend/api/src/core/maps \
+  backend/api/test/intake/memoryLinks.ts backend/api/test/intake/link.test.ts backend/api/test/maps.test.ts
+git commit -m "feat(a): one-time address link: mint on send, confirm, decide again, save on approval (E19)"
+```
+
+---
+
+### Task A18 (E19, part 3): Confirm routes, link state in the intake API, review fields
+
+**Branch:** `A18-link-routes` · **REQ:** REQ-LINK-02 (API), -06, -07, -09, -11 (API), SEC-LINK-01 (logs), -03, -05
+(API), -06, -08 (credential gate), -11 · **AC:** AC-LINK-02, -04, -06, -07, -09, -11 (API), AC-SEC-LINK-01, -03, -05
+(permissions), -06, -08 (expired link: no credential) · **Blocked by:** Q-LINK-01; Q-LINK-02 (only the real tile
+credential, A20; here the recorded issuer).
+
+**Files:**
+- Create: `backend/api/src/modules/intake/linkDeps.ts` (`getLinkDeps`, `setLinkDeps`, `createMapCredentials`),
+  `backend/api/test/routes/link.test.ts` (test database)
+- Modify: `backend/api/src/server.ts` (request serializer redacts the token), `backend/api/src/modules/intake/routes.ts`
+  (`GET`/`POST /confirm/:token`; `link` on `GET /intake` and `GET /intake/:id`; `link` passed to `applyAction`),
+  `backend/api/src/modules/intake/review.ts` (`addressSource`, `emailAddress`, `confirmedAddress`, `mapReading`),
+  `backend/api/src/core/permissions.ts` (two public entries), `backend/api/test/routes/permissions.test.ts`
+
+**Interfaces:**
+- Consumes: A17's service and `linkRepo`; `getDeps()`; `config.CONFIRM_LINK`, `CONFIRM_LINK_HOURS`, `AUTH_URL`,
+  `ADDRESS_PROVIDER`; `MAILBOX_TIMEZONE`.
+- Produces: `GET /api/confirm/:token` → `LinkView` or 404 `{"error":"link_invalid"}` (byte-identical; also when off);
+  `POST /api/confirm/:token` → 200 / 409 / 400 / 404 / 429 as CONTRACTS §6; `GET /api/intake` and `/api/intake/:id` add
+  `link: { state, expiresAt } | null` when on (state computed at read time, REQ-LINK-06); `GET /api/intake/review` adds
+  `addressSource` and, for `link`, `emailAddress`, `confirmedAddress`, `mapReading` (REQ-LINK-11).
+- `PERMISSIONS`: `'GET /api/confirm/:token': 'public'` and `'POST /api/confirm/:token': 'public'`, each commented
+  "token-gated: a valid one-time token in the path, no session, no key (SEC-LINK-05)".
+
+- [ ] **Step 1: Never log the token.** Write the failing test first in `test/routes/link.test.ts` (no database needed
+  for this one): build the app with `logStream` from `test/token.ts`, `GET /api/confirm/<43 chars>`, and assert no log
+  line contains the 43 characters. Then in `server.ts` pass the logger
+  `{ stream?, serializers: { req: (r) => ({ method: r.method, url: redactLink(r.url) }) } }` with
+  `export const redactLink = (url: string) => url.replace(/\/confirm\/[^/?#]+/, '/confirm/[token]');`
+  (keep `logger: false` in tests without a stream, as today). Run: PASS.
+
+- [ ] **Step 2: Deps.** `linkDeps.ts`: `getLinkDeps()` builds `{ enabled: config.CONFIRM_LINK === 'on', hours:
+  config.CONFIRM_LINK_HOURS, timeZone: MAILBOX_TIMEZONE, appUrl: config.AUTH_URL ?? 'http://localhost:3000', links:
+  linkRepo, maps: getDeps().maps, credentials: createMapCredentials(), now: () => new Date(), log: () => {} }`;
+  `setLinkDeps(over)` for tests; routes call `{ ...getLinkDeps(), log: (event, f) => req.log.info({ event, ...f }, 'address link') }`.
+  `createMapCredentials()`: with `ADDRESS_PROVIDER=recorded` return
+  `{ issue: async (e) => ({ kind: 'sas', token: 'recorded', expiresAt: e.toISOString() }) }`; with `azure-maps`
+  return an issuer that throws `Error('Map tile credential not set up (Q-LINK-02, Task A20)')` until A20.
+
+- [ ] **Step 3: Write the failing route tests** in `test/routes/link.test.ts`, `describe.skipIf(!hasDb)`, after
+  `setLinkDeps({ enabled: true, timeZone: 'UTC' })` and a seeded `CONFIRM_ADDRESS` email made through
+  `POST /api/intake/email` with fixture 47 (`backend/tests/fixtures/emails/47.*`, recorded map `medium`), approved and
+  sent with `send_reply` through `setDeps({ gmail: fake })` and `ALLOW_LIST` from `test/setup.ts`:
+  - AC-LINK-02: `GET /api/confirm/<token>` → the five fields of fixture 47's address and a pin; the body holds no
+    SKU, quantity, promise date, client name or contact (`JSON.stringify` checks against the fixture's values).
+  - AC-SEC-LINK-03: the GET body's keys are exactly `address, pin, expiresAt, synthetic, map`; posting order A's token
+    with order B's address changes only A's row.
+  - AC-SEC-LINK-06: three GETs, then `used_at` is null and a POST confirms.
+  - AC-LINK-07: random token, expired (`UPDATE … SET expires_at = now() - interval '1 minute'`), used, revoked: four
+    `GET` and four `POST` responses have status 404 and `res.body` strings equal to each other.
+  - AC-LINK-09: with `setLinkDeps({ enabled: false })` a valid token gets 404 on both routes.
+  - AC-LINK-04: a 400 m confirmation of C190's `CONFIRM_ADDRESS` order → `GET /api/intake/review` lists it with
+    `addressSource: 'link'`; `send_to_wms` before approval → 409.
+  - AC-LINK-06: a link with `issued_at = now() - 25 h` and `expires_at` passed → `GET /api/intake` shows
+    `link.state: 'expired'`; after marking it used → `'confirmed'`. Assert `grep -r "setInterval\|cron" src/modules/intake/link*.ts` finds nothing (no timer).
+  - AC-SEC-LINK-01: after a send, search every table's text (`SELECT … ::text LIKE '%<token>%'` over the tables of
+    SPEC §4.2) and the collected log lines: the token appears nowhere; `token_hash` equals `sha256(token)`.
+  - AC-SEC-LINK-08 (API half): an expired link → 404 and the issuer is not called (spy issuer via `setLinkDeps`).
+  - AC-SEC-LINK-11: one `audit_log` row with actor `client-link:<email id>` after a confirmation; log lines carry
+    `hash` (8 characters) and never the token.
+  Run `npm --prefix backend/api test -- test/routes/link.test.ts`. Expected: FAIL (404 on every route).
+
+- [ ] **Step 4: Routes** in `intake/routes.ts`:
+
+```ts
+  // E19 (SPEC §5.17): public and token-gated (permissions.ts). The same 404 body for every invalid link (REQ-LINK-07).
+  app.get<{ Params: { token: string } }>('/confirm/:token', async (req, reply) => {
+    const view = await viewLink(linkDeps(req), req.params.token);
+    return view ?? reply.code(404).send(INVALID);
+  });
+  app.post<{ Params: { token: string } }>('/confirm/:token', async (req, reply) => {
+    const r = await confirmLink(linkDeps(req), getDeps(), req.params.token, req.body);
+    return reply.code(r.code).send(r.body);
+  });
+```
+
+  with `const linkDeps = (req: FastifyRequest) => ({ ...getLinkDeps(), log: (event: string, f: Record<string, unknown>) => req.log.info({ event, ...f }, 'address link') });`.
+  Pass `link: linkDeps(req)` in the `applyAction` options of `POST /intake/:id/action`. In `GET /intake`, when
+  `getLinkDeps().enabled`, read `linkRepo.newestFor(ids)` once and add
+  `link: l ? { state: linkState(l, new Date()), expiresAt: l.expires_at.toISOString() } : null` to each email; the same
+  for `GET /intake/:id`. In `permissions.ts` add the two public entries; in `permissions.test.ts` add
+  `expect(who('GET', '/api/confirm/:token')).toBe('public')` and the POST twin (AC-SEC-LINK-05).
+
+- [ ] **Step 5: Review fields** (REQ-LINK-11). `reviewQueue(repo, links?: LinkRepo)`: for each order,
+  `addressSource = x.checks.address?.status === 'confirmed' ? 'link' : x.checks.address?.status === 'matched' ? 'saved' : 'email'`;
+  for `link`, from `links.newestFor([e.id])`: `emailAddress = l.prefill.address`, `confirmedAddress = l.confirmed_address`,
+  `mapReading = l.map_reading && !('checkId' in l.map_reading) ? l.map_reading : null`. Add the fields to `ReviewOrder`
+  as optional. Add a case to `test/intake/review.test.ts` using `memoryLinks`. The route passes `linkRepo` only when
+  `getLinkDeps().enabled`.
+
+- [ ] **Step 6: Run.** `npm --prefix backend/api test && npm run typecheck` with the test database up. Expected: PASS.
+
+- [ ] **Step 7: Commit.**
+
+```bash
+git add backend/api/src backend/api/test
+git commit -m "feat(a): address link routes, link state and review fields; token redacted from logs (E19)"
+```
+
+---
+
+### Task A19 (E19, part 4): The `/confirm/{token}` page, web proxy exception, per-IP limit, link states on screen
+
+**Branch:** `A19-link-page` · **REQ:** REQ-LINK-02, -07 (page), -09 (web), -10, -11 (screen), NFR-LINK-01,
+SEC-LINK-04 (web), -05, -07, -08 (browser) · **AC:** AC-LINK-02 (page), -07 (page), -09 (web), -10, -11,
+AC-NFR-LINK-01, AC-SEC-LINK-04 (IP), -05, -07, -08 (build) · **Blocked by:** Q-LINK-01; Q-LINK-02 (the map loads with
+a real credential only after A20; tests mock the map).
+
+**Files:**
+- Create: `frontend/lib/auth/open.ts`, `frontend/lib/auth/linkGate.ts`, `frontend/lib/auth/link.test.ts`,
+  `frontend/lib/confirm/load.ts`, `frontend/app/confirm/[token]/page.tsx`, `frontend/app/confirm/[token]/not-found.tsx`,
+  `frontend/components/confirm/{ConfirmScreen,ConfirmMap}.tsx`, `confirm.module.css`, `ConfirmScreen.test.tsx`,
+  `frontend/e2e/confirm.spec.ts`
+- Modify: `frontend/lib/auth/proxy.ts` (`isLinkRoute`, no session/key/token for it), `frontend/lib/auth/demo.ts`
+  (`RateLimiter.take`), `frontend/middleware.ts` (gate before sign-in, open list from `lib/auth/open.ts`),
+  `frontend/auth.ts` (export `clientIp`), `frontend/components/dashboard/intake/IntakeScreen.tsx` (link chips,
+  `confirmed` counts as done), `frontend/components/dashboard/intake/OrderReview.tsx` (+ tests), `.env.example`
+- `frontend/components/confirm/` is a new A-owned folder: Vitest only collects `components/**` and `lib/**`, and the
+  page is not a dashboard screen (no nav, SPEC §5.7).
+
+**Interfaces:**
+- Consumes: `GET`/`POST /api/confirm/:token` (A18) — the page server-side straight to `API_URL` (public route, no
+  headers added), the browser's POST through the proxy (Origin check, SEC-AUTH-04); `SyntheticBadge` from `ui.tsx`.
+- Produces: `/confirm/<token>` (open with `CONFIRM_LINK=on` only; 404 otherwise); `isOpen(path, confirmLink)`,
+  `isLinkPage`, `isLinkRoute`, `linkGate(path, ip, enabled, limiter)`, `LINK_HEADERS`; `CONFIRM_LINK` and
+  `CONFIRM_LINK_RATE_PER_MINUTE` read on the server only. No `NEXT_PUBLIC_` variable (SEC-LINK-08).
+
+- [ ] **Step 1: Write the failing web tests** `frontend/lib/auth/link.test.ts`:
+
+```ts
+import { describe, expect, it, vi } from 'vitest';
+import { RateLimiter } from './demo';
+import { linkGate } from './linkGate';
+import { isOpen } from './open';
+import { proxy, type ProxySettings } from './proxy';
+
+const TOKEN = 'A'.repeat(43);
+const on: ProxySettings = { required: true, apiUrl: 'http://api.internal:3001', appOrigin: 'https://web.example',
+  internalSecret: 'test-internal-auth-secret-0123456789abcdef', apiKey: 'shared-key' };
+const api = () => vi.fn(async (_url: string, _init: RequestInit) => new Response('{}', { status: 200 }));
+
+describe('E19 address link at the web app (SEC-LINK-04, -05, -07)', () => {
+  it('AC-SEC-LINK-05: only /confirm/<token> is added to the open pages, and only with CONFIRM_LINK on', () => {
+    expect(isOpen(`/confirm/${TOKEN}`, true)).toBe(true);
+    for (const p of ['/confirmx', '/confirm', `/confirm/${TOKEN}/x`, '/dashboard']) expect(isOpen(p, true), p).toBe(false);
+    expect(isOpen(`/confirm/${TOKEN}`, false)).toBe(false);
+  });
+
+  it('AC-SEC-LINK-05: the proxy forwards /api/confirm/* without a session and adds no key or internal token', async () => {
+    for (const settings of [on, { ...on, required: false }]) {
+      const fetch = api();
+      const r = await proxy(new Request(`https://web.example/api/confirm/${TOKEN}`), ['confirm', TOKEN], { session: null, settings, fetch });
+      expect(r.status).toBe(200);
+      const h = new Headers(fetch.mock.calls[0][1]!.headers);
+      expect([h.get('authorization'), h.get('x-api-key')]).toEqual([null, null]);
+    }
+    const fetch = api();
+    expect((await proxy(new Request('https://web.example/api/overview'), ['overview'], { session: null, settings: on, fetch })).status).toBe(401);
+  });
+
+  it('AC-SEC-LINK-07: a confirm POST from another origin gets 403 bad_origin and never reaches the API', async () => {
+    const fetch = api();
+    const r = await proxy(new Request(`https://web.example/api/confirm/${TOKEN}`, { method: 'POST', headers: { origin: 'https://evil.example' }, body: '{}' }),
+      ['confirm', TOKEN], { session: null, settings: on, fetch });
+    expect([r.status, await r.json()]).toEqual([403, { error: 'bad_origin' }]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('AC-SEC-LINK-04: the 11th request from one IP in a minute is refused; another IP is not', () => {
+    const limiter = new RateLimiter(10, 60_000, () => 0);
+    for (let i = 0; i < 10; i += 1) expect(linkGate(`/api/confirm/${TOKEN}`, '1.1.1.1', true, limiter).kind).toBe('pass');
+    expect(linkGate(`/confirm/${TOKEN}`, '1.1.1.1', true, limiter).kind).toBe('rate_limited');
+    expect(linkGate(`/confirm/${TOKEN}`, '2.2.2.2', true, limiter).kind).toBe('pass');
+  });
+
+  it('AC-LINK-09, AC-SEC-LINK-07: off → 404; on → frame-ancestors none and no referrer; other paths untouched', () => {
+    const limiter = new RateLimiter(10);
+    expect(linkGate(`/confirm/${TOKEN}`, 'ip', false, limiter).kind).toBe('not_found');
+    expect(linkGate(`/api/confirm/${TOKEN}`, 'ip', false, limiter).kind).toBe('not_found');
+    expect(linkGate(`/confirm/${TOKEN}`, 'ip', true, limiter)).toEqual({ kind: 'pass',
+      headers: { 'Content-Security-Policy': "frame-ancestors 'none'", 'Referrer-Policy': 'no-referrer' } });
+    expect(linkGate('/dashboard', 'ip', true, limiter).kind).toBe('not_link');
+  });
+});
+```
+
+  Run `npm --prefix frontend test -- lib/auth/link.test.ts`. Expected: FAIL, cannot find `./linkGate`.
+
+- [ ] **Step 2: Implement.**
+  1. `frontend/lib/auth/open.ts`:
+
+```ts
+/** Pages any visitor may open (REQ-AUTH-01). `/api/*` checks the session itself: the proxy answers 401, not a redirect. */
+const OPEN = ['/login', '/no-access', '/maintenance'];
+
+/** E19: exactly `/confirm/<token>`; not `/confirm`, `/confirmx` or deeper paths (SEC-LINK-05, AC-SEC-LINK-05). */
+export const isLinkPage = (path: string) => /^\/confirm\/[^/]+$/.test(path);
+
+export const isOpen = (path: string, confirmLink: boolean) =>
+  OPEN.includes(path) || path.startsWith('/api/') || (confirmLink && isLinkPage(path));
+```
+
+  2. `frontend/lib/auth/linkGate.ts`:
+
+```ts
+import { RateLimiter } from './demo';
+import { isLinkRoute } from './proxy';
+import { isLinkPage } from './open';
+
+/** SEC-LINK-07: on every /confirm/* response. */
+export const LINK_HEADERS = { 'Content-Security-Policy': "frame-ancestors 'none'", 'Referrer-Policy': 'no-referrer' } as const;
+
+export type LinkGate = { kind: 'not_link' } | { kind: 'not_found' } | { kind: 'rate_limited' } | { kind: 'pass'; headers: typeof LINK_HEADERS };
+
+/**
+ * E19 in the middleware: with CONFIRM_LINK off both link paths are 404 (REQ-LINK-09); with it on, at most `limiter`'s
+ * requests per minute per client IP (SEC-LINK-04), then the page goes on without a session (SEC-LINK-05).
+ */
+export function linkGate(path: string, ip: string, enabled: boolean, limiter: RateLimiter): LinkGate {
+  if (!isLinkPage(path) && !isLinkRoute(path)) return { kind: 'not_link' };
+  if (!enabled) return { kind: 'not_found' };
+  if (!limiter.take(ip)) return { kind: 'rate_limited' };
+  return { kind: 'pass', headers: LINK_HEADERS };
+}
+```
+
+  3. `frontend/lib/auth/proxy.ts`: above `const json = …` add
+
+```ts
+/** E19 (SEC-LINK-05): the address-link routes are public and token-gated; they get no session, key or internal token. */
+export const isLinkRoute = (path: string) => /^\/api\/confirm\/[^/]+$/.test(path);
+```
+
+     after `const route = …` add `const link = isLinkRoute(path);`, change the session check to
+     `if (settings.required && !session && !link) {`, and make the header block start with
+     `if (link) { /* nothing added: the token in the path is the only credential (SEC-LINK-03, -05) */ } else if (session && settings.internalSecret) {`.
+     The Origin check before it is unchanged, so a cross-site confirm POST is refused (L5).
+  4. `frontend/lib/auth/demo.ts`, in `RateLimiter`:
+
+```ts
+  /** Counts one request and says whether it is within the limit (E19 per-IP limit, SEC-LINK-04). */
+  take(key: string): boolean {
+    if (this.blocked(key)) return false;
+    this.fail(key);
+    return true;
+  }
+```
+
+  Run again. Expected: PASS (5), and `lib/auth/auth.test.ts` unchanged.
+
+- [ ] **Step 3: Middleware.** In `frontend/middleware.ts`: delete the local `OPEN`/`isOpen` and
+  `import { isOpen } from '@/lib/auth/open'`; `import { clientIp } from '@/auth'` (export it there);
+  `const linkLimiter = new RateLimiter(Number(process.env.CONFIRM_LINK_RATE_PER_MINUTE) || 10);`. In `middleware()`,
+  after the maintenance block and before the `AUTH_REQUIRED !== 'on'` early return:
+
+```ts
+  // E19 (SPEC §5.17): link paths are 404 with the flag off, limited per IP, and open without a session (SEC-LINK-04, -05).
+  const gate = linkGate(req.nextUrl.pathname, clientIp(req), process.env.CONFIRM_LINK === 'on', linkLimiter);
+  if (gate.kind === 'not_found') {
+    return req.nextUrl.pathname.startsWith('/api/')
+      ? NextResponse.json({ error: 'link_invalid' }, { status: 404 })
+      : NextResponse.rewrite(new URL('/404', req.url), { status: 404 });
+  }
+  if (gate.kind === 'rate_limited') {
+    authLog('link_rate_limited', { route: req.nextUrl.pathname.startsWith('/api/') ? '/api/confirm/[token]' : '/confirm/[token]', status: 429 });
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
+  }
+  if (gate.kind === 'pass') {
+    const res = NextResponse.next();
+    for (const [k, v] of Object.entries(gate.headers)) res.headers.set(k, v);
+    return res;
+  }
+```
+
+  and in `requireSession` call `isOpen(path, process.env.CONFIRM_LINK === 'on')`. The log line names the route
+  pattern, never the path with its token (SEC-LINK-11). Run `npm run typecheck`.
+
+- [ ] **Step 4: Write the failing page tests** `frontend/components/confirm/ConfirmScreen.test.tsx` (mock
+  `./ConfirmMap` with a stub that renders a "Move pin" button calling `onMove({ lat, lon })`; `mockApi` cannot return
+  409, so stub `fetch` with `vi.fn` returning `{ status, json }` per call):
+  - AC-LINK-02: given a `LinkView` with fixture 47's address, the five inputs hold its values, the expiry time shows,
+    and the text holds no SKU, quantity, promise date, client name or contact (the view has none to show).
+  - AC-LINK-10: `synthetic: true` → "Synthetic data" badge.
+  - AC-LINK-03 (page): Confirm → 409 with a reading → the reading shows next to the typed address with "Confirm
+    again"; the second POST body carries the `checkId`; 200 → "Thank you. Your delivery address is confirmed."
+  - REQ-LINK-07: a 404 on POST → "This link is no longer valid. Please reply to our email with the delivery address."
+  - SEC-LINK-10 (page): 400 → "Please check the address fields" and the form stays.
+  Run `npm --prefix frontend test -- components/confirm`. Expected: FAIL, cannot find `./ConfirmScreen`.
+
+- [ ] **Step 5: Page and components.**
+  1. `frontend/lib/confirm/load.ts` (server only): `loadLink(token)` → `fetch(`${API_URL}/api/confirm/${encodeURIComponent(token)}`, { cache: 'no-store' })`;
+     200 → `LinkView`, anything else → `null`. `API_URL` as in `app/api/[...path]/route.ts`. No header is added.
+  2. `frontend/app/confirm/[token]/page.tsx`: `export const dynamic = 'force-dynamic'`;
+     `export const metadata = { title: 'Confirm your delivery address', referrer: 'no-referrer', robots: { index: false } }`;
+     `if (process.env.CONFIRM_LINK !== 'on') notFound();` then `const view = await loadLink(token); if (!view) notFound();`
+     and render `<ConfirmScreen token={token} view={view} />`. `notFound()` gives the 404 status AC-LINK-07 needs.
+  3. `frontend/app/confirm/[token]/not-found.tsx`: one paragraph with exactly "This link is no longer valid. Please
+     reply to our email with the delivery address." (export the text as `LINK_INVALID_TEXT` from
+     `components/confirm/ConfirmScreen.tsx` and use it in both places).
+  4. `ConfirmScreen.tsx` (client): five labelled inputs (Address line 1, line 2, City, State, ZIP) initialised from
+     `view.address`; "This link works until <local date and time of `view.expiresAt`>"; `<SyntheticBadge />` when
+     `view.synthetic`; `<ConfirmMap pin={view.pin} credential={view.map} onMove={setPin} />`; a **Confirm** button that
+     POSTs `{ address, pin, checkId? }` to `/api/confirm/${token}` with `fetch` (not `postJSON`, which drops the 409
+     body); 409 → show `reading` (line 1, city, state, ZIP, "about N m from where we placed the pin") beside the typed
+     address and a **Confirm again** button that sends the `checkId`; changing the pin or ZIP after that drops the
+     `checkId`. All text is React text, no `dangerouslySetInnerHTML`. When `view.pin` is null the page says "Drag the pin
+     to your delivery entrance" and starts the pin at the map's centre of the ZIP the client types (the API still asks
+     for the second Confirm, REQ-LINK-03).
+  5. `ConfirmMap.tsx` (client): loads the Azure Maps Web SDK v3 from `https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js`
+     (and its CSS) with a `<script>` tag on mount, the only third-party script (SEC-LINK-07); creates the map with
+     `authOptions: credential.kind === 'sas' ? { authType: 'sas', getToken: (resolve) => resolve(credential.token) } : { authType: 'anonymous', clientId: …, getToken: … }`
+     (the `entra` branch only if Q-LINK-02 picks it; `clientId` then comes in the `LinkView`, a CONTRACTS change);
+     one draggable `HtmlMarker`; `dragend` → `onMove({ lat, lon })`. Width 100%, height 280 px.
+  6. `confirm.module.css`: single column, inputs `width: 100%`, `box-sizing: border-box`, so 375 px has no sideways
+     scrolling (NFR-LINK-01).
+  Run the tests. Expected: PASS.
+
+- [ ] **Step 6: Link states on the Order emails desk** (REQ-LINK-06, -11). `IntakeScreen.tsx`: add
+  `link?: { state: 'sent' | 'confirmed' | 'expired' | 'revoked'; expiresAt: string } | null` to `EmailItem` and the
+  detail; in `chip(e)`, before the `CONFIRM_ADDRESS` line:
+  `if (e.link?.state === 'expired' && e.status === 'SENT') return { text: 'Address not confirmed', tone: s.tBad };`
+  and `if (e.link?.state === 'sent' && e.status === 'SENT') return { text: 'Link sent', tone: s.tWarn };`; where the
+  address status is read (the `a === 'complete' || a === 'matched'` checks, three places), treat `'confirmed'` as done
+  and show "confirmed by client link". `OrderReview.tsx`: for `addressSource === 'link'` show "Address confirmed by
+  client link", the email's address, the confirmed address and the map's reading as text. Tests: one case each in
+  `IntakeScreen.test.tsx` (AC-LINK-06 chip) and `OrderReview.test.tsx` (AC-LINK-11).
+
+- [ ] **Step 7: Build checks.** AC-SEC-LINK-08: `npm --prefix frontend run build`, then
+  `grep -rl "$AZURE_MAPS_KEY" frontend/.next/static frontend/.next/server/app/confirm || echo none` prints `none`;
+  `grep -rn "NEXT_PUBLIC_[A-Z_]*MAPS" frontend .env.example --include=*.ts --include=*.tsx --include=.env.example` finds
+  nothing. Add the second as a unit test in `lib/auth/link.test.ts` reading `.env.example`.
+
+- [ ] **Step 8: Playwright** `frontend/e2e/confirm.spec.ts`, skipped unless `CONFIRM_TOKEN` (a fresh link minted on a
+  test environment with `CONFIRM_LINK=on`) is set: at 375 × 812 the page width equals the viewport and the pin moves
+  by touch (`page.touchscreen`) (AC-NFR-LINK-01); the response has `content-security-policy: frame-ancestors 'none'` and
+  `referrer-policy: no-referrer` (AC-SEC-LINK-07); with `AUTH_REQUIRED=on` and no session the page loads without a
+  redirect while `/dashboard` and `/confirmx` redirect (AC-SEC-LINK-05); a random token shows the invalid text with
+  status 404 (AC-LINK-07). It never posts Confirm (that would use the link).
+
+- [ ] **Step 9: Run and commit.** `npm --prefix frontend test && npm run typecheck`. Expected: PASS.
+
+```bash
+git add frontend/lib/auth frontend/lib/confirm frontend/app/confirm frontend/components/confirm frontend/middleware.ts frontend/auth.ts \
+  frontend/components/dashboard/intake frontend/e2e/confirm.spec.ts .env.example
+git commit -m "feat(a): /confirm/{token} page, proxy exception, per-IP limit, link states on the desk (E19)"
+```
+
+---
+
+### Task A20 (E19, part 5, Azure): Map tile credential, settings, switch-on checks
+
+**Branch:** `A20-link-azure` · **REQ:** SEC-LINK-08, SEC-LINK-04 (live), REQ-LINK-03 (live reverse geocoding) ·
+**AC:** AC-SEC-LINK-08 (live), AC-SEC-LINK-04, AC-NFR-LINK-01 (live) · **Blocked by:** Q-LINK-01, **Q-LINK-02** (SAS or
+Entra; and the Maps account is not in our resource group), Q-LINK-06 before any real client gets a link. C deploys
+(SPEC §10.1); do Steps 3–5 with the Carriers owner.
+
+- [ ] **Step 1: Issuer (default SAS, Q-LINK-02).** `backend/api/src/core/maps/credentials.ts`: `AzureMapsSas` gets an
+  ARM token for the API's managed identity (`@azure/identity` `ManagedIdentityCredential`, scope
+  `https://management.azure.com/.default`) and calls `POST …/Microsoft.Maps/accounts/<name>/listSas?api-version=2023-06-01`
+  with `{ signingKey: 'primaryKey', principalId: <identity>, maxRatePerSecond: 50, start: now, expiry: <link expiry> }`,
+  so the credential expires no later than the link. SAS was picked as the default because an Entra access token's
+  lifetime (about an hour) cannot be cut to the link's expiry, which SEC-LINK-08 asks for. Test with a fake `fetch`:
+  the request carries the link's expiry. `createMapCredentials()` (A18) returns it for `azure-maps`. New settings
+  `AZURE_MAPS_ACCOUNT_ID` (ARM id) replaces CONTRACTS §7's `AZURE_MAPS_CLIENT_ID` for SAS (via `spec-writer`).
+- [ ] **Step 2: Live reverse geocoding.** `npm --prefix backend/api run maps:check` extended with one reverse look-up;
+  record it with `RECORD=1 ADDRESS_PROVIDER=azure-maps` for a fixture pin and commit the recording (route tests can
+  then use the recorded validator instead of the fake).
+- [ ] **Step 3: Settings** (confirm before running): `infra/setup.sh` and both App Service apps get `CONFIRM_LINK=off`,
+  `CONFIRM_LINK_HOURS=24`, `CONFIRM_LINK_RATE_PER_MINUTE=10`, `AUTH_URL` on the API, `AZURE_MAPS_ACCOUNT_ID`; role
+  assignment for the managed identity on the Maps account (needs the account's owner).
+- [ ] **Step 4: Logs.** Check App Service HTTP logging and Application Insights request telemetry on both apps: the
+  request URL `/confirm/<token>` and `/api/confirm/<token>` must not be stored (turn HTTP logs off, or add a telemetry
+  processor that rewrites the path to `/confirm/[token]`). AC-SEC-LINK-01 against the live logs. Ask the
+  `network-security-auditor` to review L1–L11 and T15.
+- [ ] **Step 5: Switch on** in a test slot first: `CONFIRM_LINK=on` on both apps, send one link to an allow-listed
+  address, run A19's Playwright file with that token; AC-SEC-LINK-04 live (11 requests from one IP → 429). Real
+  clients only after Q-LINK-06.

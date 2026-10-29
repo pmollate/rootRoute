@@ -1,13 +1,19 @@
 # SPEC — Sign-in and roles ("Login", P7)
 
-**Project:** LateLens (root-route) · **Version:** 0.2 · **Status:** draft for team review; build after code submission (Task C13) · **Date:** 29 Oct 2026
-**Parent spec:** `docs/SPEC.md` v0.10 (source of truth; this file adds P7 and replaces SEC-JRN-02 in `docs/SPEC-order-workflow.md`).
+**Project:** LateLens (root-route) · **Version:** 0.3 · **Status:** draft for team review; build after code submission (Task C13) · **Date:** 29 Oct 2026
+**Parent spec:** `docs/SPEC.md` v0.11 (source of truth; this file adds P7 and replaces SEC-JRN-02 in `docs/SPEC-order-workflow.md`).
 **Owner:** Carriers (Task C13; C owns deploy, SPEC §10.1) · **Touches:** every screen and every API route in all three areas (Email, Warehouse, Carriers).
 
 **Conventions** as in SPEC: **MUST** / **MUST NOT** / **SHOULD** / **MAY** per RFC 2119. Every requirement has an id
 (`REQ-AUTH-NN`, `NFR-AUTH-NN`, `SEC-AUTH-NN`); its acceptance criterion has the same number (`AC-AUTH-NN`,
 `AC-NFR-AUTH-NN`, `AC-SEC-AUTH-NN`). Every **MUST** has an AC that can be tested on its own. This spec states no figures
 from the dataset; time limits and rate limits below are design settings chosen by the team, not data.
+
+**Changes in v0.3** (29 Oct, with SPEC v0.11; both features after submission behind flags that default off): §4.2 adds
+`POST /api/assistant` (in-app Ask LateLens, D10, every role) and the address-link routes `GET`/`POST /api/confirm/:token`
+(E19, public but token-gated). `/confirm/*` becomes the one public page besides `/login`: an exception to "nothing
+public" in §2, decided by the team on 29 Oct (SPEC §14.1). REQ-AUTH-01 and -04 list it as exempt; threats T14 and T15
+point to the controls in SPEC §5.16 and §5.17. No other requirement changes.
 
 **Changes in v0.2** (review of the 29 Oct draft; the decisions in §2 are unchanged): role × action matrix with the
 SPEC §7 routes not yet built and default deny (§4.2); effect on each area's screens (§4.3); internal token and session
@@ -92,7 +98,9 @@ the registered routes.
 | Override a carrier | `POST /api/overrides` | | | Y | | | Y | Yes |
 | Triage a complaint | `POST /api/complaints/:id/triage` | | | | Y | | Y | Yes |
 | Draft delay notices | `POST /api/alerts/run` | | | | Y | | Y | Yes |
+| Ask the in-app assistant (D10, SPEC §5.16) | `POST /api/assistant` | Y | Y | Y | Y | Y | Y | No (after submission); `x-api-key` while `off` (SEC-ASK-05); tools filtered by role (REQ-ASK-09) |
 | Health check | `GET /api/health` | Public | | | | | | Yes |
+| Open or confirm an address link (E19, SPEC §5.17) | `GET /api/confirm/:token`, `POST /api/confirm/:token` | Public, token-gated: a valid one-time token in the path, no session, no key (SEC-LINK-05) | | | | | | No (after submission) |
 | Ask LateLens | `POST /api/mcp` | Bearer `MCP_TOKEN` only (REQ-MCP-02); no session | | | | | | Yes |
 | Anything else | Any route not listed | | | | | | | Denied |
 
@@ -121,6 +129,7 @@ matrix; `backend/api/src/core/permissions.ts` gives each GET the roles of the pa
 | Page | `order_desk` | `warehouse_supervisor` | `carrier_manager` | `customer_support` | `leadership` | `admin` |
 |---|---|---|---|---|---|---|
 | `/`, `/dashboard` (opens Overview) | Y | Y | Y | Y | Y | Y |
+| "Ask LateLens" panel on every screen (D10, when `ASK_ASSISTANT=on`) | Y | Y | Y | Y | Y | Y |
 | Overview | Y | Y | Y | Y | Y | Y |
 | Order emails (incl. order review) | Y | Y | | | | Y |
 | Complaints | | | | Y | | Y |
@@ -243,6 +252,8 @@ The token lives only on the server-to-server hop. It is signed per request and n
 | T11 | Misconfiguration: a missing secret quietly disables checks | — | Fail closed: the apps refuse to start | SEC-AUTH-09 |
 | T12 | Stolen session on a shared computer | — | `HttpOnly` cookie; 8 h limit; sign out | NFR-AUTH-02, REQ-AUTH-08 |
 | T13 | MCP token leak | Bearer `MCP_TOKEN` | Unchanged: tools are read-only (REQ-MCP-01); token in Key Vault | REQ-MCP-01, -02 |
+| T14 | The in-app assistant (D10) used to read data a role may not, run up model costs, or act | — (after submission) | Session and role check on the route; tools filtered by role; read-only tools from one registry; tool-call bound; rate limit per user; `store: false`. Full list in SPEC §5.16 | REQ-ASK-03, -07, -09, SEC-ASK-01 to -06 |
+| T15 | The public address-link page (E19) used to guess tokens, read other orders, or widen what is public | — (after submission) | 256-bit single-use tokens stored as hashes; one order's address only; same answer for every invalid link; rate limit per IP; only `/confirm/*` opened. Threat model L1–L11 in SPEC §5.17 | SEC-LINK-01 to -11 |
 
 ## 7. Requirements
 
@@ -250,10 +261,10 @@ The token lives only on the server-to-server hop. It is signed per request and n
 
 | Id | Requirement |
 |---|---|
-| REQ-AUTH-01 | Every page, including `/`, **MUST** redirect a visitor without a session to `/login`, keeping the requested path as the return address. Exempt: `/login`, `/no-access`, `/maintenance`, `/api/auth/*`, and static files (`/_next/static`, `/media`, files with an extension). Maintenance mode **MUST** still take precedence. |
+| REQ-AUTH-01 | Every page, including `/`, **MUST** redirect a visitor without a session to `/login`, keeping the requested path as the return address. Exempt: `/login`, `/no-access`, `/maintenance`, `/api/auth/*`, static files (`/_next/static`, `/media`, files with an extension), and, with `CONFIRM_LINK=on`, the token-gated address-link pages under `/confirm/` (SPEC §5.17, SEC-LINK-05). Maintenance mode **MUST** still take precedence. |
 | REQ-AUTH-02 | Users **MUST** be able to sign in with Microsoft Entra ID (single tenant) and, when `AUTH_DEMO=on`, with a demo account. |
 | REQ-AUTH-03 | Roles **MUST** come only from the Entra `roles` claim or the demo account entry, and only the six ids in §4.1 count. A signed-in user with none **MUST** see only `/no-access`, and every API call for them **MUST** return 403. |
-| REQ-AUTH-04 | Every API route except `GET /api/health` and `POST /api/mcp` **MUST** return 401 for a request without a valid internal token. |
+| REQ-AUTH-04 | Every API route except `GET /api/health`, `POST /api/mcp` and the token-gated `GET`/`POST /api/confirm/:token` (E19) **MUST** return 401 for a request without a valid internal token. |
 | REQ-AUTH-05 | Every route and action **MUST** check the caller's roles against §4.2 and return 403 for any other role, with no change to any table, whatever the UI shows. |
 | REQ-AUTH-06 | A route or action not listed in §4.2 **MUST** be refused for every role (default deny), and a test **MUST** fail if a registered route has no entry. |
 | REQ-AUTH-07 | The actor recorded for every write (approve, reject, send, WMS entry, override, triage, alerts, recommendation, pasted or fetched email) **MUST** be the token's `sub`, with its `name`. Request bodies **MUST NOT** carry the actor: the `user` field is removed, and if sent it is ignored. |
@@ -305,7 +316,7 @@ in the journey) still holds.
 | AC-AUTH-01 | Given `AUTH_REQUIRED=on` and no session, when `/`, `/dashboard` or `/dashboard/journey?ref=delivery:D000213` is opened, then the browser lands on `/login`, and after signing in returns to the page asked for. Given `MAINTENANCE_MODE=true`, when `/dashboard` is opened without a session, then the maintenance page shows (503). Given no session, when a file under `/media` is requested, then it is served. |
 | AC-AUTH-02 | Given Entra is configured, when an assigned user signs in with Microsoft, then the dashboard opens. Given `AUTH_DEMO=on`, when `demo-leadership@rootroute.test` signs in with the right password, then the dashboard opens. Given a user from another tenant, then sign-in is refused. |
 | AC-AUTH-03 | Given an Entra user with no app role, or only a role id not in §4.1, when they sign in, then they see `/no-access` with their name and "Sign out", any other page sends them back to `/no-access`, and every API call returns 403. |
-| AC-AUTH-04 | Given `AUTH_REQUIRED=on`, when every registered route except health and MCP is called with no token, an expired token, or a token signed with another secret, then each returns 401. `GET /api/health` returns 200 with no token. |
+| AC-AUTH-04 | Given `AUTH_REQUIRED=on`, when every registered route except health, MCP and the token-gated `/api/confirm/:token` routes (covered by AC-SEC-LINK-05) is called with no token, an expired token, or a token signed with another secret, then each returns 401. `GET /api/health` returns 200 with no token. |
 | AC-AUTH-05 | Given a `leadership` token, when `POST /api/intake/:id/action` (`approve`) or `POST /api/overrides` is called, then 403 and the row counts of `intake_emails`, `audit_log` and `override_log` are unchanged. Given `order_desk`, then `approve` succeeds and `send_to_wms` returns 403. Given `warehouse_supervisor`, then `send_to_wms` on an approved order succeeds. |
 | AC-AUTH-06 | Given the routes registered by `buildApp()`, when the permissions test runs, then every route (and every `action` value of `/intake/:id/action`) has an entry in `permissions.ts`; given a test route added without an entry, then it returns 403 for an `admin` token and the test fails. |
 | AC-AUTH-07 | Given an `order_desk` user with `sub` `u1` approving with body `user: "someone-else"`, then `audit_log.actor` is `u1` and the payload holds `u1`'s name. Given a demo user, then the actor is `demo:<email>`. |
