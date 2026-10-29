@@ -136,7 +136,7 @@ The "With LateLens" note shows the rule's output, never a promise that the deliv
 |---|---|
 | NFR-JRN-01 | `GET /api/journey/:ref` **SHOULD** respond within 500 ms at p95 on the demo database. |
 | SEC-JRN-01 | The journey **MUST NOT** return names, phone numbers or email addresses of people. It shows client id, items, and city, state and ZIP; the full email stays on the Intake screen. |
-| SEC-JRN-02 | The journey endpoint **MUST** be read-only. Like the other dashboard reads (`GET /api/intake`, `/api/carriers`) it needs no API key, which is why SEC-JRN-01 keeps people's details out of it. |
+| SEC-JRN-02 | *(Replaced by REQ-AUTH-04 in `docs/SPEC-auth.md` once P7 ships: reads then need a signed-in user.)* The journey endpoint **MUST** be read-only. Like the other dashboard reads (`GET /api/intake`, `/api/carriers`) it needs no API key, which is why SEC-JRN-01 keeps people's details out of it. |
 | SEC-JRN-03 | Journey requests **MUST** log the ref (`emailId` or `deliveryId`), so an order's journey views are traceable in Application Insights (NFR-03). |
 
 ## 6. Acceptance criteria

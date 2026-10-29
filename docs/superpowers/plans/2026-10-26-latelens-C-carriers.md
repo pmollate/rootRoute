@@ -1511,3 +1511,33 @@ Add to `frontend/package.json` scripts:
 - [ ] **Step 6 (synthetic, not started):** simulated stages 10–13 for new orders (`order_events`, `journey_timing`,
   REQ-JRN-05/-06/-10), and the "Order journey" link on the Intake detail (REQ-JRN-09) once A's open changes are merged.
 
+
+### Task C13: Sign-in and roles (P7, `docs/SPEC-auth.md`) — after code submission
+
+Not started; build on branch `C13-login` cut from main after 29 Oct. Spans every area: tell A and B before step 5,
+since their screens' action calls change.
+
+**Files:**
+- Create: `frontend/auth.ts` (Auth.js v5: Entra ID and demo Credentials providers, roles in the session),
+  `frontend/app/api/auth/[...nextauth]/route.ts`, `frontend/app/api/[...path]/route.ts` (proxy, signs the internal
+  token, Origin check), `frontend/app/login/page.tsx`, `frontend/app/no-access/page.tsx`,
+  `backend/api/src/core/permissions.ts` (the §4.1 table), `backend/api/test/auth.test.ts`,
+  `backend/api/test/routes/permissions.test.ts`, `frontend/e2e/auth.setup.ts`
+- Modify: `backend/api/src/core/auth.ts` (`requireUser(roles)` with `jose`), every `routes.ts` (preHandler, actor from
+  the token), `frontend/middleware.ts` (session redirect, keep maintenance mode), `frontend/lib/api.ts` and
+  `frontend/config/dashboard.ts` (same-origin `/api`, no key), `IntakeScreen.tsx` (drop `user: 'ops'`),
+  `CarriersScreen.tsx` (drop "Full name"), `DashboardShell.tsx` (user, roles, sign out), `.env.example`,
+  `infra/setup.sh` (Key Vault secrets and app settings), `.github/workflows/cd.yml` (`E2E_DEMO_PASSWORD`),
+  `frontend/playwright.config.ts` (setup project, storage state)
+
+- [ ] **Step 1: API tests first** (AC-AUTH-04, -05, -06, -07, AC-SEC-AUTH-03): no, expired, wrong-secret, wrong-aud
+  tokens → 401; leadership approve → 403 and no row change; actor from the token; every route has a permission entry.
+- [ ] **Step 2: API** `requireUser(roles)`, `permissions.ts`, default deny; `AUTH_REQUIRED=off` logs and passes.
+- [ ] **Step 3: Web** Auth.js (Entra + demo, rate limit), `/login`, `/no-access`, middleware, header; proxy with Origin
+  check (AC-AUTH-01, -02, -03, -08, AC-SEC-AUTH-04, -05). Component tests for the login page and header.
+- [ ] **Step 4: Client calls** through `/api` same-origin; remove `NEXT_PUBLIC_API_KEY`; hide buttons by role;
+  bundle check for secrets (AC-SEC-AUTH-01).
+- [ ] **Step 5: Playwright** sign-in setup per role; workflow tests run signed in; one test per role refusal.
+- [ ] **Step 6: Azure** (confirm first): app registration and app roles (Q-AUTH-01), Key Vault secrets, app settings;
+  `AUTH_REQUIRED=on` live; App Insights query for sign-in and 403 lines (AC-SEC-AUTH-06).
+- [ ] **Step 7: Retire** `API_KEY`, rotate it; commit `feat(c): sign-in and roles (P7)`.

@@ -1009,6 +1009,7 @@ screens using synthetic data show a badge (REQ-UI-04).
 - Team diagnostic deck: `docs/Halcyon_Delivery_Diagnostic.pdf` (source of the five-cause definitions, adoption rates, per-cause KPIs and open questions in v0.4)
 - Clickable prototype: https://claude.ai/artifact/3e3anPMEBFDUEsbz89rYc5
 - Order to delivery workflow ("Order journey", D9, draft for team review): `docs/SPEC-order-workflow.md`
+- Sign-in and roles ("Login", P7, draft, build after submission): `docs/SPEC-auth.md` (replaces SEC-JRN-02)
 
 ## 14. Sponsor questions
 Record each answer and what changed in this spec.
