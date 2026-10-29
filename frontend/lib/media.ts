@@ -1,6 +1,6 @@
 /**
  * Media drivers: something a scene can seek to a progress value (0–1).
- * `load` is called once the scene comes within a viewport of the screen.
+ * `load` is called shortly after the page loads, or when the scene comes within a viewport, whichever is first.
  */
 import type { RefObject } from 'react';
 import { drawContain, sizeCanvas } from './canvas';
@@ -10,11 +10,46 @@ export type Driver = { seek: (p: number) => void; load?: () => void; kill?: () =
 /** A useScene `driver` that scrubs the video in `ref`, once it has mounted. */
 export const scrubDriver = (ref: RefObject<HTMLVideoElement | null>) => () => (ref.current ? videoScrub(ref.current) : undefined);
 
-/** Scrub an all-intra <video> by setting currentTime; one seek in flight at a time. */
+/**
+ * Scene media downloads one scene at a time, in the order scenes ask (page order), so the next
+ * scene down gets the whole connection and is ready first.
+ */
+let queue: Promise<unknown> = Promise.resolve();
+const enqueue = <T>(task: () => Promise<T>) => {
+  const run = queue.then(task);
+  queue = run.catch(() => undefined);
+  return run;
+};
+
+/** Whole clips as object URLs, so every seek reads from memory instead of a range request. */
+const blobs = new Map<string, Promise<string>>();
+const blobUrl = (src: string) => {
+  let url = blobs.get(src);
+  if (!url) {
+    url = enqueue(async () => {
+      const r = await fetch(src);
+      if (!r.ok) throw new Error(`${r.status} ${src}`);
+      return URL.createObjectURL(await r.blob());
+    });
+    blobs.set(src, url);
+  }
+  return url;
+};
+
+/** The <source> the browser would pick: the first whose media query matches. */
+const pickSource = (v: HTMLVideoElement) =>
+  [...v.querySelectorAll('source')].find((s) => !s.media || matchMedia(s.media).matches)?.src;
+
+/**
+ * Scrub an all-intra <video> by setting currentTime, once the whole clip is in memory (streaming
+ * falls back if the download fails); one seek in flight at a time.
+ */
 export function videoScrub(v: HTMLVideoElement): Driver {
   v.pause();
   let p = 0;
   let raf = 0;
+  let started = false;
+  let dead = false;
   const tick = () => {
     raf = 0;
     if (!v.duration) return;
@@ -36,11 +71,24 @@ export function videoScrub(v: HTMLVideoElement): Driver {
       kick();
     },
     load: () => {
-      if (v.preload === 'auto') return;
-      v.preload = 'auto';
-      v.load();
+      if (started) return;
+      started = true;
+      const src = pickSource(v);
+      if (!src) return;
+      blobUrl(src)
+        .then((url) => {
+          if (dead) return;
+          v.src = url; // overrides the <source> children
+          v.load();
+        })
+        .catch(() => {
+          if (dead) return;
+          v.preload = 'auto';
+          v.load();
+        });
     },
     kill: () => {
+      dead = true;
       cancelAnimationFrame(raf);
       v.removeEventListener('loadedmetadata', kick);
       v.removeEventListener('seeked', kick);
@@ -49,8 +97,9 @@ export function videoScrub(v: HTMLVideoElement): Driver {
 }
 
 /**
- * Image sequence on a canvas (0001.webp …). Loads the first frame, then every 8th, then the rest,
- * and draws the nearest loaded frame until the exact one arrives. `step` 2 = every second frame.
+ * Image sequence on a canvas (0001.webp …). Loads the first frame, then the rest (through the scene queue),
+ * and holds on the first frame until every frame has arrived, so a slow connection shows a still,
+ * never a sequence that jumps between the frames it has so far. `step` 2 = every second frame.
  */
 export function frameSeq(c: HTMLCanvasElement, dir: string, count: number, step = 1): Driver {
   const ctx = c.getContext('2d')!;
@@ -59,6 +108,7 @@ export function frameSeq(c: HTMLCanvasElement, dir: string, count: number, step 
   let p = 0;
   let shown: HTMLImageElement | undefined;
   let started = false;
+  let ready = false;
   let dead = false;
 
   const nearest = (i: number) => {
@@ -68,7 +118,7 @@ export function frameSeq(c: HTMLCanvasElement, dir: string, count: number, step 
     }
   };
   const draw = (force = false) => {
-    const img = nearest(Math.round(p * (files.length - 1)));
+    const img = nearest(ready ? Math.round(p * (files.length - 1)) : 0);
     if (!img || (img === shown && !force)) return;
     ctx.clearRect(0, 0, c.width, c.height);
     drawContain(ctx, img);
@@ -104,12 +154,15 @@ export function frameSeq(c: HTMLCanvasElement, dir: string, count: number, step 
     load: () => {
       if (started) return;
       started = true;
-      const order = [...new Set([...files.keys()].filter((i) => i % 8 === 0).concat([...files.keys()]))];
-      let cursor = 0;
+      let cursor = 1;
       const worker = async () => {
-        while (cursor < order.length && !dead) await load(order[cursor++]);
+        while (cursor < files.length && !dead) await load(cursor++);
       };
-      for (let k = 0; k < 6; k++) void worker();
+      void enqueue(() => Promise.all(Array.from({ length: 6 }, worker))).then(() => {
+        if (dead) return;
+        ready = true;
+        draw(true);
+      });
     },
     kill: () => {
       dead = true;
