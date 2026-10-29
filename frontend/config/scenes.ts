@@ -65,11 +65,12 @@ export const scenes: Scene[] = [
     // catching_parcels.mp4: courier unpacking a parcel, green screen keyed out; one check per quarter.
     id: 'detect', chapter: 2, scroll: 400, pin: true,
     media: { kind: 'frames', dir: '/media/inspect', count: 240, poster: '/media/inspect/0001.webp' },
+    // on-time points each cause costs on the reference dataset (SPEC §2.2); bars share one scale so they compare
     meters: [
-      { id: 'late', from: 34, to: 6, at: [0.04, 0.2], unit: '%' },
-      { id: 'addr', from: 72, to: 100, at: [0.29, 0.45], unit: '%' },
-      { id: 'dist', from: 1840, to: 210, at: [0.54, 0.7], unit: ' km', max: 1840 },
-      { id: 'cutoff', from: 81, to: 99, at: [0.79, 0.95], unit: '%' },
+      { id: 'addr', from: 0, to: 7.0, at: [0.04, 0.2], unit: ' pts', decimals: 1, max: 8 },
+      { id: 'cutoff', from: 0, to: 5.6, at: [0.29, 0.45], unit: ' pts', decimals: 1, max: 8 },
+      { id: 'wh', from: 0, to: 5.6, at: [0.54, 0.7], unit: ' pts', decimals: 1, max: 8 },
+      { id: 'lane', from: 0, to: 7.6, at: [0.79, 0.95], unit: ' pts', decimals: 1, max: 8 },
     ],
     beats: [
       ...[0, 1, 2, 3].flatMap((i) => {
@@ -88,7 +89,7 @@ export const scenes: Scene[] = [
     // aerial rise.mp4: top-down truck, camera rises to the lit-up city.
     id: 'network', chapter: 3, scroll: 250, pin: true,
     media: { kind: 'scrub', src: '/media/scale-scrub.mp4', mobileSrc: '/media/scale-scrub-m.mp4', poster: '/media/scale-poster.webp' },
-    meters: [{ id: 'orders', from: 0, to: 1.2, at: [0.1, 0.9], decimals: 1 }], // the "M" is styled separately in Network.tsx
+    meters: [{ id: 'orders', from: 0, to: 48.3, at: [0.1, 0.9], decimals: 1 }], // 48,340 deliveries; the "K" is styled separately in Network.tsx
     beats: [
       { at: [0, 0.15], target: '[data-net-title]', from: { autoAlpha: 0, y: 30 }, to: { autoAlpha: 1, y: 0 } },
       { at: [0.1, 0.2], target: '[data-net-meter]', from: { autoAlpha: 0 }, to: { autoAlpha: 1 } },
@@ -103,19 +104,20 @@ export const scenes: Scene[] = [
       srcs: ['/media/fulfill-1a.mp4', '/media/fulfill-1b.mp4', '/media/fulfill-1c.mp4'],
       posters: ['/media/fulfill-1a.webp', '/media/fulfill-1b.webp', '/media/fulfill-1c.webp'],
     },
+    // orders, warehouse, carriers, tracking, complaints · every late delivery has one of the five causes · replay, as built (SPEC §5.8)
     meters: [
-      { id: 'feeds', from: 0, to: 100, at: [0.05, 0.3], unit: '%' },
-      { id: 'decision', from: 900, to: 40, at: [0.38, 0.62], unit: ' ms', max: 900 },
-      { id: 'forecast', from: 80, to: 97, at: [0.7, 0.95], unit: '%' },
+      { id: 'feeds', from: 0, to: 5, at: [0.05, 0.3], max: 5 },
+      { id: 'explained', from: 0, to: 100, at: [0.38, 0.62], unit: '%' },
+      { id: 'replay', from: 71, to: 88.5, at: [0.7, 0.95], unit: '%', decimals: 1 },
     ],
   },
   {
-    // footer.mp4: truck arrives, doorstep handoff, camera tilts up to the sky. This is the page
-    // footer: the card rides along while the clip plays; on its last frame the footer takes over.
+    // footer.mp4: truck arrives, doorstep handoff, camera tilts up to the sky. The card rides along
+    // while the clip plays; on its last frame the closing call to action takes over.
     id: 'deliver', chapter: 5, scroll: 260, pin: true,
     media: { kind: 'scrub', src: '/media/fulfill-2-scrub.mp4', mobileSrc: '/media/fulfill-2-scrub-m.mp4', poster: '/media/fulfill-2-poster.webp' },
     mediaAt: [0, 0.78],
-    meters: [{ id: 'ontime', from: 86, to: 99, at: [0.1, 0.75], unit: '%' }],
+    meters: [{ id: 'ontime', from: 71, to: 88.5, at: [0.1, 0.75], unit: '%', decimals: 1 }], // replay, as built (SPEC §5.8)
     beats: [
       { at: [0, 0.2], target: '[data-deliver-frame]', from: { clipPath: 'inset(18% 22% 18% 22% round 14px)' }, to: { clipPath: 'inset(0% 0% 0% 0% round 0px)' } },
       { at: [0.08, 0.16], target: '[data-deliver-card]', from: { autoAlpha: 0, y: 40 }, to: { autoAlpha: 1, y: 0 } },
@@ -123,7 +125,6 @@ export const scenes: Scene[] = [
       { at: [0.78, 0.84], target: '[data-deliver-card]', from: { autoAlpha: 1, y: 0 }, to: { autoAlpha: 0, y: -30 } },
       { at: [0.78, 0.9], target: '[data-deliver-shade]', from: { autoAlpha: 0 }, to: { autoAlpha: 1 } },
       { at: [0.82, 0.92], target: '[data-deliver-cta]', from: { autoAlpha: 0, y: 30 }, to: { autoAlpha: 1, y: 0 } },
-      { at: [0.86, 0.94], target: '[data-deliver-base]', from: { autoAlpha: 0 }, to: { autoAlpha: 1 } },
     ],
   },
 ];

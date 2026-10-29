@@ -3,8 +3,11 @@ import { auth } from '@/auth';
 import { authLog } from '@/lib/auth/log';
 import { canOpen, toRoles } from '@/lib/auth/roles';
 
-/** Pages any visitor may open (REQ-AUTH-01). `/api/*` checks the session itself: the proxy answers 401, not a redirect. */
-const OPEN = ['/login', '/no-access', '/maintenance'];
+/**
+ * Pages any visitor may open (REQ-AUTH-01): the landing page `/` and the sign-in pages. `/api/*` checks the session
+ * itself: the proxy answers 401, not a redirect.
+ */
+const OPEN = ['/', '/login', '/no-access', '/maintenance'];
 const isOpen = (path: string) => OPEN.includes(path) || path.startsWith('/api/');
 
 /** P7 (SPEC-auth §5.1): no session → /login?next=<path>; signed in with no LateLens role → /no-access (REQ-AUTH-03). */

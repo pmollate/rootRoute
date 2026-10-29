@@ -15,7 +15,7 @@ export function ChapterRail() {
   useEffect(() => chapter.sub(setCurrent), []);
 
   useEffect(() => {
-    // Visible through the film chapters; Results and People sit between Optimize and Deliver.
+    // Visible through the film chapters; Results and People sit between Optimize and Deliver, the footer after it.
     const active = [false, false];
     const toggle = (i: number) => (self: ScrollTrigger) => {
       active[i] = self.isActive;
@@ -27,7 +27,7 @@ export function ChapterRail() {
       end: 'top 70%',
       onToggle: toggle(0),
     });
-    const deliver = ScrollTrigger.create({ trigger: '#deliver', start: 'top 60%', end: 'max', onToggle: toggle(1) });
+    const deliver = ScrollTrigger.create({ trigger: '#deliver', start: 'top 60%', end: 'bottom 40%', onToggle: toggle(1) });
     return () => {
       film.kill();
       deliver.kill();

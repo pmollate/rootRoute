@@ -75,6 +75,12 @@
 .cta:disabled { opacity: 0.5; cursor: default; }
 .ctaPrimary { border-color: var(--navy); background: var(--navy); color: var(--on-navy); }
 .ctaPrimary:hover:not(:disabled) { filter: brightness(1.12); }
+/* While signing in: the button stays solid and shows a spinner beside what is happening. */
+.cta[aria-busy='true'] { display: inline-flex; align-items: center; justify-content: center; gap: 10px; opacity: 1; cursor: progress; }
+.spinner { width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+  animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
 .foot { margin: 0; text-align: center; color: var(--ink-2); font-size: 0.78rem; }
 .srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
