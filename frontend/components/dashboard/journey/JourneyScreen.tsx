@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, useState, type CSSProperties, type ReactNode } from 'react';
 import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
 import s from './journey.module.css';
@@ -50,7 +50,11 @@ const STATUS: Record<StageStatus, { cls: string; label: string; icon?: ReactNode
   skipped: { cls: s.pSkip, label: 'Not done today' },
   not_reached: { cls: s.pNr, label: 'Not reached' },
 };
-/** What the "When" column says when a stage has no time. */
+/** The colour of a stage's node and rail. */
+const TONE: Record<StageStatus, string> = {
+  done: s.tGood, current: s.tWarn, waiting: s.tWarn, at_risk: s.tWarn, failed: s.tBad, skipped: s.tIdle, not_reached: s.tIdle,
+};
+/** What the timeline says when a stage has no time. */
 const NO_TIME: Partial<Record<StageStatus, string>> = { skipped: 'no time recorded', waiting: 'not yet', current: 'not yet', at_risk: 'not yet' };
 /** The five phases on the tracker, by stage number; the bar widths follow the design (3:3:2:4:2). */
 const PHASES: [string, number[]][] = [['Intake', [1, 2, 3]], ['Plan', [4, 5, 6]], ['Approve', [7, 8]], ['Ship', [9, 10, 11, 12]], ['Deliver', [13, 14]]];
@@ -181,33 +185,39 @@ export function JourneyScreen({ initialRef }: { initialRef: string }) {
                 <h2><span className={`${s.hi} ${s.tt}`}><Icon size={16}>{ICON.list}</Icon></span>Stages</h2>
               </div>
             </div>
-            <div className={s.th} aria-hidden="true"><span>#</span><span>Stage</span><span>Status</span><span>When</span><span>Who</span><span>What happened</span></div>
-            <ol className={s.rows}>
+            <ol className={s.tline}>
               {data.stages.map((st, i) => {
                 const status = STATUS[st.status];
                 const quiet = st.status === 'not_reached';
+                const [date, time] = (st.at ?? '').split(' ');
+                const who = st.actor && st.actor !== '—' ? st.actor : null;
                 return (
                   <Fragment key={st.key}>
-                    <li className={`${s.row} ${st.status === 'failed' ? s.rowBad : ''}`} style={{ animationDelay: `${i * 0.04}s` }}>
-                      <span className={s.n}>{st.n}</span>
-                      <span className={s.nm}>
-                        {st.label}
-                        {st.source === 'synthetic' && !quiet && <span className={s.src}>Synthetic data</span>}
+                    <li className={`${s.ev} ${TONE[st.status]}`} style={{ '--i': i } as CSSProperties}>
+                      <span className={s.when}>
+                        {st.at ? <>{time && <b>{time}</b>}<small>{/^\d{4}-\d{2}-\d{2}$/.test(date) ? shortDate(date) : date}</small></>
+                          : <i>{NO_TIME[st.status] ?? '—'}</i>}
                       </span>
-                      <span className={`${s.pl} ${status.cls}`}>{status.icon && <Icon size={12}>{status.icon}</Icon>}{status.label}</span>
-                      <span className={s.wh}>{st.at ?? (NO_TIME[st.status] ? <i>{NO_TIME[st.status]}</i> : '—')}</span>
-                      <span className={`${s.who} ${st.actor && st.actor !== '—' ? '' : s.whoNone}`}>{st.actor && st.actor !== '—' ? st.actor : '—'}</span>
-                      <div className={`${s.dt} ${quiet ? s.dtQuiet : ''}`}>
-                        {st.detail || (quiet ? 'Not reached' : '')}
+                      <span className={s.node}><Icon size={13}>{status.icon ?? ICON.minus}</Icon></span>
+                      <div className={s.evCard}>
+                        <div className={s.evHead}>
+                          <span className={s.n}>{st.n}</span>
+                          <b className={s.nm}>{st.label}{st.source === 'synthetic' && !quiet && <span className={s.src}>Synthetic data</span>}</b>
+                          <span className={`${s.pl} ${status.cls}`}>{status.icon && <Icon size={12}>{status.icon}</Icon>}{status.label}</span>
+                        </div>
+                        {who && <p className={s.who}>By {who}</p>}
+                        <p className={`${s.dt} ${quiet ? s.dtQuiet : ''}`}>{st.detail || (quiet ? 'Not reached' : '')}</p>
                         {st.withLateLens && (
-                          <div className={s.rr}>
-                            <div><b>With Root Route</b><span>{st.withLateLens}</span></div>
-                          </div>
+                          <div className={s.rr}><b>With Root Route</b><span>{st.withLateLens}</span></div>
                         )}
                       </div>
                     </li>
                     {st.n === LAST_BEFORE_PICKUP && i < data.stages.length - 1 && (
-                      <li className={s.pk} aria-hidden="true"><Icon>{ICON.dolly}</Icon>Pickup</li>
+                      <li className={`${s.ev} ${s.evPk}`} style={{ '--i': i + 0.5 } as CSSProperties} aria-hidden="true">
+                        <span />
+                        <span className={s.node}><Icon size={13}>{ICON.dolly}</Icon></span>
+                        <span className={s.pk}>Pickup</span>
+                      </li>
                     )}
                   </Fragment>
                 );
