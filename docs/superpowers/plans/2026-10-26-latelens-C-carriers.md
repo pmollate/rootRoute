@@ -1521,23 +1521,31 @@ since their screens' action calls change.
 - Create: `frontend/auth.ts` (Auth.js v5: Entra ID and demo Credentials providers, roles in the session),
   `frontend/app/api/auth/[...nextauth]/route.ts`, `frontend/app/api/[...path]/route.ts` (proxy, signs the internal
   token, Origin check), `frontend/app/login/page.tsx`, `frontend/app/no-access/page.tsx`,
-  `backend/api/src/core/permissions.ts` (the §4.1 table), `backend/api/test/auth.test.ts`,
+  `backend/api/src/core/permissions.ts` (the SPEC-auth §4.2 matrix), `backend/api/test/auth.test.ts`,
   `backend/api/test/routes/permissions.test.ts`, `frontend/e2e/auth.setup.ts`
 - Modify: `backend/api/src/core/auth.ts` (`requireUser(roles)` with `jose`), every `routes.ts` (preHandler, actor from
-  the token), `frontend/middleware.ts` (session redirect, keep maintenance mode), `frontend/lib/api.ts` and
+  the token), `server.ts` (CORS off when enforced), the intake poll (actor `system:intake`), `frontend/middleware.ts` (session redirect, keep maintenance mode), `frontend/lib/api.ts` and
   `frontend/config/dashboard.ts` (same-origin `/api`, no key), `IntakeScreen.tsx` (drop `user: 'ops'`),
   `CarriersScreen.tsx` (drop "Full name"), `DashboardShell.tsx` (user, roles, sign out), `.env.example`,
   `infra/setup.sh` (Key Vault secrets and app settings), `.github/workflows/cd.yml` (`E2E_DEMO_PASSWORD`),
-  `frontend/playwright.config.ts` (setup project, storage state)
+  `frontend/playwright.config.ts` (setup project, storage state), `npm run setup` (local demo users in `.env`)
 
-- [ ] **Step 1: API tests first** (AC-AUTH-04, -05, -06, -07, AC-SEC-AUTH-03): no, expired, wrong-secret, wrong-aud
-  tokens → 401; leadership approve → 403 and no row change; actor from the token; every route has a permission entry.
-- [ ] **Step 2: API** `requireUser(roles)`, `permissions.ts`, default deny; `AUTH_REQUIRED=off` logs and passes.
-- [ ] **Step 3: Web** Auth.js (Entra + demo, rate limit), `/login`, `/no-access`, middleware, header; proxy with Origin
-  check (AC-AUTH-01, -02, -03, -08, AC-SEC-AUTH-04, -05). Component tests for the login page and header.
-- [ ] **Step 4: Client calls** through `/api` same-origin; remove `NEXT_PUBLIC_API_KEY`; hide buttons by role;
-  bundle check for secrets (AC-SEC-AUTH-01).
-- [ ] **Step 5: Playwright** sign-in setup per role; workflow tests run signed in; one test per role refusal.
-- [ ] **Step 6: Azure** (confirm first): app registration and app roles (Q-AUTH-01), Key Vault secrets, app settings;
-  `AUTH_REQUIRED=on` live; App Insights query for sign-in and 403 lines (AC-SEC-AUTH-06).
-- [ ] **Step 7: Retire** `API_KEY`, rotate it; commit `feat(c): sign-in and roles (P7)`.
+- [ ] **Step 1: API tests first** (AC-AUTH-04, -05, -06, -07, -13, -14, AC-SEC-AUTH-03, -09, -10, -13): no, expired,
+  wrong-secret, wrong-aud/iss, `alg: none` tokens → 401; leadership approve → 403 and no row change; `send_to_wms` by
+  role; actor from the token (`demo:<email>` for demo users); every route and action has a permission entry; carrier
+  change during approve logs the approver; poll runs as `system:intake`; no CORS header when on; startup fails without
+  `INTERNAL_AUTH_SECRET`.
+- [ ] **Step 2: API** `requireUser(roles)`, `permissions.ts` (SPEC-auth §4.2), default deny, actor from `req.user`,
+  `AUTH_REQUIRED=off` keeps `x-api-key` and logs `auth_would_deny`; CORS off and fail-closed startup when on.
+- [ ] **Step 3: Web** Auth.js (Entra + demo, rate limit, generic error), `/login`, `/no-access`, middleware after
+  maintenance mode, header; proxy with Origin check and header stripping; safe return path (AC-AUTH-01, -02, -03, -08,
+  -09, -12, AC-NFR-AUTH-02, -03, AC-SEC-AUTH-04, -05, -08, -12). Component tests for the login page and header.
+- [ ] **Step 4: Client calls** through `/api` same-origin; remove `NEXT_PUBLIC_API_KEY`; hide buttons by role; keep
+  typed input on `session_expired` (AC-AUTH-10, -11, AC-SEC-AUTH-01).
+- [ ] **Step 5: Playwright** sign-in setup per role; workflow tests run signed in; one test per role refusal
+  (AC-NFR-AUTH-04). Tell A and B first.
+- [ ] **Step 6: Azure** (confirm first): app registration and app roles (Q-AUTH-01), Key Vault secrets, app settings,
+  access restriction on the API; `AUTH_REQUIRED=on` live (SPEC-auth §10 steps 2–4); App Insights query for sign-in,
+  401 and 403 lines; proxy latency (AC-SEC-AUTH-02, -06, -07, AC-NFR-AUTH-01).
+- [ ] **Step 7: Retire** `API_KEY` and `NEXT_PUBLIC_API_URL`, disable the old key (SPEC-auth §10 step 5); commit
+  `feat(c): sign-in and roles (P7)`. After judging, rotate `auth-demo-users` (AC-SEC-AUTH-11).

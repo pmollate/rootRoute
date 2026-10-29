@@ -213,7 +213,7 @@ per-order proof of SPEC §2.2.
 - Notices to the client's end customer: Halcyon is the client's only contact (Q-004).
 - Changing any order from the journey page: it is read-only; actions stay on Intake (SEC-04).
 - Route optimisation for `f_route` deliveries (routing pilot, SPEC §1.1).
-- User accounts and roles per stage (P7 Entra login, pitch only); the actor is shown as recorded in `audit_log`.
+- User accounts and roles per stage (P7, `docs/SPEC-auth.md`, built after submission); the actor is shown as recorded in `audit_log` (name or role: Q-AUTH-05).
 
 ## 10. Risks and mitigations
 
