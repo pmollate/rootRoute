@@ -1,9 +1,9 @@
 import { config } from '../config.js';
 import { AzureOpenAILLM } from './azureOpenai.js';
 import { RecordedLLM, RecordingLLM } from './recorded.js';
-import type { LLM } from './types.js';
+import type { ToolChatLLM } from './types.js';
 
-export function createLLM(): LLM {
+export function createLLM(): ToolChatLLM {
   if (config.LLM_PROVIDER === 'recorded') return new RecordedLLM();
   const { AZURE_OPENAI_ENDPOINT: endpoint, AZURE_OPENAI_API_KEY: apiKey, AZURE_OPENAI_DEPLOYMENT: deployment } = config;
   if (!endpoint || !apiKey || !deployment) {

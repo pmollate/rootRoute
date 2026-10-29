@@ -39,3 +39,19 @@ export function parseJson<T>(raw: string, schema: z.ZodType<T>): T {
   if (!result.success) throw new LLMError(result.error.message, 'invalid');
   return result.data;
 }
+
+// D10 (SPEC §5.16, CONTRACTS §1.1): tool calling for the in-app assistant only. The intake never uses it.
+export interface ToolCall { id: string; name: string; arguments: string } // arguments: raw JSON from the model (untrusted)
+export interface ToolChatMessage { role: 'user' | 'assistant' | 'tool'; content: string; toolCallId?: string; toolCalls?: ToolCall[] }
+export interface ToolChatRequest {
+  system: string;
+  messages: ToolChatMessage[];
+  tools: { name: string; description: string; parameters: object }[];
+  tag: 'assistant';
+  store: false;                       // SEC-ASK-03: no stored completion
+  answerSchema?: z.ZodType<unknown>;  // the final answer's shape (Structured Outputs); also checked by the caller
+}
+export type ToolChatTurn = { kind: 'tool_calls'; calls: ToolCall[] } | { kind: 'final'; content: string };
+export interface ToolChatLLM extends LLM {
+  toolChat(req: ToolChatRequest): Promise<ToolChatTurn>;
+}

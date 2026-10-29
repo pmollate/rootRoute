@@ -47,7 +47,7 @@ never models other companies' products or internal data (no routing-vendor scena
   only order-time rules. Each table has one writer (SPEC §4.2).
 - Secrets live in Key Vault / local `.env` (gitignored). Never commit keys.
 - Keep it demo-reliable: simple rules over ML where rules are enough; the AI model is used only
-  to read emails and draft replies.
+  to read emails, draft replies and (D10, agreed 29 Oct) answer data questions from read-only tools.
 - Requirements have IDs (REQ-*, NFR-*, SEC-*) with matching acceptance criteria (AC-*) in SPEC §5 and §8.
   Name the AC ids a test covers in its docstring, and the REQ ids in PR descriptions.
 - The late-risk score uses only facts known before despatch: never `f_route`, `actual_route_km`,
