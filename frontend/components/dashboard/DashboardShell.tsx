@@ -10,7 +10,7 @@ import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { BrandMark } from '@/components/ui/BrandMark';
 import h from '@/components/layout/SiteHeader.module.css';
 import { BRAND } from '@/config/copy';
-import { MORE, ORDERS, SCREENS } from '@/config/dashboard';
+import { MORE, ORDERS, PINNED, SCREENS } from '@/config/dashboard';
 import { canOpen, type SessionUser } from '@/lib/auth/roles';
 import { ReportsMenu } from './ReportsMenu';
 import { Pill } from './ui';
@@ -35,18 +35,23 @@ const Icon = ({ children }: { children: ReactNode }) => (
 /**
  * Chrome for every /dashboard screen: the landing page's floating pill bar (brand, the master navigation, theme toggle,
  * and the signed-in user: REQ-AUTH-08, -09); pages run full width. `user` is null when nobody is signed in
- * (AUTH_REQUIRED=off). Navigation: Orders, a Dashboard menu of the report screens, Labs, Settings (config/dashboard.ts).
+ * (AUTH_REQUIRED=off). Navigation: Order journey, a Dashboard menu of the other screens, Labs, Settings (config/dashboard.ts).
  */
 export function DashboardShell({ children, user = null }: { children: ReactNode; user?: SessionUser | null }) {
   const path = usePathname();
   // REQ-AUTH-15: only the screens the user's roles may open; everything with nobody signed in (AUTH_REQUIRED=off).
   const screens = SCREENS.filter((sc) => canOpen(user?.roles ?? null, sc.href));
-  const orders = screens.find((sc) => sc.href === ORDERS.href);
-  const reports = screens.filter((sc) => sc !== orders);
+  const pinned = screens.find((sc) => sc.href === PINNED);
+  // The menu keeps SCREENS order, with Orders moved into the pinned screen's slot.
+  const reports = SCREENS.flatMap((sc) => {
+    if (sc.href === ORDERS.href) return [];
+    if (sc.href === PINNED) sc = SCREENS.find((o) => o.href === ORDERS.href)!;
+    return screens.includes(sc) ? [{ href: sc.href, label: sc.href === ORDERS.href ? ORDERS.label : sc.label }] : [];
+  });
   const current = [...screens, ...MORE].find((sc) => path.startsWith(sc.href))?.href;
   // One list for the phone drawer, in bar order, with the reports under a "Dashboard" heading.
   const drawer = [
-    ...(orders ? [{ href: orders.href, label: ORDERS.label }] : []),
+    ...(pinned ? [{ href: pinned.href, label: pinned.label }] : []),
     ...reports.map((sc) => ({ href: sc.href, label: sc.label, group: 'Dashboard' })),
     ...MORE,
   ];
@@ -71,8 +76,8 @@ export function DashboardShell({ children, user = null }: { children: ReactNode;
             items={drawer.map((it) => ({ ...it, icon: <Icon>{ICONS[it.href]}</Icon>, current: it.href === current }))} />
           {brand}
           <nav className={`${h.nav} ${s.nav}`} aria-label="Dashboard">
-            {orders && (
-              <Link className={h.navLink} href={orders.href} aria-current={orders.href === current ? 'page' : undefined}>{ORDERS.label}</Link>
+            {pinned && (
+              <Link className={h.navLink} href={pinned.href} aria-current={pinned.href === current ? 'page' : undefined}>{pinned.label}</Link>
             )}
             {reports.length > 0 && (
               <ReportsMenu label="Dashboard" current={reports.some((sc) => sc.href === current) ? current : undefined}
