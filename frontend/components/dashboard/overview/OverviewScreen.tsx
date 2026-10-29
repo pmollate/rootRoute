@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { useCanOpen } from '@/components/auth/UserContext';
 import { PageHero } from '@/components/dashboard/PageHero';
 import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
@@ -21,6 +22,14 @@ const TARGET = 0.95;
 
 /** A small square glyph, as used on the chips and card corners of the design. */
 const Glyph = () => <span className={s.glyph} aria-hidden="true" />;
+
+/** The Router mark: a large and a small sparkle, filled with the current text colour. */
+const BotIcon = () => (
+  <svg className={s.botIcon} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M10 3c.4 3.9 2.6 6.1 6.5 6.5-3.9.4-6.1 2.6-6.5 6.5-.4-3.9-2.6-6.1-6.5-6.5C7.4 9.1 9.6 6.9 10 3Z" />
+    <path d="M18 13.5c.2 2 1.3 3.1 3.3 3.3-2 .2-3.1 1.3-3.3 3.3-.2-2-1.3-3.1-3.3-3.3 2-.2 3.1-1.3 3.3-3.3Z" />
+  </svg>
+);
 
 /** 24px line icons for the KPI cards, drawn with the current text colour. */
 const KPI_ICONS = {
@@ -105,8 +114,9 @@ interface AssistantProps {
 /** Recommendations as a conversation. Answers are worked out from the same replay and attribution figures as the rest of the page. */
 function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, loading, error }: AssistantProps) {
   const [picked, setPicked] = useState(0);
+  const carriersOpen = useCanOpen('/dashboard/carriers');
   const [asked, setAsked] = useState<string[]>([]);
-  /** Up to 1000px the assistant is a side popup behind a floating icon. Wider screens ignore this. */
+  /** The assistant is a side popup behind a floating icon. */
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -126,7 +136,7 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
     if (/carrier|friday|lane/i.test(q)) {
       const lane = steps.find((x) => x.cause === 'f_lane');
       return <p>Carrier D on Fridays is a capacity problem on specific lanes and costs {lane ? points(lane.pointsLost) : '—'} points of on-time.
-        The lane-by-lane view is on <Link href="/dashboard/carriers">Lanes &amp; carriers</Link>.</p>;
+        The lane-by-lane view is on {carriersOpen ? <Link href="/dashboard/carriers">Lanes &amp; carriers</Link> : 'Lanes & carriers'}.</p>;
     }
     if (/last|close|gap|target|95/i.test(q) && final != null && ceiling != null) {
       return <p>At expected adoption the fixes reach {pct(final)}, {points(Math.max(0, TARGET - final))} points short of {pct(TARGET, 0)}.
@@ -143,15 +153,15 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
 
   return (
     <>
-    <button type="button" className={`${s.bot} ${s.launcher}`} aria-expanded={open} aria-controls="assistant" aria-label="Open Halcyon Assistant"
+    <button type="button" className={`${s.bot} ${s.launcher}`} aria-expanded={open} aria-controls="assistant" aria-label="Open Router"
       onClick={() => setOpen(true)}>
-      <Glyph /><i /><span className={s.launcherTip} aria-hidden="true">Ask Halcyon Assistant</span>
+      <BotIcon /><i /><span className={s.launcherTip} aria-hidden="true">Ask Router</span>
     </button>
     <div className={s.scrim} data-open={open} aria-hidden="true" onClick={() => setOpen(false)} />
-    <section id="assistant" className={`${s.panel} ${s.assistant}`} data-open={open} aria-label="Halcyon Assistant">
+    <section id="assistant" className={`${s.panel} ${s.assistant}`} data-open={open} aria-label="Router">
       <div className={s.chatHead}>
-        <span className={s.bot}><Glyph /><i /></span>
-        <div><b>Halcyon Assistant</b>{deliveries != null && <small>Analysed {int(deliveries)} deliveries</small>}</div>
+        <span className={s.bot}><BotIcon /><i /></span>
+        <div><b>Router</b>{deliveries != null && <small>Analysed {int(deliveries)} deliveries</small>}</div>
         <button type="button" className={s.close} aria-label="Close assistant" onClick={() => setOpen(false)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
         </button>
@@ -160,7 +170,7 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
         <p className={s.day}>Today</p>
         <p className={s.you}>{OPENING}</p>
         <div className={s.reply}>
-          <span className={s.botSmall}><Glyph /></span>
+          <span className={s.botSmall}><BotIcon /></span>
           <div className={s.replyBody}>
             <p>I traced every late delivery to one of five causes. Here&apos;s <b>one fix per cause, ranked by impact</b>. I replayed each on your
               supplied deliveries at its expected adoption rate. Select a fix to see what it targets.</p>
@@ -210,7 +220,7 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
         {asked.map((q, i) => (
           <div key={i}>
             <p className={s.you}>{q}</p>
-            <div className={s.reply}><span className={s.botSmall}><Glyph /></span><div className={s.replyBody}>{answer(q)}</div></div>
+            <div className={s.reply}><span className={s.botSmall}><BotIcon /></span><div className={s.replyBody}>{answer(q)}</div></div>
           </div>
         ))}
       </div>
@@ -276,7 +286,13 @@ export function OverviewScreen() {
           <h1 className={s.title}>Overview</h1>
         </div>
         <div className={s.actions}>
-          {o.data && <span className={s.chip}><Glyph />{int(o.data.deliveries)} shipments analysed</span>}
+          {o.data && (
+            <span className={s.chip}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 8 12 3 3 8v8l9 5 9-5V8Z" /><path d="m3 8 9 5 9-5M12 13v8M7.5 5.5l9 5" />
+              </svg>{int(o.data.deliveries)} shipments analysed
+            </span>
+          )}
           <button type="button" className={s.chip} onClick={exportTable} disabled={attribution.length === 0}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 15V3M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
@@ -349,79 +365,63 @@ export function OverviewScreen() {
         </>
       )}
 
-      <div className={s.row2}>
-        <section className={`${s.panel} ${s.pathPanel}`}>
-          <div className={s.head}>
-            <div>
-              <h2 className={s.h2}>Path to target</h2>
-              <p className={s.sub}>
-                Each fix replayed on the supplied deliveries at its expected adoption rate.
-                {o.data && final != null && <> On-time rises step by step from {pct(o.data.onTime)} to {pct(final)}.</>}
-              </p>
-            </div>
-            <div className={s.chips}>
-              {o.data && final != null && <span className={s.tagGood}><Glyph />+{points(final - o.data.onTime)} pts</span>}
-              {ceiling != null && <span className={s.tagMuted}>Ceiling {ceiling > TARGET ? `> ${pct(TARGET, 0)}` : pct(ceiling)}</span>}
-            </div>
+      <section className={`${s.panel} ${s.pathPanel}`}>
+        <div className={s.head}>
+          <div>
+            <h2 className={s.h2}>Path to target</h2>
+            <p className={s.sub}>
+              Each fix replayed on the supplied deliveries at its expected adoption rate.
+              {o.data && final != null && <> On-time rises step by step from {pct(o.data.onTime)} to {pct(final)}.</>}
+            </p>
           </div>
-          <Status loading={a.loading || r.loading} error={a.error ?? r.error} skeleton="bars" count={6} />
-          {o.data && final != null && (
-            <div className={s.pathGrid}>
-              <div className={s.chartScroll}>
-                <div className={s.chart}>
-                  <div className={s.plot}>
-                    {[0.7, 0.8, 0.9, 1].map((v) => <span key={v} className={s.grid} style={{ bottom: at(v) }}><em>{pct(v, 0)}</em></span>)}
-                    <span className={s.targetLine} style={{ bottom: at(TARGET) }}><em>Target {pct(TARGET, 0)}</em></span>
-                    <span className={s.benchLine} style={{ bottom: at(benchmark) }}><em>Benchmark {pct(benchmark, 0)}</em></span>
-                    <div className={s.cols}>
-                      <div className={s.col}>
-                        <span className={`${s.bar} ${s.barBase}`} style={{ ...col(AXIS_MIN, o.data.onTime), '--i': 0 } as CSSProperties}>
-                          <em>{(o.data.onTime * 100).toFixed(1)}</em>
+          <div className={s.chips}>
+            {o.data && final != null && <span className={s.tagGood}><Glyph />+{points(final - o.data.onTime)} pts</span>}
+            {ceiling != null && <span className={s.tagMuted}>Ceiling {ceiling > TARGET ? `> ${pct(TARGET, 0)}` : pct(ceiling)}</span>}
+          </div>
+        </div>
+        <Status loading={a.loading || r.loading} error={a.error ?? r.error} skeleton="bars" count={6} />
+        {o.data && final != null && (
+          <div className={s.pathGrid}>
+            <div className={s.chartScroll}>
+              <div className={s.chart}>
+                <div className={s.plot}>
+                  {[0.7, 0.8, 0.9, 1].map((v) => <span key={v} className={s.grid} style={{ bottom: at(v) }}><em>{pct(v, 0)}</em></span>)}
+                  <span className={s.targetLine} style={{ bottom: at(TARGET) }}><em>Target {pct(TARGET, 0)}</em></span>
+                  <span className={s.benchLine} style={{ bottom: at(benchmark) }}><em>Benchmark {pct(benchmark, 0)}</em></span>
+                  <div className={s.cols}>
+                    <div className={s.col}>
+                      <span className={`${s.bar} ${s.barBase}`} style={{ ...col(AXIS_MIN, o.data.onTime), '--i': 0 } as CSSProperties}>
+                        <em>{(o.data.onTime * 100).toFixed(1)}</em>
+                      </span>
+                    </div>
+                    {steps.map((x, i) => (
+                      <div key={x.cause} className={s.col}>
+                        <span className={`${s.bar} ${x.cause === largest ? s.barHot : s.barStep}`} title={`${pct(x.from)} → ${pct(x.to)}`}
+                          style={{ ...col(x.from, x.to), '--i': i + 1 } as CSSProperties}>
+                          <em>+{points(x.to - x.from)}<small>{(x.to * 100).toFixed(1)}%</small></em>
                         </span>
                       </div>
-                      {steps.map((x, i) => (
-                        <div key={x.cause} className={s.col}>
-                          <span className={`${s.bar} ${x.cause === largest ? s.barHot : s.barStep}`} title={`${pct(x.from)} → ${pct(x.to)}`}
-                            style={{ ...col(x.from, x.to), '--i': i + 1 } as CSSProperties}>
-                            <em>+{points(x.to - x.from)}</em>
-                            <small>{(x.to * 100).toFixed(1)}</small>
-                          </span>
-                        </div>
-                      ))}
-                      <div className={s.col}>
-                        {ceiling != null && <span className={s.ceiling} style={col(final, Math.min(ceiling, 1))}><em>Ceiling {ceiling > TARGET ? `>${pct(TARGET, 0)}` : pct(ceiling)}</em></span>}
-                        <span className={`${s.bar} ${s.barFinal}`} style={{ ...col(AXIS_MIN, final), '--i': steps.length + 1 } as CSSProperties}>
-                          <b>{(final * 100).toFixed(1)}</b>
-                        </span>
-                      </div>
+                    ))}
+                    <div className={s.col}>
+                      {ceiling != null && <span className={s.ceiling} style={col(final, Math.min(ceiling, 1))}><em>Ceiling {ceiling > TARGET ? `>${pct(TARGET, 0)}` : pct(ceiling)}</em></span>}
+                      <span className={`${s.bar} ${s.barFinal}`} style={{ ...col(AXIS_MIN, final), '--i': steps.length + 1 } as CSSProperties}>
+                        <b>{(final * 100).toFixed(1)}</b>
+                      </span>
                     </div>
                   </div>
-                  <div className={s.colLabels}>
-                    <span><b>Today</b></span>
-                    {steps.map((x) => <span key={x.cause}>{FIXES[x.cause]?.[2] ?? x.cause}</span>)}
-                    <span className={s.good}>With fixes</span>
-                  </div>
+                </div>
+                <div className={s.colLabels}>
+                  <span><b>Today</b></span>
+                  {steps.map((x) => <span key={x.cause}>{FIXES[x.cause]?.[2] ?? x.cause}</span>)}
+                  <span className={s.good}>With fixes</span>
                 </div>
               </div>
-              <aside className={s.stepTable}>
-                <p className={s.stepHead}><span>Step</span><span>On-time</span></p>
-                <ol>
-                  <li style={{ '--i': 0 } as CSSProperties}><i className={s.dark} /><span>Today</span><small /><b>{pct(o.data.onTime)}</b></li>
-                  {steps.map((x, i) => (
-                    <li key={x.cause} className={x.cause === largest ? s.stepHot : undefined} style={{ '--i': i + 1 } as CSSProperties}>
-                      <i /><span>{FIXES[x.cause]?.[2] ?? x.cause}</span><small>+{points(x.to - x.from)}</small><b>{pct(x.to)}</b>
-                    </li>
-                  ))}
-                </ol>
-                <p className={s.short}>
-                  <span>{final < TARGET ? `${points(TARGET - final)} pts short of the ${pct(TARGET, 0)} target` : `Clears the ${pct(TARGET, 0)} target`}</span>
-                  <b>{pct(final)}</b>
-                </p>
-              </aside>
             </div>
-          )}
-        </section>
+          </div>
+        )}
+      </section>
 
+      <div className={s.row2}>
         <section className={s.panel}>
           <h2 className={s.h2}>Where the loss starts</h2>
           <p className={s.sub}>Each cause is tied to one stage of the shipment lifecycle.</p>
@@ -455,9 +455,7 @@ export function OverviewScreen() {
             })}
           </ol>
         </section>
-      </div>
 
-      <div className={s.row3}>
         <section className={s.panel}>
           <h2 className={s.h2}>Five causes of lost on-time</h2>
           <p className={s.sub}>Points lost to each cause. No shipment without one of these causes arrived late.</p>
@@ -475,11 +473,11 @@ export function OverviewScreen() {
           </ul>
           {lost > 0 && <p className={s.total}><span>Together, all five causes</span><b>{points(lost)} pts</b></p>}
         </section>
-
-        <Assistant deliveries={o.data?.deliveries} onTime={o.data?.onTime} steps={steps} lost={lost} ceiling={ceiling}
-          largest={largest} owners={Object.fromEntries(attribution.map((x) => [x.cause, measure(x.cause)?.owner ?? '']))}
-          loading={a.loading || r.loading} error={a.error ?? r.error} />
       </div>
+
+      <Assistant deliveries={o.data?.deliveries} onTime={o.data?.onTime} steps={steps} lost={lost} ceiling={ceiling}
+        largest={largest} owners={Object.fromEntries(attribution.map((x) => [x.cause, measure(x.cause)?.owner ?? '']))}
+        loading={a.loading || r.loading} error={a.error ?? r.error} />
 
       <section className={`${s.panel} ${s.tablePanel}`}>
         <div className={s.head}>

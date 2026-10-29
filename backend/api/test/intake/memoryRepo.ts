@@ -6,7 +6,7 @@ export function memoryRepo(clients: Record<string, ClientRow>, saved: SavedAddre
   const emails: EmailRow[] = [];
   const extractions: ExtractionRow[] = [];
   const outbound: { emailId: number; to: string; body: string; status: string; gmailId: string | null }[] = [];
-  const audit: { emailId: number; action: string; user: string }[] = [];
+  const audit: { emailId?: number; ref: string; action: string; user: string; payload?: object }[] = [];
   const polls: PollRow[] = [];
   const lock = { held: false };
   let clock = Date.UTC(2026, 9, 28, 10, 0); // poll start times; tests move it with `advance`
@@ -26,8 +26,10 @@ export function memoryRepo(clients: Record<string, ClientRow>, saved: SavedAddre
     },
     saveExtraction: async (r) => { extractions.push({ ...r, id: extractions.length + 1 }); },
     latestExtraction: async (id) => [...extractions].reverse().find((x) => x.email_id === id) ?? null,
-    listEmails: async () => emails.map((e) => ({ ...e, decision: null, priority: false })),
-    logApproval: async (emailId, action, user) => { audit.push({ emailId, action, user }); },
+    listEmails: async () => emails.map((e) => ({ ...e, decision: null, priority: false, items: null, client_name: null,
+      account_tier: null })),
+    logApproval: async (emailId, action, user, payload) => { audit.push({ emailId, ref: `email:${emailId}`, action, user, payload }); },
+    logAudit: async (user, action, ref, payload) => { audit.push({ ref, action, user, payload }); },
     logOutbound: async (emailId, to, body, status, gmailId = null) => { outbound.push({ emailId, to, body, status, gmailId }); },
     waitingEmails: async () => emails.filter((e) => e.status === 'WAITING'),
     lastPollStart: async () => {

@@ -106,7 +106,7 @@ delivery went wrong is marked `failed`, from the cause flags (SPEC §5.1):
 | `f_cutoff` | 4 Promise set | `checkPromise` result: next day, with the reason told to the client |
 | `f_stock` (non-nearest warehouse) | 5 Warehouse chosen | `pickWarehouse` result: the nearest warehouse with stock |
 | `f_lane` (incl. D on Friday) | 6 Carrier chosen | `recommendCarrier` result: carrier and reason |
-| `f_route` (stage Delivery) | 12 In transit | No LateLens check: route detours are left to the routing pilot (SPEC §1.1) |
+| `f_route` (stage Delivery) | 12 In transit | Not checked: route detours are left to the routing pilot (SPEC §1.1) |
 
 The "With LateLens" note shows the rule's output, never a promise that the delivery would have been on time. Replay
 (SPEC §5.8) remains the only place that states on-time rates.
@@ -136,7 +136,7 @@ The "With LateLens" note shows the rule's output, never a promise that the deliv
 |---|---|
 | NFR-JRN-01 | `GET /api/journey/:ref` **SHOULD** respond within 500 ms at p95 on the demo database. |
 | SEC-JRN-01 | The journey **MUST NOT** return names, phone numbers or email addresses of people. It shows client id, items, and city, state and ZIP; the full email stays on the Intake screen. |
-| SEC-JRN-02 | The journey endpoint **MUST** be read-only. Like the other dashboard reads (`GET /api/intake`, `/api/carriers`) it needs no API key, which is why SEC-JRN-01 keeps people's details out of it. |
+| SEC-JRN-02 | *(Replaced by REQ-AUTH-04 in `docs/SPEC-auth.md` once P7 ships: reads then need a signed-in user.)* The journey endpoint **MUST** be read-only. Like the other dashboard reads (`GET /api/intake`, `/api/carriers`) it needs no API key, which is why SEC-JRN-01 keeps people's details out of it. |
 | SEC-JRN-03 | Journey requests **MUST** log the ref (`emailId` or `deliveryId`), so an order's journey views are traceable in Application Insights (NFR-03). |
 
 ## 6. Acceptance criteria
@@ -213,7 +213,7 @@ per-order proof of SPEC §2.2.
 - Notices to the client's end customer: Halcyon is the client's only contact (Q-004).
 - Changing any order from the journey page: it is read-only; actions stay on Intake (SEC-04).
 - Route optimisation for `f_route` deliveries (routing pilot, SPEC §1.1).
-- User accounts and roles per stage (P7 Entra login, pitch only); the actor is shown as recorded in `audit_log`.
+- User accounts and roles per stage (P7, `docs/SPEC-auth.md`, built after submission); the actor is shown as recorded in `audit_log` (name or role: Q-AUTH-05).
 
 ## 10. Risks and mitigations
 

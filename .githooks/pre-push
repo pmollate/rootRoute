@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Runs scripts/check.sh for the areas this push changes. Turned on by npm run setup (git config core.hooksPath).
+# Skip it once with: git push --no-verify
+set -euo pipefail
+zero=0000000000000000000000000000000000000000
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue   # deleting a remote branch: nothing to check
+  # A new branch, or a remote commit this clone does not have (force push): compare with where it left main.
+  if [ "$remote_sha" = "$zero" ] || ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+    base=$(git merge-base origin/main "$local_sha" 2>/dev/null || true)
+  else
+    base=$remote_sha
+  fi
+  if [ -z "$base" ]; then
+    echo "pre-push: no base to compare $local_ref with; running every check"
+    bash scripts/check.sh </dev/null
+  else
+    bash scripts/check.sh --changed "$base" "$local_sha" </dev/null   # stdin is git's ref list, not for the checks
+  fi
+done

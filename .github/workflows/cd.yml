@@ -5,64 +5,169 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      refresh_data:
+        description: Regenerate synthetic data, rerun the pipeline and reseed (migrations always run)
+        type: boolean
+        default: true
+      run_e2e:
+        description: Run the Playwright smoke test after deploying
+        type: boolean
+        default: true
 
 permissions:
-  id-token: write
   contents: read
 
-concurrency: cd
+env:
+  NODE_VERSION: "24"
+  PYTHON_VERSION: "3.12"
+  NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
-  deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+  # Decides whether this run deploys, before it queues for the demo environment.
+  gate:
     runs-on: ubuntu-latest
-    environment: demo
-    env:
-      API_URL: https://${{ vars.NAME }}-api.azurewebsites.net
-      WEB_URL: https://${{ vars.NAME }}-web.azurewebsites.net
-      NEXT_TELEMETRY_DISABLED: "1"
+    timeout-minutes: 5
+    # Only a green ci run for a push to main in this repo (a fork PR from a branch named main also reports
+    # head_branch main), or a manual run started from main.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    outputs:
+      sha: ${{ steps.check.outputs.sha }}
+      deploy: ${{ steps.check.outputs.deploy }}
     steps:
-      - uses: actions/checkout@v4
+      - id: check
+        name: Skip commits that are no longer the head of main (a newer run deploys instead)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          head=$(curl -fsS --retry 3 -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github.sha" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/main")
+          if [ "$head" = "$SHA" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping $SHA: main is now at $head, whose own run will deploy it"
+          fi
+
+  deploy:
+    needs: gate
+    if: needs.gate.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: demo
+      url: ${{ steps.config.outputs.web_url }}
+    # One deployment at a time; a newer run waits rather than cancelling one mid-migration.
+    concurrency:
+      group: cd-demo
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write   # OIDC sign-in to Azure, no stored password
+    outputs:
+      api_url: ${{ steps.config.outputs.api_url }}
+      web_url: ${{ steps.config.outputs.web_url }}
+    env:
+      SHA: ${{ needs.gate.outputs.sha }}
+      RG: ${{ vars.AZURE_RG }}
+      API_APP: ${{ vars.API_APP || format('{0}-api', vars.NAME) }}
+      WEB_APP: ${{ vars.WEB_APP || format('{0}-web', vars.NAME) }}
+      KEY_VAULT: ${{ vars.KEY_VAULT || format('{0}-kv', vars.NAME) }}
+      DB_SERVER: ${{ vars.DB_SERVER || format('{0}-db', vars.NAME) }}
+      REFRESH_DATA: ${{ github.event_name != 'workflow_dispatch' || inputs.refresh_data }}
+    steps:
+      - name: Check the demo environment is configured
+        env:
+          NAME: ${{ vars.NAME }}
+          HAS_CLIENT: ${{ secrets.AZURE_CLIENT_ID != '' }}
+          HAS_TENANT: ${{ secrets.AZURE_TENANT_ID != '' }}
+          HAS_SUB: ${{ secrets.AZURE_SUBSCRIPTION_ID != '' }}
+        run: |
+          missing=()
+          [ -n "$RG" ] || missing+=("variable AZURE_RG")
+          [ -n "$NAME" ] || missing+=("variable NAME")
+          [ "$HAS_CLIENT" = true ] || missing+=("secret AZURE_CLIENT_ID")
+          [ "$HAS_TENANT" = true ] || missing+=("secret AZURE_TENANT_ID")
+          [ "$HAS_SUB" = true ] || missing+=("secret AZURE_SUBSCRIPTION_ID")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::demo environment is missing: ${missing[*]} (see infra/setup.sh)"; exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-      - uses: azure/login@v2
+          ref: ${{ env.SHA }}
+          persist-credentials: false
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Read secrets from Key Vault
+      - id: config
+        name: Look up app URLs and read secrets from Key Vault
         run: |
+          # Real host names: newer App Service apps get a unique suffix, not just <name>.azurewebsites.net
+          api_host=$(az webapp show -g "$RG" -n "$API_APP" --query defaultHostName -o tsv)
+          web_host=$(az webapp show -g "$RG" -n "$WEB_APP" --query defaultHostName -o tsv)
+          echo "API_URL=https://$api_host" >> "$GITHUB_ENV"
+          echo "WEB_URL=https://$web_host" >> "$GITHUB_ENV"
+          echo "api_url=https://$api_host" >> "$GITHUB_OUTPUT"
+          echo "web_url=https://$web_host" >> "$GITHUB_OUTPUT"
           for s in database-url api-key; do
-            v=$(az keyvault secret show --vault-name "${{ vars.NAME }}-kv" -n "$s" --query value -o tsv)
+            v=$(az keyvault secret show --vault-name "$KEY_VAULT" -n "$s" --query value -o tsv)
+            if [ -z "$v" ]; then echo "::error::Key Vault secret $s is empty"; exit 1; fi
             echo "::add-mask::$v"
             echo "$(echo "$s" | tr 'a-z-' 'A-Z_')=$v" >> "$GITHUB_ENV"
           done
-      - name: Let this runner reach Postgres (removed at the end of the job)
+      - name: Let this runner reach Postgres
         run: |
-          ip=$(curl -fsS https://api.ipify.org)
-          db=$(az resource show -g "${{ vars.AZURE_RG }}" -n "${{ vars.NAME }}-db" \
+          db=$(az resource show -g "$RG" -n "$DB_SERVER" \
             --resource-type Microsoft.DBforPostgreSQL/flexibleServers --query id -o tsv)
+          echo "DB_ID=$db" >> "$GITHUB_ENV"
+          # Runs are serialised (concurrency above), so any gh-* rule left by a killed runner is stale: remove it.
+          for rule in $(az rest --method get --url "$db/firewallRules?api-version=2024-08-01" \
+                          --query "value[?starts_with(name, 'gh-')].name" -o tsv); do
+            echo "removing stale rule $rule"
+            az resource delete --id "$db/firewallRules/$rule" --api-version 2024-08-01 || true
+          done
+          ip=$(curl -fsS --max-time 10 https://api.ipify.org || curl -fsS --max-time 10 https://ifconfig.me)
+          if ! [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "::error::could not read the runner's IPv4 address"; exit 1; fi
           echo "FW_RULE=$db/firewallRules/gh-${{ github.run_id }}" >> "$GITHUB_ENV"
           az resource create --id "$db/firewallRules/gh-${{ github.run_id }}" --api-version 2024-08-01 -o none \
             --properties "{\"startIpAddress\":\"$ip\",\"endIpAddress\":\"$ip\"}"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: env.REFRESH_DATA == 'true'
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-      - run: pip install -r requirements.txt
-      - run: npm run data
+          cache-dependency-path: requirements.txt
+      - if: env.REFRESH_DATA == 'true'
+        run: pip install -r requirements.txt
+      - if: env.REFRESH_DATA == 'true'
+        run: npm run data
       - name: Fill computed tables
+        if: env.REFRESH_DATA == 'true'
         run: npm run pipeline
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: |
             frontend/package-lock.json
             backend/api/package-lock.json
       - run: npm run setup
       - run: npm run migrate
-      - run: npm run seed
+      - if: env.REFRESH_DATA == 'true'
+        run: npm run seed
+      - name: Close the Postgres firewall (database work is done)
+        run: |
+          az resource delete --id "$FW_RULE" --api-version 2024-08-01
+          echo "FW_RULE=" >> "$GITHUB_ENV"
       - name: Package the API (keeps backend/ paths for synthetic-data/reference and the recorded AI answers)
         run: |
           npm run build:api
@@ -74,6 +179,7 @@ jobs:
       - name: Build and package the Next.js app (landing page + dashboard)
         env:
           NEXT_PUBLIC_API_URL: ${{ env.API_URL }}
+          # Ships to browsers by design (infra/setup.sh); the MCP endpoint has its own token.
           NEXT_PUBLIC_API_KEY: ${{ env.API_KEY }}
         run: |
           npm run build
@@ -81,8 +187,15 @@ jobs:
           cp -R frontend/.next frontend/public frontend/package.json frontend/package-lock.json frontend/next.config.mjs deploy-web/
           npm --prefix deploy-web ci --omit=dev --no-audit --no-fund
           rm -rf deploy-web/.next/cache
-      - name: Give the API its AI, map and Gmail settings (from the demo environment's secrets; empty ones are left as they are)
+          echo "BUILD_ID=$(cat deploy-web/.next/BUILD_ID)" >> "$GITHUB_ENV"
+      - uses: azure/webapps-deploy@02a81bead70021f5284939794bcec79c271ab383 # v3.0.8
+        with:
+          app-name: ${{ env.API_APP }}
+          package: deploy-api
+          clean: true   # replace wwwroot, so no files or build leftovers from earlier deploys survive
+      - name: Give the API its version, AI, map and Gmail settings (empty secrets leave the current value)
         env:
+          GIT_SHA: ${{ env.SHA }}
           LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
           AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
           AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
@@ -98,62 +211,79 @@ jobs:
           GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
           ALLOW_LIST: ${{ secrets.ALLOW_LIST || vars.ALLOW_LIST }}
           INTAKE_POLL_MINUTES: ${{ secrets.INTAKE_POLL_MINUTES || vars.INTAKE_POLL_MINUTES }}
+        # Set after the code deploy, so /api/health only reports the new GIT_SHA once the new code runs.
+        # Values go through a private temp file, not the command line, so they never appear in a process list.
         run: |
-          settings=()
-          for k in LLM_PROVIDER AZURE_OPENAI_ENDPOINT AZURE_OPENAI_API_KEY AZURE_OPENAI_DEPLOYMENT PII_PROVIDER \
-                   AZURE_LANGUAGE_ENDPOINT AZURE_LANGUAGE_KEY ADDRESS_PROVIDER AZURE_MAPS_KEY \
-                   GMAIL_ACCOUNT GMAIL_CLIENT_ID GMAIL_CLIENT_SECRET GMAIL_REFRESH_TOKEN ALLOW_LIST INTAKE_POLL_MINUTES; do
-            if [ -n "${!k}" ]; then settings+=("$k=${!k}"); echo "set $k"; else echo "skip $k (no secret)"; fi
-          done
-          if [ ${#settings[@]} -gt 0 ]; then
-            az webapp config appsettings set -g "${{ vars.AZURE_RG }}" -n "${{ vars.NAME }}-api" -o none --settings "${settings[@]}"
-          fi
-      - uses: azure/webapps-deploy@v3
+          keys='["GIT_SHA","LLM_PROVIDER","AZURE_OPENAI_ENDPOINT","AZURE_OPENAI_API_KEY","AZURE_OPENAI_DEPLOYMENT",
+                 "PII_PROVIDER","AZURE_LANGUAGE_ENDPOINT","AZURE_LANGUAGE_KEY","ADDRESS_PROVIDER","AZURE_MAPS_KEY",
+                 "GMAIL_ACCOUNT","GMAIL_CLIENT_ID","GMAIL_CLIENT_SECRET","GMAIL_REFRESH_TOKEN","ALLOW_LIST",
+                 "INTAKE_POLL_MINUTES"]'
+          file="$RUNNER_TEMP/appsettings.json"
+          (umask 077; jq -n --argjson keys "$keys" \
+            '[$keys[] as $k | select(($ENV[$k] // "") != "") | {name: $k, value: $ENV[$k], slotSetting: false}]' > "$file")
+          jq -r --argjson keys "$keys" '($keys - map(.name))[] | "skip \(.) (no secret)"' "$file"
+          jq -r '.[] | "set \(.name)"' "$file"
+          az webapp config appsettings set -g "$RG" -n "$API_APP" -o none --settings "@$file"
+          rm -f "$file"
+      - uses: azure/webapps-deploy@02a81bead70021f5284939794bcec79c271ab383 # v3.0.8
         with:
-          app-name: ${{ vars.NAME }}-api
-          package: deploy-api
-      - uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ vars.NAME }}-web
+          app-name: ${{ env.WEB_APP }}
           package: deploy-web
-      - name: Smoke check
+          clean: true
+      # The deploy replaces the files, but a running Next.js server keeps serving the build it loaded at start-up
+      # (the API restarts anyway, from the app-settings change above).
+      - name: Restart the web app so it serves the new build
+        run: az webapp restart -g "$RG" -n "$WEB_APP" -o none
+      - name: Smoke check (the new API and web builds are live and the database answers)
         run: |
-          for i in $(seq 1 30); do
-            curl -fsS "$API_URL/api/health" | grep -q '"db":"ok"' && curl -fsS -o /dev/null "$WEB_URL/dashboard" && exit 0
+          page="$RUNNER_TEMP/dashboard.html"
+          for i in $(seq 1 40); do
+            health=$(curl -sS --max-time 15 "$API_URL/api/health" || true)
+            api=$(jq -r 'if .db == "ok" then .version else "db:\(.db)" end' <<<"$health" 2>/dev/null || echo unreachable)
+            # The served HTML names the build id the server is running, so this fails while an old server answers.
+            code=$(curl -sL -o "$page" --max-time 30 -w '%{http_code}' "$WEB_URL/dashboard" || true)
+            if grep -qF "$BUILD_ID" "$page" 2>/dev/null; then web=new; else web=old; fi
+            echo "try $i: api=$api dashboard=$code web-build=$web"
+            if [ "$api" = "$SHA" ] && [ "$code" = 200 ] && [ "$web" = new ]; then exit 0; fi
             sleep 10
           done
-          echo "Smoke check failed"; exit 1
-      - name: Close the Postgres firewall again
+          echo "::error::Smoke check failed: expected API version $SHA with db ok, and /dashboard 200 serving web build $BUILD_ID"
+          exit 1
+      - name: Close the Postgres firewall if a step above failed
         if: always()
         run: if [ -n "${FW_RULE:-}" ]; then az resource delete --id "$FW_RULE" --api-version 2024-08-01 || true; fi
 
-  # Owner C: Playwright UI automation of the order-to-delivery workflow (Order journey) on the deployed app, read-only.
+  # P6 (owner C): Playwright smoke test of the deployed app, every screen at phone and desktop width, read-only.
   # Its own job, so a failing check is visible without marking the deployment itself as failed.
+  # It needs no secrets, so it runs outside the demo environment.
   e2e:
-    needs: deploy
+    needs: [gate, deploy]
+    if: github.event_name != 'workflow_dispatch' || inputs.run_e2e
     runs-on: ubuntu-latest
-    environment: demo
+    timeout-minutes: 20
     env:
-      WEB_URL: https://${{ vars.NAME }}-web.azurewebsites.net
-      API_URL: https://${{ vars.NAME }}-api.azurewebsites.net
+      WEB_URL: ${{ needs.deploy.outputs.web_url }}
+      API_URL: ${{ needs.deploy.outputs.api_url }}
       CI: "true"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-      - uses: actions/setup-node@v4
+          ref: ${{ needs.gate.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm --prefix frontend ci --no-audit --no-fund
       - run: npx --prefix frontend playwright install --with-deps chromium
-      - name: UI automation of the order-to-delivery workflow
+      - name: Smoke test every screen
         working-directory: frontend
         run: npm run e2e
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
         with:
           name: playwright-report
           path: frontend/playwright-report
+          if-no-files-found: ignore
           retention-days: 7

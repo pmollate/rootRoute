@@ -3,7 +3,10 @@
   "private": true,
   "description": "LateLens / Root Route: Next.js landing page in frontend/, Python analysis and carrier engine in backend/",
   "scripts": {
-    "setup": "npm --prefix frontend ci && npm --prefix backend/api ci",
+    "setup": "npm --prefix frontend ci && npm --prefix backend/api ci && npm run hooks && npm run demo-users",
+    "hooks": "git config core.hooksPath .githooks || true",
+    "demo-users": "node frontend/scripts/demo-users.mjs",
+    "check": "bash scripts/check.sh",
     "dev": "npm --prefix frontend run dev",
     "dev:api": "npm --prefix backend/api run dev",
     "dev:all": "npm run dev:api & npm run dev",

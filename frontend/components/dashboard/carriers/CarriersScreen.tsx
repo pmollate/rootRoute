@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useCan } from '@/components/auth/UserContext';
 import { PageHero } from '@/components/dashboard/PageHero';
 import { Segmented, Status, SyntheticBadge, ui } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
-import { postJSON } from '@/lib/api';
+import { SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
 import { int, pct, points, usd2 } from '@/lib/metrics';
 import s from './carriers.module.css';
 
@@ -40,7 +41,6 @@ const ICON = {
   fileExport: <><path d="M14 3H6v18h12v-5" /><path d="M14 3v4h4v2M11 13h10M18 10l3 3-3 3" /></>,
   play: <path d="M7 4.5v15l12-7.5-12-7.5Z" />,
   truck: <><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7" /><circle cx="7" cy="17.5" r="1.5" /><circle cx="17" cy="17.5" r="1.5" /></>,
-  barrier: <><path d="M3 8h18v5H3zM6 13v7M18 13v7M6 4v4M18 4v4" /><path d="m7 8 4 5M13 8l4 5" /></>,
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
   route: <><circle cx="6" cy="19" r="2" /><circle cx="18" cy="5" r="2" /><path d="M8 19h8.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H16" /></>,
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
@@ -49,17 +49,14 @@ const ICON = {
   lock: <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
   bulb: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z" /></>,
   contract: <><path d="M14 3H6v18h12V7l-4-4Z" /><path d="M14 3v4h4M9 12h6M9 16h3" /></>,
-  flask: <><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" /><path d="M7.5 15h9" /></>,
   cap: <><path d="m2 9 10-5 10 5-10 5L2 9Z" /><path d="M6 11v5c3 2 9 2 12 0v-5M22 9v6" /></>,
   vial: <><path d="M9 3h6M10 3v15a2 2 0 0 0 4 0V3" /><path d="M10 12h4" /></>,
   history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
-  dish: <><path d="M4 10a10 10 0 0 0 10 10L4 10Z" /><path d="m9 15 4-4M14 4a6 6 0 0 1 6 6M14 8a2 2 0 0 1 2 2" /></>,
   bolt: <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" />,
   plug: <><path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0V8ZM12 17v5" /></>,
   mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
   globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
   file: <><path d="M14 3H6v18h12V7l-4-4Z" /><path d="M14 3v4h4" /></>,
-  pen: <><path d="M4 20h4L19 9l-4-4L4 16v4Z" /><path d="m13.5 6.5 4 4" /></>,
   clipboard: <><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4h6v3H9zM9 13l2 2 4-4" /></>,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
 };
@@ -114,17 +111,15 @@ function useNetwork(): { carriers: number; blocked: { carrier: string; region: R
   return { carriers: carriers.size, blocked };
 }
 
-function SectionHead({ icon, title, sub, tone, children }: { icon: ReactNode; title: ReactNode; sub?: string; tone?: 'teal' | 'plum' | 'sand'; children?: ReactNode }) {
+/** Card heading: title and one-line description on the left, optional tags or tools on the right. */
+function Head({ title, sub, children }: { title: ReactNode; sub?: string; children?: ReactNode }) {
   return (
-    <div className={s.secHead}>
-      <div className={s.secTitle}>
-        <span className={`${s.secMark} ${tone ? s[tone] : ''}`}><Icon size={17}>{icon}</Icon></span>
-        <div>
-          <h2 className={s.h2}>{title}</h2>
-          {sub && <p className={s.sub}>{sub}</p>}
-        </div>
+    <div className={s.head}>
+      <div>
+        <h2 className={s.h2}>{title}</h2>
+        {sub && <p className={s.sub}>{sub}</p>}
       </div>
-      {children && <div className={s.secTools}>{children}</div>}
+      {children && <div className={s.tools}>{children}</div>}
     </div>
   );
 }
@@ -144,12 +139,37 @@ function OnTime({ value, benchmark, strong }: { value: number; benchmark?: numbe
 
 const Avatar = ({ children }: { children: ReactNode }) => <span className={s.av} aria-hidden="true">{children}</span>;
 
+/** REQ-AUTH-11: the override form and its lane, kept in this tab while the user signs in again. */
+const KEPT = 'rr.carriers.override';
+interface Kept { override: { orderRef: string; to: string; reason: string }; region: Region; commitment: Commitment; sla: boolean }
+const takeKept = (): Kept | null => {
+  try {
+    const raw = sessionStorage.getItem(KEPT);
+    sessionStorage.removeItem(KEPT);
+    return raw ? (JSON.parse(raw) as Kept) : null;
+  } catch {
+    return null;
+  }
+};
+const keep = (k: Kept) => { try { sessionStorage.setItem(KEPT, JSON.stringify(k)); } catch { /* storage blocked */ } };
+
 export function CarriersScreen() {
   const [region, setRegion] = useState<Region>('Northeast');
   const [commitment, setCommitment] = useState<Commitment>('next_day');
   const [sla, setSla] = useState(false);
-  const [override, setOverride] = useState({ orderRef: '', to: '', reason: '', user: '' });
+  // No name field: the API records the signed-in user (REQ-AUTH-07). Only carrier managers and admins override.
+  const [override, setOverride] = useState({ orderRef: '', to: '', reason: '' });
   const [overrideMsg, setOverrideMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [expired, setExpired] = useState(false);
+  const canOverride = useCan('override');
+  useEffect(() => {
+    const k = takeKept();
+    if (!k) return;
+    setRegion(k.region);
+    setCommitment(k.commitment);
+    setSla(k.sla);
+    setOverride(k.override);
+  }, []);
   const lane = useApi<{ recommendation: Rec }>(laneUrl(region, commitment, sla));
   const network = useNetwork();
   const bt = useApi<Backtest>('/api/carriers/backtest');
@@ -168,7 +188,12 @@ export function CarriersScreen() {
     try {
       const r = await postJSON<{ id: number }>('/api/overrides', { ...override, from: rec?.carrier ?? '' });
       setOverrideMsg({ ok: true, text: `Logged override #${r.id}. It will appear in the next lane-rule review.` });
-    } catch {
+    } catch (e) {
+      if (e instanceof SessionExpired) {
+        keep({ override, region, commitment, sla }); // nothing is resent: the user clicks again after signing in
+        setExpired(true);
+        return;
+      }
       // A fixed message: the error text can carry API paths, status codes or server internals.
       setOverrideMsg({ ok: false, text: 'Could not log the override. Check the fields and try again.' });
     }
@@ -176,16 +201,18 @@ export function CarriersScreen() {
 
   return (
     <div className={s.screen}>
+      {/* Top section as in the design file (Carrier clips/Carriers.html): title, lede and actions in the hero, stats top right. */}
       <PageHero image="/media/carriers-hero.jpg" imagePosition="right 45%" chipsAt="top"
+        eyebrow={<span className={s.heroEy}><Icon size={14}>{ICON.truck}</Icon>Line-haul · {REGIONS.length} regions</span>}
         title="Carriers"
         text="Carrier choice by lane, scored only on deliveries with no address, stock or cut-off problem."
         chips={network ? [
-          { label: 'Carriers', value: network.carriers, icon: <Icon>{ICON.truck}</Icon> },
-          { label: 'Lanes blocked', value: network.blocked.length, icon: <Icon>{ICON.barrier}</Icon>, tone: 'hot' },
+          { label: 'Carriers', value: network.carriers },
+          { label: 'Lanes blocked', value: network.blocked.length, tone: 'hot' },
         ] : undefined}>
         <div className={s.heroTools}>
           <button type="button" className={s.heroBtn} disabled={!rec} onClick={() => rec && exportLane(region, commitment, rec)}>
-            <Icon>{ICON.fileExport}</Icon>Export CSV
+            <Icon>{ICON.fileExport}</Icon>Export <span className={s.fileName}>carriers-{region}-{commitment}.csv</span>
           </button>
           <Link className={s.heroCta} href="/dashboard/replay"><Icon size={14}>{ICON.play}</Icon>Open replay</Link>
         </div>
@@ -210,7 +237,7 @@ export function CarriersScreen() {
       )}
 
       <section className={s.panel}>
-        <SectionHead icon={ICON.route} title="Which carrier for this lane?"
+        <Head title="Which carrier for this lane?"
           sub="Ranked by on-time rate, days late and cost; blocked carriers are never offered." />
         <div className={s.controls}>
           <div className={s.ctl}><p className={s.lb}>Region</p>
@@ -289,7 +316,7 @@ export function CarriersScreen() {
 
       <div className={s.halves}>
         <section className={s.panel}>
-          <SectionHead icon={ICON.flask} tone="plum" title="Backtest: rules trained Apr–Jul, tested Aug–Sep"
+          <Head title="Backtest: rules trained Apr–Jul, tested Aug–Sep"
             sub="Same Aug–Sep deliveries, each way of choosing the carrier." />
           <p className={s.period}><span><Icon size={13}>{ICON.cap}</Icon>Train · Apr–Jul</span>
             <span className={s.test}><Icon size={13}>{ICON.vial}</Icon>Test · Aug–Sep</span></p>
@@ -319,9 +346,9 @@ export function CarriersScreen() {
         </section>
 
         <section className={s.panel}>
-          <SectionHead icon={ICON.dish} tone="teal" title="Tracking across all six carriers" sub="How each carrier reports delivery events.">
+          <Head title="Tracking across all six carriers" sub="How each carrier reports delivery events.">
             <SyntheticBadge />
-          </SectionHead>
+          </Head>
           <Status loading={tr.loading} error={tr.error} skeleton="rows" count={4} />
           {tr.data && (
             <>
@@ -351,8 +378,8 @@ export function CarriersScreen() {
         </section>
       </div>
 
-      <section className={s.panel}>
-        <SectionHead icon={ICON.pen} tone="sand" title="Override a recommendation"
+      {canOverride && <section className={s.panel}>
+        <Head title="Override a recommendation"
           sub="Every override is logged with a reason, so the lane rules can be reviewed." />
         <div className={s.form}>
           <label className={s.fld}><span className={s.lb}>Order ref</span>
@@ -364,8 +391,6 @@ export function CarriersScreen() {
             </select></label>
           <label className={`${s.fld} ${s.wide}`}><span className={s.lb}>Reason</span>
             <input className={s.input} placeholder="e.g. client asked for a named carrier" value={override.reason} onChange={(e) => setOverride({ ...override, reason: e.target.value })} /></label>
-          <label className={s.fld}><span className={s.lb}>Your name</span>
-            <input className={s.input} placeholder="Full name" value={override.user} onChange={(e) => setOverride({ ...override, user: e.target.value })} /></label>
           <button type="button" className={s.primary} onClick={saveOverride}><Icon>{ICON.clipboard}</Icon>Log override</button>
         </div>
         {overrideMsg && (
@@ -373,7 +398,13 @@ export function CarriersScreen() {
             <span className={s.toastIcon}><Icon size={14}>{overrideMsg.ok ? ICON.check : ICON.info}</Icon></span>{overrideMsg.text}
           </p>
         )}
-      </section>
+        {expired && (
+          <p className={`${s.toast} ${s.toastErr}`} role="alert">
+            <span className={s.toastIcon}><Icon size={14}>{ICON.info}</Icon></span>{SESSION_ENDED}{' '}
+            <a href={signInAgain('/dashboard/carriers')}>Sign in again</a>
+          </p>
+        )}
+      </section>}
     </div>
   );
 }

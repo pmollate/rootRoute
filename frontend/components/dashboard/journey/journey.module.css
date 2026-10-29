@@ -1,31 +1,164 @@
-.screen { display: grid; gap: 16px; }
-.picker { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
-.field { display: grid; gap: 4px; }
-.field input { width: min(100%, 240px); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { font: inherit; font-size: 0.78rem; border: 1px solid var(--line); background: transparent; color: var(--ink-2); padding: 4px 9px; border-radius: var(--pill); cursor: pointer; }
-.chip:hover { color: var(--ink); border-color: var(--ink-2); }
-.chip:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
-.tracker { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-.phase { font-size: 0.78rem; color: var(--ink-2); text-align: center; }
-.bar { height: 6px; border-radius: 3px; margin-bottom: 5px; }
-.good { background: var(--good); }
-.warn { background: var(--warn); }
-.bad { background: var(--bad); }
-.idle { background: var(--line); }
-.timeline { list-style: none; margin: 0; padding: 0; }
-.stage { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
-.stage:first-child { border-top: 0; }
-.dim .body { color: var(--ink-2); }
-.dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 0.75rem; font-weight: 700; background: rgb(var(--ink-rgb) / 0.06); color: var(--ink-2); }
-.dot.done { background: var(--good-soft); color: var(--good); }
-.dot.failed { background: var(--bad-soft); color: var(--bad); }
-.dot.current, .dot.waiting, .dot.at_risk { background: var(--warn-soft); color: var(--warn); }
-.body { min-width: 0; }
-.line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
-.meta { margin-left: auto; font-size: 0.8rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.detail { margin: 4px 0 0; font-size: 0.88rem; color: var(--ink-2); }
-.fix { margin: 6px 0 0; font-size: 0.88rem; padding: 6px 10px; border-radius: 8px; background: var(--good-soft); color: var(--good); }
-.fix span { font-weight: 700; margin-right: 4px; }
-.link { font-size: 0.82rem; font-weight: 600; color: var(--accent-text); }
-@media (max-width: 520px) { .meta { margin-left: 0; width: 100%; } .tracker { gap: 4px; } .phase { font-size: 0.7rem; } }
+/* Order journey screen: picker, head with the With Root Route toggle, then the hub diorama across the full width, where a
+   selected place opens its stages beside its node. Sizes follow the design file
+   (Carrier clips/Root Route — Order Journey Map – Order journey — hub diorama.html); colours come from the theme tokens. */
+.screen { --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  width: 100%; display: grid; gap: 24px; }
+.screen > * { min-width: 0; }
+.bad { color: var(--hot-ink) !important; }
+.good { color: var(--gain-ink) !important; }
+
+/* Page head: what happened on the left; on the right, which order (a selector, and a box for any other delivery ID). */
+.top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 20px 48px; align-items: start; }
+.pick { display: grid; gap: 8px; min-width: 0; }
+.pickLab { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.select { position: relative; display: flex; align-items: center; color: var(--muted); }
+.select select { width: 100%; height: 42px; padding: 0 36px 0 12px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--surface);
+  color: var(--ink); font: inherit; font-size: 13.5px; text-overflow: ellipsis; appearance: none; cursor: pointer; outline: 0; }
+.select select:hover { border-color: var(--ink-2); }
+.select svg { position: absolute; right: 12px; pointer-events: none; }
+.searchRow { display: flex; gap: 8px; }
+.field { flex: 1; min-width: 0; display: flex; }
+.field input { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--surface);
+  color: var(--ink); font-family: var(--mono); font-size: 13px; outline: 0; }
+.field input[aria-invalid='true'] { border-color: var(--hot-ink); }
+.select select:focus-visible, .field input:focus { border-color: var(--navy); box-shadow: 0 0 0 3px rgb(var(--navy-rgb) / 0.12); }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.open { height: 40px; padding: 0 18px; border-radius: 4px; border: 1px solid var(--navy); background: var(--navy); color: var(--on-navy);
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter 0.2s, opacity 0.2s; }
+.open:hover { filter: brightness(1.15); }
+.open:disabled { opacity: 0.45; cursor: default; filter: none; }
+
+/* Not found */
+.nf { padding: 48px 32px; text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+.nf h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.nf p { margin: 6px 0 0; color: var(--ink-2); }
+
+/* Head */
+.kicker { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.headText { max-width: 760px; min-width: 0; }
+.headText h1 { margin: 6px 0 0; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+.headText p { margin: 10px 0 0; font-size: 15px; line-height: 1.55; color: var(--ink-2); }
+/* The bar along the top of the map: a hint on the left, the With Root Route switch on the right (on, the map and the
+   stages show Root Route's rules). */
+.mapBar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 48px; padding: 4px 16px 4px 20px;
+  border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.toggle { display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 2px; border: 0; background: transparent;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; }
+.track { position: relative; flex: none; width: 36px; height: 20px; border-radius: 10px; background: var(--line-strong); transition: background 0.2s; }
+.knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25); transition: transform 0.2s cubic-bezier(0.3, 1.2, 0.5, 1); }
+.toggle[aria-checked='true'] .track { background: var(--navy); }
+.toggle[aria-checked='true'] .knob { transform: translateX(16px); }
+.pick button:focus-visible, .toggle:focus-visible, .hub:focus-visible, .popClose:focus-visible {
+  outline: 2px solid var(--navy); outline-offset: 2px; }
+
+.mapCard { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.scroll { overflow-x: auto; }
+
+/* The board: the diorama picture, then the road, the parcel and the place labels, all placed in board percentages. */
+.board { position: relative; min-width: 880px; aspect-ratio: 1040 / 780; }
+.ground, .ground img, .ground svg, .route { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.roof { font-family: var(--font-sans); font-size: 38px; font-weight: 700; fill: #94a3b8; }
+/* The diorama is drawn light; in the dark theme it is inverted with its hues kept. */
+:global(:root[data-theme='dark']) .ground { filter: invert(0.88) hue-rotate(180deg); }
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme='light'])) .ground { filter: invert(0.88) hue-rotate(180deg); }
+}
+.route line, .legend line { fill: none; stroke-width: 2.5; stroke-linecap: round; }
+.route circle { stroke: var(--surface); stroke-width: 1.5; stroke-dasharray: none; }
+.legRec { stroke: var(--ink); fill: var(--ink); }
+.legLate { stroke: var(--hot-ink); fill: var(--hot-ink); }
+.legFix { stroke: var(--gain-ink); fill: var(--gain-ink); }
+.legDash { stroke-dasharray: 6 5; }
+.legAhead { stroke: var(--line-strong); fill: var(--line-strong); stroke-dasharray: 2 6; }
+.route .lead { stroke: var(--muted); stroke-width: 0.75; stroke-dasharray: none; }
+/* Hover: a soft navy ring grows around the node, and the place's label gets a hairline border. */
+.route .halo { fill: rgb(var(--navy-rgb) / 0.12); stroke: var(--navy); stroke-width: 1.5; opacity: 0; transform: scale(0.5);
+  transform-box: fill-box; transform-origin: center; transition: opacity 0.2s, transform 0.2s; }
+.route .haloOn { opacity: 1; transform: scale(1); }
+.route .nodeHit { fill: transparent; stroke: none; pointer-events: auto; cursor: pointer; }
+.parcel { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--navy); border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--navy); pointer-events: none;
+  transition: left 650ms cubic-bezier(0.22, 1, 0.36, 1), top 650ms cubic-bezier(0.22, 1, 0.36, 1); }
+/* Two rings spread from the parcel once it has settled at its place (the move takes 650ms), and keep going. */
+.ripple { position: absolute; inset: -3px; border-radius: 50%; }
+.ripple::before, .ripple::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--navy); opacity: 0;
+  animation: ripple 1.8s 0.65s cubic-bezier(0.2, 0.6, 0.35, 1) infinite; }
+.ripple::after { animation-delay: 1.55s; }
+@keyframes ripple { from { transform: scale(1); opacity: 0.7; } to { transform: scale(3.4); opacity: 0; } }
+.hub { position: absolute; width: 190px; min-height: 44px; display: flex; flex-direction: column; gap: 1px; padding: 6px 2px 4px; text-align: left;
+  background: color-mix(in srgb, var(--surface) 92%, transparent); border: 0; border-top: 1px solid var(--line-strong);
+  font: inherit; color: inherit; cursor: pointer; transition: opacity 0.2s, box-shadow 0.2s, background 0.2s; }
+.hub:hover { background: var(--surface); box-shadow: 0 0 0 1px var(--line-strong); }
+.hub[aria-pressed='true'] { border-top: 2px solid var(--navy); padding-top: 5px; }
+.hubAhead { opacity: 0.5; }
+.hubAhead:hover, .hubAhead[aria-pressed='true'] { opacity: 1; }
+.hubTag { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+.hubName { font-size: 14px; font-weight: 600; letter-spacing: -0.005em; color: var(--ink); }
+.hubNote { font-size: 12px; line-height: 1.35; color: var(--ink-2); }
+.legend { position: absolute; left: 20px; top: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: var(--ink-2); }
+.legend span { display: flex; align-items: center; gap: 8px; }
+
+/* A place's stages, opened beside its node: a card with an arrow pointing at the node, the stages stacked on a rail. */
+/* 40% of the board, between 360px and 520px: wide enough to read, and still clear of the board edge from any node. */
+.pop { position: absolute; z-index: 6; width: clamp(360px, 40%, 520px); padding: 14px 20px 6px; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: 0 22px 44px -20px rgb(15 23 42 / 0.4);
+  translate: 22px -50%; animation: popIn 0.18s ease-out both; }
+.popL { translate: calc(-100% - 22px) -50%; }
+.pop::before { content: ''; position: absolute; top: 50%; width: 12px; height: 12px; margin-top: -6px; background: var(--surface);
+  border: 1px solid var(--line); rotate: 45deg; }
+.popR::before { left: -7px; border-top-color: transparent; border-right-color: transparent; }
+.popL::before { right: -7px; border-bottom-color: transparent; border-left-color: transparent; }
+@keyframes popIn { from { opacity: 0; transform: scale(0.96); } }
+.popHead { display: flex; align-items: baseline; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.popHead b { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.popClose { margin-left: auto; width: 26px; height: 26px; border: 0; border-radius: 4px; background: transparent; color: var(--muted);
+  font-size: 18px; line-height: 1; cursor: pointer; }
+.popClose:hover { background: var(--paper); color: var(--ink); }
+.popNote { margin: 4px 0 10px; padding: 8px 10px; border: 1px dashed var(--line-strong); border-radius: 4px; font-size: 12px; line-height: 1.5; color: var(--ink-2); }
+
+/* Stages: time on the left, a dot on a rail, what happened on the right. */
+.tl { --when: 72px; --dot: 11px; --gap: 14px; margin: 0; padding: 0; list-style: none; }
+.tl li { position: relative; display: grid; grid-template-columns: var(--when) var(--dot) minmax(0, 1fr); column-gap: var(--gap); padding: 12px 0; }
+/* The rail through the dots, stopping at the first and last. */
+.tl li::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--when) + var(--gap) + var(--dot) / 2 - 0.5px); width: 1px; background: var(--line-strong); }
+.tl li:first-child::before { top: 20px; }
+.tl li:last-child::before { bottom: auto; height: 20px; }
+.tl li:only-child::before { display: none; }
+.tlWhen { display: flex; flex-direction: column; align-items: flex-end; padding-top: 1px; font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+.tlWhen b { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.tlWhen small, .tlWhen i { font-size: 11px; font-style: normal; color: var(--muted); }
+.tlDot { position: relative; z-index: 1; width: var(--dot); height: var(--dot); margin-top: 5px; border-radius: 50%; box-shadow: 0 0 0 3px var(--surface); }
+.dotDone { background: var(--ink); }
+.dotBad { background: var(--hot-ink); }
+.dotWait { background: var(--warm-bar, var(--warm-ink)); }
+.dotSkip { background: var(--surface); border: 1.5px dashed var(--line-strong); }
+.dotNr { background: var(--line-strong); }
+.dotFix { background: var(--gain-ink); }
+.tlWas { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.tlBody { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tlHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.tlHead b { font-size: 14px; font-weight: 600; }
+.tlHead > span:last-child { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.tlHead .stDone { color: var(--ink-2); }
+.tlHead .stWait { color: var(--warm-ink); }
+.tlN { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.tlMeta { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.tlText { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+.tl li:has(.dotSkip) .tlBody, .tl li:has(.dotNr) .tlBody { opacity: 0.7; }
+
+/* Narrower screens: the picker drops under the head. */
+@media (max-width: 960px) {
+  .top { grid-template-columns: minmax(0, 1fr); }
+  .pick { max-width: 520px; }
+}
+@media (max-width: 640px) {
+  .headText h1 { font-size: 22px; }
+  .headText p { font-size: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .parcel { transition: none; }
+  .ripple { display: none; }
+  .route .halo, .hub, .track, .knob { transition: none; }
+  .pop { animation: none; }
+}

@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useUser } from '@/components/auth/UserContext';
 import { Pager, Segmented, Status, usePage } from '@/components/dashboard/ui';
 import { BRAND } from '@/config/copy';
+import { canOpen } from '@/lib/auth/roles';
 import { useApi } from '@/hooks/useApi';
 import { int, pct, points, usd, usdShort } from '@/lib/metrics';
 import type { Overview } from '../overview/OverviewScreen';
@@ -33,10 +35,6 @@ const ICON = {
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
   trendDown: <><path d="m3 7 6 6 4-4 8 8" /><path d="M15 17h6v-6" /></>,
   trendUp: <><path d="m3 17 6-6 4 4 8-8" /><path d="M15 7h6v6" /></>,
-  chart: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
-  sliders: <path d="M6 4v6M6 14v6M12 4v2M12 10v10M18 4v10M18 18v2M4 12h4M10 8h4M16 16h4" />,
-  compare: <><circle cx="6" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="M6 8.5V15a3 3 0 0 0 3 3h6.5M18 15.5V9a3 3 0 0 0-3-3H8.5" /><path d="m13 15.5 2.5 2.5-2.5 2.5M11 3.5 8.5 6 11 8.5" /></>,
-  building: <><path d="M4 21V5l8-2v18M12 7h6a2 2 0 0 1 2 2v12M3 21h18" /><path d="M8 8h.01M8 12h.01M8 16h.01M16 12h.01M16 16h.01" /></>,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
   flag: <><path d="M5 21V4" /><path d="M5 4h11l-2 4 2 4H5" /></>,
   shield: <><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
@@ -52,8 +50,8 @@ const ICON = {
   alert: <><path d="M12 3 2 20h20L12 3Z" /><path d="M12 10v4M12 17h.01" /></>,
 };
 type IconName = keyof typeof ICON;
-const Icon = ({ name, size = 16 }: { name: IconName; size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+const Icon = ({ name, size = 16, stroke = 1.7 }: { name: IconName; size?: number; stroke?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     {ICON[name]}
   </svg>
 );
@@ -116,23 +114,21 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
   URL.revokeObjectURL(url);
 }
 
-/** Section title beside a 36px tinted icon tile. */
-function SecHead({ icon, tint, title, sub, id, children }: { icon: IconName; tint: string; title: string; sub?: ReactNode; id?: string; children?: ReactNode }) {
+/** Card heading: title and one-line description on the left, optional tools on the right. */
+function Head({ title, sub, id, children }: { title: string; sub?: ReactNode; id?: string; children?: ReactNode }) {
   return (
-    <div className={s.secHead}>
-      <div className={s.secTitle}>
-        <span className={`${s.secMark} ${s[tint]}`}><Icon name={icon} /></span>
-        <div>
-          <h2 id={id} className={s.h2}>{title}</h2>
-          {sub && <p className={s.sub}>{sub}</p>}
-        </div>
+    <div className={s.head}>
+      <div>
+        <h2 id={id} className={s.h2}>{title}</h2>
+        {sub && <p className={s.sub}>{sub}</p>}
       </div>
-      {children}
+      {children && <div className={s.tools}>{children}</div>}
     </div>
   );
 }
 
 export function ReplayScreen() {
+  const roles = useUser()?.roles ?? null; // REQ-AUTH-15: fix links only to screens this role may open
   const [segment, setSegment] = useState<Segment>('all');
   const [copied, setCopied] = useState(false);
   const all = useApi<{ scenarios: Scenario[] }>('/api/replay?segment=all');
@@ -203,13 +199,14 @@ export function ReplayScreen() {
     <div className={s.screen}>
       <div className={s.pageHead}>
         <div className={s.headText}>
+          <p className={s.eyebrow}>What-if scenarios</p>
           <h1 className={s.title}>Replay</h1>
           <p className={s.lede}>Rerun every delivery under what-if scenarios to see how on-time performance and cost would change.</p>
         </div>
         <div className={s.actions}>
-          <button type="button" className={s.btn} onClick={exportCsv} disabled={!chart.data}><Icon name="csv" />Export CSV</button>
-          <button type="button" className={`${s.btn} ${s.btnSolid}`} onClick={share} disabled={!ready} aria-live="polite">
-            <Icon name={copied ? 'check' : 'copy'} />{copied ? 'Summary copied' : 'Copy summary'}
+          <button type="button" className={s.chip} onClick={exportCsv} disabled={!chart.data}><Icon name="csv" size={14} stroke={2} />Export CSV</button>
+          <button type="button" className={s.chip} onClick={share} disabled={!ready} aria-live="polite">
+            <Icon name={copied ? 'check' : 'copy'} size={14} stroke={2} />{copied ? 'Summary copied' : 'Copy summary'}
           </button>
           {copied && (
             <div className={s.copied} role="status">
@@ -274,10 +271,10 @@ export function ReplayScreen() {
 
       <div className={s.grid}>
         <section className={`${s.card} ${s.chartCard}`} aria-labelledby="chart-head">
-          <SecHead icon="chart" tint="navy" id="chart-head" title="On-time delivery by scenario"
+          <Head id="chart-head" title="On-time delivery by scenario"
             sub="Fixes stack from today’s baseline. Grey is the rate before each step, green is what that fix adds.">
             <Segmented label="Orders" value={segment} options={SEGMENTS} onChange={setSegment} />
-          </SecHead>
+          </Head>
           <Status loading={chart.loading} error={chart.error} skeleton="bars" count={8} />
           {chart.data && (
             <>
@@ -339,7 +336,7 @@ export function ReplayScreen() {
         </section>
 
         <section className={`${s.card} ${s.assume}`} aria-labelledby="assume-head">
-          <SecHead icon="sliders" tint="plum" id="assume-head" title="Assumptions" sub="Share of each cause a fix is expected to remove." />
+          <Head id="assume-head" title="Assumptions" sub="Share of each cause a fix is expected to remove." />
           <ul className={s.arows}>
             {FIXES.map((f) => {
               const pts = lostBy.get(f.cause);
@@ -360,8 +357,8 @@ export function ReplayScreen() {
       </div>
 
       {all.data && (
-        <section aria-labelledby="alt-head">
-          <SecHead icon="compare" tint="teal" id="alt-head" title="Alternative scenarios"
+        <section className={s.card} aria-labelledby="alt-head">
+          <Head id="alt-head" title="Alternative scenarios"
             sub={`Three reference cases with their fixes fully in place, measured against the ${pct(TARGET, 0)} target.`} />
           <div className={s.alts}>
             {ALTERNATIVES.map((alt) => {
@@ -369,7 +366,7 @@ export function ReplayScreen() {
               if (!x) return null;
               const clears = x.onTime >= TARGET;
               return (
-                <article key={alt.scenario} className={`${s.card} ${s.alt} ${clears ? s.win : ''}`}>
+                <article key={alt.scenario} className={`${s.alt} ${clears ? s.win : ''}`}>
                   <div className={s.altTop}>
                     <span className={s.altIc}><Icon name={alt.icon} size={18} /></span>
                     {clears
@@ -393,10 +390,10 @@ export function ReplayScreen() {
         </section>
       )}
 
-      <section id="accounts" ref={accountsRef} className={s.accounts} aria-labelledby="acc-head">
-        <SecHead icon="building" tint="sand" id="acc-head" title="Accounts at risk"
+      <section id="accounts" ref={accountsRef} className={`${s.card} ${s.accounts}`} aria-labelledby="acc-head">
+        <Head id="acc-head" title="Accounts at risk"
           sub={`Client accounts grouped by their main late cause. ${MANY_COMPLAINTS} or more complaints is flagged.`} />
-        <div className={s.card}>
+        <div>
           <Status loading={a.loading} error={a.error} skeleton="rows" count={6} />
           {accounts.length > 0 && (
             <>
@@ -458,7 +455,9 @@ export function ReplayScreen() {
                                 : <span className={s.cmp}>{x.complaints}</span>}
                             </td>
                             <td className={`${s.right} ${s.go}`}>
-                              <Link className={s.fixl} href={c.href} aria-label={`${x.clientName}: open the ${c.fix} screen`}>{c.fix}<Icon name="arrow" size={12} /></Link>
+                              {canOpen(roles, c.href)
+                                ? <Link className={s.fixl} href={c.href} aria-label={`${x.clientName}: open the ${c.fix} screen`}>{c.fix}<Icon name="arrow" size={12} /></Link>
+                                : <span>{c.fix}</span>}
                             </td>
                           </tr>
                         </Fragment>

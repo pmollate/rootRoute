@@ -24,6 +24,8 @@
 
 .chips { position: absolute; right: var(--hero-pad); bottom: 24px; display: flex; align-items: flex-end; gap: 10px; }
 .chipsTop { top: var(--hero-pad); bottom: auto; align-items: flex-start; }
+/* Bottom left: in the text column's flow, pushed to the bottom of the hero on wide screens, so it never covers the text. */
+.chipsLeft { position: static; flex-wrap: wrap; margin-top: auto; }
 .chip { min-width: 84px; padding: 10px 14px; border-radius: 10px; color: #111; background: rgb(240 238 233 / 0.92); backdrop-filter: blur(6px); }
 .chip p { margin: 0 0 4px; font-size: 0.58rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #6a655e; }
 .chip b { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; color: #22345b; font-variant-numeric: tabular-nums; }
