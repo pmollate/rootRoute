@@ -210,7 +210,7 @@ The token lives only on the server-to-server hop. It is signed per request and n
 
 | Screen | Content |
 |---|---|
-| `/login` | Product name, "Sign in with Microsoft", the demo form below it when `AUTH_DEMO=on` |
+| `/login` | Product name and the email and password form (when `AUTH_DEMO=on`). No "Sign in with Microsoft" button, Microsoft notice or sign-out notice; Entra stays configurable in `auth.ts` |
 | Header (every page) | A profile icon with the user's initials, which opens a card with their name, roles and, for demo users, "Demo account"; and a round "Logout" icon button |
 | `/no-access` | "You are signed in as <name> but have no LateLens role. Ask `[ROLE_ADMIN]` for access." and "Sign out" (Q-AUTH-02) |
 
