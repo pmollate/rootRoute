@@ -48,9 +48,9 @@ export const PERMISSIONS: Record<string, Permission> = {
     approve: ORDER_DESK, reject: ORDER_DESK, send_reply: ORDER_DESK, send_to_wms: WMS_ENTRY } },
   'POST /api/orders': { roles: ORDER_DESK }, // not built yet (SPEC §7, E11)
   'POST /api/orders/edi': { roles: ORDER_DESK }, // not built yet (SPEC §7, E11)
-  'POST /api/recommend': { roles: CARRIERS },
+  'POST /api/recommend': { roles: CARRIERS, legacyKey: true },
   'POST /api/overrides': { roles: CARRIERS, legacyKey: true },
-  'POST /api/complaints/:id/triage': { roles: SUPPORT },
+  'POST /api/complaints/:id/triage': { roles: SUPPORT, legacyKey: true },
   'POST /api/alerts/run': { roles: SUPPORT, legacyKey: true },
 };
 
