@@ -23,6 +23,12 @@ export interface EmailRow {
 
 export type NewEmail = Omit<EmailRow, 'id' | 'status'>;
 
+/** An inbox row: the email, its latest decision and parsed items, and its client's facts from clients.csv. */
+export type ListedEmail = EmailRow & {
+  decision: Decision | null; priority: boolean; items: { sku: string; qty: number }[] | null;
+  client_name: string | null; account_tier: string | null;
+};
+
 export interface ExtractionRow {
   id: number;
   email_id: number;
@@ -66,7 +72,7 @@ export interface Repo {
   setRedaction(id: number, redacted: string, piiMap: Record<string, string>): Promise<void>;
   saveExtraction(r: Omit<ExtractionRow, 'id'>): Promise<void>;
   latestExtraction(emailId: number): Promise<ExtractionRow | null>;
-  listEmails(): Promise<(EmailRow & { decision: Decision | null; priority: boolean })[]>;
+  listEmails(): Promise<ListedEmail[]>;
   logApproval(emailId: number, action: string, user: string): Promise<void>;
   logOutbound(emailId: number, to: string, body: string, status: 'sent' | 'refused', gmailId?: string | null): Promise<void>;
   /** Emails parked because PII detection, the model or the map could not be reached; the next poll runs them again. */
@@ -119,9 +125,11 @@ export const repo: Repo = {
   latestExtraction: (emailId) =>
     one<ExtractionRow>('SELECT * FROM intake_extractions WHERE email_id = $1 ORDER BY id DESC LIMIT 1', [emailId]),
   /** REQ-PRI-01: Tier 1 and at-risk clients first, then newest first. Same rule as isPriority(). */
-  listEmails: () => query<EmailRow & { decision: Decision | null; priority: boolean }>(
+  listEmails: () => query<ListedEmail>(
     `SELECT e.*, (SELECT x.decision FROM intake_extractions x WHERE x.email_id = e.id ORDER BY x.id DESC LIMIT 1) AS decision,
-            coalesce(c.account_tier = 'Tier 1' OR c.account_status = 'threatening_to_leave', false) AS priority
+            (SELECT x.extraction -> 'items' FROM intake_extractions x WHERE x.email_id = e.id ORDER BY x.id DESC LIMIT 1) AS items,
+            coalesce(c.account_tier = 'Tier 1' OR c.account_status = 'threatening_to_leave', false) AS priority,
+            c.client_name, c.account_tier
        FROM intake_emails e LEFT JOIN clients c ON c.client_id = e.client_id
       ORDER BY priority DESC, e.id DESC LIMIT 200`, []),
   async logApproval(emailId, action, user) {

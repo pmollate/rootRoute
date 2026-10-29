@@ -20,19 +20,34 @@ const detail = (id: number, over: object = {}) => ({
 });
 
 describe('Order emails', () => {
-  afterEach(cleanup);
+  afterEach(() => { cleanup(); localStorage.clear(); });
 
-  it('marks priority clients and shows what the AI saw, the checks and the reply for the selected email', async () => {
+  it('shows unread threads in bold until opened, and can mark a thread unread again', async () => {
+    mockApi({ '/api/intake': { emails: [item(34), item(2, { priority: false })] }, '/api/intake/34': detail(34), '/api/intake/2': detail(2) });
+    renderScreen(<IntakeScreen />);
+    const row = (id: number) => screen.getByRole('button', { name: `Open email ${id}` });
+    await screen.findByRole('button', { name: 'Open email 34' });
+    await waitFor(() => expect(row(34).dataset.unread).toBeUndefined());
+    expect(row(2).dataset.unread).toBe('true');
+    fireEvent.click(row(2));
+    await waitFor(() => expect(row(2).dataset.unread).toBeUndefined());
+    fireEvent.click(await screen.findByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Mark as unread' }));
+    expect(row(2).dataset.unread).toBe('true');
+    expect(JSON.parse(localStorage.getItem('rr.intake.read')!)).toEqual([34]);
+  });
+
+  it('marks priority clients, and shows the email, the order summary and the reply', async () => {
     mockApi({ '/api/intake': { emails: [item(34), item(2, { priority: false, clientId: 'C004', from: 'orders@client004.example' })] },
       '/api/intake/34': detail(34) });
     renderScreen(<IntakeScreen />);
     expect(await screen.findAllByTitle('Tier 1 or at-risk client: handled first')).toHaveLength(1);
+    expect(screen.queryAllByTitle('All clear')).toHaveLength(0);
     expect(screen.getByText('Synthetic data')).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
-    expect(await screen.findByText(/Missing: street address, ZIP code/)).toBeTruthy();
-    expect(screen.queryByText('PERSON_1')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'What the AI saw' }));
-    expect(screen.getByText('PERSON_1')).toBeTruthy();
+    expect(await screen.findByText(/Ship to:/)).toBeTruthy();
+    expect(screen.getByText(/Missing: street address, ZIP code/)).toBeTruthy();
+    expect(screen.getByText('77 units')).toBeTruthy();
     expect(screen.getByText(/Please send the street address and ZIP code/)).toBeTruthy();
     expect(screen.getByText('25 Oct 2026')).toBeTruthy();
   });
@@ -68,22 +83,56 @@ describe('Order emails', () => {
     expect(screen.queryByText('An operator approves every reply.')).toBeNull();
     expect(screen.queryByRole('button', { name: /edit/i })).toBeNull();
     fireEvent.change(box, { target: { value: 'Hello Sam,\nWhich dock number?' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Request address' }));
     await waitFor(() => expect(calls(fetch).some(([url, init]) => url.endsWith('/api/intake/34/action')
       && JSON.parse(String(init.body)).reply === 'Hello Sam,\nWhich dock number?')).toBe(true));
   });
 
-  it('AC-SEC-04 (UI): sending waits for approval, and only an ALL_CLEAR order can go to the WMS', async () => {
+  /** The actions posted for an email, in order. */
+  const actions = (fetch: ReturnType<typeof mockApi>, id: number) => calls(fetch)
+    .filter(([url]) => url.endsWith(`/api/intake/${id}/action`)).map(([, init]) => JSON.parse(String(init.body)).action);
+
+  it('AC-SEC-04 (UI): an incomplete order is not approved, only its request is sent, and it cannot go to the WMS', async () => {
     const fetch = mockApi({ '/api/intake': { emails: [item(34)] }, '/api/intake/34': detail(34),
       '/api/intake/34/action': { status: 'APPROVED' } });
     renderScreen(<IntakeScreen />);
     fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
-    const approve = await screen.findByRole('button', { name: 'Approve' });
-    expect((screen.getByRole('button', { name: 'Send reply' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(await screen.findByText('Confirm address', { selector: 'b' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Approve & send' })).toBeNull();
+    expect(screen.getByText('Pending address').getAttribute('aria-current')).toBe('step');
+    expect(screen.getByText('Reply sent').getAttribute('aria-current')).toBeNull();
+    expect(screen.queryByText('Approve')).toBeNull();
+    const send = screen.getByRole('button', { name: 'Request address' });
+    expect(screen.queryByLabelText('Push to WMS after sending')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send to WMS' })).toBeNull();
-    fireEvent.click(approve);
-    await waitFor(() => expect(calls(fetch).some(([url, init]) => url.endsWith('/api/intake/34/action')
-      && JSON.parse(String(init.body)).action === 'approve')).toBe(true));
+    fireEvent.click(send);
+    await waitFor(() => expect(actions(fetch, 34)).toEqual(['approve', 'send_reply']));
+  });
+
+  it('AC-SEC-04 (UI): an approved ALL_CLEAR order goes to the WMS after the reply, unless the operator unticks it', async () => {
+    const clear = (id: number) => detail(id, { decision: 'ALL_CLEAR' });
+    const fetch = mockApi({ '/api/intake': { emails: [item(34, { decision: 'ALL_CLEAR' }), item(35, { decision: 'ALL_CLEAR', priority: false })] },
+      '/api/intake/34': clear(34), '/api/intake/35': clear(35), '/api/intake/34/action': { status: 'SENT' }, '/api/intake/35/action': { status: 'SENT' } });
+    renderScreen(<IntakeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
+    expect((await screen.findByLabelText('Push to WMS after sending') as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Approve & send' }));
+    await waitFor(() => expect(actions(fetch, 34)).toEqual(['approve', 'send_reply', 'send_to_wms']));
+    fireEvent.click(screen.getByRole('button', { name: 'Open email 35' }));
+    fireEvent.click(await screen.findByLabelText('Push to WMS after sending'));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve & send' }));
+    await waitFor(() => expect(actions(fetch, 35)).toEqual(['approve', 'send_reply']));
+  });
+
+  it('shows a client reply in the same thread as the order it answers', async () => {
+    mockApi({ '/api/intake': { emails: [item(35, { inReplyTo: 34, subject: '[SYNTHETIC] Re: Order 34', decision: 'ALL_CLEAR' }), item(34, { status: 'SENT' })] },
+      '/api/intake/35': detail(35, { email: { ...detail(35).email, inReplyTo: 34 }, decision: 'ALL_CLEAR' }) });
+    renderScreen(<IntakeScreen />);
+    expect(await screen.findByRole('button', { name: 'Open email 35' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Open email 34' })).toBeNull();
+    expect(screen.getByText('2 emails')).toBeTruthy();
+    expect(await screen.findByText(/Email 34 ·/)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /^Order 34/ })).toBeTruthy();
   });
 
   it('shows the map problem and the chosen warehouse and carrier', async () => {
@@ -96,6 +145,7 @@ describe('Order emails', () => {
         promise: { promiseDate: '2026-10-24', reason: null }, warehouse: { warehouseId: 'W5', reason: 'Nearest warehouse W5 has stock.' },
         carrier: { carrier: 'A', reason: 'Carrier A for West standard' } } }) });
     renderScreen(<IntakeScreen />);
+    expect(await screen.findAllByTitle('All clear')).toHaveLength(1);
     fireEvent.click(await screen.findByRole('button', { name: 'Open email 9' }));
     expect(await screen.findByText(/ZIP code does not match the city/)).toBeTruthy();
     expect(screen.getByText(/map shows 32819/)).toBeTruthy();
@@ -123,21 +173,11 @@ describe('Order emails', () => {
     expect((screen.getByLabelText('Body') as HTMLTextAreaElement).value).toBe('');
   });
 
-  it('AC-INT-08 (UI): shows how often Gmail is checked and how the last check went, and reports a manual check', async () => {
-    const lastPoll = { trigger: 'schedule', startedAt: '2026-10-28T10:00:00.000Z', processed: 2, retried: 1, ok: true };
-    mockApi({ '/api/intake': { emails: [item(34)], pollMinutes: 10, lastPoll },
-      '/api/intake/fetch': { fetched: 3, processed: 1, retried: 0, ok: true } });
+  it('AC-INT-08 (UI): reports a manual Gmail check', async () => {
+    mockApi({ '/api/intake': { emails: [item(34)] }, '/api/intake/fetch': { fetched: 3, processed: 1, retried: 0, ok: true } });
     renderScreen(<IntakeScreen />);
-    expect(await screen.findByText('Gmail is checked every 10 min.')).toBeTruthy();
-    expect(screen.getByText(/Last check .* \(automatic\): 2 new emails, 1 retried\./)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Fetch from Gmail' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Sync' }));
     expect(await screen.findByText('Checked Gmail: 1 new email.')).toBeTruthy();
-  });
-
-  it('says when the automatic check is off', async () => {
-    mockApi({ '/api/intake': { emails: [], pollMinutes: 0, lastPoll: null } });
-    renderScreen(<IntakeScreen />);
-    expect(await screen.findByText('Automatic Gmail check is off.')).toBeTruthy();
   });
 
   it('explains a refused reply without showing server text', async () => {
@@ -151,7 +191,7 @@ describe('Order emails', () => {
     });
     renderScreen(<IntakeScreen />);
     fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Send reply' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Request address' }));
     expect(await screen.findByText('Not sent: Gmail is not connected yet.')).toBeTruthy();
     expect(screen.queryByText(/GMAIL_/)).toBeNull();
   });

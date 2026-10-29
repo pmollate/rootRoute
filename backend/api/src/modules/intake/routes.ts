@@ -20,6 +20,13 @@ const ActionBody = z.object({ action: z.enum(['approve', 'send_reply', 'send_to_
   reply: z.string().trim().min(1).max(5000).optional() });
 const FetchBody = z.object({ query: z.string().optional(), max: z.number().int().min(1).max(POLL_MAX).default(POLL_MAX) });
 
+/** The first lines of an email after the greeting, for the inbox row (as a mail client shows under the subject). */
+export function preview(body: string): string {
+  const lines = body.split('\n').map((l) => l.trim()).filter(Boolean);
+  const start = /^(hi|hello|hey|dear)\b/i.test(lines[0] ?? '') ? 1 : 0;
+  return lines.slice(start).join(' ').slice(0, 140);
+}
+
 const routes: FastifyPluginAsync = async (app) => {
   app.get('/intake', async () => {
     const { repo, gmail } = getDeps();
@@ -28,6 +35,9 @@ const routes: FastifyPluginAsync = async (app) => {
       emails: (await repo.listEmails()).map((e) => ({
         id: e.id, source: e.source, from: e.from_addr, subject: e.subject, receivedAt: e.received_at, clientId: e.client_id,
         status: e.status, decision: e.decision, inReplyTo: e.in_reply_to, priority: e.priority,
+        // For the thread list: client facts from clients.csv, the parsed items and the first lines of the body.
+        clientName: e.client_name, tier: e.account_tier, items: e.items,
+        preview: preview(e.body),
       })),
       // E15: how often the API checks Gmail by itself (0 = not at all), and how the last check went.
       pollMinutes: gmail ? config.INTAKE_POLL_MINUTES : 0,
