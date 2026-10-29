@@ -7,10 +7,10 @@ import { logOverride } from '../carriers/index.js';
 import { diagnosisApi } from '../warehouse/index.js';
 import { ACTIONS, applyAction } from './actions.js';
 import { runAlerts } from './alerts.js';
-import { listComplaints, saveTriage, triage } from './complaints.js';
+import { complaintQueue, listComplaints, savedTriages, saveTriage, triage } from './complaints.js';
 import { getDeps } from './deps.js';
 import { processEmail } from './pipeline.js';
-import { POLL_MAX, runPoll } from './poll.js';
+import { POLL_MAX, pollLogFields, runPoll } from './poll.js';
 import { reviewQueue } from './review.js';
 
 const EmailBody = z.object({
@@ -91,8 +91,7 @@ const routes: FastifyPluginAsync = async (app) => {
     if (!deps.gmail) return reply.code(503).send({ error: 'Gmail is not set up (GMAIL_* in .env)' });
     const r = await runPoll(deps, 'button', { ...body.data, actor: actorOf(req).id });
     if (!r) return reply.code(409).send({ error: 'Another Gmail check is running: try again in a minute' });
-    req.log.info({ pollId: r.pollId, fetched: r.fetched, processed: r.processed, retried: r.retried, ok: r.ok },
-      'intake fetched from Gmail');
+    req.log.info(pollLogFields(r), 'intake fetched from Gmail');
     return r;
   });
 
@@ -108,10 +107,8 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(result.code).send(result.error ? { error: result.error } : { status: result.status });
   });
 
-  app.get('/complaints', async () => ({
-    complaints: (await listComplaints()).map((c) => ({ complaintId: c.complaint_id, clientId: c.client_id, deliveryId: c.delivery_id,
-      category: c.category, date: c.complaint_date, text: c.text, atRisk: c.at_risk, tier: c.account_tier })),
-  }));
+  // E12 + E14: escalations (Tier 1 or at-risk clients) first, each with its latest saved triage.
+  app.get('/complaints', async () => ({ complaints: complaintQueue(await listComplaints(), await savedTriages()) }));
 
   app.post<{ Params: { id: string } }>('/complaints/:id/triage', async (req, reply) => {
     const row = (await listComplaints()).find((c) => c.complaint_id === req.params.id);
@@ -120,7 +117,8 @@ const routes: FastifyPluginAsync = async (app) => {
     const t = await triage(deps.llm, diagnosisApi, row);
     await saveTriage(t);
     const who = actorOf(req);
-    await deps.repo.logAudit(who.id, 'triage', `complaint:${row.complaint_id}`, { name: who.name, roles: who.roles });
+    await deps.repo.logAudit(who.id, 'triage', `complaint:${row.complaint_id}`, { name: who.name, roles: who.roles, escalate: t.escalate });
+    req.log.info({ complaintId: row.complaint_id, deliveryId: t.deliveryId, escalate: t.escalate, source: t.source }, 'complaint triaged');
     return t;
   });
 

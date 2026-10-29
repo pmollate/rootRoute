@@ -1,7 +1,7 @@
 import type { DeliveryCauses, DiagnosisApi } from '../../core/contracts.js';
 import { query } from '../../core/db/pool.js';
 import type { LLM } from '../../core/llm/types.js';
-import { isPriority } from './priority.js';
+import { byPriority, isPriority } from './priority.js';
 
 export interface ComplaintRow {
   complaint_id: string; complaint_date: string; client_id: string; delivery_id: string; channel: string;
@@ -17,6 +17,37 @@ const CAUSE_TEXT: Record<string, string> = {
   f_route: 'the driver ran more than 20% over the planned route',
 };
 const PRE_PICKUP = new Set(['Intake', 'Promise', 'Fulfilment']);
+
+/** AC-CMP-01: a cause before pickup is one at the Intake, Promise or Fulfilment stage. */
+export const isPrePickup = (stages: string[]): boolean => stages.some((s) => PRE_PICKUP.has(s));
+
+/** The latest complaint_triage row of a complaint. */
+export interface SavedTriage {
+  complaint_id: string; stages: string[]; escalate: boolean; draft: string; draft_source: 'model' | 'template'; at: string;
+}
+
+/**
+ * E12 + E14 (REQ-CMP-03, REQ-PRI-02): every complaint with its escalation flag (Tier 1 or at-risk client) and its
+ * latest triage; escalations first, otherwise in the given order.
+ */
+export function complaintQueue(rows: ComplaintRow[], saved: SavedTriage[]) {
+  const last = new Map(saved.map((t) => [t.complaint_id, t]));
+  const items = rows.map((c) => {
+    const t = last.get(c.complaint_id);
+    return {
+      complaintId: c.complaint_id, clientId: c.client_id, deliveryId: c.delivery_id, category: c.category,
+      date: c.complaint_date, text: c.text, atRisk: c.at_risk, tier: c.account_tier, escalate: isPriority(c.account_tier, c.at_risk),
+      triage: t ? { stages: t.stages, prePickup: isPrePickup(t.stages), escalate: t.escalate, draft: t.draft, source: t.draft_source, at: t.at } : null,
+    };
+  });
+  return byPriority(items, (c) => c.escalate);
+}
+export type ComplaintItem = ReturnType<typeof complaintQueue>[number];
+
+export const savedTriages = () => query<SavedTriage>(
+  `SELECT DISTINCT ON (complaint_id) complaint_id, stages, escalate, draft, draft_source,
+          to_char(created_at, 'YYYY-MM-DD HH24:MI') AS at
+     FROM complaint_triage ORDER BY complaint_id, id DESC`, []);
 
 export function causeSentences(c: DeliveryCauses): string[] {
   return Object.entries(CAUSE_TEXT).filter(([f]) => c.flags[f as keyof DeliveryCauses['flags']]).map(([, t]) => t);
@@ -54,7 +85,7 @@ export async function triage(llm: LLM, diagnosis: DiagnosisApi, row: ComplaintRo
     // keep the template
   }
   return { complaintId: row.complaint_id, deliveryId: row.delivery_id, stages,
-    prePickup: stages.some((s) => PRE_PICKUP.has(s)), escalate: isPriority(row.account_tier, row.at_risk), draft, source };
+    prePickup: isPrePickup(stages), escalate: isPriority(row.account_tier, row.at_risk), draft, source };
 }
 
 export const listComplaints = () => query<ComplaintRow>(

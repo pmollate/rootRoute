@@ -3864,7 +3864,7 @@ the draft is labelled "AI draft" or "template".
   `{ complaints: [{ complaintId, clientId, deliveryId, category, date, text, atRisk, tier, escalate,
   triage: { stages, prePickup, escalate, draft, source, at } | null }] }`; screen `/dashboard/complaints`.
 
-- [ ] **Step 1: Write the failing backend unit tests.** Append to `backend/api/test/intake/complaints.test.ts`
+- [x] **Step 1: Write the failing backend unit tests.** Append to `backend/api/test/intake/complaints.test.ts`
   (and add `complaintQueue, isPrePickup` to its import from `complaints.js`):
 
 ```ts
@@ -3902,10 +3902,10 @@ describe('complaint queue (E12, E14)', () => {
   });
 ```
 
-- [ ] **Step 2: Run.** `npm --prefix backend/api test -- test/intake/complaints.test.ts test/intake/poll.test.ts`
+- [x] **Step 2: Run.** `npm --prefix backend/api test -- test/intake/complaints.test.ts test/intake/poll.test.ts`
   Expected: FAIL, `complaintQueue` / `pollLogFields` is not exported.
 
-- [ ] **Step 3: Implement.** In `backend/api/src/modules/intake/complaints.ts`:
+- [x] **Step 3: Implement.** In `backend/api/src/modules/intake/complaints.ts`:
   1. Change the priority import to `import { byPriority, isPriority } from './priority.js';`
   2. After `const PRE_PICKUP = …`, add:
 
@@ -3973,10 +3973,10 @@ export function pollLogFields(r: PollOutcome) {
     `{ name: who.name, roles: who.roles, escalate: t.escalate }` and add before `return t;`:
     `req.log.info({ complaintId: row.complaint_id, deliveryId: t.deliveryId, escalate: t.escalate, source: t.source }, 'complaint triaged');`
 
-- [ ] **Step 4: Run.** `npm --prefix backend/api test -- test/intake/complaints.test.ts test/intake/poll.test.ts`
+- [x] **Step 4: Run.** `npm --prefix backend/api test -- test/intake/complaints.test.ts test/intake/poll.test.ts`
   Expected: PASS.
 
-- [ ] **Step 5: Extend the database test.** In `backend/api/test/routes/complaints.test.ts`, add after the existing `it`:
+- [x] **Step 5: Extend the database test.** In `backend/api/test/routes/complaints.test.ts`, add after the existing `it`:
 
 ```ts
   it('AC-CMP-03, REQ-PRI-02: the list flags the 24 Tier 1 or at-risk complaints first, and returns each saved triage', async () => {
@@ -3992,7 +3992,7 @@ export function pollLogFields(r: PollOutcome) {
 
   Run with the test database up: `npm --prefix backend/api test -- test/routes/complaints.test.ts`. Expected: PASS.
 
-- [ ] **Step 6: Write the failing screen test.** Create `frontend/components/dashboard/complaints/ComplaintsScreen.test.tsx`:
+- [x] **Step 6: Write the failing screen test.** Create `frontend/components/dashboard/complaints/ComplaintsScreen.test.tsx`:
 
 ```tsx
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
@@ -4045,10 +4045,10 @@ describe('Complaints (E12, E14)', () => {
   In `frontend/lib/metrics.test.ts`, test `lists the six screens under /dashboard`: rename to `lists the seven screens
   under /dashboard` and insert `'/dashboard/complaints'` after `'/dashboard/intake'` in the expected list.
 
-- [ ] **Step 7: Run.** `npm --prefix frontend test -- components/dashboard/complaints lib/metrics.test.ts`
+- [x] **Step 7: Run.** `npm --prefix frontend test -- components/dashboard/complaints lib/metrics.test.ts`
   Expected: FAIL, cannot resolve `./ComplaintsScreen`, and the screen list differs.
 
-- [ ] **Step 8: Implement the screen.** Create `frontend/components/dashboard/complaints/ComplaintsScreen.tsx`:
+- [x] **Step 8: Implement the screen.** Create `frontend/components/dashboard/complaints/ComplaintsScreen.tsx`:
 
 ```tsx
 'use client';
@@ -4162,17 +4162,17 @@ export default function Page() {
   In `frontend/config/dashboard.ts` insert after the Order emails entry:
   `{ href: '/dashboard/complaints', label: 'Complaints', owner: 'A' },`
 
-- [ ] **Step 9: Run.** `npm --prefix frontend test && npm run typecheck`
+- [x] **Step 9: Run.** `npm --prefix frontend test && npm run typecheck`
   Expected: PASS. Rehearse with `npm run dev:all` as the demo `customer_support`: open Complaints, the first rows carry
   Escalate, triage one, reload the page and the draft is still there (saved triage). Check 375 px width (REQ-UI-03).
 
-- [ ] **Step 10: Contract.** In `docs/CONTRACTS.md` §6, replace the `GET /api/complaints` row's shape with
+- [x] **Step 10: Contract.** In `docs/CONTRACTS.md` §6, replace the `GET /api/complaints` row's shape with
   `{ complaints: [{ complaintId, clientId, deliveryId, category, date, text, atRisk, tier, escalate, triage: { stages,
   prePickup, escalate, draft, source, at } | null }] }` — escalations (Tier 1 or at-risk) first, then complaint id order;
   `triage` is the latest saved one. Add to the `POST /api/intake/fetch` row: the log line `intake fetched from Gmail`
   (and the timer's `gmail poll done`) carries `emailIds` (NFR-03).
 
-- [ ] **Step 11: Commit.**
+- [x] **Step 11: Commit.**
 
 ```bash
 git add backend/api/src/modules/intake backend/api/test/intake/complaints.test.ts backend/api/test/intake/poll.test.ts \

@@ -5,7 +5,7 @@ import type { LLM } from '../../src/core/llm/types.js';
 import type { AddressValidator } from '../../src/core/maps/types.js';
 import { type PiiDetector, PiiError } from '../../src/core/pii/types.js';
 import type { Deps } from '../../src/modules/intake/pipeline.js';
-import { pollQuery, runPoll, startPolling } from '../../src/modules/intake/poll.js';
+import { pollLogFields, pollQuery, runPoll, startPolling } from '../../src/modules/intake/poll.js';
 import type { Extraction } from '../../src/modules/intake/schema.js';
 import { checkPromise } from '../../src/modules/warehouse/domain.js';
 import { memoryRepo } from './memoryRepo.js';
@@ -134,6 +134,12 @@ describe('Gmail poll (E15)', () => {
     expect(mem.audit.map((a) => a.action)).not.toContain('send_to_wms');
     expect(mem.audit.length).toBeGreaterThan(0);
     expect(new Set(mem.audit.map((a) => a.user))).toEqual(new Set(['system:intake']));
+  });
+
+  it('NFR-03: the poll log line names every email it stored or retried', async () => {
+    const { deps } = setup();
+    const r = await runPoll(deps, 'button', { nowMs: NOW });
+    expect(pollLogFields(r!)).toEqual({ pollId: 1, fetched: 2, processed: 2, retried: 0, failed: 0, ok: true, error: null, emailIds: [1, 2] });
   });
 
   it('refuses without Gmail', async () => {
