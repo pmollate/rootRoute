@@ -904,3 +904,18 @@ describe('E19 verification code (memory)', () => {
     expect(t.mem.outbound.some((o) => o.body.includes('[CODE]'))).toBe(true);
   });
 });
+
+describe('E19 a link for an order that no longer waits for the client (31 Oct live finding)', () => {
+  // The Gmail link of an order already confirmed through another of its links opened on "Verify it's you", and only the
+  // code step answered "no longer valid". Opening it must give the invalid page at once, like every later step.
+  it('REQ-LINK-07: a link whose order is no longer SENT opens as invalid, verified or not', async () => {
+    const t = await setup(); await t.send();
+    const token = t.tokenOf()!;
+    t.link.code = true;
+    expect(await viewLink(t.link, token, null, t.mem.repo)).toMatchObject({ verify: expect.any(Object) });
+    await t.mem.repo.setStatus(t.id, 'AWAITING_APPROVAL'); // e.g. confirmed through another link of the order
+    expect(await viewLink(t.link, token, null, t.mem.repo)).toBeNull();
+    t.link.code = false;
+    expect(await viewLink(t.link, token, null, t.mem.repo)).toBeNull();
+  });
+});

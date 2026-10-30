@@ -205,10 +205,12 @@ const VERIFY_REQUIRED = { error: 'verify_required' } as const;
 export async function viewLink(d: LinkDeps, token: string, verify?: string | null, repo?: Pick<Repo, 'getEmail'>): Promise<LinkView | VerifyView | null> {
   const l = await find(d, token);
   if (!l) return null;
+  // Only an order still waiting for the client (its reply SENT) opens, as code, look-up and Confirm require: a link of
+  // an order confirmed through another of its links, or closed, is the one invalid page at once (REQ-LINK-07).
+  const email = repo ? await repo.getEmail(l.email_id) : null;
+  if (repo && email?.status !== 'SENT') return null;
   if (!verified(d, l, verify)) {
-    if (!repo) throw new Error('viewLink: CONFIRM_LINK_CODE on needs the intake repo');
-    const email = await repo.getEmail(l.email_id);
-    if (!email) return null;
+    if (!repo || !email) throw new Error('viewLink: CONFIRM_LINK_CODE on needs the intake repo');
     d.log('link_opened', { ...fieldsOf(l), verified: false });
     return { verify: { sentTo: maskAddress(senderAddress(email.from_addr)) }, expiresAt: l.expires_at.toISOString(), synthetic: l.synthetic };
   }
