@@ -224,6 +224,10 @@
 /* Order summary and readiness. */
 .cardHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 15px 18px; border-bottom: 1px solid var(--line); }
 .cardHead h3, .ready h3 { margin: 0; font-size: 0.8798rem; font-weight: 600; }
+.senderAlert { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 12px 18px; border-bottom: 1px solid var(--line);
+  background: var(--hot-bg); color: var(--hot-ink); font-size: 0.7245rem; line-height: 1.5; }
+.senderAlert svg { flex: none; margin-top: 2px; }
+.senderAlert b { font-weight: 600; }
 .block { margin: 0; padding: 15px 18px; border-bottom: 1px solid var(--line); }
 .block:last-child { border-bottom: 0; }
 .block > p { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: 0.7245rem; }

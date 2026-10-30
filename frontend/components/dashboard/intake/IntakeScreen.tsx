@@ -292,7 +292,8 @@ function Summary({ d, e }: { d: Detail; e: EmailItem | undefined }) {
           : <span className={`${s.chip} ${s.tBad}`}>Not read</span>}
       </header>
       {d.email.clientId === null && d.decision === 'MISSING_INFO' && (
-        <p className={s.badText}><Icon size={12}>{ICON.alert}</Icon>Unknown sender: not read by the AI and no automatic reply. Check who sent it before answering.</p>
+        <p className={s.senderAlert}><Icon size={14}>{ICON.alert}</Icon>
+          <span><b>Unknown sender.</b> Not read by the AI and no automatic reply. Check who sent it before answering.</span></p>
       )}
       <div className={s.block}>
         <p className={s.label}>Items</p>

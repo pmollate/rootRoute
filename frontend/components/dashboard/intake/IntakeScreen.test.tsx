@@ -39,7 +39,7 @@ describe('Order emails', () => {
       '/api/intake/50': unknown });
     renderScreen(<IntakeScreen />);
     fireEvent.click(await screen.findByRole('button', { name: 'Open email 50' }));
-    expect(await screen.findByText(/not read by the AI and no automatic reply/)).toBeTruthy();
+    expect(await screen.findByText(/Not read by the AI and no automatic reply/)).toBeTruthy();
   });
 
   it('shows unread threads in bold until opened, and can mark a thread unread again', async () => {
