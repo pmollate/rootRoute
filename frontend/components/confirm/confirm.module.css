@@ -57,3 +57,61 @@
   cursor: pointer;
 }
 .button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* "Check your inbox" (E19 verification code): a stepper, one card, a trust row. Wider than the address form. */
+.verifyPage { max-width: 680px; }
+.stepper { display: flex; align-items: center; gap: 10px; margin: 8px 0 20px; padding: 0; list-style: none; font-size: 0.9rem; color: var(--ink-2); }
+.stepper li { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; }
+.stepper li:not(:last-child)::after { content: ''; flex: 1; height: 2px; margin-left: 4px; border-radius: 2px; background: var(--line); }
+.step, .stepNow { font-weight: 500; }
+.stepNow { color: var(--ink); font-weight: 600; }
+.stepNow::after { background: var(--navy) !important; }
+.stepDot { display: grid; flex: none; place-items: center; width: 28px; height: 28px; border: 1.5px solid var(--line-strong);
+  border-radius: 50%; font-size: 0.8rem; background: var(--surface); }
+.stepNow .stepDot { border-color: var(--navy); color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+.card { overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04); }
+.cardHead { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center; padding: 22px; border-bottom: 1px solid var(--line); }
+.cardHead h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.02em; }
+.lead { margin: 6px 0 0; color: var(--ink-2); }
+.lead b { color: var(--ink); }
+.ring { position: relative; display: grid; place-items: center; width: 84px; height: 84px; }
+.ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.ringTrack, .ringLeft { fill: none; stroke-width: 5; }
+.ringTrack { stroke: var(--line); }
+.ringLeft { stroke: var(--navy); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+.ring span { font: 600 0.95rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--navy); font-variant-numeric: tabular-nums; }
+.cardBody { display: flex; flex-direction: column; gap: 14px; padding: 22px; }
+.label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.emailRow { display: flex; flex-wrap: wrap; gap: 10px; margin-top: -6px; }
+.emailBox { display: flex; flex: 1 1 240px; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--bg); color: var(--ink); overflow-wrap: anywhere; }
+.emailBox svg, .sendBtn svg, .sent svg, .button svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round; }
+.emailBox svg { color: var(--ink-2); }
+.sendBtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 18px;
+  border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.sendBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+.sent { display: flex; align-items: center; gap: 6px; margin: -4px 0 0; color: var(--gain-ink); font-size: 0.95rem; }
+.digits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 18px repeat(3, minmax(0, 1fr)); gap: 10px; align-items: center; }
+.digit { width: 100%; min-width: 0; height: 64px; padding: 0; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface);
+  color: var(--ink); font-family: inherit; font-size: 1.6rem; font-weight: 600; text-align: center; }
+.digit:focus-visible { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+.dash { height: 2px; border-radius: 2px; background: var(--line-strong); }
+.digitsMeta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: -4px;
+  color: var(--ink-2); font-size: 0.9rem; }
+.linkBtn { padding: 0; border: 0; background: none; color: var(--navy); font: inherit; font-weight: 600; cursor: pointer; }
+.linkBtn:disabled { color: var(--ink-2); font-weight: 500; cursor: not-allowed; }
+.cardBody .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--navy); color: #fff; }
+.cardFoot { margin: 0; padding: 14px 22px; border-top: 1px solid var(--line); background: var(--bg); color: var(--ink-2); font-size: 0.9rem; text-align: right; }
+.trust { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; margin: 18px 0 6px; padding: 0; list-style: none;
+  color: var(--ink-2); font-size: 0.85rem; }
+.trust li::before { content: '✓'; margin-right: 6px; color: var(--gain-ink); }
+.verifyPage > .muted { text-align: center; }
+@media (max-width: 480px) {
+  .cardHead { grid-template-columns: 1fr; justify-items: start; }
+  .stepper span:not(.stepDot) { display: none; }
+  .stepNow span:not(.stepDot) { display: inline; }
+  .digits { gap: 6px; grid-template-columns: repeat(3, minmax(0, 1fr)) 10px repeat(3, minmax(0, 1fr)); }
+  .digit { height: 54px; font-size: 1.35rem; }
+}
