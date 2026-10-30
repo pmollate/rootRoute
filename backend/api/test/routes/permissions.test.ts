@@ -106,7 +106,7 @@ describe.skipIf(!hasDb)('roles and actors over HTTP (needs test database)', () =
 
   let since = 0; // audit_log keeps rows for email ids that earlier test files reused: read only this file's rows
   beforeAll(async () => {
-    await query('TRUNCATE intake_extractions, outbound_messages, intake_emails RESTART IDENTITY CASCADE');
+    await query('TRUNCATE intake_extractions, outbound_messages, intake_emails, recommendations RESTART IDENTITY CASCADE');
     since = (await query<{ m: number }>('SELECT coalesce(max(id), 0)::int AS m FROM audit_log'))[0].m;
     setDeps({ gmail: null });
     app = await buildApp({ auth: AUTH_ON });
