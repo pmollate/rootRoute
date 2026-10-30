@@ -230,13 +230,15 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     expect(field('City').value).toBe('Newark');
   });
 
-  it('page: the thank-you screen repeats the confirmed address', async () => {
+  // 31 Oct (the user): the thank-you screen does not show the address back.
+  it('page: the thank-you screen thanks the client and does not show the confirmed address', async () => {
     stubFetch([200, { status: 'confirmed' }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
     fireEvent.change(field('ZIP code'), { target: { value: '07102' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     expect(await screen.findByText('Thank you. Your delivery address is confirmed.')).toBeTruthy();
-    expect(screen.getByText('920 Broad St, Dock 5, Newark, NJ 07102')).toBeTruthy();
+    const text = document.body.textContent ?? '';
+    for (const part of ['920 Broad St', 'Dock 5', 'Newark', '07102']) expect(text, part).not.toContain(part);
   });
 
   it('page: the server render holds no locale- or zone-formatted time, so it hydrates the same in any browser', () => {

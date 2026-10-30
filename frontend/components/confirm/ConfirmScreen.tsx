@@ -43,7 +43,7 @@ const FIELDS: { key: keyof Fields; label: string; auto: string; max: number; mod
 type Phase =
   | { kind: 'form'; note: string | null }
   | { kind: 'check'; reading: MapReading; checkId: string; typed: LinkAddress; note: string | null }
-  | { kind: 'done'; address: LinkAddress }
+  | { kind: 'done' }
   | { kind: 'invalid' };
 
 const oneLine = (parts: (string | null | undefined)[]) => parts.filter(Boolean).join(', ');
@@ -140,7 +140,7 @@ export function ConfirmScreen({ token, view, verifyToken, onVerifyRequired }:
         method: 'POST', headers: postHeaders, cache: 'no-store',
         body: JSON.stringify({ address, ...(pinToSend ? { pin: pinToSend } : {}), ...(checkId ? { checkId } : {}) }),
       });
-      if (r.status === 200) setPhase({ kind: 'done', address });
+      if (r.status === 200) setPhase({ kind: 'done' });
       else if (r.status === 404) setPhase({ kind: 'invalid' });
       else if (r.status === 401 && onVerifyRequired) onVerifyRequired();
       else if (r.status === 409) {
@@ -163,7 +163,6 @@ export function ConfirmScreen({ token, view, verifyToken, onVerifyRequired }:
       <main className={s.page}>
         <p className={s.brand}>Halcyon Logistics</p>
         <p className={s.message}>Thank you. Your delivery address is confirmed.</p>
-        <p className={s.box}>{typedText(phase.address)}</p>
         <p className={s.muted}>Our order desk will check it before your order ships. You can close this page.</p>
       </main>
     );
