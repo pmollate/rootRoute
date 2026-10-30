@@ -40,6 +40,7 @@ export async function recordOrderEvent(o: { orderRef: string; event: OrderEvent;
  */
 export async function autoAdvanceOrder(o: { orderRef: string; receivedAt: string; promiseDate: string; wmsOrderId: string },
   now = new Date()): Promise<{ ok: boolean; error?: string }> {
+  // A failure part-way leaves the earlier steps recorded; the order stays APPROVED and a later manual send treats them as already recorded.
   for (const e of autoAdvancePlan({ ...o, approvedAt: localNow(now) })) {
     const r = await recordOrderEvent({ orderRef: o.orderRef, event: e.event, ts: e.ts, detail: e.detail,
       visibleAt: new Date(now.getTime() + e.showAfterSec * 1000) });

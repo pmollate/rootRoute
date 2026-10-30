@@ -132,12 +132,14 @@ describe('auto-advance on approval (design 2026-10-30-order-journey-auto-advance
   const desk: AuthUser = { id: 'd1', name: 'Dee Desk', roles: ['order_desk'], demo: false };
 
   /** An ALL_CLEAR order awaiting approval, and a fake auto-advance that records what it was asked to run. */
-  async function pending(on: boolean, result: { ok: boolean; error?: string } = { ok: true }) {
+  async function pending(on: boolean, result: { ok: boolean; error?: string } = { ok: true }, boom?: 'on' | 'run') {
     const mem = memoryRepo({ 'client025.example': C025 }, []);
     const r = await processEmail({ from: 'orders@client025.example', subject: '[SYNTHETIC] Order', body: BODY, receivedAt: '2026-10-22 07:30' },
       { llm, pii, maps, repo: mem.repo, warehouse, carriers, gmail: null });
     const runs: Parameters<AutoAdvance['run']>[0][] = [];
-    const autoAdvance: AutoAdvance = { on: async () => on, run: async (o) => { runs.push(o); return result; } };
+    const autoAdvance: AutoAdvance = {
+      on: async () => { if (boom === 'on') throw new Error('db down'); return on; },
+      run: async (o) => { if (boom === 'run') throw new Error('db down'); runs.push(o); return result; } };
     const approve = () => applyAction(mem.repo, r.id, 'approve', desk, undefined, { autoAdvance });
     return { mem, id: r.id, runs, approve };
   }
@@ -161,6 +163,13 @@ describe('auto-advance on approval (design 2026-10-30-order-journey-auto-advance
     const t = await pending(true, { ok: false, error: 'picked: db down' });
     expect(await t.approve()).toEqual({ code: 200, status: 'APPROVED',
       warning: 'Auto-advance did not run (picked: db down): send it to the WMS by hand.' });
+    expect((await t.mem.repo.getEmail(t.id))?.status).toBe('APPROVED');
+  });
+
+  it.each(['run', 'on'] as const)('design §5: %s throwing after the approval is saved answers 200 APPROVED with a warning, never 500', async (boom) => {
+    const t = await pending(true, { ok: true }, boom);
+    expect(await t.approve()).toEqual({ code: 200, status: 'APPROVED',
+      warning: 'Auto-advance did not run (db down): send it to the WMS by hand.' });
     expect((await t.mem.repo.getEmail(t.id))?.status).toBe('APPROVED');
   });
 });

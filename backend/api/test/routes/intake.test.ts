@@ -95,4 +95,20 @@ describe.skipIf(!hasDb)('intake routes (needs test database)', () => {
       setDeps({ gmail: null });
     }
   });
+
+  it('AC-JRN-15: with the auto-advance switch on, approving an ALL_CLEAR order enters it and records steps 9–13', async () => {
+    const r = (await paste('20')).json();
+    expect(r.decision).toBe('ALL_CLEAR');
+    const ref = `email:${r.id}`;
+    await query('DELETE FROM order_events WHERE order_ref = $1', [ref]);
+    await query("INSERT INTO app_settings (key, value, updated_by) VALUES ('auto_advance', 'true'::jsonb, 'test') ON CONFLICT (key) DO UPDATE SET value = 'true'::jsonb");
+    try {
+      expect((await post(`/api/intake/${r.id}/action`, { action: 'approve', user: 'ops' })).json()).toEqual({ status: 'ENTERED' });
+      const ev = await query<{ event: string }>('SELECT event FROM order_events WHERE order_ref = $1', [ref]);
+      expect(ev).toHaveLength(6);
+    } finally {
+      await query("DELETE FROM app_settings WHERE key = 'auto_advance'");
+      await query('DELETE FROM order_events WHERE order_ref = $1', [ref]);
+    }
+  });
 });

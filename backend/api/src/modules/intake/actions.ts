@@ -47,14 +47,20 @@ const MIN_REASON = 3;
  */
 async function afterApproval(repo: Repo, email: EmailRow, x: ExtractionRow | null, auto?: AutoAdvance): Promise<ActionResult> {
   const approved: ActionResult = { code: 200, status: 'APPROVED' };
-  if (x?.decision !== 'ALL_CLEAR' || !auto || !(await auto.on())) return approved;
-  const order = wmsOrder(email, x);
-  if (!order) return approved;
-  const wmsOrderId = `WMS-${String(email.id).padStart(6, '0')}`;
-  const r = await auto.run({ orderRef: order.orderRef, receivedAt: email.received_at, promiseDate: order.promiseDate, wmsOrderId });
-  if (!r.ok) return { ...approved, warning: `Auto-advance did not run (${r.error ?? 'no reason given'}): send it to the WMS by hand.` };
-  await repo.setStatus(email.id, 'ENTERED');
-  await repo.logApproval(email.id, 'send_to_wms', 'system:auto-advance', { wmsOrderId, auto: true });
+  if (x?.decision !== 'ALL_CLEAR' || !auto) return approved;
+  try {
+    if (!(await auto.on())) return approved;
+    const order = wmsOrder(email, x);
+    if (!order) return approved;
+    const wmsOrderId = `WMS-${String(email.id).padStart(6, '0')}`;
+    const r = await auto.run({ orderRef: order.orderRef, receivedAt: email.received_at, promiseDate: order.promiseDate, wmsOrderId });
+    if (!r.ok) return { ...approved, warning: `Auto-advance did not run (${r.error ?? 'no reason given'}): send it to the WMS by hand.` };
+    await repo.setStatus(email.id, 'ENTERED');
+    await repo.logApproval(email.id, 'send_to_wms', 'system:auto-advance', { wmsOrderId, auto: true });
+  } catch (e) {
+    // The approval is committed: never answer 500 (design §5); the person sends it to the WMS by hand.
+    return { ...approved, warning: `Auto-advance did not run (${e instanceof Error ? e.message : String(e)}): send it to the WMS by hand.` };
+  }
   return { code: 200, status: 'ENTERED' };
 }
 

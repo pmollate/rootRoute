@@ -3,7 +3,7 @@ import { allowList, config } from '../../core/config.js';
 import { restore } from '../../core/pii/redact.js';
 import { actorOf } from '../../core/auth.js';
 import { autoAdvanceOrder, logOverride, recordOrderEvent } from '../carriers/index.js';
-import { autoAdvanceOn } from '../settings/repo.js';
+import { autoAdvanceOn } from '../settings/index.js';
 import { diagnosisApi } from '../warehouse/index.js';
 import { applyAction } from './actions.js';
 import { runAlerts } from './alerts.js';
