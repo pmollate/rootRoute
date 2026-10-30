@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { bearerAuth } from '../../src/core/bearer.js';
 import { checkEvent, localNow, type OrderEventRow } from '../../src/modules/carriers/orderEvents.js';
 
 const row = (event: OrderEventRow['event'], ts: string): OrderEventRow => ({ event, ts, detail: {} });
@@ -34,5 +35,15 @@ describe('order event rules (design §6)', () => {
 
   it('localNow gives local YYYY-MM-DD HH:mm', () => {
     expect(localNow(new Date(2026, 9, 30, 7, 5))).toBe('2026-10-30 07:05');
+  });
+});
+
+describe('events API token (design §6)', () => {
+  it('AC-SEC-JRN-04: no token configured is 503 (off, never open); a wrong or missing token is 401', () => {
+    const token = 'test-wms-events-0123456789';
+    expect(bearerAuth(`Bearer ${token}`, undefined)).toBe(503);
+    expect(bearerAuth(undefined, token)).toBe(401);
+    expect(bearerAuth('Bearer wrong', token)).toBe(401);
+    expect(bearerAuth(`Bearer ${token}`, token)).toBe(200);
   });
 });

@@ -1,7 +1,7 @@
 // D7 "Ask LateLens" (owner C, SPEC §5.14): read-only LateLens tools over MCP, so leadership can ask from an MCP client.
 // The tools return the same figures as the dashboard (REQ-MCP-03); none sends email, approves or writes (REQ-MCP-01).
-import { timingSafeEqual } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { bearerAuth } from '../../core/bearer.js';
 import { TOOLS } from './tools.js';
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
@@ -22,9 +22,4 @@ export function buildMcpServer(): McpServer {
 }
 
 /** REQ-MCP-02: `Authorization: Bearer <MCP_TOKEN>`. No token configured means the endpoint is off, never open. */
-export function mcpAuth(header: string | undefined, token: string | undefined): 200 | 401 | 503 {
-  if (!token) return 503;
-  const given = Buffer.from(header?.startsWith('Bearer ') ? header.slice(7) : '');
-  const want = Buffer.from(token);
-  return given.length === want.length && timingSafeEqual(given, want) ? 200 : 401;
-}
+export const mcpAuth = bearerAuth;

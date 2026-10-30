@@ -29,6 +29,11 @@ export const Env = z.object({
   INTERNAL_AUTH_SECRET: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()), // ≥ 32 bytes when on
   // D7 Ask LateLens: Bearer token for /api/mcp; unset or empty = endpoint off
   MCP_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(16).optional()),
+  // Order journey simulator (design 2026-10-30): the simulated WMS's address; unset = send_to_wms as before (status only)
+  WMS_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
+  // Bearer token LateLens sends to the WMS, and the one the simulator sends to POST /api/orders/:ref/events
+  WMS_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(16).optional()),
+  WMS_EVENTS_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(16).optional()),
   ALLOW_LIST: z.string().default(''),
   // E19 one-time address link (SPEC §5.17; design settings, not data). Off by default (REQ-LINK-09).
   CONFIRM_LINK: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['on', 'off']).default('off')),
