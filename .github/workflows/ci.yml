@@ -104,7 +104,9 @@ jobs:
       contents: read
     # The gitleaks CLI, not gitleaks-action: the action needs a GITLEAKS_LICENSE on organisation repos.
     # It scans all history reachable from the checked-out commit (under a second); .gitleaksignore lists checked
-    # false positives.
+    # false positives. --log-opts=HEAD keeps it to that history: without it gitleaks scans every fetched branch, so a
+    # token on someone else's unmerged branch failed main and every PR. Each branch is still scanned in its own PR.
+    # -v prints each finding (file, line, rule, commit) with the value redacted, so it can be checked and listed.
     env:
       GITLEAKS_VERSION: "8.30.1"
       GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb   # linux_x64 tarball
@@ -120,4 +122,4 @@ jobs:
           echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz -C "$RUNNER_TEMP" gitleaks
       - name: Scan git history for secrets
-        run: $RUNNER_TEMP/gitleaks git --redact --no-banner --exit-code 1 .
+        run: $RUNNER_TEMP/gitleaks git --redact -v --no-banner --exit-code 1 --log-opts=HEAD .
