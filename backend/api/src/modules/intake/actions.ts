@@ -12,7 +12,7 @@ import { type Wms, wmsOrder } from './wms.js';
 
 export const ACTIONS = ['approve', 'reject', 'send_reply', 'send_to_wms'] as const;
 export type Action = (typeof ACTIONS)[number];
-export interface ActionResult { code: 200 | 400 | 403 | 404 | 409 | 503; status?: string; error?: string; cause?: string }
+export interface ActionResult { code: 200 | 400 | 403 | 404 | 409 | 503; status?: string; error?: string; cause?: string; warning?: string }
 export interface Outbox { gmail: Pick<GmailClient, 'sendMessage'> | null; allow: Set<string> }
 /** The Carriers module's override log (`logOverride` in modules/carriers/index.ts), the one writer of override_log. */
 export type OverrideLog = (o: { orderRef: string; from: string; to: string; reason: string; user: string }) => Promise<number>;
@@ -20,16 +20,43 @@ export type OverrideLog = (o: { orderRef: string; from: string; to: string; reas
 export type OrderEventLog = (o: { orderRef: string; event: 'wms_entered'; detail: Record<string, unknown> }) =>
   Promise<{ code: number; error?: string }>;
 /**
+ * Auto-advance (design 2026-10-30-order-journey-auto-advance §5): whether the admin switch is on (modules/settings), and the
+ * Carriers module's `autoAdvanceOrder`, which records steps 9–13 through the one writer of order_events.
+ */
+export interface AutoAdvance {
+  on: () => Promise<boolean>;
+  run: (o: { orderRef: string; receivedAt: string; promiseDate: string; wmsOrderId: string }) => Promise<{ ok: boolean; error?: string }>;
+}
+/**
  * `edited`: the operator's own reply text (send_reply). `reason`: why an order is rejected, or why its carrier changes.
  * `carrier`: the supervisor's carrier for an ALL_CLEAR order (approve only). `overrides`: where that change is logged.
  * `wms`: the WMS send_to_wms hands the order to (null when WMS_URL is unset); `orderEvents`: where `wms_entered` goes.
+ * `autoAdvance`: after an approval, enters the order and runs steps 10–13 when the switch is on.
  */
 export interface ActionOptions {
   edited?: string; reason?: string; carrier?: CarrierId; overrides?: OverrideLog; link?: LinkDeps; wms?: Wms | null;
-  orderEvents?: OrderEventLog;
+  orderEvents?: OrderEventLog; autoAdvance?: AutoAdvance;
 }
 
 const MIN_REASON = 3;
+
+/**
+ * Design 2026-10-30-order-journey-auto-advance §5: with the switch on, an approved ALL_CLEAR order goes straight into the
+ * (simulated) WMS and gets steps 10–13; the external WMS (WMS_URL) is not called. The approval is already saved, so if
+ * recording fails the order stays APPROVED for a person to send to the WMS.
+ */
+async function afterApproval(repo: Repo, email: EmailRow, x: ExtractionRow | null, auto?: AutoAdvance): Promise<ActionResult> {
+  const approved: ActionResult = { code: 200, status: 'APPROVED' };
+  if (x?.decision !== 'ALL_CLEAR' || !auto || !(await auto.on())) return approved;
+  const order = wmsOrder(email, x);
+  if (!order) return approved;
+  const wmsOrderId = `WMS-${String(email.id).padStart(6, '0')}`;
+  const r = await auto.run({ orderRef: order.orderRef, receivedAt: email.received_at, promiseDate: order.promiseDate, wmsOrderId });
+  if (!r.ok) return { ...approved, warning: `Auto-advance did not run (${r.error ?? 'no reason given'}): send it to the WMS by hand.` };
+  await repo.setStatus(email.id, 'ENTERED');
+  await repo.logApproval(email.id, 'send_to_wms', 'system:auto-advance', { wmsOrderId, auto: true });
+  return { code: 200, status: 'ENTERED' };
+}
 
 /**
  * REQ-LINK-09: a stored draft holding [CONFIRM_LINK] that gets no link (CONFIRM_LINK off, or no link service) never sends
@@ -92,8 +119,12 @@ export async function applyAction(repo: Repo, id: number, action: Action, actor:
     await repo.setStatus(id, 'APPROVED');
     await repo.logApproval(id, 'approve', user, { ...(change && rec ? { ...who, carrier: change, from: rec.carrier, reason } : who),
       ...(saved === 'saved' ? { savedAddress: 'link' } : saved === 'already_saved' ? { savedAddress: 'already_saved' } : {}) });
-    return { code: 200, status: 'APPROVED' };
+    return afterApproval(repo, email, x, opts.autoAdvance);
   }
+
+  // AC-JRN-19: already in the WMS (auto-advance on approval, or a second click): nothing to do. Lets "Approve & send"
+  // finish its approve → send_reply → send_to_wms chain when the approval entered the order.
+  if (action === 'send_to_wms' && email.status === 'ENTERED') return { code: 200, status: 'ENTERED' };
 
   // After approval both can happen, in either order: an ALL_CLEAR order goes to the WMS and gets its confirmation.
   // A REJECTED order is in neither list, so both are refused.

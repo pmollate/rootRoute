@@ -2,7 +2,8 @@ import type { FastifyPluginAsync } from 'fastify';
 import { allowList, config } from '../../core/config.js';
 import { restore } from '../../core/pii/redact.js';
 import { actorOf } from '../../core/auth.js';
-import { logOverride, recordOrderEvent } from '../carriers/index.js';
+import { autoAdvanceOrder, logOverride, recordOrderEvent } from '../carriers/index.js';
+import { autoAdvanceOn } from '../settings/repo.js';
 import { diagnosisApi } from '../warehouse/index.js';
 import { applyAction } from './actions.js';
 import { runAlerts } from './alerts.js';
@@ -95,10 +96,11 @@ const routes: FastifyPluginAsync = async (app) => {
     const result = await applyAction(deps.repo, Number(req.params.id), body.data.action, actorOf(req),
       { gmail: deps.gmail, allow: allowList },
       { edited: body.data.reply, reason: body.data.reason, carrier: body.data.carrier, overrides: logOverride,
-        wms, orderEvents: recordOrderEvent });
+        wms, orderEvents: recordOrderEvent, autoAdvance: { on: autoAdvanceOn, run: autoAdvanceOrder } });
     req.log.info({ emailId: Number(req.params.id), action: body.data.action, carrier: body.data.carrier ?? null, code: result.code,
-      error: result.error ?? null, cause: result.cause ?? null }, 'intake action');
-    return reply.code(result.code).send(result.error ? { error: result.error } : { status: result.status });
+      error: result.error ?? null, cause: result.cause ?? null, warning: result.warning ?? null }, 'intake action');
+    return reply.code(result.code).send(result.error ? { error: result.error }
+      : { status: result.status, ...(result.warning ? { warning: result.warning } : {}) });
   });
 
   // E12 + E14: escalations (Tier 1 or at-risk clients) first, each with its delivery's cause stages and latest saved triage.
