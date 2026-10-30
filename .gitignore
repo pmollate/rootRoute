@@ -10,6 +10,7 @@ Carrier clips/
 __pycache__/
 *.pyc
 outputs/
+tools/wms-simulator/data/
 backend/api/dist/
 backend/synthetic-data/out/
 
@@ -21,3 +22,7 @@ frontend/bots/out/
 # secrets and OS
 .env
 .DS_Store
+
+# Local tool state (Playwright MCP snapshots, agent worktrees)
+.playwright-mcp/
+.claude/worktrees/

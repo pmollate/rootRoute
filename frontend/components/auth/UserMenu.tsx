@@ -11,7 +11,7 @@ export const initials = (name: string) =>
 
 /**
  * Header, every dashboard page (REQ-AUTH-08, -09): a profile icon with the user's initials, which opens a card with
- * their name, roles and demo status, and a round Logout icon button with a red ring.
+ * their name, roles and demo status, and a round Logout icon button.
  */
 export function UserMenu({ user }: { user: SessionUser | null }) {
   const [open, setOpen] = useState(false);

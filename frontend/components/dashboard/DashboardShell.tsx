@@ -11,7 +11,9 @@ import { BrandMark } from '@/components/ui/BrandMark';
 import h from '@/components/layout/SiteHeader.module.css';
 import { BRAND } from '@/config/copy';
 import { MORE, ORDERS, SCREENS } from '@/config/dashboard';
+import { useApi } from '@/hooks/useApi';
 import { canOpen, type SessionUser } from '@/lib/auth/roles';
+import { dataLine, type DataWindow } from '@/lib/dataWindow';
 import { AskPanel } from './assistant/AskPanel';
 import { AssistantFlag } from './assistant/AssistantFlag';
 import { ReportsMenu } from './ReportsMenu';
@@ -37,24 +39,26 @@ const Icon = ({ children }: { children: ReactNode }) => (
 /**
  * Chrome for every /dashboard screen: the landing page's floating pill bar (brand, the master navigation, theme toggle,
  * and the signed-in user: REQ-AUTH-08, -09); pages run full width. `user` is null when nobody is signed in
- * (AUTH_REQUIRED=off). Navigation: Orders, a Dashboard menu of the report screens, Labs, Settings (config/dashboard.ts).
+ * (AUTH_REQUIRED=off). Navigation: a Dashboard menu of the screens, Orders, Labs, Settings (config/dashboard.ts).
  * `assistant` (ASK_ASSISTANT=on, read on the server by app/dashboard/layout.tsx) adds the Ask LateLens panel to every
  * screen but Overview, whose Router answers follow-ups with the same assistant (one assistant per screen); off, there is
  * no button (REQ-ASK-08). The flag reaches the screens through `AssistantFlag`, never a NEXT_PUBLIC_ variable.
+ * The data line (deliveries, months, sites, carriers) in the drawer and footer is read from `GET /api/overview`
+ * (REQ-DATA-12, AC-DATA-21); until it arrives, or if it fails, the line names the dataset without figures.
  */
 export function DashboardShell({ children, user = null, assistant = false }: { children: ReactNode; user?: SessionUser | null; assistant?: boolean }) {
   const path = usePathname();
   // REQ-AUTH-15: only the screens the user's roles may open; everything with nobody signed in (AUTH_REQUIRED=off).
   const screens = SCREENS.filter((sc) => canOpen(user?.roles ?? null, sc.href));
-  const orders = screens.find((sc) => sc.href === ORDERS.href);
-  const reports = screens.filter((sc) => sc !== orders);
+  const pinned = screens.some((sc) => sc.href === ORDERS.href) ? ORDERS : undefined;
+  const reports = screens.filter((sc) => sc.href !== ORDERS.href);
   // Overview has its own assistant (Router); /dashboard only redirects, but is covered in case it ever renders Overview.
   const dock = assistant && path !== '/dashboard' && !path.startsWith('/dashboard/overview');
   const current = [...screens, ...MORE].find((sc) => path.startsWith(sc.href))?.href;
   // One list for the phone drawer, in bar order, with the reports under a "Dashboard" heading.
   const drawer = [
-    ...(orders ? [{ href: orders.href, label: ORDERS.label }] : []),
     ...reports.map((sc) => ({ href: sc.href, label: sc.label, group: 'Dashboard' })),
+    ...(pinned ? [{ href: pinned.href, label: pinned.label }] : []),
     ...MORE,
   ];
   const brand = (
@@ -63,11 +67,14 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
       {BRAND.toUpperCase()}
     </Link>
   );
+  // AC-DATA-21: the data line is read from the API (analytics/core/window.py); a neutral line until it arrives.
+  const api = useApi<DataWindow>('/api/overview');
+  const line = dataLine(api.data);
   const dataset = (
     <div className={s.dataset}>
       <p className={s.datasetHead}>Dataset</p>
-      <b>48,340 deliveries</b>
-      <span>Apr–Sep 2026 · 5 sites · 6 carriers</span>
+      <b>{line?.count ?? 'Supplied dataset'}</b>
+      <span>{line?.detail ?? (api.loading ? 'Loading…' : 'Details unavailable')}</span>
     </div>
   );
   return (
@@ -78,12 +85,12 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
             items={drawer.map((it) => ({ ...it, icon: <Icon>{ICONS[it.href]}</Icon>, current: it.href === current }))} />
           {brand}
           <nav className={`${h.nav} ${s.nav}`} aria-label="Dashboard">
-            {orders && (
-              <Link className={h.navLink} href={orders.href} aria-current={orders.href === current ? 'page' : undefined}>{ORDERS.label}</Link>
-            )}
             {reports.length > 0 && (
               <ReportsMenu label="Dashboard" current={reports.some((sc) => sc.href === current) ? current : undefined}
                 items={reports.map((sc) => ({ href: sc.href, label: sc.label, icon: <Icon>{ICONS[sc.href]}</Icon> }))} />
+            )}
+            {pinned && (
+              <Link className={h.navLink} href={pinned.href} aria-current={pinned.href === current ? 'page' : undefined}>{pinned.label}</Link>
             )}
             {MORE.map((it) => (
               <Link key={it.href} className={h.navLink} href={it.href} aria-current={it.href === current ? 'page' : undefined}>{it.label}</Link>
@@ -97,7 +104,7 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
         <UserProvider user={user}><AssistantFlag on={assistant}>{children}</AssistantFlag></UserProvider>{dock && <AskPanel />}
       </main>
       <footer className={s.foot}>
-        <p>Computed from the supplied Halcyon dataset · 48,340 deliveries · Apr–Sep 2026 · 5 sites · 6 carriers.</p>
+        <p>{line ? `Computed from the supplied Halcyon dataset · ${line.count} · ${line.detail}.` : 'Computed from the supplied Halcyon dataset.'}</p>
         <p><Pill tone="synthetic">Synthetic</Pill></p>
       </footer>
     </div>

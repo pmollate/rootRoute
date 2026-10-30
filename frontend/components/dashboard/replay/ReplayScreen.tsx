@@ -7,8 +7,10 @@ import { Pager, Segmented, Status, usePage } from '@/components/dashboard/ui';
 import { BRAND } from '@/config/copy';
 import { canOpen } from '@/lib/auth/roles';
 import { useApi } from '@/hooks/useApi';
+import { periods } from '@/lib/dataWindow';
 import { int, pct, points, usd, usdShort } from '@/lib/metrics';
 import type { Overview } from '../overview/OverviewScreen';
+import { CompareCard } from './CompareCard';
 import s from './replay.module.css';
 
 interface Scenario { scenario: string; label: string; grp: string; onTime: number; lateAvoided: number; costAvoided: number }
@@ -84,8 +86,10 @@ const ALTERNATIVES: { scenario: string; kicker: string; label: string; icon: Ico
   { scenario: 'all_but_route', kicker: 'Case C', label: 'The four in-house fixes', icon: 'home', fixes: ['Address', 'Cut-off', 'Stock', 'Lanes'] },
 ];
 
-const SEGMENTS = [['all', 'All orders'], ['email', 'Email orders'], ['at_risk', 'At-risk accounts'], ['aug_sep', 'Aug–Sep']] as const;
-type Segment = (typeof SEGMENTS)[number][0];
+/** `aug_sep` is the window's last two calendar months (REQ-DATA-14); its name comes from the API window. */
+const segments = (recent: string | null) =>
+  [['all', 'All orders'], ['email', 'Email orders'], ['at_risk', 'At-risk accounts'], ['aug_sep', recent ?? 'Last two months']] as const;
+type Segment = ReturnType<typeof segments>[number][0];
 
 /** Account main causes (analytics/core/diagnosis.py LABELS): short name, icon, the fix that protects them and where it lives. */
 const CAUSES: Record<string, { short: string; title: string; icon: IconName; fix: string; href: string }> = {
@@ -160,6 +164,7 @@ export function ReplayScreen() {
   const lostBy = new Map((attr.data?.causes ?? []).map((c) => [c.cause, c.pointsLost]));
 
   const accounts = a.data?.accounts ?? [];
+  const atRisk = new Set(accounts.map((x) => x.clientId));
   const revenue = accounts.reduce((t, x) => t + x.revenueUsd, 0);
   const byCause = [...accounts.reduce((m, x) => {
     const c = causeOf(x);
@@ -269,11 +274,13 @@ export function ReplayScreen() {
         </section>
       )}
 
+      <CompareCard atRisk={atRisk} />
+
       <div className={s.grid}>
         <section className={`${s.card} ${s.chartCard}`} aria-labelledby="chart-head">
           <Head id="chart-head" title="On-time delivery by scenario"
             sub="Fixes stack from today’s baseline. Grey is the rate before each step, green is what that fix adds.">
-            <Segmented label="Orders" value={segment} options={SEGMENTS} onChange={setSegment} />
+            <Segmented label="Orders" value={segment} options={segments(periods(o.data)?.test ?? null)} onChange={setSegment} />
           </Head>
           <Status loading={chart.loading} error={chart.error} skeleton="bars" count={8} />
           {chart.data && (

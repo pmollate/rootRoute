@@ -33,7 +33,13 @@ export const TOOLS: readonly ToolDef[] = [
   tool({
     name: 'overview', title: 'Headline KPIs', readOnly: true, input: {},
     description: 'On-time rate vs the 94% benchmark, late deliveries, penalty and handling costs, at-risk accounts.',
-    run: async () => q.overview(),
+    // Headline KPIs only: the data line (window, warehouse and carrier counts) is for the dashboard shell, and leaving
+    // it out keeps the tool's output, and so the recorded answers keyed on it, unchanged.
+    run: async () => {
+      const { warehouses, carriers, windowFrom, windowTo, recentFrom, ...kpis } = await q.overview();
+      void [warehouses, carriers, windowFrom, windowTo, recentFrom];
+      return kpis;
+    },
   }),
   tool({
     name: 'delivery_causes', title: 'Why deliveries are late', readOnly: true,

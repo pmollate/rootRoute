@@ -3,16 +3,29 @@ import { query } from '../../core/db/pool.js';
 
 export const SEGMENTS = ['all', 'email', 'at_risk'] as const;
 export const REPLAY_SEGMENTS = ['all', 'email', 'at_risk', 'aug_sep'] as const;
+export const COMPARE_SCENARIOS = ['as_built_adopted', 'as_built', 'adopt_all'] as const;
+export const COMPARE_DIMENSIONS = ['all', 'warehouse', 'lane', 'carrier', 'region', 'month', 'client'] as const;
 
-export const overview = () => cached('overview', async () => {
-  const rows = await query<{ key: string; value: number }>('SELECT key, value FROM kpis');
-  const k = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+/** A `kpis` day (epoch milliseconds, UTC midnight, written by analytics/core/diagnosis.py) as `YYYY-MM-DD`. */
+const day = (ms: number | undefined) => (ms == null ? null : new Date(ms).toISOString().slice(0, 10));
+
+/**
+ * The `kpis` rows as the overview, with the data line (REQ-DATA-12): the window of orders analysed, the start of its
+ * recent period (the backtest test months and the `aug_sep` replay segment) and how many sites and carriers it covers.
+ * Keys a table written before the data line existed come back null, never a made-up value.
+ */
+export const toOverview = (rows: { key: string; value: number }[]) => {
+  const k: Record<string, number | undefined> = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return {
     onTime: k.on_time, benchmark: k.benchmark, deliveries: k.deliveries, late: k.late, penaltiesUsd: k.penalties_usd,
     handlingCostUsd: k.handling_cost_usd, atRiskAccounts: k.at_risk_accounts, atRiskRevenueUsd: k.at_risk_revenue_usd,
-    prePickupShare: k.pre_pickup_share,
+    prePickupShare: k.pre_pickup_share, warehouses: k.warehouses ?? null, carriers: k.carriers ?? null,
+    windowFrom: day(k.window_from), windowTo: day(k.window_to), recentFrom: day(k.recent_from),
   };
-});
+};
+
+export const overview = () => cached('overview', async () =>
+  toOverview(await query<{ key: string; value: number }>('SELECT key, value FROM kpis')));
 
 export const causes = (segment: string) => cached(`causes:${segment}`, async () => ({
   segment,
@@ -28,6 +41,24 @@ export const replay = (segment: string) => cached(`replay:${segment}`, async () 
   )).map((r) => ({ scenario: r.scenario, label: r.label, grp: r.grp, onTime: r.on_time,
     lateAvoided: Math.round(r.late_avoided), costAvoided: Math.round(r.cost_avoided) })),
 }));
+
+interface CompareRow {
+  label: string; key: string; deliveries: number; on_time_today: number; on_time_with: number; late_today: number;
+  late_with: number; cost_avoided: number;
+}
+
+/** Today vs with LateLens (D11, SPEC §5.8): Python sums the replay; this only looks it up. */
+export const compare = (scenario: string, dimension: string) => cached(`compare:${scenario}:${dimension}`, async () => {
+  const rows = await query<CompareRow>(
+    `SELECT label, key, deliveries, on_time_today, on_time_with, late_today, late_with, cost_avoided
+       FROM scenario_breakdown WHERE scenario = $1 AND dimension = $2 ORDER BY key`, [scenario, dimension],
+  );
+  return {
+    scenario, label: rows[0]?.label ?? scenario, dimension,
+    rows: rows.map((r) => ({ key: r.key, deliveries: r.deliveries, onTimeToday: r.on_time_today, onTimeWith: r.on_time_with,
+      lateToday: r.late_today, lateWith: Math.round(r.late_with), costAvoided: Math.round(r.cost_avoided) })),
+  };
+});
 
 interface AccountRow {
   client_id: string; client_name: string; account_tier: string; annual_revenue_usd: number; primary_order_channel: string;

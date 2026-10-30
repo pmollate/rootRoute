@@ -16,6 +16,7 @@ PICK_FLAGS = ["f_addr_email", "f_addr_other", "f_cut_early", "f_cut_late", "f_sk
 CUTOFF_HOUR = 8
 ROUTE_OVERRUN = 1.20   # no otherwise-clean delivery is late below a 20% overrun
 FRIDAY = 4
+FRIDAY_CAP_CARRIER = "D"   # the carrier whose Friday volume overloads it (SPEC §5.2)
 # Carrier x region lanes that fail on fair data every day of the week (reproduced by analytics/carriers/lanes.py).
 BAD_LANES = {("D", "Midwest"), ("D", "Southeast"), ("E", "West"), ("F", "Northeast"), ("F", "Southeast")}
 
@@ -33,7 +34,7 @@ def add_flags(d: pd.DataFrame) -> pd.DataFrame:
     d["f_skip_nearest"] = d.f_stock & d.nearest_warehouse_had_stock.eq("Y")
     lane = pd.Series(list(zip(d.carrier_id, d.destination_region)), index=d.index)
     d["f_bad_lane"] = lane.isin(BAD_LANES)
-    d["f_d_friday"] = d.carrier_id.eq("D") & d.order_received_ts.dt.day_of_week.eq(FRIDAY)
+    d["f_d_friday"] = d.carrier_id.eq(FRIDAY_CAP_CARRIER) & d.order_received_ts.dt.day_of_week.eq(FRIDAY)
     d["f_lane"] = d.f_bad_lane | d.f_d_friday
     d["f_route"] = d.route_dev.gt(ROUTE_OVERRUN)  # NaN (missing actual km) -> False
     d["f_addr_email"] = d.f_addr & d.order_channel.eq("Email")

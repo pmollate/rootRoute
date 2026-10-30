@@ -6,6 +6,7 @@ import { useCan } from '@/components/auth/UserContext';
 import { PageHero } from '@/components/dashboard/PageHero';
 import { Segmented, Status, SyntheticBadge, ui } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
+import { periods, type DataWindow } from '@/lib/dataWindow';
 import { SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
 import { int, pct, points, usd2 } from '@/lib/metrics';
 import s from './carriers.module.css';
@@ -174,7 +175,10 @@ export function CarriersScreen() {
   const network = useNetwork();
   const bt = useApi<Backtest>('/api/carriers/backtest');
   const tr = useApi<Tracking>(`/api/tracking?asOf=${TRACKING_DAY}`);
-  const benchmark = useApi<{ benchmark: number }>('/api/overview').data?.benchmark;
+  const overview = useApi<{ benchmark: number } & DataWindow>('/api/overview').data;
+  const benchmark = overview?.benchmark;
+  // REQ-DATA-14: the backtest trains on the window's earlier months and tests on its last two (analytics/core/window.py).
+  const period = periods(overview);
   const rec = lane.data?.recommendation;
   const best = rec?.options.find((o) => o.carrier === rec.carrier);
   const backup = rec?.options.find((o) => o.carrier === rec.backup);
@@ -316,10 +320,10 @@ export function CarriersScreen() {
 
       <div className={s.halves}>
         <section className={s.panel}>
-          <Head title="Backtest: rules trained Apr–Jul, tested Aug–Sep"
-            sub="Same Aug–Sep deliveries, each way of choosing the carrier." />
-          <p className={s.period}><span><Icon size={13}>{ICON.cap}</Icon>Train · Apr–Jul</span>
-            <span className={s.test}><Icon size={13}>{ICON.vial}</Icon>Test · Aug–Sep</span></p>
+          <Head title={period ? `Backtest: rules trained ${period.train}, tested ${period.test}` : 'Backtest: rules trained on earlier months, tested on the last two'}
+            sub={`Same ${period?.test ?? 'last-two-month'} deliveries, each way of choosing the carrier.`} />
+          <p className={s.period}><span><Icon size={13}>{ICON.cap}</Icon>Train · {period?.train ?? 'earlier months'}</span>
+            <span className={s.test}><Icon size={13}>{ICON.vial}</Icon>Test · {period?.test ?? 'last two months'}</span></p>
           <Status loading={bt.loading} error={bt.error} skeleton="rows" count={3} />
           {btRows.length > 0 && (
             <div className={ui.tableWrap}>

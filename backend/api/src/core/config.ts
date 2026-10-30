@@ -23,12 +23,20 @@ export const Env = z.object({
   GMAIL_CLIENT_SECRET: z.string().optional(),
   GMAIL_REFRESH_TOKEN: z.string().optional(),
   INTAKE_POLL_MINUTES: z.coerce.number().int().min(0).max(60).default(10), // E15: Gmail poll interval; 0 = off
+  // REQ-INT-16: longest pasted email body and subject, in characters (design settings, not data); longer is refused (400)
+  INTAKE_MAX_BODY_CHARS: z.coerce.number().int().min(1000).max(200000).default(20000),
+  INTAKE_MAX_SUBJECT_CHARS: z.coerce.number().int().min(50).max(2000).default(300),
   API_KEY: z.string().min(1),
   // P7 sign-in (SPEC-auth §9.2): off keeps the x-api-key path and logs auth_would_deny; on enforces the internal token
   AUTH_REQUIRED: z.enum(['on', 'off']).default('off'),
   INTERNAL_AUTH_SECRET: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()), // ≥ 32 bytes when on
   // D7 Ask LateLens: Bearer token for /api/mcp; unset or empty = endpoint off
   MCP_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(16).optional()),
+  // Order journey simulator (design 2026-10-30): the simulated WMS's address; unset = send_to_wms as before (status only)
+  WMS_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
+  // Bearer token LateLens sends to the WMS, and the one the simulator sends to POST /api/orders/:ref/events
+  WMS_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(16).optional()),
+  WMS_EVENTS_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(16).optional()),
   ALLOW_LIST: z.string().default(''),
   // E19 one-time address link (SPEC §5.17; design settings, not data). Off by default (REQ-LINK-09).
   CONFIRM_LINK: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['on', 'off']).default('off')),
@@ -53,8 +61,14 @@ export function checkConfirmLink(c: Pick<z.infer<typeof Env>, 'CONFIRM_LINK' | '
   }
 }
 
+/** The simulated WMS needs its bearer token: with WMS_URL set and no WMS_TOKEN the API refuses to start. */
+export function checkWms(c: Pick<z.infer<typeof Env>, 'WMS_URL' | 'WMS_TOKEN'>): void {
+  if (c.WMS_URL && !c.WMS_TOKEN) throw new Error('WMS_URL needs WMS_TOKEN: refusing to start');
+}
+
 export const config = Env.parse(process.env);
 checkConfirmLink(config);
+checkWms(config);
 export const allowList = new Set(
   config.ALLOW_LIST.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
 );

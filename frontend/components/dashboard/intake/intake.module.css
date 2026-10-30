@@ -269,6 +269,13 @@
   font: inherit; font-size: 0.7763rem; color: var(--ink); }
 .textarea { grid-column: 1 / -1; min-height: 166px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface);
   font: inherit; font-size: 0.7763rem; color: var(--ink); resize: vertical; }
+/* REQ-INT-16: the body's length against the API's limit, and the API's refusal of the pasted email. */
+.pasteCount { grid-column: 1 / -1; margin: -6px 0 0; font-size: 0.6728rem; color: var(--muted); }
+.pasteCountOver { color: var(--hot-ink); font-weight: 600; }
+.pasteError { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 8px 10px; border-radius: 8px;
+  background: var(--hot-bg); color: var(--hot-ink); font-size: 0.7245rem; font-weight: 600; }
+.pasteError svg { flex: none; margin-top: 2px; }
+.field input[aria-invalid='true'], .textarea[aria-invalid='true'] { border-color: var(--hot-ink); }
 .pasteFoot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 13px; font-size: 0.7245rem; color: var(--ink-2); }
 
 /* ───── The thread pane, by its own width ───── */

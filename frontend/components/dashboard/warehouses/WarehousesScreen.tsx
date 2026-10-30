@@ -115,9 +115,7 @@ const ICON = {
   chart: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
   shield: <><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
   file: <><path d="M14 3H6v18h12V7l-4-4Z" /><path d="M14 3v4h4M9 13h6M9 17h4" /></>,
-  csv: <><path d="M14 3H6v18h12V7l-4-4Z" /><path d="M14 3v4h4M9 12v6M12 12v6M15 12v6M8.5 15h7" /></>,
   invoice: <><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" /><path d="M14.5 8h-3.25a1.5 1.5 0 0 0 0 3h1.5a1.5 1.5 0 0 1 0 3H9.5M12 6.5V8m0 6v1.5" /></>,
-  play: <path d="M7 4.5v15l12-7.5-12-7.5Z" />,
   layers: <><path d="m12 3 9 5-9 5-9-5 9-5Z" /><path d="m3 13 9 5 9-5" /></>,
   fire: <path d="M12 21c4 0 7-2.7 7-6.8 0-3.6-2.6-6-4.2-8.2-.4 2-1.4 3.3-2.8 4C12 7 10.5 4.6 8.5 3 8.9 6.5 5 8.8 5 14.2 5 18.3 8 21 12 21Z" />,
   thermo: <><path d="M10 14.8V5a2 2 0 1 1 4 0v9.8a4 4 0 1 1-4 0Z" /><path d="M12 9v7" /></>,
@@ -156,10 +154,6 @@ function downloadCsv(name: string, lines: (string | number)[][]) {
   a.click();
   URL.revokeObjectURL(a.href);
 }
-const exportSites = (rows: WarehouseRow[]) => downloadCsv('warehouses-pre-pickup.csv', [
-  ['warehouse_id', 'name', 'orders', ...PROBLEMS.flatMap((x) => [`${x.key}_orders`, `${x.key}_late_rate`])],
-  ...rows.map((r) => [r.warehouseId, r.name, r.orders, ...PROBLEMS.flatMap((x) => [x.n(r), x.rate(r).toFixed(4)])]),
-]);
 const exportUnpaid = (rows: UnpaidRow[]) => downloadCsv('unrecorded-penalties.csv', [
   ['delivery_id', 'client_id', 'tier', 'warehouse_id', 'days_late', 'promised_date'],
   ...rows.map((r) => [r.deliveryId, r.clientId, r.tier, r.warehouseId ?? '', r.daysLate, r.promisedDate]),
@@ -373,12 +367,6 @@ export function WarehousesScreen() {
         <div>
           <p className={s.eyebrow}>Before pickup</p>
           <h1 className={s.title}>Warehouses</h1>
-        </div>
-        <div className={s.actions}>
-          <button type="button" className={s.chip} disabled={rows.length === 0} onClick={() => exportSites(rows)}>
-            <Icon size={14}>{ICON.csv}</Icon>Export CSV
-          </button>
-          <Link className={s.chip} href="/dashboard/replay"><Icon size={14}>{ICON.play}</Icon>Open replay</Link>
         </div>
       </div>
 

@@ -10,8 +10,8 @@ export const SCREENS = [
 ] as const;
 
 /**
- * Master navigation, left to right: Orders (the order-email queue), the Dashboard menu (every other screen, a report
- * each), Labs and Settings. Labs and Settings are open to every role.
+ * Master navigation, left to right: the Dashboard menu (every screen but Orders, a report each, in SCREENS order), Orders
+ * (the order-email queue, pinned to the bar), Labs and Settings. Labs and Settings are open to every role.
  */
 export const ORDERS = { href: '/dashboard/intake', label: 'Orders' } as const;
 export const MORE = [

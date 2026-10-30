@@ -1,5 +1,5 @@
-import { screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 import { mockApi, renderScreen } from '../test-utils';
 import { ReplayScreen } from './ReplayScreen';
 
@@ -28,5 +28,52 @@ describe('Replay', () => {
     expect(await screen.findByText('Clears 95%')).toBeTruthy();
     expect(await screen.findByText('6.8')).toBeTruthy(); // 85% of the 8.0 address points
     expect((await screen.findByTestId('coverage')).textContent).toBe('Lane rules + Friday cap protects 2 accounts and Address check 1.');
+  });
+
+  it('AC-REP-09, REQ-REP-11: the compare card switches dimension, marks at-risk clients and notes carrier rows', async () => {
+    cleanup();
+    const rows = (dimension: string, key: string) => ({ scenario: 'as_built_adopted', label: 'As built', dimension,
+      rows: [{ key, deliveries: 2798, onTimeToday: 0.534, onTimeWith: 0.875, lateToday: 1303, lateWith: 349, costAvoided: 98000 }] });
+    mockApi({
+      '/api/replay?segment=all': { segment: 'all', scenarios: [s('today', 'Today', 0.71, 0)] },
+      '/api/accounts': { accounts: [acc('C190', 1_000_000, 'Incomplete address at intake')] },
+      '/api/compare?scenario=as_built_adopted&dimension=warehouse': rows('warehouse', 'W1'),
+      '/api/compare?scenario=as_built_adopted&dimension=lane': rows('lane', 'D→Midwest'),
+      '/api/compare?scenario=adopt_all&dimension=lane': rows('lane', 'F→Southeast'),
+      '/api/compare?scenario=as_built_adopted&dimension=client': rows('client', 'C190'),
+    });
+    renderScreen(<ReplayScreen />);
+    expect(await screen.findByText('W1')).toBeTruthy();
+    expect(screen.getByText('Replay estimate')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Lane' }));
+    expect(await screen.findByText('D→Midwest')).toBeTruthy();
+    expect(screen.getByText('53.4% → 87.5%')).toBeTruthy();
+    expect(screen.getByText('+34.1 pts')).toBeTruthy();
+    expect(screen.getByText(/stay under the carrier that delivered them/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Scenario'), { target: { value: 'adopt_all' } });
+    expect(await screen.findByText('F→Southeast')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Scenario'), { target: { value: 'as_built_adopted' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Client' }));
+    expect(await screen.findByText('At risk')).toBeTruthy();
+    expect(screen.queryByText(/sign|vendor|pilot/i)).toBeNull();
+    cleanup();
+  });
+});
+
+describe('Replay recent segment (REQ-DATA-14, AC-DATA-21)', () => {
+  afterEach(() => cleanup());
+  const base = { '/api/replay?segment=all': { segment: 'all', scenarios: [] }, '/api/accounts': { accounts: [] }, '/api/attribution': { causes: [] } };
+
+  it('AC-DATA-21: the aug_sep segment is labelled with the months the API reports', async () => {
+    mockApi({ ...base, '/api/overview': { deliveries: 1234, windowFrom: '2026-11-03', windowTo: '2027-02-02', recentFrom: '2027-01-01' } });
+    renderScreen(<ReplayScreen />);
+    expect(await screen.findByRole('button', { name: 'Jan–Feb 2027' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Aug–Sep' })).toBeNull();
+  });
+
+  it('AC-DATA-21: without the window the segment has a neutral name', async () => {
+    mockApi(base);
+    renderScreen(<ReplayScreen />);
+    expect(await screen.findByRole('button', { name: 'Last two months' })).toBeTruthy();
   });
 });

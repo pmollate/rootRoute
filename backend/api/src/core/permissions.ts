@@ -29,11 +29,13 @@ const SUPPORT: readonly Role[] = ['customer_support', 'admin'];
 export const PERMISSIONS: Record<string, Permission> = {
   'GET /api/health': 'public',
   'POST /api/mcp': 'public', // its own Bearer MCP_TOKEN (REQ-MCP-02)
+  'POST /api/orders/:ref/events': 'public', // its own Bearer WMS_EVENTS_TOKEN (order journey simulator, design §6)
 
   // Reads, by the pages that use them
   'GET /api/overview': { roles: ALL },
   'GET /api/causes': { roles: ALL },
   'GET /api/replay': { roles: ALL },
+  'GET /api/compare': { roles: ACCOUNTS_READ }, // D11: Replay only
   'GET /api/attribution': { roles: ALL },
   'GET /api/cause-kpis': { roles: ALL },
   'GET /api/journey/:ref': { roles: ALL },

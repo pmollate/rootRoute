@@ -17,11 +17,33 @@ describe.skipIf(!hasDb)('warehouse & diagnosis routes (needs test database)', ()
     expect(o).toMatchObject({ late: 14019, penaltiesUsd: 872460, atRiskAccounts: 9 });
   });
 
+  it('AC-DATA-21 (data): overview carries the data line computed by the pipeline', async () => {
+    expect(await get('/api/overview')).toMatchObject({
+      deliveries: 48340, warehouses: 5, carriers: 6, windowFrom: '2026-04-01', windowTo: '2026-09-25', recentFrom: '2026-08-01',
+    });
+  });
+
   it('serves causes and replay per segment, and rejects unknown segments', async () => {
     expect((await get('/api/causes?segment=email')).causes.length).toBeGreaterThan(5);
     const replay = await get('/api/replay?segment=all');
     expect(replay.scenarios.find((s: { scenario: string }) => s.scenario === 'adopt_all').onTime).toBeCloseTo(0.92, 3);
     expect((await app.inject({ method: 'GET', url: '/api/causes?segment=nope' })).statusCode).toBe(400);
+  });
+
+  it('AC-REP-10: serves today vs with by dimension, and rejects unknown values', async () => {
+    const r = await get('/api/compare?scenario=as_built_adopted&dimension=warehouse');
+    expect(r).toMatchObject({ scenario: 'as_built_adopted', dimension: 'warehouse' });
+    expect(r.rows).toHaveLength(5);
+    const w1 = r.rows.find((x: { key: string }) => x.key === 'W1');
+    expect(w1.onTimeToday).toBeCloseTo(0.704, 3);
+    expect(w1.onTimeWith).toBeCloseTo(0.851, 3);
+    const all = (await get('/api/compare?scenario=as_built_adopted&dimension=all')).rows[0];
+    expect(all).toMatchObject({ key: 'all', deliveries: 48340, lateToday: 14019, lateWith: 6828, costAvoided: 707950 });
+    for (const url of ['/api/compare?scenario=vendor&dimension=all', '/api/compare?scenario=as_built&dimension=sku']) {
+      const res = await app.inject({ method: 'GET', url });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatch(/must be one of/);
+    }
   });
 
   it('AC-PEN-01 and second pick through the API', async () => {

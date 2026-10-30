@@ -60,7 +60,7 @@ Stubs keep A unblocked on Monday and Tuesday; when B8 and C4 merge, A's code nee
 - [ ] Decide `[AI_MODEL]` (Claude via the Anthropic API is what the plans implement; Azure OpenAI needs A1 step 7). Get the key into each `.env` — never commit it.
 - [ ] Confirm owners for A, B, C and write them into SPEC §10.1.
 - [ ] Read `docs/CONTRACTS.md` together. Any change to it from now on is a PR reviewed by another resource.
-- [ ] Repo owner (`saiprasad-37`): add all three as collaborators; after B4, require the `ci / test` check on `main`; confirm how judges will access the repo; find out the exact deadline time on the 29th (`[DEADLINE_TIME]`).
+- [ ] Repo admin (`Evoke-Hackathon-2026/UnhandledRejections`, was `saiprasad-37/root-route`): add all three as collaborators; after B4, require the `ci / test` check on `main`; confirm how judges will access the repo; find out the exact deadline time on the 29th (`[DEADLINE_TIME]`).
 - [ ] Each laptop: install Docker Desktop, Node 22+, Python 3.12+, then `npm run setup` (installs `frontend/` and `backend/api/`). `frontend/package-lock.json` points at a private JFrog registry, so `npm ci` fails with 401 for anyone outside it — B fixes that first thing in B2 Step 1; until it is merged, run B2 Step 1 locally.
 - [ ] Run everything from the repo root: `npm run dev:all` (API on :3001, Next.js on :3000, dashboard at `/dashboard`), `npm test`, `npm run pipeline`. On this Mac fix the npm cache once: `sudo chown -R $(id -u):$(id -g) ~/.npm`.
 - [ ] C: check Azure access today (`az login`, permission to create a resource group and an app registration).

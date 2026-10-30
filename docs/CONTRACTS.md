@@ -205,9 +205,10 @@ in 0..1, money in USD.
 | `complaints` | A | copy of `complaints.csv` + `at_risk` (boolean) |
 | `delivery_causes` | B | `delivery_id`, `client_id`, `order_channel`, `commitment_type`, `destination_region`, `carrier_id`, `late`, `f_addr`, `f_cutoff`, `f_stock`, `f_stock_out`, `f_skip_nearest`, `f_lane`, `f_bad_lane`, `f_d_friday`, `f_route`, `fair`, `stages` (comma-separated) |
 | `dq_report` | B | `issue`, `count` |
-| `kpis` | B | `key`, `value` — keys: `on_time`, `benchmark`, `deliveries`, `late`, `penalties_usd`, `handling_cost_usd`, `at_risk_accounts`, `at_risk_revenue_usd`, `pre_pickup_share` |
+| `kpis` | B | `key`, `value` — keys: `on_time`, `benchmark`, `deliveries`, `late`, `penalties_usd`, `handling_cost_usd`, `at_risk_accounts`, `at_risk_revenue_usd`, `pre_pickup_share`; the data line (S2, REQ-DATA-12): `warehouses`, `carriers` (distinct in the deliveries), `window_from`, `window_to` (first and last order day), `recent_from` (first day of the window's last two calendar months: backtest test period and `aug_sep` segment, REQ-DATA-14); the three days are epoch milliseconds at UTC midnight |
 | `cause_summary` | B | `segment` (`all`/`email`/`at_risk`), `flag`, `label`, `stage`, `n`, `late_rate` |
-| `scenario_results` | B | `scenario`, `label`, `grp` (`reference`/`area`/`as_built`/`phase2`/`adoption`), `segment` (`all`/`email`/`at_risk`/`aug_sep`), `on_time`, `late_avoided`, `cost_avoided` |
+| `scenario_results` | B | `scenario`, `label`, `grp` (`reference`/`area`/`as_built`/`phase2`/`adoption`), `segment` (`all`/`email`/`at_risk`/`aug_sep`; `aug_sep` is the window's last two calendar months, from `kpis.recent_from`), `on_time`, `late_avoided`, `cost_avoided` |
+| `scenario_breakdown` | B | D11 (SPEC §5.8): `scenario` (`as_built_adopted`/`as_built`/`adopt_all`), `label`, `dimension` (`all`/`warehouse`/`lane`/`carrier`/`region`/`month`/`client`), `key` (`all`, `W1`, `D→Midwest`, `D`, `Midwest`, `2026-04`, `C190`), `deliveries`, `on_time_today` (0..1), `on_time_with` (0..1), `late_today`, `late_with` (expected, may be fractional), `cost_avoided` (USD) |
 | `cause_attribution` | B | `cause`, `label`, `stage`, `deliveries`, `points_lost` (0..1), `share_of_lateness` (0..1) |
 | `cause_kpis` | B | `cause`, `label`, `kpi`, `baseline`, `target`, `owner` |
 | `accounts` | B | `client_id`, `client_name`, `account_tier`, `annual_revenue_usd`, `primary_order_channel`, `deliveries`, `on_time`, `main_cause`, `complaints` |
@@ -234,9 +235,21 @@ module exposes `build(ctx) -> dict[str, DataFrame]`; later modules may read earl
 | `001–099` | B | `audit_log` |
 | `100–199` | A | `client_domains`, `saved_addresses`, `intake_emails`, `intake_extractions`, `outbound_messages`, `inbound_orders`, `alerts`, `complaint_triage`, `intake_polls` (101: one row per Gmail check — trigger `schedule` \| `button`, query, started_at, finished_at, fetched, processed, retried, failed, ok, error); `address_confirm_tokens` and new `saved_addresses` columns (103, E19, after submission; below) |
 | `200–299` | B | (none planned) |
-| `300–399` | C | `recommendations`, `override_log` |
+| `300–399` | C | `recommendations`, `override_log`, `order_events` |
 
 D10 (assistant) adds **no table**: questions and answers are not stored (SEC-ASK-03).
+
+**Migration `301_order_events.sql`** (C; order journey simulator). Writer: `recordOrderEvent` in
+`modules/carriers/index.ts`; intake calls it for `wms_entered`.
+
+| Column | Type | Note |
+|---|---|---|
+| `id` | serial PK | |
+| `order_ref` | text NOT NULL | `email:<id>` |
+| `event` | text NOT NULL | `wms_entered` \| `picked` \| `picked_up` \| `in_transit` \| `out_for_delivery` \| `delivered`; unique per `order_ref` |
+| `ts` | timestamp NOT NULL | local, no zone; `YYYY-MM-DD HH:mm` in the API |
+| `detail` | jsonb NOT NULL | `wms_entered`: `{ wmsOrderId }` |
+| `synthetic` | boolean NOT NULL DEFAULT true | always true: the WMS and carriers are simulated |
 
 **Migration `103_address_links.sql`** (A; E19, SPEC §5.17). Reuses `saved_addresses` rather than a new
 `client_addresses` table: the intake already reads it for matches and candidates.
@@ -277,9 +290,10 @@ Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 
 | Endpoint | Owner | Response |
 |---|---|---|
 | `GET /api/health` | B | `{ db: "ok" \| "down", llm: string, version: string }` |
-| `GET /api/overview` | B | `{ onTime, benchmark, deliveries, late, penaltiesUsd, handlingCostUsd, atRiskAccounts, atRiskRevenueUsd, prePickupShare }` |
+| `GET /api/overview` | B | `{ onTime, benchmark, deliveries, late, penaltiesUsd, handlingCostUsd, atRiskAccounts, atRiskRevenueUsd, prePickupShare, warehouses, carriers, windowFrom, windowTo, recentFrom }`; the last five are the data line (days `YYYY-MM-DD`), `null` when `kpis` predates them |
 | `GET /api/causes?segment=all\|email\|at_risk` | B | `{ segment, causes: [{ flag, label, stage, n, lateRate }] }` |
 | `GET /api/replay?segment=all\|email\|at_risk\|aug_sep` | B | `{ segment, scenarios: [{ scenario, label, grp, onTime, lateAvoided, costAvoided }] }` |
+| `GET /api/compare?scenario=as_built_adopted\|as_built\|adopt_all&dimension=all\|warehouse\|lane\|carrier\|region\|month\|client` | B | D11: `{ scenario, label, dimension, rows: [{ key, deliveries, onTimeToday, onTimeWith, lateToday, lateWith, costAvoided }] }`; 400 naming the allowed values for an unknown `scenario` or `dimension`; Replay roles only (SPEC-auth §4.4) |
 | `GET /api/attribution` | B | `{ causes: [{ cause, label, stage, deliveries, pointsLost, share }] }` |
 | `GET /api/cause-kpis` | B | `{ kpis: [{ cause, label, kpi, baseline, target, owner }] }` |
 | `GET /api/accounts` | B | `{ accounts: [{ clientId, clientName, tier, revenueUsd, channel, deliveries, onTime, mainCause, complaints }] }` |
@@ -291,12 +305,13 @@ Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 
 | `GET /api/tracking?asOf=YYYY-MM-DD` | C | `{ synthetic: true, asOf, freshness: [{ carrier, source, lastEventAt }], atRisk: [{ deliveryId, carrier, promisedDate }] }` |
 | `POST /api/recommend` | C | body `RecommendInput` → `CarrierRecommendation` |
 | `POST /api/overrides` | C | body `{ orderRef, from, to, reason, user }` → `{ id }` (needs `x-api-key`) |
-| `GET /api/intake` | A | `{ emails: [{ id, source, from, subject, receivedAt, clientId, status, decision, inReplyTo, priority }], pollMinutes, lastPoll: { trigger, startedAt, finishedAt, processed, retried, failed, ok } \| null }` — priority clients first; `pollMinutes` is 0 when the automatic check is off or Gmail is not set up; `status` RECEIVED \| WAITING \| AWAITING_APPROVAL \| APPROVED \| SENT \| ENTERED \| REJECTED. With `CONFIRM_LINK=on` each email also has `link: { state: LinkState, expiresAt } \| null` (newest link; `expired` is computed when read and shown as "Address not confirmed", REQ-LINK-06) |
+| `POST /api/orders/:ref/events` | C | Called by the simulated WMS and carriers. `Authorization: Bearer <WMS_EVENTS_TOKEN>` (401; 503 when unset). `:ref` = `email:<id>`. body `{ event: "picked" \| "picked_up" \| "in_transit" \| "out_for_delivery" \| "delivered", ts?: "YYYY-MM-DD HH:mm" }` → `201 { event, ts }`; `200` for a repeat with the same `ts`; `409 { error }` out of order, earlier than the previous event, a changed repeat, or not in the WMS; `404` unknown email; `400 { error: "invalid" }` (also for a `ts` that matches the format but is not a real date and time, e.g. `2026-02-31 10:00`) |
+| `GET /api/intake` | A | `{ emails: [{ id, source, from, subject, receivedAt, clientId, status, decision, inReplyTo, priority }], pollMinutes, lastPoll: { trigger, startedAt, finishedAt, processed, retried, failed, ok } \| null, limits: { bodyChars, subjectChars, fromChars } }` — priority clients first; `limits` are the longest body, subject and `from` the paste endpoint accepts (REQ-INT-18); `pollMinutes` is 0 when the automatic check is off or Gmail is not set up; `status` RECEIVED \| WAITING \| AWAITING_APPROVAL \| APPROVED \| SENT \| ENTERED \| REJECTED. With `CONFIRM_LINK=on` each email also has `link: { state: LinkState, expiresAt } \| null` (newest link; `expired` is computed when read and shown as "Address not confirmed", REQ-LINK-06) |
 | `GET /api/intake/:id` | A | `{ email: { id, source, from, subject, body, redactedBody, receivedAt, clientId, status, inReplyTo }, extraction, decision, checks: { address, promise, warehouse, carrier }, replyDraft, replySource }` — `redactedBody` is what the AI model saw; `replyDraft` has names put back (what would be sent). With `CONFIRM_LINK=on`: a `CONFIRM_ADDRESS` draft holds `[CONFIRM_LINK]`, and the response adds `link` as in `GET /api/intake` |
-| `POST /api/intake/email` | A | body `{ from, subject, body, receivedAt, inReplyTo? }` → `{ id, status, decision, reason? }` (needs `x-api-key`); `status: WAITING`, `decision: null` when PII redaction or the model is unreachable (posting again retries); an unknown sender domain → status AWAITING_APPROVAL, decision MISSING_INFO, reason "unknown sender", with no PII or model call (E16) |
+| `POST /api/intake/email` | A | body `{ from, subject, body, receivedAt, inReplyTo? }` → `{ id, status, decision, reason? }` (needs `x-api-key`); `status: WAITING`, `decision: null` when PII redaction or the model is unreachable (posting again retries); an unknown sender domain → status AWAITING_APPROVAL, decision MISSING_INFO, reason "unknown sender", with no PII or model call (E16). Bad input (REQ-INT-16 to -18) → 400 `{ error, fields }`: `fields` maps each refused field to a readable sentence, `error` joins them (or says what to send when the body is not a JSON object); 413 over the 1 MB request limit, 400 for broken or empty JSON, 415 for a non-JSON type, all with `fields: {}`. Nothing is stored. `subject` may be left out (empty) |
 | `POST /api/intake/fetch` | A | body `{ query?, max? }` → `{ pollId, query, fetched, processed, retried, failed, ok, error, results: [{ id, status, decision }] }` — runs the same Gmail check as the timer (E15): waiting emails again, then new mail since the last successful check less 2 minutes; a message in a thread we hold is the client's answer (needs `x-api-key`; 503 without `GMAIL_*`; 409 while another check runs). The log line `intake fetched from Gmail` (and the timer's `gmail poll done`) carries `emailIds` (NFR-03) |
 | `GET /api/intake/review` | A | `{ orders: [{ id, from, clientId, clientName, tier, priority, receivedAt, items, region, promiseDate, warehouseId, carrier, carrierReason, choices: [{ carrier, status, onTime, reason }], blocked }] }` — ALL_CLEAR orders awaiting approval, priority first; `choices` never holds a blocked carrier (E18). With `CONFIRM_LINK=on` each order adds `addressSource: "email" \| "saved" \| "link"` and, for `link`, `emailAddress`, `confirmedAddress` and `mapReading` (REQ-LINK-11) |
-| `POST /api/intake/:id/action` | A | body `{ action: "approve" \| "reject" \| "send_reply" \| "send_to_wms", reply?, reason?, carrier? }` → `{ status }` (needs `x-api-key` while `AUTH_REQUIRED=off`); `send_reply` 403 off the allow-list, 503 without Gmail; `reject` needs `reason` (400) and only for an ALL_CLEAR order awaiting approval (status REJECTED); `approve` with a different `carrier` needs `reason` (400), refuses a blocked carrier (409) and logs `override_log` (via C's `logOverride`) with the signed-in user; the actor comes from the token, never the body. With `CONFIRM_LINK=on`: `send_reply` on a `CONFIRM_ADDRESS` email mints the link (the sent text holds it, `outbound_messages.body` keeps `[CONFIRM_LINK]`); `approve` of a link-confirmed order also writes the `saved_addresses` row (`source = 'link'`) |
+| `POST /api/intake/:id/action` | A | body `{ action: "approve" \| "reject" \| "send_reply" \| "send_to_wms", reply?, reason?, carrier? }` → `{ status }` (needs `x-api-key` while `AUTH_REQUIRED=off`); `send_reply` 403 off the allow-list, 503 without Gmail; `reject` needs `reason` (400) and only for an ALL_CLEAR order awaiting approval (status REJECTED); `approve` with a different `carrier` needs `reason` (400), refuses a blocked carrier (409) and logs `override_log` (via C's `logOverride`) with the signed-in user; the actor comes from the token, never the body. `send_to_wms` with `WMS_URL` set first hands the order to the WMS (below) and records `wms_entered`; 503 `{ error: "WMS not reachable" }` leaves the status unchanged; the audit row's payload holds `wmsOrderId`. With `CONFIRM_LINK=on`: `send_reply` on a `CONFIRM_ADDRESS` email mints the link (the sent text holds it, `outbound_messages.body` keeps `[CONFIRM_LINK]`); `approve` of a link-confirmed order also writes the `saved_addresses` row (`source = 'link'`) |
 | `POST /api/orders` | A | API order JSON `{ order_ref, client_id, ship_to, items }` → `201 { id, status, address }` or `422 { id, missing }` (needs `x-api-key`) |
 | `POST /api/orders/edi` | A | text/plain body (simplified EDI 850) → `{ id, status: "accepted" \| "held", missing }` (needs `x-api-key`) |
 | `GET /api/complaints` | A | `{ complaints: [{ complaintId, clientId, deliveryId, category, date, text, atRisk, tier, escalate, triage: { stages, prePickup, escalate, draft, source, at } \| null }] }` — escalations (Tier 1 or at-risk) first, then complaint id order; `triage` is the latest saved one |
@@ -306,6 +321,12 @@ Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 
 | `POST /api/assistant` | C | *After submission (D10, SPEC §5.16; built 30 Oct, flag off).* body `AssistantRequest` → `AssistantAnswer`. Called by the Ask LateLens panel and by Overview's Router. Every role (SPEC-auth §4.2); `x-api-key` while `AUTH_REQUIRED=off`. 404 when `ASK_ASSISTANT` is off; 400 `{ error: "too_long" }` for a question over 500 characters, 400 `{ error: "invalid" }` for any other bad body (history limits in §1.1); 429 `{ error: "rate_limited" }`; 503 `{ error: "assistant_unavailable" }` when the model is unreachable, a recording is missing or a tool's read fails (no server text). Writes no table |
 | `GET /api/confirm/:token` | A | *After submission (E19, SPEC §5.17).* Public, token-gated; the request log shows the path as `/api/confirm/[token]` (SEC-LINK-01). → `LinkView` (with the SAS map credential); 404 `{ error: "link_invalid" }` for an unknown, expired, used or revoked link, byte-identical in every case; 404 also when `CONFIRM_LINK` is off. Never uses up the link |
 | `POST /api/confirm/:token` | A | *After submission (E19).* Public, token-gated; through the web proxy's `Origin` check. body `{ address: LinkAddress, pin: LinkPin, checkId? }` → `{ status: "confirmed" }`; 409 `{ error: "needs_second_confirm", reading: MapReading, checkId }` (REQ-LINK-03); 400 `{ error: "invalid" }` (SEC-LINK-10, link stays unused); 404 `link_invalid`; 429 `rate_limited` |
+
+**WMS interface (assumed, `[WMS_CONTRACT]`; served by `tools/wms-simulator`).** `POST {WMS_URL}/orders`,
+`Authorization: Bearer <WMS_TOKEN>`, body `{ orderRef, clientId, warehouseId, carrier, commitment, promiseDate,
+destination: { city, state, zip }, items: [{ sku, qty }] }` (no names, phones, emails or street) →
+`201 { wmsOrderId }` (`WMS-` + six-digit email id), `200` with the same id for an `orderRef` already held. LateLens
+waits 5 s; anything else is a failure.
 
 ## 7. Environment variables (`.env.example`, owner B)
 
@@ -317,6 +338,7 @@ Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 
 `GMAIL_ACCOUNT` (the demo inbox; the Gmail scripts refuse any other account), `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`,
 `GMAIL_REFRESH_TOKEN` (from `npm --prefix backend/api run gmail:auth`; secret, reads the inbox),
 `INTAKE_POLL_MINUTES` (default 10; how often the API checks Gmail by itself, 0 = off; tests set 0),
+`INTAKE_MAX_BODY_CHARS` (default 20000) and `INTAKE_MAX_SUBJECT_CHARS` (default 300) (longest pasted body and subject, REQ-INT-18),
 After submission (SPEC §5.16, §5.17; values are design settings, not data): `ASK_ASSISTANT` (`on` \| `off`, default off;
 read by API and web), `ASK_MAX_TOOL_CALLS` (default 5), `ASK_RATE_PER_MINUTE` (default 10); `CONFIRM_LINK` (`on` \| `off`,
 default off; API and web), `CONFIRM_LINK_HOURS` (default 24), `CONFIRM_LINK_RATE_PER_MINUTE` (default 10, web),
@@ -326,6 +348,8 @@ without it, REQ-LINK-09), `AZURE_MAPS_ACCOUNT_ID` (API only: the Maps account's 
 the Maps data-reader role). Both are for the SAS tile credential (SEC-LINK-08, Q-LINK-02); `AZURE_MAPS_CLIENT_ID`
 (the Entra path) is not used. No `NEXT_PUBLIC_` variable is added for either feature; the Maps key stays server-side.
 `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_KEY` (dashboard in `frontend/`; `next.config.mjs` loads the root `.env`; the demo key is visible in the browser, acceptable for synthetic data only).
+`WMS_URL` (the simulated WMS, e.g. `http://localhost:4100`; empty = `send_to_wms` only sets the status), `WMS_TOKEN` and
+`WMS_EVENTS_TOKEN` (≥ 16 characters; read by the API and by `tools/wms-simulator`).
 
 ## 8. Team rules
 

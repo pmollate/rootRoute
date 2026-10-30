@@ -80,9 +80,48 @@ def test_ac_rep_06_programme_waterfall(results):
 
 
 def test_cause_attribution_sums_to_lateness(d):
+    """AC-DIAG-07: points lost per cause add up to the lateness and match 7.6 / 7.0 / 5.6 / 5.6 / 3.2."""
     from analytics.core.scenarios import cause_attribution
     a = cause_attribution(d).set_index("cause").points_lost
     assert a.sum() == pytest.approx(d.late.mean(), abs=1e-9)
     # Points lost per cause, as in the diagnostic deck (7.6, 7.0, 5.6, 5.6, 3.2)
     pdf = {"f_lane": 7.6, "f_addr": 7.0, "f_stock": 5.6, "f_cutoff": 5.6, "f_route": 3.2}
     assert {f: 100 * a[f] for f in pdf} == pytest.approx(pdf, abs=0.06)
+
+
+@pytest.fixture(scope="module")
+def breakdown(d, penalties):
+    from analytics.core.scenarios import scenario_breakdown
+    return scenario_breakdown(d, penalties)
+
+
+def test_ac_rep_07_breakdown_rows(breakdown):
+    """AC-REP-07: every scenario x dimension, one row per value present in the data."""
+    from analytics.core.scenarios import COMPARE_SCENARIOS
+    sizes = breakdown.groupby(["scenario", "dimension"]).size().unstack()
+    assert set(sizes.index) == set(COMPARE_SCENARIOS)
+    for scenario in COMPARE_SCENARIOS:
+        assert sizes.loc[scenario].to_dict() == {
+            "all": 1, "carrier": 6, "client": 280, "lane": 24, "month": 6, "region": 4, "warehouse": 5}
+
+
+@pytest.mark.parametrize("dimension", ["all", "warehouse", "lane", "carrier", "region", "month", "client"])
+def test_ac_rep_08_rows_add_up(breakdown, results, dimension):
+    """AC-REP-08 / REQ-REP-08: the rows of each dimension add up to the scenario's `all` figures."""
+    from analytics.core.scenarios import COMPARE_SCENARIOS
+    for scenario in COMPARE_SCENARIOS:
+        rows = breakdown[(breakdown.scenario == scenario) & (breakdown.dimension == dimension)]
+        ref = results.loc[(scenario, "all")]
+        assert rows.deliveries.sum() == 48_340
+        assert (rows.late_today - rows.late_with).sum() == pytest.approx(ref.late_avoided, abs=0.1)
+        assert rows.cost_avoided.sum() == pytest.approx(ref.cost_avoided, abs=1)
+
+
+def test_ac_rep_08_golden(breakdown):
+    """AC-REP-08: 71.0 -> 85.9 overall, W1 70.4 -> 85.1, D->Midwest 53.4 -> 87.5; cost avoided $707,950."""
+    b = breakdown[breakdown.scenario == "as_built_adopted"].set_index(["dimension", "key"])
+    for key, today, with_ in [(("all", "all"), 71.0, 85.9), (("warehouse", "W1"), 70.4, 85.1),
+                              (("lane", "D→Midwest"), 53.4, 87.5)]:
+        assert round(100 * b.loc[key].on_time_today, 1) == today
+        assert round(100 * b.loc[key].on_time_with, 1) == with_
+    assert b.loc[("all", "all")].cost_avoided == pytest.approx(707_950, abs=1)

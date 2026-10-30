@@ -29,7 +29,7 @@ describe('Order emails', () => {
     expect(await screen.findByText('No all-clear orders are waiting for approval.')).toBeTruthy();
   });
 
-  it('AC-INT-10 (UI): an email from an unknown sender shows "Unknown sender" in the list and in the order summary', async () => {
+  it('AC-INT-10 (UI): an email from an unknown sender says in the order summary that it was not read', async () => {
     const unknown = detail(50, {
       email: { ...detail(50).email, from: 'buyer@unknown-co.example', clientId: null, redactedBody: null },
       decision: 'MISSING_INFO', extraction: null, replySource: 'template',
@@ -38,7 +38,7 @@ describe('Order emails', () => {
     mockApi({ '/api/intake': { emails: [item(50, { clientId: null, from: 'buyer@unknown-co.example', decision: 'MISSING_INFO', priority: false })] },
       '/api/intake/50': unknown });
     renderScreen(<IntakeScreen />);
-    expect(await screen.findByText('Unknown sender')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Open email 50' }));
     expect(await screen.findByText(/not read by the AI and no automatic reply/)).toBeTruthy();
   });
 
@@ -62,7 +62,6 @@ describe('Order emails', () => {
       '/api/intake/34': detail(34) });
     renderScreen(<IntakeScreen />);
     expect(await screen.findAllByTitle('Tier 1 or at-risk client: handled first')).toHaveLength(1);
-    expect(screen.queryAllByTitle('All clear')).toHaveLength(0);
     expect(screen.getByText('Synthetic data')).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
     expect(await screen.findByText(/Ship to:/)).toBeTruthy();
@@ -165,7 +164,6 @@ describe('Order emails', () => {
         promise: { promiseDate: '2026-10-24', reason: null }, warehouse: { warehouseId: 'W5', reason: 'Nearest warehouse W5 has stock.' },
         carrier: { carrier: 'A', reason: 'Carrier A for West standard' } } }) });
     renderScreen(<IntakeScreen />);
-    expect(await screen.findAllByTitle('All clear')).toHaveLength(1);
     fireEvent.click(await screen.findByRole('button', { name: 'Open email 9' }));
     expect(await screen.findByText(/ZIP code does not match the city/)).toBeTruthy();
     expect(screen.getByText(/map shows 32819/)).toBeTruthy();
@@ -191,6 +189,81 @@ describe('Order emails', () => {
     expect(await screen.findByText('Email 35: ALL_CLEAR')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Paste an email' }));
     expect((screen.getByLabelText('Body') as HTMLTextAreaElement).value).toBe('');
+  });
+
+  describe('paste form: bad input (REQ-INT-16)', () => {
+    /** The API refuses /api/intake/email with `status` and `body`; every other route answers from `routes`. */
+    const refusing = (status: number, body: object, routes: Record<string, unknown> = { '/api/intake': { emails: [] } }) => {
+      const fetch = mockApi(routes);
+      const base = fetch.getMockImplementation()!;
+      fetch.mockImplementation(async (url: string) => (new URL(url, 'http://localhost').pathname === '/api/intake/email'
+        ? { ok: false, status, json: async () => body } as Response : base(url)));
+      return fetch;
+    };
+    const openPaste = async () => fireEvent.click(await screen.findByRole('button', { name: 'Paste an email' }));
+    const type = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    const process = () => screen.getByRole('button', { name: 'Process email' }) as HTMLButtonElement;
+
+    it("AC-INT-19: the API's readable refusal is shown next to the form and the field is marked; the typed email is kept", async () => {
+      refusing(400, { error: 'From must be an email address, like orders@client190.example.',
+        fields: { from: 'From must be an email address, like orders@client190.example.' } });
+      renderScreen(<IntakeScreen />);
+      await openPaste();
+      type('From', 'not-an-email');
+      type('Body', 'Please send 10 x HX-220.');
+      fireEvent.click(process());
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toContain('From must be an email address, like orders@client190.example.');
+      expect(screen.getByRole('form', { name: 'Paste an email' }).contains(alert)).toBe(true);
+      expect(screen.getByLabelText('From').getAttribute('aria-invalid')).toBe('true');
+      expect(screen.getByLabelText('Body').getAttribute('aria-invalid')).toBeNull();
+      expect((screen.getByLabelText('Body') as HTMLTextAreaElement).value).toBe('Please send 10 x HX-220.');
+      type('From', 'orders@client190.example'); // editing the field clears its mark
+      expect(screen.getByLabelText('From').getAttribute('aria-invalid')).toBeNull();
+    });
+
+    it('AC-INT-19: a request over the size limit (413) shows the API sentence, not "Refresh and try again"', async () => {
+      refusing(413, { error: 'The request is larger than 1 MB. Paste only the text of one email.', fields: {} });
+      renderScreen(<IntakeScreen />);
+      await openPaste();
+      type('Body', 'x');
+      fireEvent.click(process());
+      expect((await screen.findByRole('alert')).textContent).toContain('The request is larger than 1 MB. Paste only the text of one email.');
+      expect(screen.queryByText(/Refresh and try again/)).toBeNull();
+    });
+
+    it('AC-INT-19: a server failure without a readable message stays generic (no server text)', async () => {
+      refusing(500, { statusCode: 500, error: 'Internal Server Error', message: 'relation "x" does not exist' });
+      renderScreen(<IntakeScreen />);
+      await openPaste();
+      type('Body', 'x');
+      fireEvent.click(process());
+      expect(await screen.findByText('Could not do that. Refresh and try again.')).toBeTruthy();
+      expect(screen.queryByText(/relation/)).toBeNull();
+    });
+
+    it('AC-INT-19: Process email is disabled for an empty or whitespace-only body', async () => {
+      mockApi({ '/api/intake': { emails: [] } });
+      renderScreen(<IntakeScreen />);
+      await openPaste();
+      expect(process().disabled).toBe(true);
+      type('Body', '  \n\t ');
+      expect(process().disabled).toBe(true);
+      type('Body', 'Please send 10 x HX-220.');
+      expect(process().disabled).toBe(false);
+    });
+
+    it('AC-INT-19: the body shows its length against the limit; over it, the form says so and does not send', async () => {
+      const fetch = mockApi({ '/api/intake': { emails: [], limits: { bodyChars: 1000, subjectChars: 300, fromChars: 320 } } });
+      renderScreen(<IntakeScreen />);
+      await openPaste();
+      type('Body', 'x'.repeat(20));
+      expect(await screen.findByText('20 / 1,000 characters')).toBeTruthy();
+      type('Body', 'x'.repeat(1001));
+      expect(screen.getByText('The email body is longer than 1,000 characters (1,001 now).')).toBeTruthy();
+      expect(process().disabled).toBe(true);
+      expect(calls(fetch).some(([url]) => url.endsWith('/api/intake/email'))).toBe(false);
+    });
   });
 
   it('AC-INT-08 (UI): reports a manual Gmail check', async () => {

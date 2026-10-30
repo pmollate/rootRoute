@@ -28,7 +28,7 @@
 .profileName { margin: 0; font-size: 0.9rem; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
 .profileMeta { margin: 0; font-size: 0.8rem; color: var(--ink-2); }
 .name { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 16ch; }
-.signOut { width: 32px; height: 32px; padding: 0; border-radius: 50%; border: 1.5px solid var(--bad); background: transparent;
+.signOut { width: 32px; height: 32px; padding: 0; border-radius: 50%; border: none; background: transparent;
   color: var(--bad); cursor: pointer; flex: none; transition: background 0.15s; }
 .signOut:hover { background: var(--bad-soft); }
 .signOut:focus-visible { outline: 2px solid var(--bad); outline-offset: 2px; }

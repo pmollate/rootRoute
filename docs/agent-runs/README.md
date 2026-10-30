@@ -16,10 +16,11 @@ we build", Level 1 checklist §16). One file per run; keep them, never rewrite a
 | `discovery-recorder` | Discovery recorder | A question asked or an answer received | SPEC §14.1, §12, §14 | `…-discovery-recorder.md` |
 | `network-security-auditor` | Network and app security | Before a deploy or judging, after an infra or auth change | Nothing (read-only probes, reports only) | `…-network-security-auditor.md` |
 | `privacy-compliance-auditor` | Privacy and compliance (GDPR, US) | Before real data, after a change to personal data flows | Nothing (reports and drafts only; not legal advice) | `…-privacy-compliance-auditor.md` |
+| `devops` | CI/CD, Azure infra scripts, environments and config | A pipeline or infra change, a failed CI/CD run, a new setting, before a demo or submission | Nothing by default (reviews); when asked, `.github/workflows/`, `infra/`, `docker-compose.yml`, `.env.example` on a branch | `…-devops-<topic>.md` |
 
 The flow for a feature: `discovery-recorder` → `spec-writer` → `planner` → `implementer` → `reviewer` (then a teammate
-on the PR) → `qa-evidence` and `numbers-auditor` after merge and deploy. A person decides at every hand-off: agents
-propose, people approve, the same rule as the agents inside the product.
+on the PR) → `devops` for pipeline and infra changes → `qa-evidence` and `numbers-auditor` after merge and deploy.
+A person decides at every hand-off: agents propose, people approve, the same rule as the agents inside the product.
 
 ## How to run one
 
