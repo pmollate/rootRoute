@@ -25,6 +25,8 @@ for (const r of REFUSALS) {
 
     test(`${r.role} is refused ${r.page ?? 'an unlisted intake action'} and ${r.api.method} ${r.api.path} (AC-NFR-AUTH-04)`,
       async ({ page, baseURL }) => {
+        // The live app enforces sign-in (AUTH_REQUIRED=on since 29 Oct), so in CD an open app is a failure, not a skip.
+        if (process.env.CI) expect(enforced, 'the deployed app must redirect a visitor without a session to /login').toBe(true);
         test.skip(!enforced, 'the app does not enforce sign-in (AUTH_REQUIRED=off), so it refuses no role');
         if (r.page) {
           const res = await page.goto(r.page);

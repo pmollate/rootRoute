@@ -278,13 +278,13 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Read the demo accounts' password from Key Vault
-        # Masked before use and passed only through GITHUB_ENV. Until auth-demo-password exists (SPEC-auth §10
-        # step 2), the suite runs anonymously, as before P7, and says so.
+        # Masked before use and passed only through GITHUB_ENV. The live app enforces sign-in, so without the password
+        # every screen would only show the login page: stop here with a clear error instead.
         run: |
           v=$(az keyvault secret show --vault-name "$KEY_VAULT" -n auth-demo-password --query value -o tsv 2>/dev/null || true)
           if [ -z "$v" ]; then
-            echo "::warning::Key Vault secret auth-demo-password is missing or empty: e2e runs without sign-in"
-            exit 0
+            echo "::error::Key Vault secret auth-demo-password is missing or empty: the e2e job cannot sign in"
+            exit 1
           fi
           echo "::add-mask::$v"
           echo "E2E_DEMO_PASSWORD=$v" >> "$GITHUB_ENV"
