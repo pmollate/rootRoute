@@ -1449,7 +1449,7 @@ Tests: `npm test` (API, dashboard, Python; API route tests run only when the tes
 Docs: `docs/SPEC.md` (what and why), `docs/CONTRACTS.md` (shared types, tables, API), `docs/superpowers/plans/` (task plans).
 ````
 
-- [x] **Step 3: Verify on GitHub.** Push a branch, open a PR. Expected: `ci / test` and `ci / secrets` green. Ask the repo owner (`saiprasad-37`) to require `ci / test` on `main`.
+- [x] **Step 3: Verify on GitHub.** Push a branch, open a PR. Expected: `ci / test` and `ci / secrets` green. Ask a repo admin (`Evoke-Hackathon-2026/UnhandledRejections`) to require `ci / test` on `main`.
 
 - [x] **Step 4: Commit.** `git add .github README.md && git commit -m "ci(b): Python, API and dashboard tests, synthetic-data reproducibility, secret scan"`
 
@@ -3212,7 +3212,7 @@ if __name__ == "__main__":
 
 ---
 
-### Task B12: Contract check and synthetic-data register (Thursday morning) - Pending (waiting on A and C tables; points-lost rounding to decide)
+### Task B12: Contract check and synthetic-data register (Thursday morning) - Pending (step 4 number check: points-lost rounding to decide, screens to eyeball)
 
 **Files:**
 - Modify: `backend/analytics/tests/test_pipeline.py` (final contract check)
