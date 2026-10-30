@@ -10,6 +10,7 @@ Carrier clips/
 __pycache__/
 *.pyc
 outputs/
+tools/wms-simulator/data/
 backend/api/dist/
 backend/synthetic-data/out/
 

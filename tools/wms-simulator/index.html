@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simulated WMS</title>
+  <style>
+    :root { --bg: #f7f7f5; --fg: #1d1d1b; --muted: #6b6b66; --line: #ddddd8; --accent: #2f5d50; --bad: #a33a2b; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #161615; --fg: #ececea; --muted: #9a9a94; --line: #33332f; --accent: #7fbfa9; --bad: #e08070; } }
+    body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, sans-serif; }
+    main { max-width: 1040px; margin: 0 auto; }
+    .badge { display: inline-block; padding: 2px 8px; border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; font-size: 13px; }
+    button { padding: 6px 12px; border: 0; border-radius: 6px; background: var(--accent); color: var(--bg); cursor: pointer; }
+    button:disabled { opacity: .4; cursor: default; }
+    input { width: 3.5em; }
+    .err { color: var(--bad); font-size: 13px; }
+    .wrap { overflow-x: auto; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Simulated WMS and carriers</h1>
+  <p><span class="badge">Synthetic data</span> Orders LateLens sent with "Send to WMS". Move each one on a step at a
+    time; each step is reported to LateLens's order journey.</p>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>WMS order</th><th>LateLens ref</th><th>Client</th><th>From → to</th><th>Carrier</th><th>Promised</th><th>Steps done</th><th>Next</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="8">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+<script>
+  const rows = document.getElementById('rows');
+  const errors = {};
+  const text = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const label = { picked: 'Picked', picked_up: 'Handed to carrier', in_transit: 'In transit', out_for_delivery: 'Out for delivery', delivered: 'Delivered' };
+
+  async function load() {
+    const { orders } = await (await fetch('/sim/orders')).json();
+    if (!orders.length) { rows.innerHTML = '<tr><td colspan="8">No orders yet. Approve an order in LateLens and click Send to WMS.</td></tr>'; return; }
+    rows.innerHTML = orders.map((o) => {
+      const ref = encodeURIComponent(o.orderRef);
+      const late = o.next === 'delivered' ? ` late by <input id="late-${ref}" type="number" min="0" max="30" value="0"> days` : '';
+      return `<tr>
+        <td>${text(o.wmsOrderId)}</td><td>${text(o.orderRef)}</td><td>${text(o.clientId)}</td>
+        <td>${text(o.warehouseId)} → ${text([o.destination?.city, o.destination?.state].filter(Boolean).join(', '))}</td>
+        <td>${text(o.carrier)}</td><td>${text(o.promiseDate)}</td>
+        <td>${o.steps.map((s) => `${text(label[s.event])} <small>${text(s.ts)}</small>`).join('<br>') || '—'}</td>
+        <td>${o.next ? `<button data-ref="${ref}">${text(label[o.next])}</button>${late}` : 'Done'}
+          ${errors[o.orderRef] ? `<div class="err">${text(errors[o.orderRef])}</div>` : ''}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  rows.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-ref]');
+    if (!btn) return;
+    btn.disabled = true;
+    const ref = btn.dataset.ref;
+    const lateDays = Number(document.getElementById(`late-${ref}`)?.value ?? 0);
+    const res = await fetch(`/sim/orders/${ref}/next`, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ lateDays }) });
+    const body = await res.json().catch(() => ({}));
+    errors[decodeURIComponent(ref)] = res.ok ? '' : `LateLens refused (${res.status}): ${body.error ?? 'no reason given'}`;
+    await load();
+  });
+
+  load();
+  setInterval(load, 5000);
+</script>
+</body>
+</html>
