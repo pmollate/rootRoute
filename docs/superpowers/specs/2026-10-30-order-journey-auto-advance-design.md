@@ -124,7 +124,7 @@ A new "Order journey" card on `/dashboard/settings`, a small client component (t
 
 | ID | Requirement |
 |---|---|
-| REQ-JRN-14 | An admin **MAY** switch on auto-advance. While it is on, approving an ALL_CLEAR order **MUST** enter it in the WMS and record steps 10–13 as synthetic events; approval and the reply **MUST** stay manual. |
+| REQ-JRN-14 | An admin **MAY** switch on auto-advance. While it is on, approving an ALL_CLEAR order **MUST** enter it in the WMS (step 9) and record steps 10–13 as synthetic events, so steps 9–13 run automatically; approval and the reply **MUST** stay manual. |
 | REQ-JRN-15 | Auto-advanced steps **MUST** become visible a few seconds apart and **MUST NOT** carry a timestamp earlier than the step before. Delivery **SHOULD** be on the promise date; when it cannot be, the order **MUST** show as late. |
 | SEC-SET-01 | Only an admin **MUST** be able to change the auto-advance setting, and every change **MUST** be written to the audit log with its actor. |
 

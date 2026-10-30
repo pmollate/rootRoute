@@ -128,7 +128,7 @@ The "With LateLens" note shows the rule's output, never a promise that the deliv
 | REQ-JRN-11 | The journey **SHOULD** show, for a new order, the time from email arrival to approval and to WMS entry. |
 | REQ-JRN-12 | (Stretch, with E10.) An `at_risk` order **MAY** get a drafted delay notice addressed to the client only, sent only after an operator approves it and only to the allow-list. |
 | REQ-JRN-13 | `POST /api/orders/:ref/events` **MUST** accept `picked`, `picked_up`, `in_transit`, `out_for_delivery`, `delivered` for an order in the WMS, each only after the one before it and never earlier than it; a repeat with the same time **MUST** change nothing (200) and one with another time **MUST** be refused (409). |
-| REQ-JRN-14 | An admin **MAY** switch on auto-advance (Settings). While it is on, approving an ALL_CLEAR order **MUST** enter it in the WMS and record steps 10–13 as synthetic events; approval and the reply **MUST** stay manual. Design: `docs/superpowers/specs/2026-10-30-order-journey-auto-advance-design.md`. |
+| REQ-JRN-14 | An admin **MAY** switch on auto-advance (Settings). While it is on, approving an ALL_CLEAR order **MUST** enter it in the WMS (step 9) and record steps 10–13 as synthetic events, so steps 9–13 run automatically; approval and the reply **MUST** stay manual. Design: `docs/superpowers/specs/2026-10-30-order-journey-auto-advance-design.md`. |
 | REQ-JRN-15 | Auto-advanced steps **MUST** become visible 5 seconds apart and **MUST NOT** carry a timestamp earlier than the step before. Delivery **SHOULD** be on the promise date; when it cannot be, the order **MUST** show as late. |
 
 ### 5.2 Non-functional and security
