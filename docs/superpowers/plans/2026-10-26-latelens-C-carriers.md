@@ -2651,7 +2651,7 @@ AC-NFR-ASK-02 (live) · **Blocked by:** Q-ASK-01; Step 6 needs the deployed app 
 - Produces: `<AskPanel />`; `DashboardShell({ assistant?: boolean })`. The flag is read on the server
   (`process.env.ASK_ASSISTANT` in `layout.tsx`) and passed as a prop: no `NEXT_PUBLIC_` variable.
 
-- [ ] **Step 1: Write the failing panel tests** `frontend/components/dashboard/assistant/AskPanel.test.tsx`:
+- [x] **Step 1: Write the failing panel tests** `frontend/components/dashboard/assistant/AskPanel.test.tsx`:
 
 ```tsx
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -2710,7 +2710,7 @@ describe('Ask LateLens panel (D10)', () => {
 
   Run `npm --prefix frontend test -- components/dashboard/assistant`. Expected: FAIL, cannot find `./AskPanel`.
 
-- [ ] **Step 2: Implement** `frontend/components/dashboard/assistant/AskPanel.tsx`:
+- [x] **Step 2: Implement** `frontend/components/dashboard/assistant/AskPanel.tsx`:
 
 ```tsx
 'use client';
@@ -2824,7 +2824,7 @@ export function AskPanel() {
 
   Run again. Expected: PASS (4).
 
-- [ ] **Step 3: Write the failing shell test** (AC-ASK-01 every screen, AC-ASK-08). In
+- [x] **Step 3: Write the failing shell test** (AC-ASK-01 every screen, AC-ASK-08). In
   `frontend/components/dashboard/DashboardShell.test.tsx` add inside the `describe`:
 
 ```tsx
@@ -2839,7 +2839,7 @@ export function AskPanel() {
 
   Run `npm --prefix frontend test -- components/dashboard/DashboardShell.test.tsx`. Expected: FAIL on the second render.
 
-- [ ] **Step 4: Wire it.**
+- [x] **Step 4: Wire it.**
   1. `DashboardShell.tsx`: `import { AskPanel } from './assistant/AskPanel';`; signature
      `DashboardShell({ children, user = null, assistant = false }: { children: ReactNode; user?: SessionUser | null; assistant?: boolean })`;
      inside `<main>` after `<UserProvider …>{children}</UserProvider>` add `{assistant && <AskPanel />}`. Every
@@ -2850,7 +2850,7 @@ export function AskPanel() {
 
   Run `npm --prefix frontend test && npm run typecheck`. Expected: PASS.
 
-- [ ] **Step 5: Smoke test.** In `frontend/e2e/smoke.spec.ts` add one test, skipped unless `ASK_ASSISTANT=on` is set
+- [x] **Step 5: Smoke test.** In `frontend/e2e/smoke.spec.ts` add one test, skipped unless `ASK_ASSISTANT=on` is set
   for the run: on each screen at 375 px the "Ask LateLens" button shows and opening the panel adds no sideways
   scrolling (AC-ASK-01, AC-UI-03). Asking a question is not part of the smoke test (it would call the live model).
 
@@ -2860,7 +2860,7 @@ export function AskPanel() {
   text in no log line (`traces | where message has "<question words>"` returns nothing). Record both in
   `docs/TEST-EVIDENCE.md` via `qa-evidence`. Ask `network-security-auditor` to review T14 before switching on.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
 
 ```bash
 git add frontend/components/dashboard/assistant frontend/components/dashboard/DashboardShell.tsx frontend/components/dashboard/DashboardShell.test.tsx \

@@ -107,3 +107,24 @@ test.describe('figures match the SPEC', () => {
     await expect(threads.getByRole('button', { name: /^Open email/ }).first().or(threads.getByText('No order emails yet. Sync or paste one.'))).toBeVisible();
   });
 });
+
+// D10 (AC-ASK-01, AC-UI-03): with ASK_ASSISTANT=on for the run (it must match the deployed web app's setting), every
+// screen has the Ask LateLens button at phone width, and opening the panel adds no sideways scrolling. No question is
+// asked: that would call the live model.
+test.describe('Ask LateLens panel', () => {
+  test.skip(process.env.ASK_ASSISTANT !== 'on', 'set ASK_ASSISTANT=on to check the panel');
+  test.skip(({ viewport }) => (viewport?.width ?? 0) > 375, 'checked at 375 px');
+
+  for (const s of SCREENS) {
+    test(`${s.title}: Ask LateLens opens with no sideways scrolling`, async ({ page }) => {
+      const errors = await open(page, s.path);
+      const button = page.getByRole('button', { name: 'Ask LateLens' });
+      await expect(button).toBeVisible();
+      await button.click();
+      await expect(page.getByRole('region', { name: 'Ask LateLens' })).toBeVisible();
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow, 'page is wider than the screen with the panel open').toBeLessThanOrEqual(0);
+      expect(errors).toEqual([]);
+    });
+  }
+});

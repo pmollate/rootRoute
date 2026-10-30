@@ -24,6 +24,14 @@ const drawer = () => texts(navs()[1]);
 describe('dashboard navigation (master nav, REQ-AUTH-15)', () => {
   afterEach(cleanup);
 
+  it('AC-ASK-08: without the flag no Ask LateLens button; AC-ASK-01: with it, the button is on the screen', () => {
+    render(<DashboardShell>x</DashboardShell>);
+    expect(screen.queryByRole('button', { name: 'Ask LateLens' })).toBeNull();
+    cleanup();
+    render(<DashboardShell assistant>x</DashboardShell>);
+    expect(screen.getByRole('button', { name: 'Ask LateLens' })).toBeTruthy();
+  });
+
   it('Orders, a Dashboard menu of the reports, Labs and Settings; the drawer lists the same, in order', () => {
     render(<DashboardShell>x</DashboardShell>);
     expect(bar()).toEqual(['Orders', 'Labs', 'Settings']);
