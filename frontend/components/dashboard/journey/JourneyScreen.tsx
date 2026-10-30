@@ -34,6 +34,9 @@ const COMMITMENT: Record<string, string> = { same_day: 'same day', next_day: 'ne
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 const DAY_MS = 86_400_000;
+/** Auto-advance (REQ-JRN-15): a new order's steps show 5 s apart, so it is refetched that often, for at most a minute. */
+const POLL_MS = 5_000;
+const POLL_FOR_MS = 60_000;
 
 const word = (n: number) => WORDS[n] ?? String(n);
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -245,6 +248,19 @@ function headline(f: Facts, rr: boolean): { title: string; text: string } {
 export function JourneyScreen({ initialRef }: { initialRef: string }) {
   const [ref, setRef] = useState(initialRef);
   const j = useApi<Journey>(`/api/journey/${ref}`);
+  // A new order in the WMS that is not delivered yet may still be filling in (auto-advance): refetch it quietly.
+  const moving = j.data?.kind === 'order' && j.data.stages.some((x) => x.key === 'wms' && x.status === 'done')
+    && !j.data.stages.some((x) => x.key === 'delivered' && (x.status === 'done' || x.status === 'failed'));
+  const { refresh } = j;
+  useEffect(() => {
+    if (!moving) return;
+    const every = setInterval(refresh, POLL_MS);
+    const stop = setTimeout(() => clearInterval(every), POLL_FOR_MS);
+    return () => {
+      clearInterval(every);
+      clearTimeout(stop);
+    };
+  }, [moving, ref, refresh]);
   // Email orders only for roles that may read the inbox (REQ-AUTH-16); others pick from deliveries.
   const inbox = useApi<Inbox>(useCanOpen('/dashboard/intake') ? '/api/intake' : null);
   const emails = inbox.data?.emails.slice(0, EMAILS_LISTED) ?? [];

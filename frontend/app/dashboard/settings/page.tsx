@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { SignOutButton } from '@/components/auth/SignOutButton';
+import { AutoAdvanceCard } from '@/components/dashboard/settings/AutoAdvanceCard';
 import ui from '@/components/dashboard/ui.module.css';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { ROLE_LABELS } from '@/lib/auth/roles';
@@ -9,7 +10,7 @@ export const metadata: Metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
 
 /**
- * Settings (master navigation): who is signed in and with which roles, the theme, and sign out. Read-only.
+ * Settings (master navigation): who is signed in and with which roles, the theme, and sign out. Read-only, except the admin's auto-advance switch.
  * A server page (it reads the session), so it uses the shared styles directly: components/dashboard/ui.tsx is for client screens.
  */
 export default async function Page() {
@@ -30,6 +31,7 @@ export default async function Page() {
           <p className={ui.lede}>You are not signed in. Your name and roles are shown here once you sign in.</p>
         )}
       </section>
+      <AutoAdvanceCard />
       <section className={ui.card}>
         <h2 className={ui.cardTitle}>Appearance</h2>
         <p className={ui.lede}>Light by default. The switch is remembered in this browser.</p>

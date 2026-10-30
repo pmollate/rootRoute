@@ -157,6 +157,7 @@ export function buildEmailJourney(e: EmailFacts, now = localNow()): Journey {
   const rounds = e.rounds.length > 1 ? ` (${e.rounds.length} rounds with the client)` : '';
   const ev = (name: OrderEvent) => e.events.find((x) => x.event === name);
   const entered = ev('wms_entered');
+  const auto = entered?.detail.auto === true; // auto-advance design §8
   const carrierName = c?.carrier ? `Carrier ${c.carrier.carrier}` : 'Carrier';
   const promised = c?.promise?.promiseDate ?? null;
   const sim = (x: OrderEventRow | undefined, actor: string, detail: string): Part | null =>
@@ -217,8 +218,9 @@ export function buildEmailJourney(e: EmailFacts, now = localNow()): Journey {
         : refused ? { status: 'failed', at: refused.at, actor: 'Code', source: 'real', detail: 'Refused: the address is not on the allow-list.' }
           : approve ? { status: 'current', at: null, actor: 'Operator', source: 'real', detail: 'Reply drafted, not sent yet.' } : notReached(),
     wms: reject ? notReached()
-      : entered ? { status: 'done', at: entered.ts, actor: wms?.actor ?? 'Operator', source: 'synthetic',
-        detail: `Entered in the simulated WMS as ${String(entered.detail.wmsOrderId ?? `WMS-${e.id}`)}.` }
+      : entered ? { status: 'done', at: entered.ts, actor: auto ? 'Auto-advance (simulated)' : wms?.actor ?? 'Operator',
+        source: 'synthetic',
+        detail: `Entered in the simulated WMS as ${String(entered.detail.wmsOrderId ?? `WMS-${e.id}`)}${auto ? ' automatically' : ''}.` }
         : wms ? { status: 'done', at: wms.at, actor: wms.actor, source: 'synthetic', detail: `Entered in the simulated WMS as WMS-${e.id}.` }
           : approve && clear ? { status: 'current', at: null, actor: 'Operator', source: 'real', detail: 'Approved, not entered yet.' } : notReached(),
     picked: sim(ev('picked'), 'Warehouse (simulated)', 'Picked in the simulated WMS.') ?? notReached('Warehouse'),

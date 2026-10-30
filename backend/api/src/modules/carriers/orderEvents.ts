@@ -2,7 +2,7 @@
 // Pure: queries.ts reads and writes order_events, index.ts joins the two in recordOrderEvent.
 export const ORDER_EVENTS = ['wms_entered', 'picked', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered'] as const;
 export type OrderEvent = (typeof ORDER_EVENTS)[number];
-/** The events the simulator may post. `wms_entered` is written only by send_to_wms. */
+/** The events the simulator may post. `wms_entered` is written only by send_to_wms and by auto-advance. */
 export const FEED_EVENTS = ['picked', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered'] as const;
 
 export interface OrderEventRow { event: OrderEvent; ts: string; detail: Record<string, unknown> }

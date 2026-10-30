@@ -26,8 +26,9 @@ const UI: Record<string, readonly Role[]> = {
   paste: ['order_desk', 'admin'], fetch: ['order_desk', 'admin'], approve: ['order_desk', 'admin'],
   reject: ['order_desk', 'admin'], send_reply: ['order_desk', 'admin'], send_to_wms: ['warehouse_supervisor', 'admin'],
   override: ['carrier_manager', 'admin'], triage: ['customer_support', 'admin'],
+  settings: ['admin'],
 };
-export type UiAction = 'paste' | 'fetch' | 'approve' | 'reject' | 'send_reply' | 'send_to_wms' | 'override' | 'triage';
+export type UiAction = 'paste' | 'fetch' | 'approve' | 'reject' | 'send_reply' | 'send_to_wms' | 'override' | 'triage' | 'settings';
 
 /** With no session (AUTH_REQUIRED=off, nobody signed in) nothing is hidden, as before P7 (REQ-AUTH-13). */
 export function can(roles: readonly Role[] | null | undefined, action: UiAction): boolean {
