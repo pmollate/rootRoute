@@ -54,8 +54,14 @@ export function checkConfirmLink(c: Pick<z.infer<typeof Env>, 'CONFIRM_LINK' | '
   if (c.CONFIRM_LINK === 'on') throw new Error('CONFIRM_LINK=on is not available yet (E19 A17 sends the link): refusing to start');
 }
 
+/** The simulated WMS needs its bearer token: with WMS_URL set and no WMS_TOKEN the API refuses to start. */
+export function checkWms(c: Pick<z.infer<typeof Env>, 'WMS_URL' | 'WMS_TOKEN'>): void {
+  if (c.WMS_URL && !c.WMS_TOKEN) throw new Error('WMS_URL needs WMS_TOKEN: refusing to start');
+}
+
 export const config = Env.parse(process.env);
 checkConfirmLink(config);
+checkWms(config);
 export const allowList = new Set(
   config.ALLOW_LIST.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
 );
