@@ -2871,3 +2871,10 @@ git add frontend/components/dashboard/assistant frontend/components/dashboard/Da
   frontend/app/dashboard/layout.tsx frontend/e2e/smoke.spec.ts .env.example
 git commit -m "feat(c): Ask LateLens panel on every screen, plain text, page memory only (D10, REQ-ASK-01)"
 ```
+
+- [ ] **Follow-up (SPEC v0.12, 30 Oct; spec-writer):** REQ-ASK-04 now says a number only in the question does not pass
+  the figure check. In `modules/assistant/answer.ts` drop `input.question` from the `uncheckedFigures` sources (tool
+  results and arguments only); change `test/assistant/figures.test.ts` "a figure from the question or the tool
+  arguments counts" to arguments only, and add the AC-ASK-04 case ("Is our on-time rate 99.9%?" → `checked: false`).
+  New ids to name in tests: AC-ASK-11 (prompt rules + the recorded AC-ASK-05 answer), AC-ASK-12 (the existing 503 tool
+  failure test).
