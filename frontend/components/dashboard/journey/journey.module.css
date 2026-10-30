@@ -56,11 +56,7 @@
 .scroll { overflow-x: auto; }
 
 /* The board: the diorama picture, then the road, the parcel and the place labels, all placed in board percentages. */
-/* The board fits the window below the sticky header (190 px, with 28 px under it for the lowest place label): no wider
-   than the card, no taller than the window, at the picture's 4:3, centred. Below 760 px wide the card scrolls sideways
-   instead, so the labels stay readable. */
-.board { position: relative; min-width: 760px; aspect-ratio: 1040 / 780; width: min(100%, calc((100dvh - 190px) * 1040 / 780));
-  margin: 0 auto 28px; }
+.board { position: relative; min-width: 880px; aspect-ratio: 1040 / 780; }
 .ground, .ground img, .ground svg, .route { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 .roof { font-family: var(--font-sans); font-size: 38px; font-weight: 700; fill: #94a3b8; }
 /* The diorama is drawn light; in the dark theme it is inverted with its hues kept. */
