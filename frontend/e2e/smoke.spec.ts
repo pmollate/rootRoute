@@ -109,46 +109,36 @@ test.describe('figures match the SPEC', () => {
 });
 
 // D10 (AC-ASK-01, AC-UI-03): with ASK_ASSISTANT=on for the run (it must match the deployed web app's setting), every
-// dashboard screen but Overview has the Ask Root Route button at phone width, and the open panel stays inside the 375 px
-// screen. On Overview, Router is the one assistant: no Ask Root Route button, and Router's launcher and send button are
-// clickable (trial clicks). No question is sent: that would call the live model.
+// dashboard screen has Router at phone width, and the open popup stays inside the 375 px screen. Overview has one Router
+// (its own, with the fix plan), never a second from the shell. No question is sent: that would call the live model.
 const ASK_SCREENS = [
-  ...SCREENS.filter((sc) => sc.path !== '/dashboard/overview'),
+  ...SCREENS,
   { path: '/dashboard/complaints', title: 'Complaints' },
   { path: '/dashboard/settings', title: 'Settings' },
 ];
 
-test.describe('Ask Root Route panel', () => {
-  test.skip(process.env.ASK_ASSISTANT !== 'on', 'set ASK_ASSISTANT=on to check the panel');
+test.describe('Router', () => {
+  test.skip(process.env.ASK_ASSISTANT !== 'on', 'set ASK_ASSISTANT=on to check Router');
   test.skip(({ viewport }) => (viewport?.width ?? 0) > 375, 'checked at 375 px');
 
   for (const s of ASK_SCREENS) {
-    test(`${s.title}: Ask Root Route opens inside the screen`, async ({ page }) => {
+    test(`${s.title}: Router opens inside the screen; its send button can be clicked`, async ({ page }) => {
       const errors = await open(page, s.path);
-      const button = page.getByRole('button', { name: 'Ask Root Route' });
-      await expect(button).toBeVisible();
-      await button.click();
-      const panel = page.getByRole('region', { name: 'Ask Root Route' });
-      await expect(panel).toBeVisible();
-      // The dock is position: fixed, so it never widens the page; check its own box against the 375 px screen.
-      const box = (await panel.boundingBox())!;
-      expect(box.x, 'panel starts off the left edge').toBeGreaterThanOrEqual(0);
-      expect(box.x + box.width, 'panel runs off the right edge').toBeLessThanOrEqual(375);
+      const launcher = page.getByRole('button', { name: 'Open Router' });
+      await expect(launcher).toHaveCount(1);
+      await launcher.click();
+      const router = page.getByRole('region', { name: 'Router' });
+      await expect(router).toBeVisible();
+      // Measure once the 0.3 s slide-in has finished. The popup is position: fixed, so it never widens the page; check its own box against the 375 px screen.
+      await router.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+      const box = (await router.boundingBox())!;
+      expect(box.x, 'Router starts off the left edge').toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, 'Router runs off the right edge').toBeLessThanOrEqual(375);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-      expect(overflow, 'page is wider than the screen with the panel open').toBeLessThanOrEqual(0);
+      expect(overflow, 'page is wider than the screen with Router open').toBeLessThanOrEqual(0);
+      await router.getByLabel('Ask a follow-up').fill('What is our on-time rate?');
+      await router.getByRole('button', { name: 'Send' }).click({ trial: true });
       expect(errors).toEqual([]);
     });
   }
-
-  test('Overview: only Router shows; its launcher and send button can be clicked', async ({ page }) => {
-    const errors = await open(page, '/dashboard/overview');
-    await expect(page.getByRole('button', { name: 'Ask Root Route' })).toHaveCount(0);
-    const launcher = page.getByRole('button', { name: 'Open Router' });
-    await launcher.click({ trial: true });
-    await launcher.click();
-    const router = page.getByRole('region', { name: 'Router' });
-    await router.getByLabel('Ask a follow-up').fill('What is our on-time rate?');
-    await router.getByRole('button', { name: 'Send' }).click({ trial: true });
-    expect(errors).toEqual([]);
-  });
 });
