@@ -109,8 +109,8 @@ test.describe('figures match the SPEC', () => {
 });
 
 // D10 (AC-ASK-01, AC-UI-03): with ASK_ASSISTANT=on for the run (it must match the deployed web app's setting), every
-// dashboard screen but Overview has the Ask LateLens button at phone width, and the open panel stays inside the 375 px
-// screen. On Overview, Router is the one assistant: no Ask LateLens button, and Router's launcher and send button are
+// dashboard screen but Overview has the Ask Root Route button at phone width, and the open panel stays inside the 375 px
+// screen. On Overview, Router is the one assistant: no Ask Root Route button, and Router's launcher and send button are
 // clickable (trial clicks). No question is sent: that would call the live model.
 const ASK_SCREENS = [
   ...SCREENS.filter((sc) => sc.path !== '/dashboard/overview'),
@@ -118,17 +118,17 @@ const ASK_SCREENS = [
   { path: '/dashboard/settings', title: 'Settings' },
 ];
 
-test.describe('Ask LateLens panel', () => {
+test.describe('Ask Root Route panel', () => {
   test.skip(process.env.ASK_ASSISTANT !== 'on', 'set ASK_ASSISTANT=on to check the panel');
   test.skip(({ viewport }) => (viewport?.width ?? 0) > 375, 'checked at 375 px');
 
   for (const s of ASK_SCREENS) {
-    test(`${s.title}: Ask LateLens opens inside the screen`, async ({ page }) => {
+    test(`${s.title}: Ask Root Route opens inside the screen`, async ({ page }) => {
       const errors = await open(page, s.path);
-      const button = page.getByRole('button', { name: 'Ask LateLens' });
+      const button = page.getByRole('button', { name: 'Ask Root Route' });
       await expect(button).toBeVisible();
       await button.click();
-      const panel = page.getByRole('region', { name: 'Ask LateLens' });
+      const panel = page.getByRole('region', { name: 'Ask Root Route' });
       await expect(panel).toBeVisible();
       // The dock is position: fixed, so it never widens the page; check its own box against the 375 px screen.
       const box = (await panel.boundingBox())!;
@@ -142,7 +142,7 @@ test.describe('Ask LateLens panel', () => {
 
   test('Overview: only Router shows; its launcher and send button can be clicked', async ({ page }) => {
     const errors = await open(page, '/dashboard/overview');
-    await expect(page.getByRole('button', { name: 'Ask LateLens' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Ask Root Route' })).toHaveCount(0);
     const launcher = page.getByRole('button', { name: 'Open Router' });
     await launcher.click({ trial: true });
     await launcher.click();

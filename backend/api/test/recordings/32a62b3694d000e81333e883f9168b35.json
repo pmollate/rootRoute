@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"Root Route on-time rate: 71.0% (benchmark 94.0%). Data shows deliveries: 48340, late: 14019, penaltiesUsd: 872460, handlingCostUsd: 476646, atRiskAccounts: 9, atRiskRevenueUsd: 14200000, prePickupShare: 67.3%.\\\",\\\"refused\\\":false}\"}"
+}

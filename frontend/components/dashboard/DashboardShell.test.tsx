@@ -27,19 +27,19 @@ describe('dashboard navigation (master nav, REQ-AUTH-15)', () => {
   beforeEach(() => { mockApi({}); });
   afterEach(() => { cleanup(); nav.path = '/dashboard/overview'; });
 
-  it('AC-ASK-08: without the flag no Ask LateLens button; AC-ASK-01: with it, the button is on the screen', () => {
+  it('AC-ASK-08: without the flag no Ask Root Route button; AC-ASK-01: with it, the button is on the screen', () => {
     nav.path = '/dashboard/carriers';
     render(<DashboardShell>x</DashboardShell>);
-    expect(screen.queryByRole('button', { name: 'Ask LateLens' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ask Root Route' })).toBeNull();
     cleanup();
     render(<DashboardShell assistant>x</DashboardShell>);
-    expect(screen.getByRole('button', { name: 'Ask LateLens' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ask Root Route' })).toBeTruthy();
   });
 
   it('REQ-ASK-01: on Overview the dock is hidden (Router answers there) and the flag reaches the screen', () => {
     const Probe = () => <p>{useAssistantOn() ? 'flag on' : 'flag off'}</p>;
     render(<DashboardShell assistant><Probe /></DashboardShell>);
-    expect(screen.queryByRole('button', { name: 'Ask LateLens' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ask Root Route' })).toBeNull();
     expect(screen.getByText('flag on')).toBeTruthy();
     cleanup();
     render(<DashboardShell><Probe /></DashboardShell>);

@@ -10,7 +10,7 @@ const answer = (text: string, over: object = {}) => ({ questionId: 'q1', answer:
   sources: [{ tool: 'overview', args: {}, result: { onTimeRate: 0.71 } }], toolCalls: 1, skipped: [], ...over });
 
 function askIt(q: string) {
-  fireEvent.click(screen.getByRole('button', { name: 'Ask LateLens' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Root Route' }));
   fireEvent.change(screen.getByLabelText('Your question'), { target: { value: q } });
   fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
 }
@@ -22,7 +22,7 @@ function failWith(status: number, error: string) {
   return fn;
 }
 
-describe('Ask LateLens panel (D10)', () => {
+describe('Ask Root Route panel (D10)', () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
   it('AC-ASK-01: the button opens the panel; a question shows the answer and its sources', async () => {
@@ -66,7 +66,7 @@ describe('Ask LateLens panel (D10)', () => {
   });
 
   it('REQ-ASK-04: an unchecked answer is marked', async () => {
-    mockApi({ '/api/assistant': answer('I could not check every figure in this answer against LateLens data. Here is what the tools returned.', { checked: false }) });
+    mockApi({ '/api/assistant': answer('I could not check every figure in this answer against Root Route data. Here is what the tools returned.', { checked: false }) });
     render(<AskPanel />);
     askIt('What is our on-time rate?');
     expect(await screen.findByText('Figures not checked')).toBeTruthy();
@@ -75,7 +75,7 @@ describe('Ask LateLens panel (D10)', () => {
   it('SEC-ASK-01 (panel side): a question over 500 characters is cut at 500 and never longer reaches the API', async () => {
     const fetch = mockApi({ '/api/assistant': answer('ok') });
     render(<AskPanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Ask LateLens' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ask Root Route' }));
     const box = screen.getByLabelText('Your question') as HTMLTextAreaElement;
     expect(box.maxLength).toBe(500);
     // jsdom does not apply maxLength to programmatic input, so the panel's own guard is what blocks it here.
@@ -95,7 +95,7 @@ describe('Ask LateLens panel (D10)', () => {
     failWith(503, 'assistant_unavailable');
     render(<AskPanel />);
     askIt('What is our on-time rate?');
-    expect((await screen.findByRole('alert')).textContent).toBe('Ask LateLens is not available right now.');
+    expect((await screen.findByRole('alert')).textContent).toBe('Ask Root Route is not available right now.');
   });
 
   it('REQ-AUTH-11, SEC-ASK-03: an ended session says the conversation is not kept, links to sign-in, keeps the question', async () => {
@@ -125,22 +125,22 @@ describe('Ask LateLens panel (D10)', () => {
 
   it('REQ-ASK-01 (accessibility): focus goes to the box on open; Escape closes and returns focus; answers are a live region', () => {
     render(<AskPanel />);
-    const toggle = screen.getByRole('button', { name: 'Ask LateLens' });
+    const toggle = screen.getByRole('button', { name: 'Ask Root Route' });
     fireEvent.click(toggle);
     const box = screen.getByLabelText('Your question');
     expect(document.activeElement).toBe(box);
-    expect(toggle.getAttribute('aria-controls')).toBe(screen.getByRole('region', { name: 'Ask LateLens' }).id);
+    expect(toggle.getAttribute('aria-controls')).toBe(screen.getByRole('region', { name: 'Ask Root Route' }).id);
     expect(screen.getByRole('list').getAttribute('aria-live')).toBe('polite');
     expect(document.getElementById(box.getAttribute('aria-describedby')!)!.textContent).toBe('0/500');
     fireEvent.keyDown(box, { key: 'Escape' });
-    expect(screen.queryByRole('region', { name: 'Ask LateLens' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Ask Root Route' })).toBeNull();
     expect(document.activeElement).toBe(toggle);
   });
 
   it('REQ-ASK-01: Enter sends the question; Shift+Enter does not', async () => {
     const fetch = mockApi({ '/api/assistant': answer('On-time is 71.0%.') });
     render(<AskPanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Ask LateLens' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ask Root Route' }));
     const box = screen.getByLabelText('Your question');
     fireEvent.change(box, { target: { value: 'What is our on-time rate?' } });
     fireEvent.keyDown(box, { key: 'Enter', shiftKey: true });

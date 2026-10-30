@@ -51,11 +51,11 @@ export function AskPanel() {
 
   return (
     <div className={s.dock}>
-      <button ref={toggle} type="button" className={s.toggle} aria-expanded={open} aria-controls="ask-latelens"
-        onClick={() => setOpen((o) => !o)}>Ask LateLens</button>
+      <button ref={toggle} type="button" className={s.toggle} aria-expanded={open} aria-controls="ask-root-route"
+        onClick={() => setOpen((o) => !o)}>Ask Root Route</button>
       {open && (
-        <section id="ask-latelens" className={s.panel} aria-label="Ask LateLens">
-          <p className={s.hint}>Answers come from LateLens data through read-only tools. It never acts and never decides for Halcyon.</p>
+        <section id="ask-root-route" className={s.panel} aria-label="Ask Root Route">
+          <p className={s.hint}>Answers come from Root Route data through read-only tools. It never acts and never decides for Halcyon.</p>
           <ol className={s.turns} aria-live="polite" aria-busy={busy}>
             {exchanges.flatMap((x, i) => [
               <li key={`q${i}`} className={s.user}><p className={s.text}>{x.question}</p></li>,

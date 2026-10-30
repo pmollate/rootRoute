@@ -51,13 +51,13 @@ export const TOOLS: readonly ToolDef[] = [
   tool({
     name: 'scenario', title: 'What-if replay', readOnly: true,
     description: 'On-time rate if causes were fixed, replayed over every delivery: today, route detours only '
-      + '(route_only), LateLens as built (as_built_adopted), the full programme (adopt_all) and more.',
+      + '(route_only), Root Route as built (as_built_adopted), the full programme (adopt_all) and more.',
     input: { segment: z.enum(q.REPLAY_SEGMENTS).default('all') },
     run: async ({ segment }) => q.replay(segment),
   }),
   tool({
     name: 'lane_scores', title: 'Carrier lanes', readOnly: true,
-    description: 'Without arguments: the carrier lanes LateLens blocks, with the reason for each. With region and '
+    description: 'Without arguments: the carrier lanes Root Route blocks, with the reason for each. With region and '
       + 'commitment: every carrier on that lane, with on-time rate on fair data, cost and status.',
     input: { region: Region.optional(), commitment: Commitment.optional() },
     run: async ({ region, commitment }) => {
@@ -72,7 +72,7 @@ export const TOOLS: readonly ToolDef[] = [
   }),
   tool({
     name: 'recommend_carrier', title: 'Recommend a carrier', readOnly: true,
-    description: 'The carrier LateLens would book for an order, with a backup and the reason.',
+    description: 'The carrier Root Route would book for an order, with a backup and the reason.',
     input: { region: Region, commitment: Commitment, slaClause: z.boolean().default(false) },
     run: async ({ region, commitment, slaClause }) => lane(region, commitment, slaClause),
   }),

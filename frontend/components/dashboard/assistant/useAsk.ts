@@ -24,7 +24,7 @@ function message(err: unknown, path: string): AskError {
   if (err instanceof SessionExpired) return { text: ASK_SESSION_ENDED, link: signInAgain(path) };
   if (err instanceof Error && err.message === 'rate_limited') return { text: 'Too many questions in a minute. Try again shortly.' };
   if (err instanceof Error && err.message === 'too_long') return { text: `Questions can be at most ${MAX_QUESTION} characters.` };
-  return { text: 'Ask LateLens is not available right now.' };
+  return { text: 'Ask Root Route is not available right now.' };
 }
 
 /**

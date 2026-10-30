@@ -234,7 +234,7 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
               <div key={i}>
                 <p className={s.you}>{q}</p>
                 <div className={s.reply}><span className={s.botSmall}><BotIcon /></span><div className={s.replyBody}>
-                  {!isLive ? answer(q) : reply ? <AskAnswer a={reply} /> : <p>Asking LateLens…</p>}
+                  {!isLive ? answer(q) : reply ? <AskAnswer a={reply} /> : <p>Asking Root Route…</p>}
                 </div></div>
               </div>
             );

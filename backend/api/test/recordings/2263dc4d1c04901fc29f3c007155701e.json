@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"I can’t approve orders. I can only provide delivery-data answers (headline KPIs, late-delivery causes, the replay, carrier lanes, a carrier recommendation, or a delivery promise). If you want one of those, tell me which and I will run the appropriate data checks.\\\",\\\"refused\\\":true}\"}"
+}
