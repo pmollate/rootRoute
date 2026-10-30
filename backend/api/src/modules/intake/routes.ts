@@ -10,6 +10,7 @@ import { runAlerts } from './alerts.js';
 import { complaintQueue, listComplaints, savedTriages, saveTriage, triage } from './complaints.js';
 import { getDeps } from './deps.js';
 import { processEmail } from './pipeline.js';
+import { safeNames } from './reply.js';
 import { POLL_MAX, pollLogFields, runPoll } from './poll.js';
 import { reviewQueue } from './review.js';
 
@@ -64,7 +65,7 @@ const routes: FastifyPluginAsync = async (app) => {
         inReplyTo: email.in_reply_to },
       extraction: x?.extraction ?? null, decision: x?.decision ?? null, checks: x?.checks ?? null,
       // The operator approves exactly what will be sent: names put back, as in the outgoing email.
-      replyDraft: x ? restore(x.reply_draft, email.pii_map ?? {}) : null, replySource: x?.reply_source ?? null,
+      replyDraft: x ? restore(x.reply_draft, safeNames(email.pii_map)) : null, replySource: x?.reply_source ?? null,
     };
   });
 

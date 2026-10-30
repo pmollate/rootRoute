@@ -190,6 +190,9 @@ export const repo: Repo = {
   },
 };
 
+/** SQL for an address part compared by letters and digits only, case-blind (the saved-address duplicate check). */
+const ADDRESS_KEY = (col: string) => `upper(regexp_replace(${col}, '[^A-Za-z0-9]', '', 'g'))`;
+
 /** Migration 103 (E19). Only the token's hash is ever read or written (SEC-LINK-01). */
 export const linkRepo: LinkRepo = {
   async orderEmailIds(emailId) {
@@ -203,10 +206,14 @@ export const linkRepo: LinkRepo = {
        SELECT id FROM down ORDER BY id`, [emailId]);
     return rows.map((r) => r.id);
   },
-  async revokeUnused(ids, at) {
+  async revokeUnused(ids, at, keepId) {
     return (await query<{ id: number }>(
       `UPDATE address_confirm_tokens SET revoked_at = $2
-        WHERE email_id = ANY($1::int[]) AND used_at IS NULL AND revoked_at IS NULL RETURNING id`, [ids, at])).length;
+        WHERE email_id = ANY($1::int[]) AND used_at IS NULL AND revoked_at IS NULL AND id <> coalesce($3, 0) RETURNING id`,
+      [ids, at, keepId ?? null])).length;
+  },
+  async revoke(id, at) {
+    await query('UPDATE address_confirm_tokens SET revoked_at = $2 WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL', [id, at]);
   },
   async insert(l) {
     return (await query<{ id: number }>(
@@ -222,23 +229,52 @@ export const linkRepo: LinkRepo = {
   async setReading(id, reading) {
     await query('UPDATE address_confirm_tokens SET map_reading = $2 WHERE id = $1', [id, JSON.stringify(reading)]);
   },
-  // Single use under concurrency: the WHERE clause, not a read-then-write, decides who confirms (SEC-LINK-02).
-  async markUsed(id, address, pin, reading, at) {
-    return (await query<{ id: number }>(
-      `UPDATE address_confirm_tokens SET used_at = $5, confirmed_address = $2, lat = $3, lon = $4, map_reading = $6
-        WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > $5 RETURNING id`,
-      [id, JSON.stringify(address), pin.lat, pin.lon, at, reading && JSON.stringify(reading)])).length === 1;
+  // One transaction (REQ-LINK-04). Single use under concurrency: the WHERE clauses, not a read-then-write, decide who
+  // confirms (SEC-LINK-02); the email must still be SENT (waiting for the client).
+  async confirm(c) {
+    const db = await pool.connect();
+    try {
+      await db.query('BEGIN');
+      const used = await db.query(
+        `UPDATE address_confirm_tokens SET used_at = $5, confirmed_address = $2, lat = $3, lon = $4, map_reading = $6
+          WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > $5 RETURNING id`,
+        [c.linkId, JSON.stringify(c.address), c.pin.lat, c.pin.lon, c.at, c.reading && JSON.stringify(c.reading)]);
+      const moved = used.rowCount === 1 ? await db.query(
+        "UPDATE intake_emails SET status = 'AWAITING_APPROVAL' WHERE id = $1 AND status = 'SENT' RETURNING id", [c.emailId]) : null;
+      if (moved?.rowCount !== 1) {
+        await db.query('ROLLBACK');
+        return false;
+      }
+      const x = c.extraction;
+      await db.query(
+        'INSERT INTO intake_extractions (email_id, extraction, decision, checks, reply_draft, reply_source) VALUES ($1,$2,$3,$4,$5,$6)',
+        [c.emailId, JSON.stringify(x.extraction), x.decision, JSON.stringify(x.checks), x.reply_draft, x.reply_source]);
+      await db.query('INSERT INTO audit_log (actor, action, ref, payload) VALUES ($1,$2,$3,$4)',
+        [c.audit.actor, c.audit.action, `email:${c.emailId}`, JSON.stringify(c.audit.payload)]);
+      await db.query('COMMIT');
+      return true;
+    } catch (err) {
+      await db.query('ROLLBACK');
+      throw err;
+    } finally {
+      db.release();
+    }
   },
   async newestFor(ids) {
     const rows = await query<LinkRow>(
       'SELECT DISTINCT ON (email_id) * FROM address_confirm_tokens WHERE email_id = ANY($1::int[]) ORDER BY email_id, id DESC', [ids]);
     return new Map(rows.map((r) => [r.email_id, r]));
   },
+  // REQ-LINK-05: not added when the client already has the same address (letters and digits only, case-blind, 5-digit ZIP).
   async saveAddress(a) {
-    await query(
+    return (await query<{ id: number }>(
       `INSERT INTO saved_addresses (client_id, label, line1, line2, city, state, zip, synthetic, source, lat, lon, email_id, confirmed_at)
-       VALUES ($1,'Confirmed by client link',$2,$3,$4,$5,$6,$7,'link',$8,$9,$10,$11)`,
+       SELECT $1::text,'Confirmed by client link',$2::text,$3::text,$4::text,$5::text,$6::text,$7::boolean,'link',$8::float8,$9::float8,$10::int,$11::timestamptz
+        WHERE NOT EXISTS (SELECT 1 FROM saved_addresses s WHERE s.client_id = $1
+          AND ${ADDRESS_KEY('s.line1')} = ${ADDRESS_KEY('$2::text')} AND ${ADDRESS_KEY("coalesce(s.line2, '')")} = ${ADDRESS_KEY("coalesce($3::text, '')")}
+          AND ${ADDRESS_KEY('s.city')} = ${ADDRESS_KEY('$4::text')} AND upper(s.state) = upper($5::text) AND left(s.zip, 5) = left($6::text, 5))
+       RETURNING id`,
       [a.clientId, a.address.line1, a.address.line2, a.address.city, a.address.state, a.address.zip, a.synthetic,
-        a.pin.lat, a.pin.lon, a.emailId, a.confirmedAt]);
+        a.pin.lat, a.pin.lon, a.emailId, a.confirmedAt])).length === 1;
   },
 };

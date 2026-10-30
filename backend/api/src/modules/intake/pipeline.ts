@@ -5,6 +5,7 @@ import { LLMError } from '../../core/llm/types.js';
 import { PiiError } from '../../core/pii/types.js';
 import type { Decision } from './decide.js';
 import { senderAddress } from './mailbox.js';
+import type { LinkRepo } from './link.js';
 import { type EarlierEmail, type IntakeDeps, readOrder } from './read.js';
 import { regionOfState } from './region.js';
 import { draftReply, replyFactsOf, templateReply } from './reply.js';
@@ -30,6 +31,7 @@ export interface Deps extends IntakeDeps {
   carriers: CarriersApi;
   gmail: Pick<GmailClient, 'sendMessage' | 'listMessageIds' | 'getMessage'> | null; // null until GMAIL_* is set up
   confirmLink?: boolean; // E19 CONFIRM_LINK=on (REQ-LINK-01, -09); off or absent = no placeholder
+  links?: LinkRepo;      // E19: a client follow-up revokes the order's unused links (REQ-LINK-08); absent = no links kept
 }
 
 export interface Processed {
@@ -103,6 +105,11 @@ export async function processEmail(input: IncomingEmail, deps: Deps): Promise<Pr
     return { id, status: 'AWAITING_APPROVAL', decision, reason: UNKNOWN_SENDER };
   }
 
+  // E19 REQ-LINK-08 (default for A to confirm, A17 review 1): a client follow-up in the thread is now the order, so every
+  // unused address link of the order stops working. Runs whatever CONFIRM_LINK says: a link sent while it was on must not
+  // outlive the answer.
+  if (answers && deps.links) await deps.links.revokeUnused(await deps.links.orderEmailIds(id), new Date());
+
   const saved = client ? await repo.savedAddresses(client.client_id) : [];
   let reading;
   try {
@@ -134,6 +141,22 @@ export async function processEmail(input: IncomingEmail, deps: Deps): Promise<Pr
     email_id: id, extraction, decision, checks: { address, promise, warehouse: warehouseChoice, carrier },
     reply_draft: reply.text, reply_source: reply.source,
   });
+  if (answers && deps.links && decision === 'ALL_CLEAR') await supersedeLinkConfirmed(repo, await deps.links.orderEmailIds(id), id);
   await repo.setStatus(id, 'AWAITING_APPROVAL');
   return { id, status: 'AWAITING_APPROVAL', decision };
+}
+
+/**
+ * E19 (default for A to confirm, A17 review 1): one order, one review entry. When a client follow-up is ALL_CLEAR, an
+ * earlier email of the same thread that the client confirmed through the address link and that still awaits approval
+ * is closed (REJECTED, audited as superseded by system:intake), so the order cannot be approved and entered twice.
+ */
+async function supersedeLinkConfirmed(repo: Repo, threadIds: number[], newest: number): Promise<void> {
+  for (const eid of threadIds) {
+    if (eid === newest) continue;
+    const e = await repo.getEmail(eid);
+    if (e?.status !== 'AWAITING_APPROVAL' || (await repo.latestExtraction(eid))?.checks.address?.status !== 'confirmed') continue;
+    await repo.setStatus(eid, 'REJECTED');
+    await repo.logAudit('system:intake', 'superseded', `email:${eid}`, { by: newest, reason: 'a newer email in the thread replaces the link-confirmed order' });
+  }
 }

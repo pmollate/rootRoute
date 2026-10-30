@@ -5,7 +5,7 @@ import type { LLM } from '../../core/llm/types.js';
 import type { AddressQuery } from '../../core/maps/types.js';
 import type { AddressCheck } from './address.js';
 import type { Decision } from './decide.js';
-import { LINK_PLACEHOLDER } from './linkRules.js';
+import { LINK_PLACEHOLDER, neutralisePlaceholder as clean } from './linkRules.js';
 import type { Extraction, SavedAddress } from './schema.js';
 import type { AddressIssue } from './validate.js';
 
@@ -35,15 +35,24 @@ export function replyFactsOf(f: { decision: Decision; clientName: string | null;
   extraction: Extraction | null; address: AddressCheck | null; promise: PromiseResult | null; link?: boolean }): ReplyFacts {
   const { address } = f;
   const unverified = address?.status === 'unverified';
+  const suggestion = unverified ? address.validation?.suggestion ?? null : null;
+  // Every value from the email (or a client-confirmed saved address) has [CONFIRM_LINK] removed (SEC-02, REQ-LINK-09).
   return {
     decision: f.decision, clientName: f.clientName,
     contact: Object.keys(f.piiMap).find((tag) => tag.startsWith('[PERSON_')) ?? null,
-    items: f.extraction?.items ?? [], promise: f.promise, missing: address?.missing ?? [], candidates: address?.candidates ?? [],
-    address: unverified && address.address ? formatAddress(address.address) : null,
+    items: (f.extraction?.items ?? []).map((i) => ({ ...i, sku: clean(i.sku) })), promise: f.promise, missing: address?.missing ?? [],
+    candidates: (address?.candidates ?? []).map((c) => ({ ...c, label: clean(c.label), line1: clean(c.line1), line2: c.line2 && clean(c.line2),
+      city: clean(c.city), state: clean(c.state), zip: clean(c.zip) })),
+    address: unverified && address.address ? clean(formatAddress(address.address)) : null,
     addressIssues: unverified ? address.validation?.issues ?? [] : [],
-    suggestion: unverified ? address.validation?.suggestion ?? null : null,
+    suggestion: suggestion && { ...suggestion, line1: clean(suggestion.line1), city: clean(suggestion.city), state: clean(suggestion.state), zip: clean(suggestion.zip) },
     ...(f.link ? { link: true } : {}),
   };
+}
+
+/** The email's names (tag -> value) with [CONFIRM_LINK] removed, for putting names back into a reply (SEC-02). */
+export function safeNames(piiMap: Record<string, string> | null): Record<string, string> {
+  return Object.fromEntries(Object.entries(piiMap ?? {}).map(([tag, value]) => [tag, clean(value)]));
 }
 
 const FIELD_LABEL: Record<string, string> = {

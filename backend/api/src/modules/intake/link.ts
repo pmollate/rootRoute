@@ -41,17 +41,31 @@ export type NewLink = Pick<LinkRow, 'token_hash' | 'email_id' | 'issued_at' | 'e
 export interface LinkRepo {
   /** Every email of the order: the first email and every client answer below it (REQ-LINK-08). */
   orderEmailIds(emailId: number): Promise<number[]>;
-  revokeUnused(emailIds: number[], at: Date): Promise<number>;
+  /** Revokes the unused links of these emails, except `keepId` (the link just sent). */
+  revokeUnused(emailIds: number[], at: Date, keepId?: number): Promise<number>;
+  /** Revokes one link (a link nobody received). */
+  revoke(id: number, at: Date): Promise<void>;
   insert(l: NewLink): Promise<number>;
   byHash(hash: string): Promise<LinkRow | null>;
   /** +1 map look-up; returns the new count (SEC-LINK-04). */
   countLookup(id: number): Promise<number>;
   setReading(id: number, reading: PendingCheck | MapReading): Promise<void>;
-  /** Single use: sets used_at only if the link is still live at `at`; false if another request got there first. */
-  markUsed(id: number, address: LinkAddress, pin: LinkPin, reading: MapReading | null, at: Date): Promise<boolean>;
+  /**
+   * REQ-LINK-04, SEC-LINK-02: in one transaction, uses the link (only if still live at `at`), moves its email from SENT
+   * to AWAITING_APPROVAL, writes the new extraction and the audit row. False, with nothing written, if the link is no
+   * longer live or the email is no longer SENT (another request got there first); a failed write rolls everything back.
+   */
+  confirm(c: ConfirmWrite): Promise<boolean>;
   /** The newest link of each email (for GET /api/intake and the review). */
   newestFor(emailIds: number[]): Promise<Map<number, LinkRow>>;
-  saveAddress(a: { clientId: string; address: LinkAddress; pin: LinkPin; emailId: number; confirmedAt: Date; synthetic: boolean }): Promise<void>;
+  /** Adds a source='link' saved address; false (nothing added) if the client already has the same address (REQ-LINK-05). */
+  saveAddress(a: { clientId: string; address: LinkAddress; pin: LinkPin; emailId: number; confirmedAt: Date; synthetic: boolean }): Promise<boolean>;
+}
+
+export interface ConfirmWrite {
+  linkId: number; emailId: number; address: LinkAddress; pin: LinkPin; reading: MapReading | null; at: Date;
+  extraction: Omit<ExtractionRow, 'id'>;
+  audit: { actor: string; action: string; payload: object };
 }
 
 /**
@@ -98,10 +112,11 @@ function prefillAddress(x: ExtractionRow | null): Partial<LinkAddress> {
 }
 
 /**
- * REQ-LINK-01, -08, SEC-LINK-09: called by send_reply only, after the allow-list and Gmail checks passed. Revokes every
- * earlier unused link of the order, stores the hash and returns the text to send (placeholder replaced by the link).
+ * REQ-LINK-01, SEC-LINK-09: called by send_reply only, after the allow-list and Gmail checks passed. Stores the hash and
+ * returns the text to send (placeholder replaced by the link) and the new link's id. Earlier links of the order are
+ * revoked by `settleLink` only once Gmail has accepted the reply, so a failed send leaves the client's link working.
  */
-export async function mintLink(d: LinkDeps, email: EmailRow, x: ExtractionRow | null, actor: string, text: string): Promise<string> {
+export async function mintLink(d: LinkDeps, email: EmailRow, x: ExtractionRow | null, actor: string, text: string): Promise<{ text: string; linkId: number }> {
   const now = d.now();
   const address = prefillAddress(x);
   let pin: LinkPin | null = null;
@@ -114,18 +129,28 @@ export async function mintLink(d: LinkDeps, email: EmailRow, x: ExtractionRow | 
   }
   const token = newToken();
   const hash = hashToken(token);
-  await d.links.revokeUnused(await d.links.orderEmailIds(email.id), now);
   // Every intake email and client in this build is synthetic (SD-02, SD-04, SD-08); a real mailbox sets this per client.
-  await d.links.insert({ token_hash: hash, email_id: email.id, issued_at: now, expires_at: linkExpiry(email.received_at, now, d.hours, d.timeZone),
-    issued_by: actor, prefill: { address, pin }, synthetic: true });
+  const linkId = await d.links.insert({ token_hash: hash, email_id: email.id, issued_at: now,
+    expires_at: linkExpiry(email.received_at, now, d.hours, d.timeZone), issued_by: actor, prefill: { address, pin }, synthetic: true });
   d.log('link_sent', fieldsOf({ email_id: email.id, token_hash: hash }));
-  return text.replaceAll(LINK_PLACEHOLDER, `${d.appUrl.replace(/\/+$/, '')}/confirm/${token}`);
+  const url = `${d.appUrl.replace(/\/+$/, '')}/confirm/${token}`;
+  return { text: text.replaceAll(LINK_PLACEHOLDER, () => url), linkId }; // a function: no $-patterns in the URL
 }
 
+/** REQ-LINK-08: after Gmail accepted the reply, every other unused link of the order (any email of its thread) is revoked. */
+export async function settleLink(d: LinkDeps, emailId: number, linkId: number): Promise<void> {
+  await d.links.revokeUnused(await d.links.orderEmailIds(emailId), d.now(), linkId);
+}
+
+/**
+ * A live link whose order has had no newer email. When the client has written again in the thread, that newer email
+ * is the order (it is decided by the pipeline), so the link no longer works (REQ-LINK-08 default, A17 review 1).
+ */
 async function find(d: LinkDeps, token: string): Promise<LinkRow | null> {
   if (!d.enabled || !TOKEN_SHAPE.test(token)) return null;
   const l = await d.links.byHash(hashToken(token));
-  return live(l, d.now()) ? l : null;
+  if (!live(l, d.now())) return null;
+  return (await d.links.orderEmailIds(l.email_id)).some((id) => id > l.email_id) ? null : l;
 }
 
 /** GET /api/confirm/:token. Never uses up or changes the link (SEC-LINK-06). Null = the one invalid answer. */
@@ -156,6 +181,8 @@ const isPending = (r: LinkRow['map_reading']): r is PendingCheck => r !== null &
 export async function confirmLink(d: LinkDeps, intake: Deps, token: string, body: unknown): Promise<ConfirmResult> {
   const l = await find(d, token);
   if (!l) return { code: 404, body: INVALID };
+  // Only an order waiting for the client (its reply SENT) is decided again; a closed or re-opened order is not (A17 review 5).
+  if ((await intake.repo.getEmail(l.email_id))?.status !== 'SENT') return { code: 404, body: INVALID };
   const parsed = ConfirmBody.safeParse(body);
   if (!parsed.success) {
     d.log('link_refused', { ...fieldsOf(l), why: 'invalid' });
@@ -181,9 +208,12 @@ export async function confirmLink(d: LinkDeps, intake: Deps, token: string, body
       return { code: 409, body: { error: 'needs_second_confirm', reading: r, checkId } };
     }
   }
-  if (!(await d.links.markUsed(l.id, input.address, input.pin, seen, d.now()))) return { code: 404, body: INVALID };
-  await decideAgain(intake, l.email_id, input.address);
-  await intake.repo.logAudit(`client-link:${l.email_id}`, 'link_confirmed', `email:${l.email_id}`, { hash: hashPrefix(l.token_hash) });
+  // Decide first (reads and other areas' calls only), then write everything in one transaction: a failure on the way
+  // leaves the link unused and the order as it was, so the client can try again (A17 review 2).
+  const extraction = await decideAgain(intake, l.email_id, input.address);
+  const done = await d.links.confirm({ linkId: l.id, emailId: l.email_id, address: input.address, pin: input.pin, reading: seen,
+    at: d.now(), extraction, audit: { actor: `client-link:${l.email_id}`, action: 'link_confirmed', payload: { hash: hashPrefix(l.token_hash) } } });
+  if (!done) return { code: 404, body: INVALID };
   d.log('link_confirmed', fieldsOf(l));
   return { code: 200, body: { status: 'confirmed' } };
 }
@@ -191,8 +221,9 @@ export async function confirmLink(d: LinkDeps, intake: Deps, token: string, body
 /**
  * REQ-LINK-04: §5.3 steps 8–10 with code only. The confirmed address counts as verified (REQ-INT-09). The promise uses
  * the email's arrival time, as every intake promise does (REQ-INT-03; Q-LINK-04). The reply is the fixed template.
+ * Writes nothing: returns the new extraction row, which `LinkRepo.confirm` stores with the link's use.
  */
-export async function decideAgain(intake: Deps, emailId: number, address: LinkAddress): Promise<void> {
+export async function decideAgain(intake: Deps, emailId: number, address: LinkAddress): Promise<Omit<ExtractionRow, 'id'>> {
   const { repo, warehouse, carriers } = intake;
   const email = (await repo.getEmail(emailId))!;
   const x = await repo.latestExtraction(emailId);
@@ -213,17 +244,19 @@ export async function decideAgain(intake: Deps, emailId: number, address: LinkAd
   }
   const facts = replyFactsOf({ decision, clientName: client?.client_name ?? null, piiMap: email.pii_map ?? {}, extraction,
     address: check, promise });
-  await repo.saveExtraction({ email_id: emailId, extraction, decision, checks: { address: check, promise, warehouse: warehouseChoice, carrier },
-    reply_draft: templateReply(facts), reply_source: 'template' });
-  await repo.setStatus(emailId, 'AWAITING_APPROVAL');
+  return { email_id: emailId, extraction, decision, checks: { address: check, promise, warehouse: warehouseChoice, carrier },
+    reply_draft: templateReply(facts), reply_source: 'template' };
 }
 
-/** REQ-LINK-05: on approval only, the confirmed address joins the client's saved addresses (source 'link'). */
-export async function saveOnApproval(d: LinkDeps, email: EmailRow, x: ExtractionRow | null): Promise<boolean> {
-  if (!d.enabled || x?.checks.address?.status !== 'confirmed' || !email.client_id) return false;
+/**
+ * REQ-LINK-05: on approval only, the confirmed address joins the client's saved addresses (source 'link'). Called before
+ * the order is marked APPROVED, so a failed save leaves the order unapproved. 'saved', 'already_saved' (the client has
+ * that address) or null (not a link-confirmed order).
+ */
+export async function saveOnApproval(d: LinkDeps, email: EmailRow, x: ExtractionRow | null): Promise<'saved' | 'already_saved' | null> {
+  if (!d.enabled || x?.checks.address?.status !== 'confirmed' || !email.client_id) return null;
   const l = (await d.links.newestFor([email.id])).get(email.id);
-  if (!l?.used_at || !l.confirmed_address || l.lat === null || l.lon === null) return false;
-  await d.links.saveAddress({ clientId: email.client_id, address: l.confirmed_address, pin: { lat: l.lat, lon: l.lon },
-    emailId: email.id, confirmedAt: l.used_at, synthetic: l.synthetic });
-  return true;
+  if (!l?.used_at || !l.confirmed_address || l.lat === null || l.lon === null) return null;
+  return (await d.links.saveAddress({ clientId: email.client_id, address: l.confirmed_address, pin: { lat: l.lat, lon: l.lon },
+    emailId: email.id, confirmedAt: l.used_at, synthetic: l.synthetic })) ? 'saved' : 'already_saved';
 }

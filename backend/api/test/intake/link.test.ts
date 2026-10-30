@@ -4,8 +4,9 @@ import type { AddressValidator } from '../../src/core/maps/types.js';
 import { applyAction } from '../../src/modules/intake/actions.js';
 import { confirmLink, INVALID, type LinkDeps, linkState, mintLink, viewLink } from '../../src/modules/intake/link.js';
 import { hashToken } from '../../src/modules/intake/linkRules.js';
-import type { Deps } from '../../src/modules/intake/pipeline.js';
-import { templateReply, withoutLinkPlaceholder } from '../../src/modules/intake/reply.js';
+import { type Deps, processEmail } from '../../src/modules/intake/pipeline.js';
+import { replyFactsOf, templateReply, withoutLinkPlaceholder } from '../../src/modules/intake/reply.js';
+import type { Extraction } from '../../src/modules/intake/schema.js';
 import { checkPromise } from '../../src/modules/warehouse/domain.js';
 import { memoryLinks } from './memoryLinks.js';
 import { memoryRepo } from './memoryRepo.js';
@@ -26,20 +27,20 @@ const warehouse: WarehouseApi = { checkPromise, nearestWarehouse: async () => 'W
 const carriers: CarriersApi = { recommendCarrier: async () => structuredClone(REC) };
 const TEMPLATE = 'Hello,\nPlease confirm: [CONFIRM_LINK]\nHalcyon Logistics';
 
-interface Setup { draft?: string; promise?: PromiseResult | null; enabled?: boolean; appUrl?: string; geocodeOk?: boolean }
+interface Setup { draft?: string; promise?: PromiseResult | null; enabled?: boolean; appUrl?: string; geocodeOk?: boolean; piiMap?: Record<string, string> }
 
 /** A CONFIRM_ADDRESS order from C025, approved by the desk, ready for send_reply; the clock is 29 Oct 10:00 UTC. */
-async function setup({ draft = TEMPLATE, promise = null, enabled = true, appUrl = 'https://app.example', geocodeOk = true }: Setup = {}) {
+async function setup({ draft = TEMPLATE, promise = null, enabled = true, appUrl = 'https://app.example', geocodeOk = true, piiMap = {} }: Setup = {}) {
   const maps = fakeMap(geocodeOk);
   const mem = memoryRepo({ 'client025.example': C025 }, []);
   const id = await mem.repo.insertEmail({ source: 'paste', gmail_id: null, thread_id: null, message_id: null, from_addr: 'orders@client025.example',
-    subject: '[SYNTHETIC] Order', body: '[SYNTHETIC] 45 x HX-616 to 415 Summer St Dock 1, Boston, MA 02210', redacted_body: null, pii_map: {},
+    subject: '[SYNTHETIC] Order', body: '[SYNTHETIC] 45 x HX-616 to 415 Summer St Dock 1, Boston, MA 02210', redacted_body: null, pii_map: piiMap,
     received_at: '2026-10-29 09:00', in_reply_to: null, hash: 'h1', client_id: 'C025' });
   await mem.repo.saveExtraction({ email_id: id, decision: 'CONFIRM_ADDRESS', reply_draft: draft, reply_source: 'template',
     extraction: { items: [{ sku: 'HX-616', qty: 45 }], requested_commitment: 'next_day', confidence: { items: 1, address: 1 }, address: { ...ADDRESS, raw: null } },
     checks: { address: { status: 'unverified', address: ADDRESS, missing: [], candidates: [], validation: null }, promise, warehouse: null, carrier: null } });
   await mem.repo.setStatus(id, 'APPROVED');
-  const store = memoryLinks(() => mem.emails);
+  const store = memoryLinks(() => mem.emails, mem.repo);
   let now = new Date('2026-10-29T10:00:00Z');
   const events: { event: string; fields: Record<string, unknown> }[] = [];
   const issued: Date[] = [];
@@ -330,5 +331,191 @@ describe('E19 flag off at send time (REQ-LINK-09)', () => {
     expect(r.code).toBe(200);
     expect(t.sentTexts[0]).not.toContain('[CONFIRM_LINK]');
     expect(t.store.rows).toEqual([]);
+  });
+});
+
+// ---- A17 review findings (docs/agent-runs/2026-10-30-reviewer-A17-link-service.md, probes P1–P7) ----
+
+const FULL: Extraction = { items: [{ sku: 'HX-616', qty: 45 }], requested_commitment: 'next_day', confidence: { items: 1, address: 1 },
+  address: { ...ADDRESS, raw: null } };
+const mapHigh: AddressValidator = { name: 'fake-map-high', geocode: async (q) => ({ features: [{ properties: { type: 'Address', confidence: 'High',
+  matchCodes: ['Good'], address: { addressLine: q.line1, locality: q.city, postalCode: q.zip, adminDistricts: [{ shortName: q.state }] } } }] }) };
+type T = Awaited<ReturnType<typeof setup>>;
+/** The client's follow-up email in the order's thread, through the real pipeline (fake model, no PII, a map that agrees). */
+const followUp = (t: T) => processEmail({ from: 'orders@client025.example', subject: 'Re: [SYNTHETIC] Order', inReplyTo: t.id,
+  body: '[SYNTHETIC] Deliver to 415 Summer St Dock 1, Boston, MA 02210. 45 x HX-616', receivedAt: '2026-10-29 10:30' },
+{ ...t.intake, maps: mapHigh, links: t.store.links, pii: { name: 'none', detect: async () => [] },
+  llm: { name: 'fake', json: async () => structuredClone(FULL) as never, text: async () => { throw new Error('offline'); } } });
+const awaiting = (t: T) => t.mem.emails.filter((e) => e.status === 'AWAITING_APPROVAL').map((e) => e.id);
+
+describe('E19 one order, one review (A17 review finding 1; a default for A to confirm)', () => {
+  it('REQ-LINK-08: email first, then the link → the follow-up revoked the link; exactly one order awaits approval', async () => {
+    const t = await setup(); await t.send();
+    const second = await followUp(t);
+    expect(second.decision).toBe('ALL_CLEAR');
+    expect(linkState(t.store.rows[0], new Date('2026-10-29T10:00:00Z'))).toBe('revoked');
+    expect(await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: START })).toEqual({ code: 404, body: INVALID });
+    expect(awaiting(t)).toEqual([second.id]);
+  });
+
+  it('REQ-LINK-08: a newer email in the thread makes the link invalid even when it was not revoked (404, link unused)', async () => {
+    const t = await setup(); await t.send();
+    await t.mem.repo.insertEmail({ ...t.mem.emails[0], hash: 'h2', in_reply_to: t.id, received_at: '2026-10-29 10:30' });
+    expect(await viewLink(t.link, t.tokenOf()!)).toBeNull();
+    expect(await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: START })).toEqual({ code: 404, body: INVALID });
+    expect(t.store.rows[0].used_at).toBeNull();
+    expect(t.mem.emails[0].status).toBe('SENT');
+  });
+
+  it('REQ-LINK-08: link first, then an email → the newer ALL_CLEAR email supersedes the link-confirmed one; exactly one order awaits approval', async () => {
+    const t = await setup(); await t.send();
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: START })).code).toBe(200);
+    expect(awaiting(t)).toEqual([t.id]);
+    const second = await followUp(t);
+    expect(second.decision).toBe('ALL_CLEAR');
+    expect(awaiting(t)).toEqual([second.id]);
+    expect(t.mem.emails[0].status).toBe('REJECTED');
+    expect(t.mem.audit.at(-1)).toMatchObject({ user: 'system:intake', action: 'superseded', ref: `email:${t.id}`, payload: { by: second.id } });
+  });
+});
+
+describe('E19 atomic confirm and status guard (A17 review findings 2, 5)', () => {
+  it('REQ-LINK-04: a failure while deciding again (P4: carriers down) leaves the link unused and the order unchanged; the retry confirms', async () => {
+    const t = await setup(); await t.send();
+    const ok = t.intake.carriers;
+    t.intake.carriers = { recommendCarrier: async () => { throw new Error('carriers down'); } };
+    await expect(confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: START })).rejects.toThrow('carriers down');
+    expect(t.store.rows[0].used_at).toBeNull();
+    expect(t.mem.emails[0].status).toBe('SENT');
+    expect(t.mem.extractions).toHaveLength(1);
+    expect(t.mem.audit.filter((a) => a.user.startsWith('client-link:'))).toEqual([]);
+    t.intake.carriers = ok;
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: START })).code).toBe(200);
+    expect(t.mem.emails[0].status).toBe('AWAITING_APPROVAL');
+  });
+
+  it('SEC-LINK-02: only an email awaiting the client (SENT) is decided again; otherwise the link is invalid and stays unused', async () => {
+    for (const status of ['APPROVED', 'AWAITING_APPROVAL', 'ENTERED', 'REJECTED']) {
+      const t = await setup(); await t.send();
+      await t.mem.repo.setStatus(t.id, status);
+      expect(await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: START })).toEqual({ code: 404, body: INVALID });
+      expect(t.store.rows[0].used_at).toBeNull();
+      expect(t.mem.emails[0].status).toBe(status);
+    }
+  });
+});
+
+describe('E19 the placeholder never comes from untrusted data (A17 review findings 3, 4)', () => {
+  const injectedCity = (t: T) => {
+    const x = t.mem.extractions[0];
+    const city = 'Boston [CONFIRM_LINK]';
+    x.extraction!.address.city = city;
+    x.checks.address = { status: 'unverified', address: { ...ADDRESS, city }, missing: [], candidates: [],
+      validation: { confidence: 'medium', issues: ['zip_mismatch'], suggestion: { line1: '415 Summer St', city: 'Boston', state: 'MA', zip: '02110' } } };
+  };
+  const P6_DRAFT = 'Hello,\nThe ZIP code does not match; the map shows 02110, confirm here: [CONFIRM_LINK]\nHalcyon Logistics';
+  const count = (s: string, needle: string) => s.split(needle).length - 1;
+
+  it('SEC-LINK-09, REQ-LINK-09: P6 flag off: a client city holding [CONFIRM_LINK] is not sent as text by the template fallback', async () => {
+    const t = await setup({ draft: P6_DRAFT, enabled: false });
+    injectedCity(t);
+    expect((await t.send()).code).toBe(200);
+    expect(t.sentTexts[0]).not.toContain('[CONFIRM_LINK]');
+    expect(t.sentTexts[0]).toContain('02110');
+    expect(t.store.rows).toEqual([]);
+  });
+
+  it('REQ-LINK-01: P6 flag on: the draft from neutralised facts holds one placeholder; minting puts in exactly one link', async () => {
+    const t = await setup();
+    injectedCity(t);
+    const x = t.mem.extractions[0];
+    const draft = templateReply(replyFactsOf({ decision: 'CONFIRM_ADDRESS', clientName: 'Client 25', piiMap: {}, extraction: x.extraction,
+      address: x.checks.address, promise: null, link: true }));
+    expect(count(draft, '[CONFIRM_LINK]')).toBe(1);
+    x.reply_draft = draft;
+    expect((await t.send()).code).toBe(200);
+    expect(count(t.sentTexts[0], '/confirm/')).toBe(1);
+    expect(t.sentTexts[0]).not.toContain('[CONFIRM_LINK]');
+  });
+
+  it('REQ-LINK-01: P6 flag on: the operator removed the placeholder → the injected city mints nothing', async () => {
+    const t = await setup();
+    injectedCity(t);
+    const x = t.mem.extractions[0];
+    const edited = templateReply(replyFactsOf({ decision: 'CONFIRM_ADDRESS', clientName: 'Client 25', piiMap: {}, extraction: x.extraction,
+      address: x.checks.address, promise: null }));
+    expect((await t.send(edited)).code).toBe(200);
+    expect(t.store.rows).toEqual([]);
+    expect(t.sentTexts[0]).not.toContain('[CONFIRM_LINK]');
+  });
+
+  it('SEC-LINK-09: P7 a contact name holding [CONFIRM_LINK]: flag off falls back to the template without it; flag on mints nothing for it', async () => {
+    const piiMap = { '[PERSON_1]': 'Bob [CONFIRM_LINK]' };
+    const off = await setup({ piiMap, enabled: false, promise: PROMISE,
+      draft: 'Hello [PERSON_1],\nPlease send the ZIP code. We can deliver by 30 Oct 2026; or confirm: [CONFIRM_LINK]\nHalcyon Logistics' });
+    expect((await off.send()).code).toBe(200);
+    expect(off.sentTexts[0]).toContain('Hello Bob,');
+    expect(off.sentTexts[0]).not.toContain('[CONFIRM_LINK]');
+
+    const on = await setup({ piiMap, draft: 'Hello [PERSON_1],\nPlease send the ZIP code.\nHalcyon Logistics' });
+    expect((await on.send()).code).toBe(200);
+    expect(on.store.rows).toEqual([]);
+    expect(on.sentTexts[0]).toContain('Hello Bob,');
+    expect(on.sentTexts[0]).not.toContain('[CONFIRM_LINK]');
+
+    const both = await setup({ piiMap });
+    both.mem.extractions[0].reply_draft = 'Hello [PERSON_1],\nPlease confirm: [CONFIRM_LINK]\nHalcyon Logistics';
+    expect((await both.send()).code).toBe(200);
+    expect(count(both.sentTexts[0], '/confirm/')).toBe(1);
+  });
+
+  it('REQ-LINK-09: P3 an operator-edited reply holding [CONFIRM_LINK] with no link to send → 409, nothing sent, no row', async () => {
+    const edited = 'Hi Bob, sorry for the delay on PO 7781. Please send the street address. We can deliver by 30 Oct 2026 or confirm at [CONFIRM_LINK].\nThanks, Ana';
+    const off = await setup({ enabled: false, promise: PROMISE });
+    const r = await off.send(edited);
+    expect(r.code).toBe(409);
+    expect(r.error).toContain('[CONFIRM_LINK]');
+    expect(off.sentTexts).toEqual([]);
+    expect(off.mem.emails[0].status).toBe('APPROVED');
+    const noService = await setup({ promise: PROMISE });
+    expect((await applyAction(noService.mem.repo, noService.id, 'send_reply', 'u1', { gmail: noService.gmail as never, allow: noService.allow },
+      { edited })).code).toBe(409);
+    expect(noService.sentTexts).toEqual([]);
+  });
+});
+
+describe('E19 save on approval, re-send failure, link URL (A17 review findings 6, 7, 8)', () => {
+  it('REQ-LINK-05: a failing save leaves the order unapproved with no approval audit row', async () => {
+    const t = await setup(); await t.send();
+    await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: START });
+    const broken = { ...t.link, links: { ...t.link.links, saveAddress: async () => { throw new Error('db down'); } } };
+    await expect(applyAction(t.mem.repo, t.id, 'approve', 'u1', undefined, { link: broken })).rejects.toThrow('db down');
+    expect(t.mem.emails[0].status).toBe('AWAITING_APPROVAL');
+    expect(t.mem.audit.filter((a) => a.action === 'approve')).toEqual([]);
+  });
+
+  it('REQ-LINK-05: an address the client already has saved is not saved twice', async () => {
+    const a = await setup(); await a.send();
+    await confirmLink(a.link, a.intake, a.tokenOf()!, { address: ADDRESS, pin: START });
+    await applyAction(a.mem.repo, a.id, 'approve', 'u1', undefined, { link: a.link });
+    expect(await a.store.links.saveAddress({ clientId: 'C025', address: { ...ADDRESS, line1: '415 summer st.' }, pin: START, emailId: 9,
+      confirmedAt: new Date(), synthetic: true })).toBe(false);
+    expect(a.store.saved).toHaveLength(1);
+  });
+
+  it('REQ-LINK-08: a Gmail failure on a re-send keeps the link the client already holds working', async () => {
+    const t = await setup(); await t.send();
+    const first = t.tokenOf()!;
+    await t.mem.repo.setStatus(t.id, 'APPROVED');
+    const broken = { sendMessage: async () => { throw new Error('gmail down'); } };
+    await expect(applyAction(t.mem.repo, t.id, 'send_reply', 'u1', { gmail: broken as never, allow: t.allow }, { link: t.link })).rejects.toThrow();
+    expect(await viewLink(t.link, first)).not.toBeNull();
+    expect(t.store.rows.map((r) => linkState(r, new Date('2026-10-29T10:00:00Z')))).toEqual(['sent', 'revoked']);
+  });
+
+  it('AC-LINK-01: the link URL is inserted literally ($ patterns in AUTH_URL are not replacement patterns)', async () => {
+    const t = await setup({ appUrl: 'https://a$&b.example' });
+    await t.send();
+    expect(t.sentTexts[0]).toContain(`https://a$&b.example/confirm/${t.tokenOf()}`);
   });
 });

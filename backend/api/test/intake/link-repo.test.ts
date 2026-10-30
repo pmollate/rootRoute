@@ -22,6 +22,8 @@ describe.skipIf(!hasDb)('E19 link store on migration 103 (needs test database)',
   afterAll(async () => {
     if (emailIds.length) {
       await query('DELETE FROM address_confirm_tokens WHERE email_id = ANY($1::int[])', [emailIds]);
+      await query("DELETE FROM audit_log WHERE actor = ANY($1::text[])", [emailIds.map((i) => `client-link:${i}`)]);
+      await query('DELETE FROM intake_extractions WHERE email_id = ANY($1::int[])', [emailIds]);
       await query("DELETE FROM saved_addresses WHERE source = 'link' AND email_id = ANY($1::int[])", [emailIds]);
       await query('DELETE FROM intake_emails WHERE id = ANY($1::int[]) AND in_reply_to IS NOT NULL', [emailIds]);
       await query('DELETE FROM intake_emails WHERE id = ANY($1::int[])', [emailIds]);
@@ -29,7 +31,7 @@ describe.skipIf(!hasDb)('E19 link store on migration 103 (needs test database)',
     await pool.end();
   });
 
-  it('REQ-LINK-08, SEC-LINK-01, SEC-LINK-02, SEC-LINK-04: the SQL store walks the thread, keeps only the hash, uses a link once and counts look-ups', async () => {
+  it('REQ-LINK-04, -05, -08, SEC-LINK-01, -02, -04: the SQL store walks the thread, keeps only the hash, confirms in one transaction, counts look-ups, saves once', async () => {
     const first = await email(null, 'a');
     const follow = await email(first, 'b');
     expect(await linkRepo.orderEmailIds(follow)).toEqual([first, follow]);
@@ -51,25 +53,50 @@ describe.skipIf(!hasDb)('E19 link store on migration 103 (needs test database)',
     await linkRepo.setReading(id, pending);
     expect((await linkRepo.byHash(hash))!.map_reading).toEqual(pending);
 
-    // Expired at `at`: refused. Live: used once; a second (racing) confirmation is refused by the WHERE clause.
-    expect(await linkRepo.markUsed(id, ADDRESS, PIN, pending.reading, new Date('2026-10-30T06:00:00Z'))).toBe(false);
-    const [a, b] = await Promise.all([linkRepo.markUsed(id, ADDRESS, PIN, pending.reading, now), linkRepo.markUsed(id, ADDRESS, PIN, null, now)]);
+    // One transaction: link used + new extraction + status + audit. Refused (nothing written) when expired, when the
+    // email is not SENT, or when a write fails; two racing confirmations → exactly one wins.
+    const x = { email_id: first, extraction: null, decision: 'ALL_CLEAR' as const, reply_draft: 'r', reply_source: 'template' as const,
+      checks: { address: null, promise: null, warehouse: null, carrier: null } };
+    const audit = { actor: `client-link:${first}`, action: 'link_confirmed', payload: { hash: 'abcdef01' } };
+    const confirm = (at: Date, over: Partial<typeof x> = {}) => linkRepo.confirm({ linkId: id, emailId: first, address: ADDRESS, pin: PIN,
+      reading: pending.reading, at, extraction: { ...x, ...over }, audit });
+    const counts = async () => (await query<{ x: number; a: number }>(
+      `SELECT (SELECT count(*)::int FROM intake_extractions WHERE email_id = $1) AS x,
+              (SELECT count(*)::int FROM audit_log WHERE actor = $2) AS a`, [first, audit.actor]))[0];
+    expect(await confirm(new Date('2026-10-30T06:00:00Z'))).toBe(false);          // expired
+    expect(await confirm(now)).toBe(false);                                        // email APPROVED, not SENT
+    await query("UPDATE intake_emails SET status = 'SENT' WHERE id = $1", [first]);
+    await expect(confirm(now, { decision: null as never })).rejects.toThrow();     // a failing write rolls back
+    expect((await linkRepo.byHash(hash))!.used_at).toBeNull();
+    expect(await counts()).toEqual({ x: 0, a: 0 });
+    const [a, b] = await Promise.all([confirm(now), confirm(now)]);
     expect([a, b].filter(Boolean)).toHaveLength(1);
     expect(await linkRepo.byHash(hash)).toMatchObject({ used_at: now, confirmed_address: ADDRESS, lat: PIN.lat, lon: PIN.lon });
+    expect(await counts()).toEqual({ x: 1, a: 1 });
+    expect((await query<{ status: string }>('SELECT status FROM intake_emails WHERE id = $1', [first]))[0].status).toBe('AWAITING_APPROVAL');
 
-    // A new link for the follow-up revokes every unused link of the thread; a used one stays used.
-    const live = await linkRepo.insert({ token_hash: hashToken(newToken()), email_id: first, issued_at: now, expires_at: new Date('2026-10-30T06:00:00Z'),
+    // A new link for the follow-up revokes every other unused link of the thread (keepId spares the new one); a used one
+    // stays used. revoke() takes one link.
+    const old = await linkRepo.insert({ token_hash: hashToken(newToken()), email_id: first, issued_at: now, expires_at: new Date('2026-10-30T06:00:00Z'),
       issued_by: 'u1', prefill: { address: {}, pin: null }, synthetic: true });
-    expect(await linkRepo.revokeUnused(await linkRepo.orderEmailIds(follow), now)).toBe(1);
+    const live = await linkRepo.insert({ token_hash: hashToken(newToken()), email_id: follow, issued_at: now, expires_at: new Date('2026-10-30T06:00:00Z'),
+      issued_by: 'u1', prefill: { address: {}, pin: null }, synthetic: true });
+    expect(await linkRepo.revokeUnused(await linkRepo.orderEmailIds(follow), now, live)).toBe(1);
     const newest = await linkRepo.newestFor([first, follow]);
-    expect([...newest.keys()]).toEqual([first]);
-    expect(newest.get(first)).toMatchObject({ id: live, revoked_at: now });
+    expect(newest.get(first)).toMatchObject({ id: old, revoked_at: now });
+    expect(newest.get(follow)).toMatchObject({ id: live, revoked_at: null });
+    await linkRepo.revoke(live, now);
+    expect((await linkRepo.newestFor([follow])).get(follow)).toMatchObject({ revoked_at: now });
     expect((await linkRepo.byHash(hash))!.revoked_at).toBeNull();
 
-    await linkRepo.saveAddress({ clientId: 'C190', address: ADDRESS, pin: PIN, emailId: first, confirmedAt: now, synthetic: true });
+    expect(await linkRepo.saveAddress({ clientId: 'C190', address: ADDRESS, pin: PIN, emailId: first, confirmedAt: now, synthetic: true })).toBe(true);
     expect((await query('SELECT client_id, label, line1, line2, city, state, zip, synthetic, source, lat, lon, email_id, confirmed_at FROM saved_addresses WHERE email_id = $1 AND source = \'link\'', [first])))
       .toEqual([{ client_id: 'C190', label: 'Confirmed by client link', ...ADDRESS, synthetic: true, source: 'link', lat: PIN.lat, lon: PIN.lon,
         email_id: first, confirmed_at: now }]);
+    // The same address again (other case, punctuation, ZIP+4) is not saved twice (REQ-LINK-05).
+    expect(await linkRepo.saveAddress({ clientId: 'C190', address: { ...ADDRESS, line1: '400 s. orange ave', zip: '32801-1234' }, pin: PIN,
+      emailId: follow, confirmedAt: now, synthetic: true })).toBe(false);
+    expect((await query("SELECT 1 FROM saved_addresses WHERE email_id = ANY($1::int[]) AND source = 'link'", [[first, follow]]))).toHaveLength(1);
   });
 
   it('AC-LINK-05, REQ-LINK-05: saved addresses keep the same order after a re-seed with a link row present (seed rows first, then link rows)', async () => {
