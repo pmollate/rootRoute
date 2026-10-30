@@ -24,7 +24,7 @@ env:
   NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
-  # Decides whether this run deploys, before it queues for the demo environment.
+  # Decides whether this run deploys, before it queues for the copilot environment.
   gate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment:
-      name: demo
+      name: copilot   # GitHub environment holding the deploy secrets and variables (30 Oct)
       url: ${{ steps.config.outputs.web_url }}
     # One deployment at a time; a newer run waits rather than cancelling one mid-migration.
     concurrency:
@@ -83,7 +83,7 @@ jobs:
       DB_SERVER: ${{ vars.DB_SERVER || format('{0}-db', vars.NAME) }}
       REFRESH_DATA: ${{ github.event_name != 'workflow_dispatch' || inputs.refresh_data }}
     steps:
-      - name: Check the demo environment is configured
+      - name: Check the copilot environment is configured
         env:
           NAME: ${{ vars.NAME }}
           HAS_CLIENT: ${{ secrets.AZURE_CLIENT_ID != '' }}
@@ -97,7 +97,7 @@ jobs:
           [ "$HAS_TENANT" = true ] || missing+=("secret AZURE_TENANT_ID")
           [ "$HAS_SUB" = true ] || missing+=("secret AZURE_SUBSCRIPTION_ID")
           if [ ${#missing[@]} -gt 0 ]; then
-            echo "::error::demo environment is missing: ${missing[*]} (see infra/setup.sh)"; exit 1
+            echo "::error::copilot environment is missing: ${missing[*]} (see infra/setup.sh)"; exit 1
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -256,13 +256,13 @@ jobs:
   # P6 (owner C): Playwright smoke test of the deployed app, every screen at phone and desktop width, read-only.
   # Its own job, so a failing check is visible without marking the deployment itself as failed.
   # P7 (NFR-AUTH-04): it signs in with the demo accounts, so it reads their password from Key Vault. Azure's OIDC trust
-  # is for the demo environment only (infra/setup.sh), hence the environment here.
+  # is for the copilot environment only (infra/setup.sh), hence the environment here.
   e2e:
     needs: [gate, deploy]
     if: github.event_name != 'workflow_dispatch' || inputs.run_e2e
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: demo
+    environment: copilot
     permissions:
       contents: read
       id-token: write   # OIDC sign-in to Azure, as in deploy
