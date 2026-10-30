@@ -42,10 +42,19 @@ describe.skipIf(!hasDb || !hasRecordings)('Ask LateLens, recorded (needs test da
     for (const b of blocked) {
       const [carrier, region] = b.lane.split(' → ');
       expect(a.answer, b.lane).toMatch(new RegExp(`\\b${carrier}\\b[^.;\\n]*${region}|${region}[^.;\\n]*\\b${carrier}\\b`));
-      expect(a.answer, b.lane).toContain(`${/(\d+)% late/.exec(b.reason)![1]}%`);
+      expect(a.answer, b.lane).toMatch(new RegExp(`\\b${/(\d+)% late/.exec(b.reason)![1]}(\\.0)?%`)); // 48% or 48.0%
     }
     expect(a.checked).toBe(true);
+    // The product shows what the data says and never decides for Halcyon (CLAUDE.md).
+    expect(a.answer).not.toMatch(/\bstop using\b|\bshould\b|\bwe recommend\b/i);
     expect({ ...(await ask(q)).json(), questionId: a.questionId }).toEqual(a);
+  });
+
+  it('AC-ASK-04: the on-time rate is written as a percentage, never as a raw fraction', async () => {
+    const a = (await ask('What is our on-time rate?')).json();
+    expect(a).toMatchObject({ checked: true, refused: false });
+    expect(a.answer).toContain('71.0%');
+    expect(a.answer).not.toMatch(/\b0\.\d{3,}/);
   });
 
   it('AC-ASK-06: every out-of-scope question gets the fixed refusal', async () => {
