@@ -38,12 +38,14 @@
   const text = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const label = { picked: 'Picked', picked_up: 'Handed to carrier', in_transit: 'In transit', out_for_delivery: 'Out for delivery', delivered: 'Delivered' };
 
+  const typedLate = {};
   async function load() {
-    const { orders } = await (await fetch('/sim/orders')).json();
+    let orders;
+    try { ({ orders } = await (await fetch('/sim/orders')).json()); } catch { return; }
     if (!orders.length) { rows.innerHTML = '<tr><td colspan="8">No orders yet. Approve an order in LateLens and click Send to WMS.</td></tr>'; return; }
     rows.innerHTML = orders.map((o) => {
       const ref = encodeURIComponent(o.orderRef);
-      const late = o.next === 'delivered' ? ` late by <input id="late-${ref}" type="number" min="0" max="30" value="0"> days` : '';
+      const late = o.next === 'delivered' ? ` late by <input id="late-${ref}" data-order="${text(o.orderRef)}" type="number" min="0" max="30" value="${Number(typedLate[o.orderRef]) || 0}"> days` : '';
       return `<tr>
         <td>${text(o.wmsOrderId)}</td><td>${text(o.orderRef)}</td><td>${text(o.clientId)}</td>
         <td>${text(o.warehouseId)} → ${text([o.destination?.city, o.destination?.state].filter(Boolean).join(', '))}</td>
@@ -54,6 +56,8 @@
       </tr>`;
     }).join('');
   }
+
+  rows.addEventListener('input', (e) => { if (e.target.dataset?.order) typedLate[e.target.dataset.order] = e.target.value; });
 
   rows.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-ref]');
@@ -69,7 +73,7 @@
   });
 
   load();
-  setInterval(load, 5000);
+  setInterval(() => { const a = document.activeElement; if (!(a?.tagName === 'INPUT' && rows.contains(a))) load(); }, 5000);
 </script>
 </body>
 </html>

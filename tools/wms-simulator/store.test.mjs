@@ -38,3 +38,17 @@ test('a step is stamped now, never before the last step; a late delivery lands N
   const past = { ...ORDER, promiseDate: '2026-10-23', steps: [{ event: 'out_for_delivery', ts: '2026-10-30 15:15' }] };
   assert.equal(stepTs(past, 'delivered', 2, '2026-10-30 15:20'), '2026-10-30 15:15');
 });
+
+test('a reused orderRef with different content replaces the stale record (201, steps cleared); an identical resend keeps its steps', () => {
+  const orders = [];
+  receive(orders, ORDER, '2026-10-30 09:00');
+  orders[0].steps.push({ event: 'picked', ts: '2026-10-30 09:10' });
+  assert.deepEqual(receive(orders, { ...ORDER }, '2026-10-30 09:20'), { status: 200, body: { wmsOrderId: 'WMS-000042' } });
+  assert.equal(orders[0].steps.length, 1);
+  const changed = { ...ORDER, clientId: 'C026', items: [{ sku: 'ZZ-1', qty: 3 }] };
+  assert.deepEqual(receive(orders, changed, '2026-10-30 09:30'), { status: 201, body: { wmsOrderId: 'WMS-000042' } });
+  assert.equal(orders.length, 1);
+  assert.deepEqual(orders[0].steps, []);
+  assert.equal(orders[0].clientId, 'C026');
+  assert.equal(orders[0].receivedAt, '2026-10-30 09:30');
+});

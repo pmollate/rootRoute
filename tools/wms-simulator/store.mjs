@@ -22,11 +22,19 @@ export function addDays(date, n) {
 const valid = (o) => o && wmsOrderId(o.orderRef) && typeof o.warehouseId === 'string' && typeof o.carrier === 'string'
   && /^\d{4}-\d{2}-\d{2}$/.test(o.promiseDate ?? '') && Array.isArray(o.items) && o.items.length > 0;
 
+const sameContent = (a, b) => ['clientId', 'warehouseId', 'carrier', 'promiseDate', 'items']
+  .every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]));
+
 /** Design §4: a new order is 201; the same orderRef again is 200 with the same number (LateLens may retry). */
 export function receive(orders, order, now) {
   if (!valid(order)) return { status: 400, body: { error: 'invalid order' } };
   const id = wmsOrderId(order.orderRef);
-  if (orders.some((o) => o.orderRef === order.orderRef)) return { status: 200, body: { wmsOrderId: id } };
+  const held = orders.findIndex((o) => o.orderRef === order.orderRef);
+  if (held >= 0) {
+    // orders.json outlives a LateLens database reset, so email:1 may come back as a different order: replace the stale one.
+    if (sameContent(orders[held], order)) return { status: 200, body: { wmsOrderId: id } };
+    orders.splice(held, 1);
+  }
   orders.push({ ...order, wmsOrderId: id, receivedAt: now, steps: [] });
   return { status: 201, body: { wmsOrderId: id } };
 }
