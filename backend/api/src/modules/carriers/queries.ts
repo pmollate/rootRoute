@@ -113,7 +113,7 @@ export async function emailFacts(id: number): Promise<EmailFacts | null> {
   const overrides = await query<{ from: string; to: string; reason: string; user: string; at: string }>(
     `SELECT from_carrier AS "from", to_carrier AS "to", reason, user_name AS "user", ${ts('created_at')} AS at
        FROM override_log WHERE order_ref = ANY($1) ORDER BY id`, [refs]);
-  const events = await orderEventRows(refs);
+  const events = await orderEventRows(refs, { visibleOnly: true });
   const a = x?.extraction?.address;
   return {
     id: e.id, clientId: e.client_id, tier: e.tier, status: e.status, receivedAt: e.received_at,
@@ -127,14 +127,21 @@ export async function emailFacts(id: number): Promise<EmailFacts | null> {
 
 // ---- Order events (design §7): the one table this module writes for new orders ----
 
-export const orderEventRows = (orderRefs: string[]) => query<OrderEventRow>(
-  `SELECT event, ${ts('ts')} AS ts, detail FROM order_events WHERE order_ref = ANY($1) ORDER BY ts, id`, [orderRefs]);
+/**
+ * Every row by default: the writer's order and repeat check must see steps not shown yet (auto-advance design §7).
+ * `visibleOnly` leaves those out, for the journey.
+ */
+export const orderEventRows = (orderRefs: string[], o: { visibleOnly?: boolean } = {}) => query<OrderEventRow>(
+  `SELECT event, ${ts('ts')} AS ts, detail FROM order_events
+    WHERE order_ref = ANY($1)${o.visibleOnly ? ' AND visible_at <= now()' : ''} ORDER BY ts, id`, [orderRefs]);
 
 /** False when the (order_ref, event) row already exists: two racing requests write one row. */
-export async function insertOrderEvent(orderRef: string, e: OrderEventRow): Promise<boolean> {
+export async function insertOrderEvent(orderRef: string, e: OrderEventRow, visibleAt?: Date): Promise<boolean> {
   const rows = await query<{ id: number }>(
-    `INSERT INTO order_events (order_ref, event, ts, detail) VALUES ($1, $2, $3::timestamp, $4)
-     ON CONFLICT (order_ref, event) DO NOTHING RETURNING id`, [orderRef, e.event, e.ts, JSON.stringify(e.detail)]);
+    `INSERT INTO order_events (order_ref, event, ts, detail, visible_at)
+     VALUES ($1, $2, $3::timestamp, $4, coalesce($5::timestamptz, now()))
+     ON CONFLICT (order_ref, event) DO NOTHING RETURNING id`,
+    [orderRef, e.event, e.ts, JSON.stringify(e.detail), visibleAt?.toISOString() ?? null]);
   return rows.length === 1;
 }
 

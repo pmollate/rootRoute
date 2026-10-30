@@ -23,12 +23,12 @@ export const logOverride = insertOverride;
  * Design §7: the one writer of order_events, for the events API (the simulated WMS and carriers) and for intake's
  * send_to_wms (`wms_entered`). The order and repeat rules live here, so both callers get them.
  */
-export async function recordOrderEvent(o: { orderRef: string; event: OrderEvent; ts?: string; detail?: Record<string, unknown> }):
-  Promise<EventCheck & { ts: string }> {
+export async function recordOrderEvent(o: { orderRef: string; event: OrderEvent; ts?: string; detail?: Record<string, unknown>;
+  visibleAt?: Date }): Promise<EventCheck & { ts: string }> {
   const ts = o.ts ?? localNow();
   const check = checkEvent(await orderEventRows([o.orderRef]), o.event, ts);
   if (check.code !== 201) return { ...check, ts };
-  if (await insertOrderEvent(o.orderRef, { event: o.event, ts, detail: o.detail ?? {} })) return { code: 201, ts };
+  if (await insertOrderEvent(o.orderRef, { event: o.event, ts, detail: o.detail ?? {} }, o.visibleAt)) return { code: 201, ts };
   // Another request wrote it between the read and the insert: answer as if this one came second.
   return { ...checkEvent(await orderEventRows([o.orderRef]), o.event, ts), ts };
 }
