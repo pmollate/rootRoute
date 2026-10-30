@@ -29,6 +29,19 @@ describe('Order emails', () => {
     expect(await screen.findByText('No all-clear orders are waiting for approval.')).toBeTruthy();
   });
 
+  // Live on 31 Oct: an email opened while the API was still reading it stayed "Not read yet" until the page was reloaded.
+  it('an open email that is still being read is fetched again until it is decided', async () => {
+    const reading = detail(60, { email: { ...detail(60).email, status: 'RECEIVED' }, decision: null, extraction: null, replyDraft: null,
+      checks: { address: null, promise: null, warehouse: null, carrier: null } });
+    const routes: Record<string, unknown> = { '/api/intake': { emails: [item(60, { status: 'RECEIVED', decision: null })] }, '/api/intake/60': reading };
+    mockApi(routes);
+    renderScreen(<IntakeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open email 60' }));
+    await screen.findAllByText(/Not read yet|No items read/);
+    routes['/api/intake/60'] = detail(60); // the API has finished reading it
+    expect(await screen.findByText('HX-447', {}, { timeout: 5000 })).toBeTruthy();
+  }, 10000);
+
   it('AC-INT-10 (UI): an email from an unknown sender says in the order summary that it was not read', async () => {
     const unknown = detail(50, {
       email: { ...detail(50).email, from: 'buyer@unknown-co.example', clientId: null, redactedBody: null },

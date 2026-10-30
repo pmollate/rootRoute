@@ -417,6 +417,23 @@ export function IntakeScreen() {
   const searchRef = useRef<HTMLInputElement>(null);
   const seen = useRef<Set<number> | null>(null);
   const d = detail.data && detail.data.email.id === selected ? detail.data : undefined;
+  // An email opened while the API is still reading it (RECEIVED, no decision yet; a Gmail check or the scheduled poll
+  // may be working on it) is fetched again every 3 s for up to 2 minutes, so it does not stay "Not read yet".
+  // WAITING (the model or PII service was down) is left alone: the next check retries it.
+  const reading = d !== undefined && d.decision === null && d.email.status === 'RECEIVED';
+  const reloadDetail = useRef(detail.reload);
+  reloadDetail.current = detail.reload;
+  useEffect(() => {
+    if (!reading) return;
+    let tries = 0;
+    const t = setInterval(() => {
+      tries += 1;
+      if (tries > 40) clearInterval(t);
+      else { reloadDetail.current(); list.reload(); }
+    }, 3000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reading, selected]);
   const emails = list.data?.emails ?? [];
   const threads = toThreads(emails);
   // The reply the operator edits in place: a saved draft or the AI's draft until they type, kept per email.
