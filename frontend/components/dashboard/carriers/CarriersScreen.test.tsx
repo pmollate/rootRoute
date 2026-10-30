@@ -104,3 +104,22 @@ describe('Carriers', () => {
     expect(fetch.mock.calls.some(([u]) => String(u).endsWith('/api/overrides'))).toBe(false);
   });
 });
+
+describe('Carriers backtest periods (REQ-DATA-14, AC-DATA-21)', () => {
+  afterEach(() => { cleanup(); sessionStorage.clear(); });
+
+  it('AC-DATA-21: the train and test periods come from the API window', async () => {
+    mockApi({ ...ROUTES, '/api/overview': { benchmark: 0.94, windowFrom: '2026-04-01', windowTo: '2026-09-25', recentFrom: '2026-08-01' } });
+    renderScreen(<CarriersScreen />);
+    expect(await screen.findByText('Backtest: rules trained Apr–Jul, tested Aug–Sep')).toBeTruthy();
+    expect(screen.getByText('Train · Apr–Jul')).toBeTruthy();
+    expect(screen.getByText('Test · Aug–Sep')).toBeTruthy();
+  });
+
+  it('AC-DATA-21: without the window, neutral period names and no fixed months', async () => {
+    mockApi(ROUTES);
+    renderScreen(<CarriersScreen />);
+    expect(await screen.findByText('Backtest: rules trained on earlier months, tested on the last two')).toBeTruthy();
+    expect(screen.queryByText(/Apr–Jul|Aug–Sep/)).toBeNull();
+  });
+});

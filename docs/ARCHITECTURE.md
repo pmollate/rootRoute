@@ -168,7 +168,8 @@ by `infra/setup.sh` (az CLI); rollback is redeploying the previous commit and re
   incremental or windowed analysis yet (`SPEC-data-upload.md` §3, U2 and U8).
 - **CSV input.** The analysis reads the supplied CSVs from the repo; a database source, uploads and a data store are
   specified, not built ([`SPEC-data-upload.md`](SPEC-data-upload.md) §2, §4).
-- **Fixed constants from the supplied period.** Bad lanes (`core/load.py`), the backtest split (`carriers/backtest.py`)
-  and the Aug–Sep segment are fixed to the supplied dates (`SPEC-data-upload.md` §3, U4, U5).
+- **Fixed constants from the supplied period.** Bad lanes (`core/load.py`) are fixed to the supplied data
+  (`SPEC-data-upload.md` §3, U4). The backtest split and the `aug_sep` segment are the window's last two calendar months
+  (`core/window.py`), and the dashboard's data line is read from the API (ROADMAP L7, fixed 30 Oct).
 - **Single instance state.** The API's table cache and the assistant's rate limits live in process memory (SPEC
   v0.12 note "rate limits are per process"; `core/cache.ts`), so scaling out would need a shared store.

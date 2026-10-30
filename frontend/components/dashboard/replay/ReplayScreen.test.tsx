@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { mockApi, renderScreen } from '../test-utils';
 import { ReplayScreen } from './ReplayScreen';
 
@@ -57,5 +57,23 @@ describe('Replay', () => {
     expect(await screen.findByText('At risk')).toBeTruthy();
     expect(screen.queryByText(/sign|vendor|pilot/i)).toBeNull();
     cleanup();
+  });
+});
+
+describe('Replay recent segment (REQ-DATA-14, AC-DATA-21)', () => {
+  afterEach(() => cleanup());
+  const base = { '/api/replay?segment=all': { segment: 'all', scenarios: [] }, '/api/accounts': { accounts: [] }, '/api/attribution': { causes: [] } };
+
+  it('AC-DATA-21: the aug_sep segment is labelled with the months the API reports', async () => {
+    mockApi({ ...base, '/api/overview': { deliveries: 1234, windowFrom: '2026-11-03', windowTo: '2027-02-02', recentFrom: '2027-01-01' } });
+    renderScreen(<ReplayScreen />);
+    expect(await screen.findByRole('button', { name: 'Jan–Feb 2027' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Aug–Sep' })).toBeNull();
+  });
+
+  it('AC-DATA-21: without the window the segment has a neutral name', async () => {
+    mockApi(base);
+    renderScreen(<ReplayScreen />);
+    expect(await screen.findByRole('button', { name: 'Last two months' })).toBeTruthy();
   });
 });

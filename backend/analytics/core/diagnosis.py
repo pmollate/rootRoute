@@ -2,6 +2,7 @@
 import pandas as pd
 
 from analytics.core.load import FLAGS
+from analytics.core.window import recent_start, window_info
 
 LABELS = {
     "f_addr": "Incomplete address at intake",
@@ -31,7 +32,8 @@ def segments(d: pd.DataFrame) -> dict[str, pd.Series]:
         "all": pd.Series(True, index=d.index),
         "email": d.order_channel.eq("Email"),
         "at_risk": d.account_status.eq("threatening_to_leave"),
-        "aug_sep": d.order_received_ts.dt.month.ge(8),
+        # Key kept for the API contract; the period is the window's last two calendar months (REQ-DATA-14).
+        "aug_sep": d.order_received_ts.ge(recent_start(d)),
     }
 
 
@@ -77,6 +79,10 @@ def kpis(d: pd.DataFrame, clients: pd.DataFrame, penalties: pd.DataFrame) -> pd.
         "at_risk_revenue_usd": at_risk.annual_revenue_usd.sum(),
         "pre_pickup_share": (late.f_addr | late.f_stock | late.f_cutoff).mean(),
     }
+    # The data line (REQ-DATA-12): counts as numbers, days as epoch milliseconds (UTC midnight) so `value` stays a number.
+    info = window_info(d)
+    rows.update({k: info[k].value // 10**6 for k in ("window_from", "window_to", "recent_from")})
+    rows.update({k: info[k] for k in ("warehouses", "carriers")})
     return pd.DataFrame({"key": list(rows), "value": [float(v) for v in rows.values()]})
 
 
