@@ -92,8 +92,8 @@ so intake never writes `order_events` itself.
 - Auth: header `Authorization: Bearer <WMS_EVENTS_TOKEN>`. In `PERMISSIONS` it is `'public'` with its own token, as
   `POST /api/mcp` is. `401` without a valid token; `503` when `WMS_EVENTS_TOKEN` is unset.
 - `:ref` is `email:<id>`; anything else is `400`.
-- Body: `{ "event": "picked" | "picked_up" | "in_transit" | "out_for_delivery" | "delivered", "ts"?: ISO-8601 }`.
-  `ts` defaults to the server's now. It may be set in the future (to make a delivery late) but never earlier than the
+- Body: `{ "event": "picked" | "picked_up" | "in_transit" | "out_for_delivery" | "delivered", "ts"?: "YYYY-MM-DD HH:mm" }`.
+  `ts` defaults to the server's local now (the simulator always sends it). It may be set in the future (to make a delivery late) but never earlier than the
   previous event's `ts`.
 - Order: `wms_entered` → `picked` → `picked_up` → `in_transit` → `out_for_delivery` → `delivered`. Each event needs
   the one before it. No step is skipped.
@@ -113,7 +113,8 @@ Each accepted call logs `{ emailId, event }` (NFR-03).
 ## 7. Data and ownership
 
 - **`order_events`**, migration `backend/db/migrations/301_order_events.sql` (the name SPEC-order-workflow §7 already
-  gives): `id serial`, `order_ref text`, `event text` (the six values above, checked), `ts timestamptz`,
+  gives): `id serial`, `order_ref text`, `event text` (the six values above, checked), `ts timestamp` (local time,
+  no zone, like every other timestamp in the API; it travels as `YYYY-MM-DD HH:mm`),
   `detail jsonb`, `synthetic boolean NOT NULL DEFAULT true`, `created_at timestamptz DEFAULT now()`, unique
   (`order_ref`, `event`).
 - **Writer:** the Carriers journey module only, through one function `recordOrderEvent()` in
@@ -137,11 +138,15 @@ Each accepted call logs `{ emailId, event }` (NFR-03).
 
 - The first stage without an event, after stage 9, is `current`, and later ones are `not_reached`.
 - Stages 9–13 have source `synthetic`, and the page keeps its note that they are simulated (REQ-JRN-08).
-- The `asOf` filter (REQ-JRN-06) applies to these events too, since a `ts` can be in the future.
+- `GET /api/journey/:ref` has no `asOf` parameter yet, so "by the end of the promise date" is judged against the
+  server's current local time. An event with a future `ts` shows as recorded. Adding `asOf` stays REQ-JRN-06 work.
+- The page's note "Stages 10 to 13 show once the simulated warehouse and carrier events are built" becomes "Stages 9 to
+  13 come from the simulated WMS and carriers: synthetic data".
 
 ## 9. Simulator app (`tools/wms-simulator/`)
 
-- Node + Fastify, one static HTML page, no build step. `npm run dev:sim` at the root starts it on port 4100.
+- Plain Node (`node:http`, built-in `fetch`, no dependencies, so no `npm install`), one static HTML page, no build
+  step. `npm run dev:sim` at the root starts it on port 4100 with `node --env-file=.env`.
 - Reads `WMS_TOKEN` (to check incoming orders), `WMS_EVENTS_TOKEN` and `LATELENS_API_URL` (default
   `http://localhost:3001`) from the root `.env`.
 - `POST /orders`: stores the order in `tools/wms-simulator/data/orders.json` (gitignored), assigns
