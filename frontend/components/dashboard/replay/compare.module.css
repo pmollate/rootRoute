@@ -1,0 +1,21 @@
+/* Today vs With LateLens (D11): the Replay screen's compare card. */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; margin: 0 0 12px; }
+.title { font-family: var(--font-display); font-size: 1rem; font-weight: 700; margin: 0; }
+.sub { margin: 2px 0 0; font-size: 0.85rem; color: var(--ink-2); }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+.select { font: inherit; font-size: 0.82rem; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+
+.delta { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 6px; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gain { font-size: 0.78rem; font-weight: 600; color: var(--good); white-space: nowrap; }
+.loss { font-size: 0.78rem; font-weight: 600; color: var(--bad); white-space: nowrap; }
+
+.wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.table th, .table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.table thead th { font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+.table tbody th { font-weight: 600; white-space: nowrap; }
+.table tbody th > span { margin-left: 6px; }
+.right { text-align: right !important; }
+.note { margin: 10px 0 0; font-size: 0.8rem; color: var(--ink-2); }
