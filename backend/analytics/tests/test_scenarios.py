@@ -80,6 +80,7 @@ def test_ac_rep_06_programme_waterfall(results):
 
 
 def test_cause_attribution_sums_to_lateness(d):
+    """AC-DIAG-07: points lost per cause add up to the lateness and match 7.6 / 7.0 / 5.6 / 5.6 / 3.2."""
     from analytics.core.scenarios import cause_attribution
     a = cause_attribution(d).set_index("cause").points_lost
     assert a.sum() == pytest.approx(d.late.mean(), abs=1e-9)
