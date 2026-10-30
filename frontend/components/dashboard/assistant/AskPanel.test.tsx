@@ -1,8 +1,10 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SESSION_ENDED } from '@/lib/api';
 import { mockApi } from '../test-utils';
 import { AskPanel } from './AskPanel';
+import { ASK_SESSION_ENDED } from './useAsk';
+
+vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/carriers' }));
 
 const answer = (text: string, over: object = {}) => ({ questionId: 'q1', answer: text, refused: false, checked: true,
   sources: [{ tool: 'overview', args: {}, result: { onTimeRate: 0.71 } }], toolCalls: 1, skipped: [], ...over });
@@ -70,7 +72,7 @@ describe('Ask LateLens panel (D10)', () => {
     expect(await screen.findByText('Figures not checked')).toBeTruthy();
   });
 
-  it('AC-SEC-ASK-01: a question over 500 characters is cut at 500 and never longer reaches the API', async () => {
+  it('SEC-ASK-01 (panel side): a question over 500 characters is cut at 500 and never longer reaches the API', async () => {
     const fetch = mockApi({ '/api/assistant': answer('ok') });
     render(<AskPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Ask LateLens' }));
@@ -84,7 +86,7 @@ describe('Ask LateLens panel (D10)', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('AC-SEC-ASK-02: 429 says to wait; 503 says not available; no guess shown', async () => {
+  it('SEC-ASK-02 and AC-ASK-10 (panel side): 429 says to wait; 503 says not available; no guess shown', async () => {
     failWith(429, 'rate_limited');
     render(<AskPanel />);
     askIt('What is our on-time rate?');
@@ -96,11 +98,55 @@ describe('Ask LateLens panel (D10)', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('Ask LateLens is not available right now.');
   });
 
-  it('REQ-AUTH-11: an ended session says so and keeps the question', async () => {
+  it('REQ-AUTH-11, SEC-ASK-03: an ended session says the conversation is not kept, links to sign-in, keeps the question', async () => {
     failWith(401, 'session_expired');
     render(<AskPanel />);
     askIt('What is our on-time rate?');
-    expect((await screen.findByRole('alert')).textContent).toBe(SESSION_ENDED);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain(ASK_SESSION_ENDED);
+    expect(ASK_SESSION_ENDED).toMatch(/not kept/);
+    expect(screen.getByRole('link', { name: 'Sign in again' }).getAttribute('href')).toBe('/login?expired=1&next=%2Fdashboard%2Fcarriers');
     expect((screen.getByLabelText('Your question') as HTMLTextAreaElement).value).toBe('What is our on-time rate?');
+  });
+
+  it('REQ-ASK-04: sources are open for an unchecked answer, closed for a checked one', async () => {
+    mockApi({ '/api/assistant': answer('I could not check every figure.', { checked: false }) });
+    const { container } = render(<AskPanel />);
+    askIt('What is our on-time rate?');
+    await screen.findByText('Figures not checked');
+    expect(container.querySelector('details')!.open).toBe(true);
+    cleanup();
+    mockApi({ '/api/assistant': answer('On-time is 71.0%.') });
+    const r = render(<AskPanel />);
+    askIt('What is our on-time rate?');
+    await screen.findByText('On-time is 71.0%.');
+    expect(r.container.querySelector('details')!.open).toBe(false);
+  });
+
+  it('REQ-ASK-01 (accessibility): focus goes to the box on open; Escape closes and returns focus; answers are a live region', () => {
+    render(<AskPanel />);
+    const toggle = screen.getByRole('button', { name: 'Ask LateLens' });
+    fireEvent.click(toggle);
+    const box = screen.getByLabelText('Your question');
+    expect(document.activeElement).toBe(box);
+    expect(toggle.getAttribute('aria-controls')).toBe(screen.getByRole('region', { name: 'Ask LateLens' }).id);
+    expect(screen.getByRole('list').getAttribute('aria-live')).toBe('polite');
+    expect(document.getElementById(box.getAttribute('aria-describedby')!)!.textContent).toBe('0/500');
+    fireEvent.keyDown(box, { key: 'Escape' });
+    expect(screen.queryByRole('region', { name: 'Ask LateLens' })).toBeNull();
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it('REQ-ASK-01: Enter sends the question; Shift+Enter does not', async () => {
+    const fetch = mockApi({ '/api/assistant': answer('On-time is 71.0%.') });
+    render(<AskPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Ask LateLens' }));
+    const box = screen.getByLabelText('Your question');
+    fireEvent.change(box, { target: { value: 'What is our on-time rate?' } });
+    fireEvent.keyDown(box, { key: 'Enter', shiftKey: true });
+    expect(fetch).not.toHaveBeenCalled();
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(await screen.findByText('On-time is 71.0%.')).toBeTruthy();
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

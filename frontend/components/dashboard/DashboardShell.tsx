@@ -13,6 +13,7 @@ import { BRAND } from '@/config/copy';
 import { MORE, ORDERS, SCREENS } from '@/config/dashboard';
 import { canOpen, type SessionUser } from '@/lib/auth/roles';
 import { AskPanel } from './assistant/AskPanel';
+import { AssistantFlag } from './assistant/AssistantFlag';
 import { ReportsMenu } from './ReportsMenu';
 import { Pill } from './ui';
 import s from './shell.module.css';
@@ -38,7 +39,8 @@ const Icon = ({ children }: { children: ReactNode }) => (
  * and the signed-in user: REQ-AUTH-08, -09); pages run full width. `user` is null when nobody is signed in
  * (AUTH_REQUIRED=off). Navigation: Orders, a Dashboard menu of the report screens, Labs, Settings (config/dashboard.ts).
  * `assistant` (ASK_ASSISTANT=on, read on the server by app/dashboard/layout.tsx) adds the Ask LateLens panel to every
- * screen (D10, REQ-ASK-01); off, there is no button (REQ-ASK-08).
+ * screen but Overview, whose Router answers follow-ups with the same assistant (one assistant per screen); off, there is
+ * no button (REQ-ASK-08). The flag reaches the screens through `AssistantFlag`, never a NEXT_PUBLIC_ variable.
  */
 export function DashboardShell({ children, user = null, assistant = false }: { children: ReactNode; user?: SessionUser | null; assistant?: boolean }) {
   const path = usePathname();
@@ -46,6 +48,8 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
   const screens = SCREENS.filter((sc) => canOpen(user?.roles ?? null, sc.href));
   const orders = screens.find((sc) => sc.href === ORDERS.href);
   const reports = screens.filter((sc) => sc !== orders);
+  // Overview has its own assistant (Router); /dashboard only redirects, but is covered in case it ever renders Overview.
+  const dock = assistant && path !== '/dashboard' && !path.startsWith('/dashboard/overview');
   const current = [...screens, ...MORE].find((sc) => path.startsWith(sc.href))?.href;
   // One list for the phone drawer, in bar order, with the reports under a "Dashboard" heading.
   const drawer = [
@@ -89,7 +93,9 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
           <UserMenu user={user} />
         </div>
       </header>
-      <main className={s.main}><UserProvider user={user}>{children}</UserProvider>{assistant && <AskPanel />}</main>
+      <main className={s.main}>
+        <UserProvider user={user}><AssistantFlag on={assistant}>{children}</AssistantFlag></UserProvider>{dock && <AskPanel />}
+      </main>
       <footer className={s.foot}>
         <p>Computed from the supplied Halcyon dataset · 48,340 deliveries · Apr–Sep 2026 · 5 sites · 6 carriers.</p>
         <p><Pill tone="synthetic">Synthetic</Pill></p>

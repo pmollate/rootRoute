@@ -109,22 +109,47 @@ test.describe('figures match the SPEC', () => {
 });
 
 // D10 (AC-ASK-01, AC-UI-03): with ASK_ASSISTANT=on for the run (it must match the deployed web app's setting), every
-// screen has the Ask LateLens button at phone width, and opening the panel adds no sideways scrolling. No question is
-// asked: that would call the live model.
+// dashboard screen but Overview has the Ask LateLens button at phone width, and the open panel stays inside the 375 px
+// screen. On Overview, Router is the one assistant: no Ask LateLens button, and Router's launcher and send button are
+// clickable (trial clicks). No question is sent: that would call the live model.
+const ASK_SCREENS = [
+  ...SCREENS.filter((sc) => sc.path !== '/dashboard/overview'),
+  { path: '/dashboard/complaints', title: 'Complaints' },
+  { path: '/dashboard/labs', title: 'Labs' },
+  { path: '/dashboard/settings', title: 'Settings' },
+];
+
 test.describe('Ask LateLens panel', () => {
   test.skip(process.env.ASK_ASSISTANT !== 'on', 'set ASK_ASSISTANT=on to check the panel');
   test.skip(({ viewport }) => (viewport?.width ?? 0) > 375, 'checked at 375 px');
 
-  for (const s of SCREENS) {
-    test(`${s.title}: Ask LateLens opens with no sideways scrolling`, async ({ page }) => {
+  for (const s of ASK_SCREENS) {
+    test(`${s.title}: Ask LateLens opens inside the screen`, async ({ page }) => {
       const errors = await open(page, s.path);
       const button = page.getByRole('button', { name: 'Ask LateLens' });
       await expect(button).toBeVisible();
       await button.click();
-      await expect(page.getByRole('region', { name: 'Ask LateLens' })).toBeVisible();
+      const panel = page.getByRole('region', { name: 'Ask LateLens' });
+      await expect(panel).toBeVisible();
+      // The dock is position: fixed, so it never widens the page; check its own box against the 375 px screen.
+      const box = (await panel.boundingBox())!;
+      expect(box.x, 'panel starts off the left edge').toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, 'panel runs off the right edge').toBeLessThanOrEqual(375);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       expect(overflow, 'page is wider than the screen with the panel open').toBeLessThanOrEqual(0);
       expect(errors).toEqual([]);
     });
   }
+
+  test('Overview: only Router shows; its launcher and send button can be clicked', async ({ page }) => {
+    const errors = await open(page, '/dashboard/overview');
+    await expect(page.getByRole('button', { name: 'Ask LateLens' })).toHaveCount(0);
+    const launcher = page.getByRole('button', { name: 'Open Router' });
+    await launcher.click({ trial: true });
+    await launcher.click();
+    const router = page.getByRole('region', { name: 'Router' });
+    await router.getByLabel('Ask a follow-up').fill('What is our on-time rate?');
+    await router.getByRole('button', { name: 'Send' }).click({ trial: true });
+    expect(errors).toEqual([]);
+  });
 });
