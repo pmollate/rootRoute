@@ -28,12 +28,15 @@ itself runs in CI.
 | Credential | Local | Azure |
 |---|---|---|
 | Postgres connection string | `.env` (`DATABASE_URL`) | Key Vault secret, read by the API through a Key Vault reference |
-| Azure OpenAI, Language, Maps keys | `.env` | Key Vault references |
+| Azure OpenAI, Language, Maps keys; Gmail OAuth client and refresh token; provider choices | `.env` | Secrets of the GitHub environment `copilot` (encrypted, masked in logs, readable only by jobs that run in that environment). CD copies them into the API's App Service settings through a private temp file, never the command line (`cd.yml`, "Give the API its version, AI, map and Gmail settings") |
 | Sign-in secrets (`AUTH_SECRET`, `INTERNAL_AUTH_SECRET`, Entra client secret) | `.env`, filled by `npm run demo-users` | Key Vault, written by `infra/setup-auth.sh` |
 | Demo account passwords | Only a hash in `AUTH_DEMO_USERS`; the password is printed once | Hash in Key Vault; CD reads the e2e password from Key Vault |
-| Azure access from CD | — | GitHub OIDC federated credential; no stored Azure password in GitHub |
+| Azure access from CD | — | GitHub OIDC federated credential; no stored Azure password in GitHub. The `copilot` environment holds only the client, tenant and subscription ids |
 
-`.env.example` holds names and safe defaults only.
+`.env.example` holds names and safe defaults only. Non-secret settings per environment are in `config/environments/`.
+GitHub also has `dev` and `test` environments; they hold nothing and no workflow uses them (CI tests run with
+recorded answers and their own Postgres service, so they need no secret). Next step: move the `copilot` AI and Gmail
+secrets into Key Vault and reference them from App Service, so every production secret has one home.
 
 ## 3. Who can do what (application)
 

@@ -146,11 +146,13 @@ go in these files.
 |---|---|---|---|---|
 | `development` | A developer's machine | shell → root `.env` (local secrets, gitignored) → `development.env` | `latelens` (Docker) | recorded, or Azure when keys are in `.env` |
 | `test` | `npm test`, CI | shell / CI env → `test.env` → root `.env` | `latelens_test` (Docker or CI service) | recorded only; inbox polling off |
-| `production` | Azure App Service `rootroute01-*` | App Service app settings (Key Vault references, set by `infra/setup.sh`, `setup-auth.sh`, `cd.yml`) → `production.env` (shipped in both packages) | Azure Postgres | Azure OpenAI |
+| `production` | Azure App Service `rootroute01-*`, deployed by CD in the GitHub environment `copilot` | App Service app settings → `production.env` (shipped in both packages). Secrets: Key Vault references for the database, API key and sign-in (`infra/setup.sh`, `setup-auth.sh`); AI, Maps and Gmail secrets from the `copilot` environment, copied in by `cd.yml` | Azure Postgres | Azure OpenAI |
 
 `APP_ENV` picks the file; without it, `NODE_ENV` does (`production`, `test`, else `development`). The API
 (`core/config.ts`), the web app (`next.config.mjs`) and the pipeline (`analytics/core/db.py`) load them the same way;
-`backend/api/test/env-config.test.ts` checks the choice, the order and that no file holds a secret.
+`backend/api/test/env-config.test.ts` checks the choice, the order and that no file holds a secret. The GitHub
+environment `copilot` is production's deploy environment (Azure's OIDC trust names it, so renaming it would break the
+Azure sign-in); the `dev` and `test` GitHub environments are empty, because CI needs no secret.
 
 ## 5. Decision log
 
