@@ -61,12 +61,22 @@ describe('E19 link rules', () => {
     expect(iso(linkExpiry('2026-10-29 09:00', at('2026-10-29T13:30:00Z'), 4, NY))).toBe('2026-10-29T17:30:00.000Z');
   });
 
-  it("a local time converts to its instant with the zone's own daylight-saving rules", () => {
+  it("SEC-LINK-02: a local time converts to its instant with the zone's own daylight-saving rules", () => {
     expect(localToInstant('2026-10-30 06:00', 'UTC').toISOString()).toBe('2026-10-30T06:00:00.000Z');
     expect(localToInstant('2026-10-30 06:00', 'America/Chicago').toISOString()).toBe('2026-10-30T11:00:00.000Z');
     expect(localToInstant('2026-10-31 08:00', NY).toISOString()).toBe('2026-10-31T12:00:00.000Z'); // EDT
     expect(localToInstant('2026-11-01 08:00', NY).toISOString()).toBe('2026-11-01T13:00:00.000Z'); // EST
     expect(localToInstant('2026-03-08 08:00', NY).toISOString()).toBe('2026-03-08T12:00:00.000Z'); // EDT again
+    expect(localToInstant('2026-03-08 02:30', NY).toISOString()).toBe('2026-03-08T07:30:00.000Z'); // gap: 03:30 EDT
+    expect(localToInstant('2026-11-01 01:30', NY).toISOString()).toBe('2026-11-01T05:30:00.000Z'); // repeated: first (EDT)
+  });
+
+  it('AC-SEC-LINK-10: address text with CR/LF or other control characters is refused; line2 may be left out', () => {
+    for (const bad of [{ line1: '1 Main St\r\nBcc: x@y' }, { city: 'Orlando\u0000' }, { line2: 'Apt\n2' }]) {
+      expect(ConfirmBody.safeParse({ address: { ...ADDRESS, ...bad }, pin: START }).success, JSON.stringify(bad)).toBe(false);
+    }
+    const { line2: _omit, ...noLine2 } = ADDRESS as typeof ADDRESS & { line2?: unknown };
+    expect(ConfirmBody.parse({ address: noLine2, pin: START }).address.line2).toBeNull();
   });
 
   it('AC-LINK-03: 600 m or a changed ZIP or no start pin needs a second Confirm; 400 m with the same ZIP does not', () => {

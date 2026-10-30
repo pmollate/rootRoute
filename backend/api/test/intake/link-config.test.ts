@@ -21,9 +21,10 @@ describe('E19 settings (REQ-LINK-09)', () => {
     expect(Env.safeParse({ ...base, CONFIRM_LINK_HOURS: '0' }).success).toBe(false);
   });
 
-  it('AC-LINK-09: with CONFIRM_LINK=on and no AUTH_URL the check names AUTH_URL; with it, or with the flag off, it passes', () => {
+  it('AC-LINK-09: with CONFIRM_LINK=on and no AUTH_URL the check names AUTH_URL; until A17 on is refused; off passes', () => {
     expect(() => checkConfirmLink({ CONFIRM_LINK: 'on', AUTH_URL: undefined })).toThrow(/AUTH_URL/);
-    expect(() => checkConfirmLink({ CONFIRM_LINK: 'on', AUTH_URL: 'https://latelens.example' })).not.toThrow();
+    // Until A17: on is refused even with AUTH_URL, so the placeholder can never be sent as text.
+    expect(() => checkConfirmLink({ CONFIRM_LINK: 'on', AUTH_URL: 'https://latelens.example' })).toThrow(/not available yet/);
     expect(() => checkConfirmLink({ CONFIRM_LINK: 'off', AUTH_URL: undefined })).not.toThrow();
   });
 
@@ -31,8 +32,11 @@ describe('E19 settings (REQ-LINK-09)', () => {
     const bad = loadConfig({ CONFIRM_LINK: 'on', AUTH_URL: '' });
     expect(bad.status).not.toBe(0);
     expect(bad.stderr).toContain('CONFIRM_LINK=on needs AUTH_URL');
-    const good = loadConfig({ CONFIRM_LINK: 'on', AUTH_URL: 'https://latelens.example' });
-    expect(good.stderr).toBe('');
-    expect(good.status).toBe(0);
+    const early = loadConfig({ CONFIRM_LINK: 'on', AUTH_URL: 'https://latelens.example' });
+    expect(early.status).not.toBe(0); // until A17
+    expect(early.stderr).toContain('CONFIRM_LINK=on is not available yet');
+    const off = loadConfig({ CONFIRM_LINK: 'off', AUTH_URL: 'https://latelens.example' });
+    expect(off.stderr).toBe('');
+    expect(off.status).toBe(0);
   }, 60_000);
 });

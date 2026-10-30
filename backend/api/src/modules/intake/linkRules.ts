@@ -43,7 +43,10 @@ function wallAt(ms: number, timeZone: string): number {
 export function localToInstant(local: LocalTimestamp, timeZone: string): Date {
   const wall = wallMs(local);
   const first = wall - (wallAt(wall, timeZone) - wall);   // correct by the offset near the guess
-  return new Date(wall - (wallAt(first, timeZone) - first)); // and again by the offset at the corrected instant
+  const at = wall - (wallAt(first, timeZone) - first);     // and again by the offset at the corrected instant
+  // A time in the spring-forward gap (02:30 on the day clocks go forward) does not exist: move it forward by the gap,
+  // as clocks do (02:30 EST -> 03:30 EDT), rather than back. A repeated time (fall back) takes the first, EDT.
+  return new Date(at + (wall - wallAt(at, timeZone)));
 }
 
 const dateOf = (wall: number) => new Date(wall).toISOString().slice(0, 10);
@@ -75,10 +78,11 @@ export function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon
 }
 
 /** SEC-LINK-10: the confirm body. Anything else is 400 and the link stays unused. */
-const text = (max: number) => z.string().trim().min(1).max(max);
+const NO_CONTROL = (s: string) => !/\p{Cc}/u.test(s); // SEC-LINK-10: no CR/LF or other control characters
+const text = (max: number) => z.string().trim().min(1).max(max).refine(NO_CONTROL, 'no control characters');
 export const ConfirmBody = z.object({
   address: z.object({
-    line1: text(100), line2: z.string().trim().max(100).nullable().transform((v) => v || null), city: text(100),
+    line1: text(100), line2: z.string().trim().max(100).refine(NO_CONTROL, 'no control characters').nullish().transform((v) => v || null), city: text(100),
     state: z.string().trim().toUpperCase().refine(isUsState, 'US state code'), zip: z.string().trim().regex(/^\d{5}(-\d{4})?$/),
   }).strict(),
   pin: z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }).strict(),

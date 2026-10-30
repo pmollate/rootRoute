@@ -257,7 +257,7 @@ D10 (assistant) adds **no table**: questions and answers are not stored (SEC-ASK
 | | `synthetic` | boolean NOT NULL | true for every demo order |
 | `saved_addresses` (new columns) | `source` | text NOT NULL DEFAULT `'seed'` | `seed` \| `link`. The seed (`npm run seed`) owns only `seed` rows: it deletes and rewrites those and never touches `link` rows (REQ-LINK-05) |
 | | `lat`, `lon` | double precision | from the confirmed pin |
-| | `email_id` | int (no foreign key) | the order whose approval saved it; no FK so that `TRUNCATE intake_emails … CASCADE` (a demo or test reset) cannot empty `saved_addresses` |
+| | `email_id` | int (no foreign key) | the order whose approval saved it; no FK so that `TRUNCATE intake_emails … CASCADE` (a demo or test reset) cannot empty `saved_addresses`. Provenance only: after a reset with `RESTART IDENTITY` the id can match a newer email, so never join on it |
 | | `confirmed_at` | timestamptz | when the client confirmed it |
 
 Index: `address_confirm_tokens (email_id) WHERE used_at IS NULL AND revoked_at IS NULL`. A `source = 'link'` row is

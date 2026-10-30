@@ -4411,10 +4411,9 @@ export function needsSecondConfirm(start: { pin: { lat: number; lon: number } | 
 }
 ```
 
-- [x] **Step 3: Run.** Expected: PASS (6). The three AC-SEC-LINK-02 examples are wall-clock times in
-  `MAILBOX_TIMEZONE`; arithmetic is in whole minutes, so a link that spans a daylight-saving change is off by the
-  shift (at most one hour, and only twice a year). Q-LINK-03 (time zone and margin) is open: the numbers are the SPEC
-  defaults, held as named constants.
+- [x] **Step 3: Run.** Expected: PASS. ~~Wall-clock, whole-minute arithmetic~~ superseded by SPEC v0.12: the lifetime
+  works on UTC instants with the zone's DST rules (see "As built" above and AC-SEC-LINK-02's DST example).
+  Q-LINK-03 (time zone and margin) is open: the numbers are the SPEC defaults, held as named constants.
 
 - [x] **Step 4: Write the failing draft tests** `backend/api/test/intake/link-draft.test.ts`:
 
@@ -4536,6 +4535,15 @@ git commit -m "feat(a): address link data, rules and reply placeholder (E19, REQ
 ---
 
 ### Task A17 (E19, part 2): Mint at `send_reply`, open, confirm, decide again, save on approval
+
+> **From the A16 review (30 Oct, `docs/agent-runs/2026-10-30-reviewer-A16-link-data.md`), A17 must also:**
+> - remove the "not available yet" line in `checkConfirmLink` (`core/config.ts`) in the same commit that replaces
+>   `[CONFIRM_LINK]` at send time, and change `test/intake/link-config.test.ts` back to "on with AUTH_URL starts";
+> - trim a trailing `/` from `AUTH_URL` when building `<AUTH_URL>/confirm/<token>`;
+> - give `repo.savedAddresses` a stable order that does not depend on `id` (a re-seed gives seed rows new, higher ids,
+>   so a kept `source='link'` row would sort first and change prompts and recordings); add a re-seed test with a link row;
+> - when the flag is off at send time, strip only the placeholder sentence, or re-check the required phrases after
+>   stripping and fall back to the template (a model draft may put `[CONFIRM_LINK]` on the line with the promise date).
 
 **Branch:** `A17-link-service` · **REQ:** REQ-LINK-01 (send half), -03, -04, -05, -07, -08, SEC-LINK-01, -02, -03,
 -04 (look-ups), -06, -09, -11, REQ-INT-09 · **AC:** AC-LINK-01, -03, -04, -05, -07, -08, AC-SEC-LINK-01, -02, -03, -04
