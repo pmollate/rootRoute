@@ -1253,7 +1253,7 @@ Drop order if behind: §3. End-of-day check-in each day (15 min): what runs, whi
 - `.env.example` with no real keys; `requirements.txt` and `package-lock.json` committed; secret scan clean.
 - `docs/SPEC.md` matches what was built; `backend/synthetic-data/README.md` lists every synthetic table; Team Response Template done.
 - Level 1 evidence linked from the README (§16): discovery log, agents by role, test evidence, deployed URL.
-- Judges can access the repo (private repo: collaborator invite, public, or zip; owner `saiprasad-37` to confirm).
+- Judges can access the repo (private repo: collaborator invite, public, or zip; repo `Evoke-Hackathon-2026/UnhandledRejections`, moved from `saiprasad-37/root-route` on 30 Oct).
 
 ## 11. Demo script (5 min)
 Belief ($680K routing) → Overview (five causes explain every late delivery; carriers are 7.6 of 29 points; 67% of late

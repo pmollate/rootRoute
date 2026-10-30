@@ -1449,7 +1449,7 @@ Tests: `npm test` (API, dashboard, Python; API route tests run only when the tes
 Docs: `docs/SPEC.md` (what and why), `docs/CONTRACTS.md` (shared types, tables, API), `docs/superpowers/plans/` (task plans).
 ````
 
-- [x] **Step 3: Verify on GitHub.** Push a branch, open a PR. Expected: `ci / test` and `ci / secrets` green. Ask the repo owner (`saiprasad-37`) to require `ci / test` on `main`.
+- [x] **Step 3: Verify on GitHub.** Push a branch, open a PR. Expected: `ci / test` and `ci / secrets` green. Ask a repo admin (`Evoke-Hackathon-2026/UnhandledRejections`) to require `ci / test` on `main`.
 
 - [x] **Step 4: Commit.** `git add .github README.md && git commit -m "ci(b): Python, API and dashboard tests, synthetic-data reproducibility, secret scan"`
 
