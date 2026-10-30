@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { pool } from '../../src/core/db/pool.js';
 import { buildApp } from '../../src/server.js';
 import { hasDb } from '../db.js';
+import { AUTH_ON } from '../token.js';
 import { logRecommendation } from '../../src/modules/carriers/queries.js';
 
 // Spy on the one function that writes `recommendations`; other test files write that table in parallel, so counting
@@ -31,6 +32,28 @@ describe.skipIf(!hasDb)('MCP route (needs test database)', () => {
     expect((await app.inject({ method: 'POST', url: '/api/mcp', headers: HEADERS, payload: call('overview', {}) })).statusCode).toBe(401);
     expect((await app.inject({ method: 'POST', url: '/api/mcp', headers: { ...HEADERS, 'x-api-key': 'test-key' },
       payload: call('overview', {}) })).statusCode).toBe(401);
+  });
+
+  it('AC-MCP-02: accepts the token in x-api-key (claude.ai custom connectors)', async () => {
+    const res = await app.inject({ method: 'POST', url: '/api/mcp',
+      headers: { ...HEADERS, 'x-api-key': process.env.MCP_TOKEN }, payload: call('check_promise',
+        { commitment: 'next_day', receivedAt: '2026-10-28 07:15' }) });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('answers the probes an MCP client makes before connecting, with sign-in enforced: 405 for GET and DELETE, 404 for OAuth discovery', async () => {
+    const on = await buildApp({ auth: AUTH_ON });
+    for (const method of ['GET', 'DELETE'] as const) {
+      const res = await on.inject({ method, url: '/api/mcp' });
+      expect(res.statusCode, method).toBe(405);
+      expect(res.headers.allow).toBe('POST');
+    }
+    for (const url of ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/api/mcp',
+      '/.well-known/oauth-authorization-server']) {
+      expect((await on.inject({ method: 'GET', url })).statusCode, url).toBe(404);
+    }
+    expect((await on.inject({ method: 'POST', url: '/api/mcp', headers: HEADERS, payload: call('overview', {}) })).statusCode).toBe(401);
+    await on.close();
   });
 
   it('AC-MCP-03: lane_scores names the five blocked lanes with their reasons', async () => {

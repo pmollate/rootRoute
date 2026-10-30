@@ -29,6 +29,9 @@ const SUPPORT: readonly Role[] = ['customer_support', 'admin'];
 export const PERMISSIONS: Record<string, Permission> = {
   'GET /api/health': 'public',
   'POST /api/mcp': 'public', // its own Bearer MCP_TOKEN (REQ-MCP-02)
+  'GET /api/mcp': 'public', // 405: MCP clients probe it before connecting
+  'DELETE /api/mcp': 'public', // 405, as GET
+  'GET /.well-known/*': 'public', // 404: MCP clients' OAuth discovery
   'POST /api/orders/:ref/events': 'public', // its own Bearer WMS_EVENTS_TOKEN (order journey simulator, design §6)
 
   // Reads, by the pages that use them

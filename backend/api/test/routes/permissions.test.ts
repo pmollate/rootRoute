@@ -45,6 +45,9 @@ describe('permission matrix (SPEC-auth §4.2)', () => {
     expect(who('GET', '/api/accounts')).toEqual(['warehouse_supervisor', 'carrier_manager', 'leadership', 'admin']);
     expect(who('GET', '/api/health')).toBe('public');
     expect(who('POST', '/api/mcp')).toBe('public');
+    expect(who('GET', '/api/mcp')).toBe('public'); // 405, no data
+    expect(who('DELETE', '/api/mcp')).toBe('public'); // 405, no data
+    expect(who('GET', '/.well-known/*')).toBe('public'); // 404, no data
     expect(who('POST', '/api/intake/:id/action', { action: 'approve' })).toEqual(['order_desk', 'admin']);
     expect(who('POST', '/api/intake/:id/action', { action: 'reject' })).toEqual(['order_desk', 'admin']);
     expect(who('POST', '/api/intake/:id/action', { action: 'send_reply' })).toEqual(['order_desk', 'admin']);

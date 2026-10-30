@@ -39,12 +39,19 @@ describe('Ask LateLens MCP server (D7)', () => {
 describe('MCP token (REQ-MCP-02)', () => {
   const token = 'a'.repeat(32);
   it('AC-MCP-02: refuses a missing or wrong token, accepts the right one', () => {
-    expect(mcpAuth(undefined, token)).toBe(401);
-    expect(mcpAuth('Bearer wrong', token)).toBe(401);
-    expect(mcpAuth(`Basic ${token}`, token)).toBe(401);
-    expect(mcpAuth(`Bearer ${token}`, token)).toBe(200);
+    expect(mcpAuth({}, token)).toBe(401);
+    expect(mcpAuth({ authorization: 'Bearer wrong' }, token)).toBe(401);
+    expect(mcpAuth({ authorization: `Basic ${token}` }, token)).toBe(401);
+    expect(mcpAuth({ authorization: `Bearer ${token}` }, token)).toBe(200);
+  });
+  it('AC-MCP-02: accepts the same token in x-api-key, for clients that keep Authorization for their own OAuth', () => {
+    expect(mcpAuth({ 'x-api-key': token }, token)).toBe(200);
+    expect(mcpAuth({ authorization: 'Bearer their-oauth-token', 'x-api-key': token }, token)).toBe(200);
+    expect(mcpAuth({ 'x-api-key': 'wrong' }, token)).toBe(401);
+    expect(mcpAuth({ 'x-api-key': [token, token] }, token)).toBe(401);
   });
   it('is switched off (503) when no token is configured, so it is never open by accident', () => {
-    expect(mcpAuth(`Bearer ${token}`, undefined)).toBe(503);
+    expect(mcpAuth({ authorization: `Bearer ${token}` }, undefined)).toBe(503);
+    expect(mcpAuth({ 'x-api-key': token }, undefined)).toBe(503);
   });
 });
