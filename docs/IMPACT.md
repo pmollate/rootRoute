@@ -70,7 +70,7 @@ goes to the WMS only after an operator approves it.
 |---|---|---|
 | Incomplete address found | When the delivery fails (27.8% of email orders) | At intake, before the pick list; the client is asked by a drafted reply |
 | Decision on the 50 fixture emails | Keyed by hand | ≥ 48 of 50 correct; field accuracy ≥ 90%; incomplete-address recall ≥ 95% (extraction eval, AC-INT-04/05) |
-| Time from email to decision | Keyed later; 78% of email orders are stamped after 08:00 | [DECISION_TIME] (AC-NFR-02, `backend/api/test/intake/`) |
+| Time from email to decision | Keyed later; 78% of email orders are stamped after 08:00 | p50 0.003 s, p95 0.005 s, max 0.012 s over the 50 fixtures, against a 30 s limit (AC-NFR-02, `backend/api/test/intake/decision-time.test.ts`). Measured with recorded AI answers: our code and Postgres only; live model and map latency come on top |
 | On-time, email orders (replay) | 70.7% | 89.6% as built |
 
 ### 2.4 Today vs with Root Route, one delivery at a time
