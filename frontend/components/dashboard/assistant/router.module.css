@@ -30,7 +30,9 @@
 .note p { margin: 0; }
 .ask { background: var(--chat-bg); display: flex; gap: 10px; padding: 12px var(--pad) var(--pad); }
 .ask input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 0.78rem; }
-.ask input:focus-visible, .ask button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+/* A thin focus ring on the text box: the border takes the accent colour, no outline outside it. */
+.ask input:focus-visible { outline: 0; border-color: var(--accent-text); }
+.ask button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 .ask button { display: grid; place-items: center; flex: none; width: 40px; border: 0; border-radius: 8px; background: var(--ink); color: var(--surface); cursor: pointer; }
 .ask button:disabled { opacity: 0.4; cursor: default; }
 @media (max-width: 600px) { .reply .botSmall { display: none; } .you { max-width: 100%; } }
@@ -52,13 +54,3 @@
 .close:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .launcher, .scrim, .assistant { transition: none; } }
 
-/* Border: a slow orange-to-green sweep round the edge, fading in on load. --spin is registered so the gradient angle can animate. */
-@property --spin { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
-@keyframes spin { to { --spin: 360deg; } }
-@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-.assistant::before { content: ''; position: absolute; inset: 0; z-index: 3; padding: 1.5px; border-radius: inherit; pointer-events: none;
-  background: conic-gradient(from var(--spin), transparent 0deg, transparent 150deg, var(--accent) 230deg, var(--accent-hover) 280deg, var(--live) 330deg, transparent 360deg);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  animation: spin 7s linear infinite, fade 1.4s ease 0.6s both; }
-@media (prefers-reduced-motion: reduce) { .assistant::before { animation: none; } }
