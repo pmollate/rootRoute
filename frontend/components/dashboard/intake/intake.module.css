@@ -262,7 +262,7 @@
 
 /* Paste pane. */
 .pasteWrap { flex: 1; min-height: 0; padding: 23px 27px; overflow: auto; animation: fade 0.35s both; }
-.pasteForm { display: grid; grid-template-columns: 1fr 1fr 149px; gap: 12px; max-width: 762px; padding: 20px; background: var(--surface);
+.pasteForm { display: grid; grid-template-columns: 1fr 1fr 210px; gap: 12px; max-width: 762px; padding: 20px; background: var(--surface);
   border-radius: 12px; }
 .pasteTop { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .pasteTop h3 { margin: 0; font-family: var(--font-display); font-size: 1.035rem; font-weight: 700; }

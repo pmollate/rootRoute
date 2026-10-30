@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { asRole, mockApi, renderScreen } from '../test-utils';
-import { IntakeScreen } from './IntakeScreen';
+import { IntakeScreen, localMinute } from './IntakeScreen';
 
 /** The requests the screen made, as [url, init]. */
 const calls = (fetch: ReturnType<typeof mockApi>) => fetch.mock.calls as unknown as [string, RequestInit][];
@@ -281,6 +281,38 @@ describe('Order emails', () => {
       expect(process().disabled).toBe(true);
       type('Body', 'Please send 10 x HX-220.');
       expect(process().disabled).toBe(false);
+    });
+
+    it('AC-INT-19: Received at is a date-time picker that stops at now; a future or empty time does not send', async () => {
+      const fetch = mockApi({ '/api/intake': { emails: [] } });
+      renderScreen(<IntakeScreen />);
+      await openPaste();
+      const at = screen.getByLabelText('Received at') as HTMLInputElement;
+      expect(at.type).toBe('datetime-local');
+      expect(at.value).toBe('2026-10-21T08:05');
+      expect(at.max).toBe(localMinute(new Date()));
+      type('Body', 'Please send 10 x HX-220.');
+      expect(process().disabled).toBe(false);
+      type('Received at', '2099-01-01T09:00');
+      expect(screen.getByText('Received at is in the future. Pick when the email arrived.')).toBeTruthy();
+      expect(at.getAttribute('aria-invalid')).toBe('true');
+      expect(process().disabled).toBe(true);
+      type('Received at', '');
+      expect(screen.getByText('Pick when the email arrived.')).toBeTruthy();
+      expect(process().disabled).toBe(true);
+      expect(calls(fetch).some(([url]) => url.endsWith('/api/intake/email'))).toBe(false);
+    });
+
+    it('AC-INT-19: the picked time is sent as "YYYY-MM-DD HH:mm"', async () => {
+      const fetch = mockApi({ '/api/intake': { emails: [] }, '/api/intake/email': { id: 7, decision: 'ALL_CLEAR' } });
+      renderScreen(<IntakeScreen />);
+      await openPaste();
+      type('Received at', '2026-09-14T09:30');
+      type('Body', 'Please send 10 x HX-220.');
+      fireEvent.click(process());
+      await waitFor(() => expect(calls(fetch).some(([url]) => url.endsWith('/api/intake/email'))).toBe(true));
+      const [, init] = calls(fetch).find(([url]) => url.endsWith('/api/intake/email'))!;
+      expect(JSON.parse(String(init?.body)).receivedAt).toBe('2026-09-14 09:30');
     });
 
     it('AC-INT-19: the body shows its length against the limit; over it, the form says so and does not send', async () => {
