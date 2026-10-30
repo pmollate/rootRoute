@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from analytics.core import diagnosis
@@ -34,6 +35,14 @@ def test_kpis(dq, clients, penalties):
     assert k["late"] == 14019 and k["penalties_usd"] == 872460 and k["handling_cost_usd"] == 476646
     assert k["at_risk_accounts"] == 9 and k["at_risk_revenue_usd"] == 14_200_000
     assert k["pre_pickup_share"] == pytest.approx(0.673, abs=0.0005)
+
+
+def test_ac_data_21_kpis_carry_the_data_line(dq, clients, penalties):
+    """AC-DATA-21: the shell's data line comes from `kpis`; dates are epoch milliseconds (UTC midnight)."""
+    k = dict(diagnosis.kpis(dq, clients, penalties).values)
+    ms = lambda day: pd.Timestamp(day).value // 10**6  # noqa: E731
+    assert k["deliveries"] == 48340 and k["warehouses"] == 5 and k["carriers"] == 6
+    assert (k["window_from"], k["window_to"], k["recent_from"]) == (ms("2026-04-01"), ms("2026-09-25"), ms("2026-08-01"))
 
 
 def test_cause_summary_all_segment(dq):

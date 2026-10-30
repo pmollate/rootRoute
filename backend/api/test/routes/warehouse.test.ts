@@ -17,6 +17,12 @@ describe.skipIf(!hasDb)('warehouse & diagnosis routes (needs test database)', ()
     expect(o).toMatchObject({ late: 14019, penaltiesUsd: 872460, atRiskAccounts: 9 });
   });
 
+  it('AC-DATA-21 (data): overview carries the data line computed by the pipeline', async () => {
+    expect(await get('/api/overview')).toMatchObject({
+      deliveries: 48340, warehouses: 5, carriers: 6, windowFrom: '2026-04-01', windowTo: '2026-09-25', recentFrom: '2026-08-01',
+    });
+  });
+
   it('serves causes and replay per segment, and rejects unknown segments', async () => {
     expect((await get('/api/causes?segment=email')).causes.length).toBeGreaterThan(5);
     const replay = await get('/api/replay?segment=all');

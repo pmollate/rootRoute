@@ -1,12 +1,15 @@
-"""C7 backtest: lane rules trained on Apr-Jul, tested on Aug-Sep (SPEC §5.2).
+"""C7 backtest: lane rules trained on the window's earlier months, tested on its last two calendar months (SPEC §5.2,
+REQ-DATA-14). On the supplied data that is train Apr-Jul, test Aug-Sep 2026; the split comes from the data
+(`analytics.core.window.recent_start`), not a fixed date.
 
 Friday orders never go to carrier D in the recommended plan (the Friday cap moves D's overflow to the next carrier).
 """
 import pandas as pd
 
 from analytics.carriers.lanes import lane_scores
+from analytics.core import load as core
+from analytics.core.window import recent_start
 
-SPLIT = pd.Timestamp("2026-08-01")
 KEY = ["destination_region", "commitment_type", "carrier_id", "f_addr", "f_stock", "f_cutoff"]
 LANE = ["destination_region", "commitment_type"]
 
@@ -18,10 +21,11 @@ def _best(lanes: pd.DataFrame) -> pd.DataFrame:
 
 
 def backtest(d: pd.DataFrame) -> pd.DataFrame:
-    train, test = d[d.order_received_ts < SPLIT], d[d.order_received_ts >= SPLIT]
+    split = recent_start(d)
+    train, test = d[d.order_received_ts < split], d[d.order_received_ts >= split]
     lanes = lane_scores(train)
     any_day = _best(lanes)
-    friday = _best(lanes[lanes.carrier_id.ne("D")])
+    friday = _best(lanes[lanes.carrier_id.ne(core.FRIDAY_CAP_CARRIER)])
     is_fri = test.order_received_ts.dt.day_of_week.eq(4)
     t = pd.concat([test[~is_fri].merge(any_day, on=LANE, how="left"), test[is_fri].merge(friday, on=LANE, how="left")],
                   ignore_index=True)

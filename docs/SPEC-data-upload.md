@@ -303,7 +303,7 @@ the hard-coded text at lines 50 and 72. The page states facts only; it makes no 
 | U2 | Python | Read a window from the store | `analytics/core/load.py` (`load_window`), `core/context.py` (`Ctx.table`), step modules' `ctx.csv` calls | U1 | AC-DATA-01, 02 | todo |
 | U3 | Python | Validator | `analytics/ingest/validate.py`, `analytics/tests/test_ingest_validate.py`, fixtures `backend/tests/fixtures/ingest/` | none | AC-DATA-06, 07, 12 | todo |
 | U4 | Python | Derive bad lanes from the window | `analytics/core/load.py`, `analytics/carriers/lanes.py` | none | AC-DATA-05 | todo |
-| U5 | Python | Window-relative dates | `analytics/carriers/backtest.py` (`SPLIT`), `analytics/core/diagnosis.py` (`aug_sep`), plus every API/frontend reader of `aug_sep` | none | AC-DATA-01, 04 | todo |
+| U5 | Python | Window-relative dates | `analytics/carriers/backtest.py` (`SPLIT`), `analytics/core/diagnosis.py` (`aug_sep`), plus every API/frontend reader of `aug_sep` | none | AC-DATA-01, 04 | partly done (S2, 30 Oct): split and `aug_sep` from `analytics/core/window.py`; the < 3-month skip (AC-DATA-04) is still todo |
 | U6 | Python | Ingest: seed and CSV | `analytics/ingest/__main__.py`, `analytics/ingest/store.py` (merge/replace in one transaction); root `package.json` `ingest` script | U1, U3 | AC-DATA-01, 10, 11 | todo |
 | U7 | Python | Ingest: source database sync | `analytics/ingest/source_db.py`; `backend/synthetic-data/generators/` seed for `halcyon_source` (labelled simulation); `docker-compose.yml` second database | U6 | AC-DATA-13, 14 | todo |
 | U8 | Python | Pipeline window CLI and summary | `analytics/pipeline.py` (`--from/--to`, stages, final result line, `analysis_info`, in-flight exclusion, `skipped`) | U2, U4, U5 | AC-DATA-02, 03, 04, 12 | todo |
@@ -314,7 +314,7 @@ the hard-coded text at lines 50 and 72. The page states facts only; it makes no 
 | U13 | Frontend | Data page: stored data and upload | `frontend/app/dashboard/data/page.tsx`, `frontend/components/dashboard/data/`, `config/dashboard.ts`, `lib/auth/roles.ts` | §7.3 contract (build against it); U10 to finish | AC-DATA-22 | todo |
 | U14 | Frontend | Data page: analysis window and jobs | `frontend/components/dashboard/data/` | U13 | AC-DATA-22 | todo |
 | U15 | DevOps | Python next to the API on Azure | `infra/setup.sh`, `.gitignore` (`backend/.uploads/`), Key Vault entry for `SOURCE_DATABASE_URL` | U9 | deployed AC-DATA-02 | todo |
-| U16 | Frontend | Data line in the shell | `frontend/components/dashboard/DashboardShell.tsx` | U10 | AC-DATA-21 | todo |
+| U16 | Frontend | Data line in the shell | `frontend/components/dashboard/DashboardShell.tsx` | U10 | AC-DATA-21 | partly done (S2, 30 Oct): read from `GET /api/overview` (`kpis`); switch to `/api/analysis/current` once U10 lands |
 | U17 | QA + Docs | Evidence and README | `backend/synthetic-data/generators/` (seeded 10× set, labelled synthetic), `docs/TEST-EVIDENCE.md`, `README.md` | U1–U16 | AC-DATA-23, all | todo |
 
 U15 default, to confirm with the team: run the API as one container image holding Node and Python, with

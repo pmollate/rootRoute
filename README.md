@@ -5,8 +5,14 @@ address, an order after the cut-off, a shipment from a farther warehouse, a weak
 gives each fix to the team that owns it. It shows what the data says and what each fix is worth; the business decides.
 
 On the reference dataset (48,340 deliveries, 5 warehouses, 6 carriers, 280 clients) it finds a cause for every late
-delivery, 67% of them before pickup, and a replay with every fix switched on lifts on-time from 71.0% to 88.5%.
-Figures and how they are computed: `docs/SPEC.md` §2 and §5.8.
+delivery, 67% of them before pickup. Replaying those deliveries with the fixes this build delivers lifts on-time from
+**71.0% to 85.9%** at expected adoption (88.5% if every fix worked every time) and avoids about **$708K** of penalties
+and handling in 6 months; the full programme reaches 92.0%. Before/after and method: [`docs/IMPACT.md`](docs/IMPACT.md).
+
+**Live app:** <https://rootroute01-web.azurewebsites.net> (landing page) and
+<https://rootroute01-web.azurewebsites.net/dashboard>. Sign in with a demo account `demo-<role>@rootroute.test`
+(roles below); the demo password is shared with the jury separately, never in the repo. API health:
+<https://rootroute01-api.azurewebsites.net/api/health>.
 
 ## What it does
 
@@ -66,6 +72,7 @@ npm run pipeline && npm run pipeline:test # computed tables -> latelens and late
 npm run migrate && npm run migrate:test
 npm run seed && npm run seed:test
 npm run dev:all                           # API on :3001, web on :3000 (landing page) and :3000/dashboard
+npm run bench                             # optional: timed 1x / 10x / second-client run, no DB write (docs/SCALE-RUN.md)
 ```
 
 Activate the venv in every new terminal; `pipeline`, `data` and `test:py` call `python`. One `.env` at the repo root
@@ -129,6 +136,43 @@ With `LLM_PROVIDER=recorded` (the default) the model answers come from `backend/
 (`LLM_PROVIDER=azure-openai`). To run all 50 fixtures against their expected answers:
 `npm --prefix backend/api run eval:intake` (add ids to run a few, e.g. `-- 01 09`).
 
+To send the fixtures to a running API, as the paste form does, and see each decision and how long it took:
+`npm run send:fixtures` (all 50) or `npm run send:fixtures -- 01 09 34`. It reads `API_URL` and `API_KEY` from the shell
+or `.env` and needs `AUTH_REQUIRED=off`. It prints one row per email (id, expected decision, decision, status, seconds;
+`*` marks a decision that differs from the fixture's) and a p50 / p95 / max line. With recorded answers 49 of 50 match:
+fixture 03, the prompt-injection email, is refused by the model's content filter and becomes `MISSING_INFO` (still
+never `ALL_CLEAR`).
+
+### Try your own email
+
+Paste any order into the form, or change the `curl` body above. The sender's domain must belong to a client
+(`client001.example` … `client280.example`, loaded by `npm run seed`); anything else is "Unknown sender",
+`MISSING_INFO`, with no AI call. Text that is not one of the 50 fixtures has no recording, so with
+`LLM_PROVIDER=recorded` it waits (`WAITING`); set `LLM_PROVIDER=azure-openai` (and the PII and Maps providers) to have
+it read. Keep it synthetic: no real names or addresses of real people.
+
+### Bad inputs to try
+
+Each is refused before anything is stored or any AI service is called, with one readable sentence in `error` and the
+message per field in `fields` (REQ-INT-16, AC-INT-16 to -18). The paste form shows the sentence next to the form.
+
+| Input | Answer |
+|---|---|
+| Body empty or only spaces / newlines | 400 `The email body is empty.` (the form keeps **Process email** disabled) |
+| `from` left out; `body` left out | 400 `From is missing.` / `The email body is missing.` (every missing field is named) |
+| `"from": "orders"` | 400 `From must be an email address, like orders@client190.example.` |
+| `"receivedAt": "20/10/2026 9:30"` or `"2026-02-30 08:05"` | 400 `Received at must look like 2026-09-14 09:30 (a real date, 24-hour time).` |
+| Body over `INTAKE_MAX_BODY_CHARS` (20,000), subject over `INTAKE_MAX_SUBJECT_CHARS` (300) | 400 `The email body is longer than 20,000 characters.` (the form shows the count and the limit) |
+| Request over 1 MB | 413 `The request is larger than 1 MB. Paste only the text of one email.` |
+| Broken JSON (`{"from":`), or an empty request | 400 `The request is not valid JSON.` |
+| `Content-Type: application/x-www-form-urlencoded` | 415 `Send the request as JSON (Content-Type: application/json).` |
+| A JSON array or plain text | 400 `Send the email as a JSON object with from, subject, body and receivedAt.` |
+
+```bash
+curl -s localhost:3001/api/intake/email -H 'content-type: application/json' -H 'x-api-key: dev-key' \
+  -d '{"from": "orders", "receivedAt": "20/10/2026 9:30", "body": "   "}'
+```
+
 ## Test
 
 ```bash
@@ -176,6 +220,9 @@ Fastify), PostgreSQL Flexible Server and Key Vault for every secret.
 
 | Document | What |
 |---|---|
+| [`docs/DISCOVERY.md`](docs/DISCOVERY.md) | One page: problem, baseline, users and pain points, sponsor input, requirements and scope |
+| [`docs/IMPACT.md`](docs/IMPACT.md) | Before vs after on Halcyon's KPIs, and what is new, each with a before/after comparison |
+| [`docs/TRACEABILITY.md`](docs/TRACEABILITY.md) | Feature → requirement → acceptance criterion → test (generated: `python3 scripts/traceability.py`) |
 | [`docs/SPEC.md`](docs/SPEC.md) | Source of truth. Discovery: problem and recommendation §1, evidence §2, scope §3, assumptions and open questions §12, discovery log §14.1 |
 | [`docs/CONTRACTS.md`](docs/CONTRACTS.md) | Shared types, tables, API routes and settings |
 | [`docs/SPEC-auth.md`](docs/SPEC-auth.md) | Sign-in, roles and permissions |
@@ -183,6 +230,7 @@ Fastify), PostgreSQL Flexible Server and Key Vault for every secret.
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the parts fit together |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | What comes next |
 | [`docs/TEST-EVIDENCE.md`](docs/TEST-EVIDENCE.md) | Test results and evidence |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | Secrets scan result, where credentials live, roles and Azure least privilege |
 | [`Halcyon-Hackathon-Dataset/DATA_DICTIONARY.md`](Halcyon-Hackathon-Dataset/DATA_DICTIONARY.md) | Columns of the supplied dataset |
 | [`backend/synthetic-data/README.md`](backend/synthetic-data/README.md) | Synthetic data register |
 

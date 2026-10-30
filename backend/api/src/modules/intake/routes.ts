@@ -1,32 +1,19 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { z } from 'zod';
 import { allowList, config } from '../../core/config.js';
 import { restore } from '../../core/pii/redact.js';
 import { actorOf } from '../../core/auth.js';
 import { logOverride, recordOrderEvent } from '../carriers/index.js';
 import { diagnosisApi } from '../warehouse/index.js';
-import { ACTIONS, applyAction } from './actions.js';
+import { applyAction } from './actions.js';
 import { runAlerts } from './alerts.js';
 import { complaintQueue, deliveryStages, listComplaints, savedTriages, saveTriage, triage } from './complaints.js';
 import { getDeps } from './deps.js';
 import { processEmail } from './pipeline.js';
 import { safeNames } from './reply.js';
-import { POLL_MAX, pollLogFields, runPoll } from './poll.js';
+import { ActionBody, EmailBody, FetchBody, limits, readable } from './input.js';
+import { pollLogFields, runPoll } from './poll.js';
 import { reviewQueue } from './review.js';
 import { httpWms } from './wms.js';
-
-const EmailBody = z.object({
-  from: z.string().min(3), subject: z.string(), body: z.string().min(1),
-  receivedAt: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/), inReplyTo: z.number().int().optional(),
-});
-// `reply`: the operator's edited reply text (send_reply only); without it the stored draft is sent.
-// `reason`: why an order is rejected, or why its carrier changes. `carrier`: the supervisor's pick on approve (E18).
-// No `user`: the actor comes from the verified token (REQ-AUTH-07); an old client's `user` is ignored by the schema.
-const ActionBody = z.object({
-  action: z.enum(ACTIONS), reply: z.string().trim().min(1).max(5000).optional(),
-  reason: z.string().trim().min(1).max(500).optional(), carrier: z.enum(['A', 'B', 'C', 'D', 'E', 'F']).optional(),
-});
-const FetchBody = z.object({ query: z.string().optional(), max: z.number().int().min(1).max(POLL_MAX).default(POLL_MAX) });
 
 /** The first lines of an email after the greeting, for the inbox row (as a mail client shows under the subject). */
 export function preview(body: string): string {
@@ -52,6 +39,8 @@ const routes: FastifyPluginAsync = async (app) => {
       pollMinutes: gmail ? config.INTAKE_POLL_MINUTES : 0,
       lastPoll: last && { trigger: last.trigger, startedAt: last.started_at, finishedAt: last.finished_at,
         processed: last.processed, retried: last.retried, failed: last.failed, ok: last.ok },
+      // REQ-INT-16: the paste form shows these limits before the API refuses a longer email.
+      limits: limits(),
     };
   });
 
@@ -77,7 +66,7 @@ const routes: FastifyPluginAsync = async (app) => {
   // Roles for every route: core/permissions.ts, checked in server.ts before the handler runs (SPEC-auth §4.2).
   app.post('/intake/email', async (req, reply) => {
     const body = EmailBody.safeParse(req.body);
-    if (!body.success) return reply.code(400).send({ error: body.error.message });
+    if (!body.success) return reply.code(400).send(readable(body.error));
     const deps = getDeps();
     const result = await processEmail({ ...body.data, source: 'paste' }, deps);
     const who = actorOf(req);
@@ -89,7 +78,7 @@ const routes: FastifyPluginAsync = async (app) => {
   /** "Fetch from Gmail": the same check the timer runs every INTAKE_POLL_MINUTES (E15), started by hand. */
   app.post('/intake/fetch', async (req, reply) => {
     const body = FetchBody.safeParse(req.body ?? {});
-    if (!body.success) return reply.code(400).send({ error: body.error.message });
+    if (!body.success) return reply.code(400).send(readable(body.error));
     const deps = getDeps();
     if (!deps.gmail) return reply.code(503).send({ error: 'Gmail is not set up (GMAIL_* in .env)' });
     const r = await runPoll(deps, 'button', { ...body.data, actor: actorOf(req).id });
@@ -100,7 +89,7 @@ const routes: FastifyPluginAsync = async (app) => {
 
   app.post<{ Params: { id: string } }>('/intake/:id/action', async (req, reply) => {
     const body = ActionBody.safeParse(req.body);
-    if (!body.success) return reply.code(400).send({ error: body.error.message });
+    if (!body.success) return reply.code(400).send(readable(body.error));
     const deps = getDeps();
     const result = await applyAction(deps.repo, Number(req.params.id), body.data.action, actorOf(req),
       { gmail: deps.gmail, allow: allowList },
