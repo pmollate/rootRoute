@@ -22,6 +22,17 @@ The flow for a feature: `discovery-recorder` → `spec-writer` → `planner` →
 on the PR) → `devops` for pipeline and infra changes → `qa-evidence` and `numbers-auditor` after merge and deploy.
 A person decides at every hand-off: agents propose, people approve, the same rule as the agents inside the product.
 
+## Sample outputs: Dev, DevOps and QA
+
+Real outputs of the three role agents, each with its instruction file (role, scope, inputs, outputs, guardrails).
+
+| Agent | Instruction file | What it produced | Where to see it |
+|---|---|---|---|
+| Dev (`implementer`) | [`implementer.md`](../../.claude/agents/implementer.md) | The emailed verification code for the address link: migration 105, API routes, proxy, page, 13 API and 12 web tests | Commit `f11d583`, run record [`2026-10-31-implementer-E19-verify-code.md`](2026-10-31-implementer-E19-verify-code.md); in PR #94 (`A20-link-azure`) |
+| Dev (`implementer`) | same | The address link's API routes and its page (tasks A18, A19), test-first | Commits `5a6e71e`, `b647d50`; run records [`A18`](2026-10-30-implementer-A18-link-routes.md), [`A19`](2026-10-30-implementer-A19-link-page.md) |
+| DevOps (`devops`) | [`devops.md`](../../.claude/agents/devops.md) | Read-only review of `ci.yml`, `cd.yml` and `infra/`: a verdict with evidence, and the main gap (`setup-auth.sh` fixed to `rootroute01`) | Run record [`2026-10-30-devops-pipeline-review.md`](2026-10-30-devops-pipeline-review.md); the gap closed in `infra/setup-auth.sh` (31 Oct: `NAME`, `RG`, `WEB_URL` settings) |
+| QA (`qa-evidence`) | [`qa-evidence.md`](../../.claude/agents/qa-evidence.md) | Every suite run with counts, AC coverage and the extraction score, rewritten into the test evidence | [`docs/TEST-EVIDENCE.md`](../TEST-EVIDENCE.md) (commit `fa79d27`: 737/737, AC coverage 144/204); run records [`qa-evidence`](2026-10-30-qa-evidence.md), [`qa-evidence-2`](2026-10-30-qa-evidence-2.md) |
+
 ## How to run one
 
 In Claude Code, from the repo root: "Use the reviewer agent on branch C8-azure-deploy", or `@reviewer …`.

@@ -11,6 +11,7 @@ the last audit: [`agent-runs/2026-10-29-network-security-auditor.md`](agent-runs
 | gitleaks 8.28.0, `git` mode, 30 Oct 2026 | All history of `main` (168 commits, 13.5 MB) | **No leaks found** |
 | gitleaks, `git` mode, every branch | 181 commits incl. unmerged branches | 9 findings, all on the unmerged branch `wms-simulator-live`: fixed test values in `tools/wms-simulator/config.test.mjs` and throwaway localhost tokens in a plan's smoke-test command. Not on `main`; to be reviewed before that branch merges |
 | gitleaks, working tree | Files in git | Only the 3 checked placeholders listed in `.gitleaksignore` (a `<strong password>` example and two localhost test tokens) |
+| Code search for hard-coded keys, paths and URLs, 31 Oct 2026 (`git grep` on tracked files) | Key patterns (OpenAI, Google, AWS, private keys, Slack, GitHub, `api_key/secret/password/token = <24+ chars>`); absolute user paths; Azure and `rootroute.in` hosts and `localhost` in code, config, infra and workflows | **No keys**: the only matches are two fake secrets in `backend/api/test/auth.test.ts`. **No `.env` tracked, no user paths.** Hosts: the dev API URL is read from one helper, `frontend/lib/apiUrl.ts` (`API_URL`, local fallback); an unreachable localhost fallback in `linkDeps.ts` was removed; `infra/setup-auth.sh` takes `NAME`, `RG` and `WEB_URL` (commit `960c0a5` and the next) |
 | CI (`.github/workflows/ci.yml`, job `secrets`) | Every push and pull request | Same gitleaks CLI over all reachable history; a finding fails the build (AC-SEC-01) |
 
 Repeat it:

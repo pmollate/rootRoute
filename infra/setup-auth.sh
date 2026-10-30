@@ -5,10 +5,12 @@
 # Re-running keeps existing secrets (delete one in Key Vault to make a new value).
 set -euo pipefail
 
-RG=rg-unhandled-rejections
-KV=rootroute01-kv
-WEB=rootroute01-web
-API=rootroute01-api
+# Names follow infra/setup.sh: NAME (default rootroute01) and RG; override either for another deployment.
+NAME=${NAME:-rootroute01}
+RG=${RG:-rg-unhandled-rejections}
+KV=$NAME-kv
+WEB=$NAME-web
+API=$NAME-api
 # The public address people open (the custom domain once bound, e.g. WEB_URL=https://rootroute.in): sign-in redirects,
 # the /api proxy's Origin check and the address link (<WEB_URL>/confirm/<token>) all use it.
 WEB_URL=${WEB_URL:-https://$WEB.azurewebsites.net}

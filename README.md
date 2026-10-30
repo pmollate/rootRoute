@@ -9,10 +9,10 @@ delivery, 67% of them before pickup. Replaying those deliveries with the fixes t
 **71.0% to 85.9%** at expected adoption (88.5% if every fix worked every time) and avoids about **$708K** of penalties
 and handling in 6 months; the full programme reaches 92.0%. Before/after and method: [`docs/IMPACT.md`](docs/IMPACT.md).
 
-**Live app:** <https://rootroute01-web.azurewebsites.net> (landing page) and
-<https://rootroute01-web.azurewebsites.net/dashboard>. Sign in with a demo account `demo-<role>@rootroute.test`
-(roles below); the demo password is shared with the jury separately, never in the repo. API health:
-<https://rootroute01-api.azurewebsites.net/api/health>.
+**Live app:** <https://rootroute.in> (landing page) and <https://rootroute.in/dashboard>; the App Service address
+<https://rootroute01-web.azurewebsites.net> serves the same app. Sign in with a demo account
+`demo-<role>@rootroute.test` (roles below); the demo password is shared with the jury separately, never in the repo.
+API health: <https://rootroute01-api.azurewebsites.net/api/health>.
 
 ## What it does
 

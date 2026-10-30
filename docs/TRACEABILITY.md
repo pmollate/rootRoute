@@ -8,11 +8,11 @@ a test file names it.
 
 | SPEC file | Requirements | ACs | ACs named by a test | Not named |
 |---|---|---|---|---|
-| `docs/SPEC.md` | 136 | 130 | 104 | 26 |
+| `docs/SPEC.md` | 154 | 148 | 122 | 26 |
 | `docs/SPEC-auth.md` | 33 | 33 | 26 | 7 |
-| `docs/SPEC-order-workflow.md` | 18 | 18 | 10 | 8 |
+| `docs/SPEC-order-workflow.md` | 21 | 25 | 17 | 8 |
 | `docs/SPEC-data-upload.md` | 28 | 23 | 3 | 20 |
-| **Total** | | **204** | **143** | **61** |
+| **Total** | | **229** | **168** | **61** |
 
 ## SPEC §3 features to requirements and tests
 
@@ -23,7 +23,7 @@ a test file names it.
 | §4.4 API and agent layers (Node) | P3 Swappable AI model layer with recorded responses (Core) | — | 0 / 0 | — |
 | §5.1 Diagnostic engine (owner: Warehouse; D1, D2) | D1 Diagnostic engine (Core)<br>D2 Data-quality report (Core)<br>D8 Cause attribution (points lost) and one KPI per cause on Overview (Core) | REQ-DIAG-01, REQ-DIAG-02, REQ-DIAG-03, REQ-DIAG-04, REQ-DIAG-05, REQ-DIAG-06, REQ-DIAG-07, REQ-DIAG-08 | 6 / 7 | `test_diagnosis.py`, `test_load.py`, `test_scale.py`, `test_scenarios.py` |
 | §5.2 Carrier recommender (owner: Carriers; C1–C4, C6, C7, C10) | C1 Lane scores on fair data (Core)<br>C2 Block rules (Core)<br>C3 Carrier recommendation with reason (Core)<br>C4 Capacity cap (daily limit; Friday limit, C11) (Core)<br>C6 Override log (Core)<br>C7 Backtest (Apr–Jul train, Aug–Sep test) (Core (real data))<br>C10 Carrier capacity contracts (Synthetic)<br>C11 Friday capacity cap on carrier D (Core) | REQ-CAR-01, REQ-CAR-02, REQ-CAR-03, REQ-CAR-04, REQ-CAR-05, REQ-CAR-06, REQ-CAR-07, REQ-CAR-08 | 8 / 8 | `CarriersScreen.test.tsx`, `backtest.test.ts`, `carriers.test.ts`, `domain.test.ts`, `test_backtest.py`, `test_capacity.py`, `test_carriers_lanes.py`, `test_window.py` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | E1 Email intake: Gmail fetch, store, dedupe (Core)<br>E2 Client identification by sender domain (Core)<br>E3 Order extraction (AI) to validated JSON, after PII removal (Core)<br>E4 Address check (complete or matches saved address) and Azure Maps confidence (Core)<br>E5 Decision state (code, not AI) (Core)<br>E6 Reply draft (AI) from checked facts (Core)<br>E7 Client reply handling (re-check after address answer) (Core)<br>E8 Operator approval; allow-listed sending (Core)<br>E15 Scheduled Gmail poll (every 10 minutes) (Core)<br>E16 Unknown senders skipped before any AI call (Core)<br>E17 Automatic correction replies for address problems, within safety checks (Core)<br>E18 Order review: supervisor approves or rejects ALL_CLEAR orders, may change the carrier (Core) | REQ-INT-01, REQ-INT-02, REQ-INT-03, REQ-INT-04, REQ-INT-05, REQ-INT-06, REQ-INT-07, REQ-INT-08, REQ-INT-09, REQ-INT-10, REQ-INT-11, REQ-INT-12, REQ-INT-13, REQ-INT-14, REQ-INT-15, REQ-INT-16, REQ-INT-17, REQ-INT-18, REQ-INT-19 | 14 / 19 | `IntakeScreen.test.tsx`, `OrderReview.test.tsx`, `address.test.ts`, `eval.test.ts`, `extract.test.ts`, `intake-input.test.ts`, `intake.test.ts`, `oracle.test.ts`, `pipeline.test.ts`, `poll.test.ts`, `reply.test.ts`, `review.test.ts` |
+| §5.3 Email intake agent (owner: Email; E1–E9, E20) | E1 Email intake: Gmail fetch, store, dedupe (Core)<br>E2 Client identification by sender domain (Core)<br>E3 Order extraction (AI) to validated JSON, after PII removal (Core)<br>E4 Address check (complete or matches saved address) and Azure Maps confidence (Core)<br>E5 Decision state (code, not AI) (Core)<br>E6 Reply draft (AI) from checked facts (Core)<br>E7 Client reply handling (re-check after address answer) (Core)<br>E8 Operator approval; allow-listed sending (Core)<br>E15 Scheduled Gmail poll (every 10 minutes) (Core)<br>E16 Unknown senders skipped before any AI call (Core)<br>E17 Automatic correction replies for address problems, within safety checks (Core)<br>E18 Order review: supervisor approves or rejects ALL_CLEAR orders, may change the carrier (Core)<br>E20 SKU catalogue check: each extracted item matched to the client's synthetic catalogue (SD-10); an unknown item gets "did you mean" suggestions from that client's catalogue only (Stretch (after submission; synthetic)) | REQ-INT-01, REQ-INT-02, REQ-INT-03, REQ-INT-04, REQ-INT-05, REQ-INT-06, REQ-INT-07, REQ-INT-08, REQ-INT-09, REQ-INT-10, REQ-INT-11, REQ-INT-12, REQ-INT-13, REQ-INT-14, REQ-INT-15, REQ-INT-16, REQ-INT-17, REQ-INT-18, REQ-INT-19, REQ-SKU-01, REQ-SKU-02, REQ-SKU-03, REQ-SKU-04, REQ-SKU-05, REQ-SKU-06, REQ-SKU-07 | 14 / 26 | `IntakeScreen.test.tsx`, `OrderReview.test.tsx`, `address.test.ts`, `client-emails.test.ts`, `eval.test.ts`, `extract.test.ts`, `intake-input.test.ts`, `intake.test.ts`, `oracle.test.ts`, `pipeline.test.ts`, `poll.test.ts`, `reply.test.ts`, `review.test.ts` |
 | §5.4 Promise and stock check (owner: Warehouse; W1–W3, W6) | W1 Cut-off promise rule (Core)<br>W2 Nearest-warehouse rule (Core)<br>W3 Partner-warehouse fallback (W1↔W2) (Core)<br>W6 Second pick run at 11:00 (simulation) (Core (real data)) | REQ-PRO-01, REQ-PRO-02, REQ-PRO-03, REQ-PRO-04, REQ-PRO-05 | 5 / 5 | `domain.test.ts`, `test_scenarios.py` |
 | §5.5 Late-risk score and delay alert (owner: Email; E10, stretch) | E10 Late-risk score + delay alert agent (Stretch) | REQ-RISK-01, REQ-RISK-02, REQ-RISK-03, REQ-RISK-04 | 3 / 4 | `alerts.test.ts`, `test_risk.py` |
 | §5.6 Mailbox simulator and WMS entry bot (owner: Email; E13, stretch, synthetic) | E13 Mailbox simulator + WMS entry bot (Stretch (synthetic)) | REQ-BOT-01, REQ-BOT-02, REQ-BOT-03 | 0 / 2 | — |
@@ -36,8 +36,8 @@ a test file names it.
 | §5.13 Unified carrier tracking (owner: Carriers; C8, synthetic) | C8 Unified carrier tracking (Synthetic) | REQ-TRK-01, REQ-TRK-02, REQ-TRK-03 | 2 / 2 | `test_tracking.py`, `tracking.test.ts` |
 | §5.14 "Ask LateLens" agent over MCP (owner: Carriers; D7, core) | D7 "Ask LateLens" agent over MCP (leadership) (Core) | REQ-MCP-01, REQ-MCP-02, REQ-MCP-03 | 3 / 3 | `mcp.test.ts` |
 | §5.15 Tier 1 and at-risk clients first (owner: Email; E14) | E14 Tier 1 and at-risk clients first: intake queue, alerts, complaint escalation (Core) | REQ-PRI-01, REQ-PRI-02 | 2 / 2 | `complaints.test.ts`, `priority.test.ts` |
-| §5.16 In-app "Ask LateLens" assistant (owner: Carriers; D10, stretch, after submission) | D10 In-app "Ask LateLens" assistant: chat panel in the dashboard (on Overview, the "Router" panel), read-only tools shared with D7 (flag `ASK_ASSISTANT`) (Stretch (after submission; built 30 Oct, flag off)) | REQ-ASK-01, REQ-ASK-02, REQ-ASK-03, REQ-ASK-04, REQ-ASK-05, REQ-ASK-06, REQ-ASK-07, REQ-ASK-08, REQ-ASK-09, REQ-ASK-10, REQ-ASK-11, REQ-ASK-12, NFR-ASK-01, NFR-ASK-02, NFR-ASK-03, SEC-ASK-01, SEC-ASK-02, SEC-ASK-03, SEC-ASK-04, SEC-ASK-05, SEC-ASK-06 | 19 / 21 | `AskPanel.test.tsx`, `DashboardShell.test.tsx`, `answer.test.ts`, `assistant-tools.test.ts`, `assistant.test.ts`, `figures.test.ts`, `llm-tools.test.ts`, `route.test.ts`, `smoke.spec.ts`, `tools.test.ts` |
-| §5.17 One-time address link (owner: Email; E19, stretch, after submission) | E19 One-time address link (`/confirm/{token}`) in `CONFIRM_ADDRESS` replies: address fields + map pin, confirmed by the client (flag `CONFIRM_LINK`) (Stretch (after submission)) | REQ-LINK-01, REQ-LINK-02, REQ-LINK-03, REQ-LINK-04, REQ-LINK-05, REQ-LINK-06, REQ-LINK-07, REQ-LINK-08, REQ-LINK-09, REQ-LINK-10, REQ-LINK-11, NFR-LINK-01, SEC-LINK-01, SEC-LINK-02, SEC-LINK-03, SEC-LINK-04, SEC-LINK-05, SEC-LINK-06, SEC-LINK-07, SEC-LINK-08, SEC-LINK-09, SEC-LINK-10, SEC-LINK-11 | 16 / 23 | `link-config.test.ts`, `link-draft.test.ts`, `link-repo.test.ts`, `link-rules.test.ts`, `link-seed.test.ts`, `link.test.ts` |
+| §5.16 In-app "Ask LateLens" assistant (owner: Carriers; D10, stretch, after submission) | D10 In-app "Ask LateLens" assistant: chat panel in the dashboard (on Overview, the "Router" panel), read-only tools shared with D7 (flag `ASK_ASSISTANT`) (Stretch (after submission; built 30 Oct, flag off)) | REQ-ASK-01, REQ-ASK-02, REQ-ASK-03, REQ-ASK-04, REQ-ASK-05, REQ-ASK-06, REQ-ASK-07, REQ-ASK-08, REQ-ASK-09, REQ-ASK-10, REQ-ASK-11, REQ-ASK-13, REQ-ASK-14, REQ-ASK-12, NFR-ASK-01, NFR-ASK-02, NFR-ASK-03, SEC-ASK-01, SEC-ASK-02, SEC-ASK-03, SEC-ASK-04, SEC-ASK-05, SEC-ASK-06 | 21 / 23 | `DashboardShell.test.tsx`, `Router.test.tsx`, `RouterDock.test.tsx`, `answer.test.ts`, `assistant-tools.test.ts`, `assistant.test.ts`, `figures.test.ts`, `llm-tools.test.ts`, `route.test.ts`, `smoke.spec.ts`, `tools.test.ts` |
+| §5.17 One-time address link (owner: Email; E19, stretch, after submission) | E19 One-time address link (`/confirm/{token}`) in `CONFIRM_ADDRESS` replies: address fields + map pin, confirmed by the client (flag `CONFIRM_LINK`) (Stretch (after submission)) | REQ-LINK-01, REQ-LINK-02, REQ-LINK-03, REQ-LINK-04, REQ-LINK-05, REQ-LINK-06, REQ-LINK-07, REQ-LINK-08, REQ-LINK-09, REQ-LINK-10, REQ-LINK-11, REQ-LINK-12, REQ-LINK-13, REQ-LINK-14, REQ-LINK-15, REQ-LINK-16, REQ-LINK-17, REQ-LINK-18, REQ-LINK-19, NFR-LINK-01, SEC-LINK-01, SEC-LINK-02, SEC-LINK-03, SEC-LINK-04, SEC-LINK-05, SEC-LINK-06, SEC-LINK-07, SEC-LINK-08, SEC-LINK-09, SEC-LINK-10, SEC-LINK-11, SEC-LINK-12 | 32 / 32 | `ConfirmScreen.test.tsx`, `IntakeScreen.test.tsx`, `OrderReview.test.tsx`, `VerifyStep.test.tsx`, `atlas.test.ts`, `confirm.spec.ts`, `link-config.test.ts`, `link-deps.test.ts`, `link-draft.test.ts`, `link-repo.test.ts`, `link-rules.test.ts`, `link-seed.test.ts`, `link.test.ts`, `load.test.ts`, `maps-sas.test.ts`, `permissions.test.ts`, `review.test.ts` |
 | §8 Non-functional and security requirements | E8 Operator approval; allow-listed sending (Core)<br>E17 Automatic correction replies for address problems, within safety checks (Core) | NFR-01, NFR-02, NFR-03, NFR-04, NFR-05, SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, SEC-06 | 7 / 11 | `IntakeScreen.test.tsx`, `address.test.ts`, `decision-time.test.ts`, `eval.test.ts`, `extract.test.ts`, `intake.test.ts`, `mailbox.test.ts`, `pipeline.test.ts`, `test_intake_fixtures.py`, `test_stock.py`, `warehouse.test.ts` |
 | §9.3 CI/CD (GitHub Actions) | P4 CI (Core)<br>P5 Azure deployment (Core)<br>P6 Playwright smoke test against the deployed app (Core) | — | 0 / 0 | — |
 
@@ -62,25 +62,32 @@ a test file names it.
 | §5.2 Carrier recommender (owner: Carriers; C1 | AC-CAR-06 | `backend/api/test/routes/carriers.test.ts` |
 | §5.2 Carrier recommender (owner: Carriers; C1 | AC-CAR-07 | `backend/api/test/carriers/domain.test.ts` |
 | §5.2 Carrier recommender (owner: Carriers; C1 | AC-CAR-08 | `backend/analytics/tests/test_capacity.py`, `backend/api/test/carriers/domain.test.ts` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-01 | `backend/api/test/intake/eval.test.ts`, `backend/api/test/intake/extract.test.ts` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-02 | `backend/api/test/intake/address.test.ts`, `backend/api/test/intake/oracle.test.ts` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-03 | `backend/api/test/intake/reply.test.ts` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-04 | `backend/api/test/intake/address.test.ts`, `backend/api/test/intake/oracle.test.ts` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-05 | **not named by a test** |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-06 | `backend/api/test/intake/reply.test.ts`, `backend/api/test/routes/intake.test.ts` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-07 | `backend/api/test/intake/pipeline.test.ts` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-08 | `backend/api/test/intake/poll.test.ts`, `backend/api/test/routes/intake.test.ts`, `frontend/components/dashboard/intake/IntakeScreen.test.tsx` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-09 | **not named by a test** |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-10 | `backend/api/test/intake/pipeline.test.ts`, `frontend/components/dashboard/intake/IntakeScreen.test.tsx` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-11 | **not named by a test** |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-12 | **not named by a test** |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-13 | **not named by a test** |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-14 | `backend/api/test/intake/review.test.ts`, `backend/api/test/routes/review.test.ts`, `frontend/components/dashboard/intake/OrderReview.test.tsx` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-15 | `backend/api/test/intake/review.test.ts`, `backend/api/test/routes/review.test.ts`, `frontend/components/dashboard/intake/OrderReview.test.tsx` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-16 | `backend/api/test/routes/intake-input.test.ts` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-17 | `backend/api/test/routes/intake-input.test.ts` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-18 | `backend/api/test/routes/intake-input.test.ts` |
-| §5.3 Email intake agent (owner: Email; E1–E9) | AC-INT-19 | `frontend/components/dashboard/intake/IntakeScreen.test.tsx` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-01 | `backend/api/test/intake/eval.test.ts`, `backend/api/test/intake/extract.test.ts` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-02 | `backend/api/test/intake/address.test.ts`, `backend/api/test/intake/oracle.test.ts` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-03 | `backend/api/test/intake/reply.test.ts` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-04 | `backend/api/test/intake/address.test.ts`, `backend/api/test/intake/oracle.test.ts` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-05 | **not named by a test** |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-06 | `backend/api/test/intake/reply.test.ts`, `backend/api/test/routes/intake.test.ts` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-07 | `backend/api/test/intake/pipeline.test.ts` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-08 | `backend/api/test/intake/pipeline.test.ts`, `backend/api/test/intake/poll.test.ts`, `backend/api/test/routes/intake.test.ts`, `frontend/components/dashboard/intake/IntakeScreen.test.tsx` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-09 | **not named by a test** |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-10 | `backend/api/test/intake/client-emails.test.ts`, `backend/api/test/intake/pipeline.test.ts`, `frontend/components/dashboard/intake/IntakeScreen.test.tsx` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-11 | **not named by a test** |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-12 | **not named by a test** |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-13 | **not named by a test** |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-14 | `backend/api/test/intake/review.test.ts`, `backend/api/test/routes/review.test.ts`, `frontend/components/dashboard/intake/OrderReview.test.tsx` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-15 | `backend/api/test/intake/review.test.ts`, `backend/api/test/routes/review.test.ts`, `frontend/components/dashboard/intake/OrderReview.test.tsx` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-16 | `backend/api/test/routes/intake-input.test.ts` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-17 | `backend/api/test/routes/intake-input.test.ts` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-18 | `backend/api/test/routes/intake-input.test.ts` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-INT-19 | `frontend/components/dashboard/intake/IntakeScreen.test.tsx` |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-SKU-01 | **not named by a test** |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-SKU-02 | **not named by a test** |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-SKU-03 | **not named by a test** |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-SKU-04 | **not named by a test** |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-SKU-05 | **not named by a test** |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-SKU-06 | **not named by a test** |
+| §5.3 Email intake agent (owner: Email; E1–E9, | AC-SKU-07 | **not named by a test** |
 | §5.4 Promise and stock check (owner: Warehous | AC-PRO-01 | `backend/api/test/warehouse/domain.test.ts` |
 | §5.4 Promise and stock check (owner: Warehous | AC-PRO-02 | `backend/api/test/warehouse/domain.test.ts` |
 | §5.4 Promise and stock check (owner: Warehous | AC-PRO-03 | `backend/api/test/warehouse/domain.test.ts` |
@@ -122,7 +129,7 @@ a test file names it.
 | §5.14 "Ask LateLens" agent over MCP (owner: Ca | AC-MCP-03 | `backend/api/test/routes/mcp.test.ts` |
 | §5.15 Tier 1 and at-risk clients first (owner: | AC-PRI-01 | `backend/api/test/intake/priority.test.ts` |
 | §5.15 Tier 1 and at-risk clients first (owner: | AC-PRI-02 | `backend/api/test/intake/complaints.test.ts`, `backend/api/test/intake/priority.test.ts` |
-| §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-01 | `frontend/components/dashboard/DashboardShell.test.tsx`, `frontend/components/dashboard/assistant/AskPanel.test.tsx`, `frontend/e2e/smoke.spec.ts` |
+| §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-01 | `frontend/components/dashboard/DashboardShell.test.tsx`, `frontend/components/dashboard/assistant/RouterDock.test.tsx`, `frontend/e2e/smoke.spec.ts` |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-02 | `backend/api/test/assistant/tools.test.ts` |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-03 | `backend/api/test/assistant/answer.test.ts`, `backend/api/test/assistant/tools.test.ts` |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-04 | `backend/api/test/assistant/answer.test.ts`, `backend/api/test/assistant/figures.test.ts`, `backend/api/test/routes/assistant.test.ts` |
@@ -131,41 +138,52 @@ a test file names it.
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-07 | `backend/api/test/assistant/tools.test.ts`, `backend/api/test/routes/assistant.test.ts` |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-08 | `backend/api/test/assistant/route.test.ts`, `frontend/components/dashboard/DashboardShell.test.tsx` |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-09 | `backend/api/test/assistant/answer.test.ts`, `backend/api/test/assistant/route.test.ts` |
-| §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-10 | `backend/api/test/assistant/llm-tools.test.ts`, `backend/api/test/assistant/route.test.ts`, `backend/api/test/routes/assistant.test.ts`, `frontend/components/dashboard/assistant/AskPanel.test.tsx` |
-| §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-11 | `backend/api/test/routes/assistant.test.ts` |
+| §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-10 | `backend/api/test/assistant/llm-tools.test.ts`, `backend/api/test/assistant/route.test.ts`, `backend/api/test/routes/assistant.test.ts`, `frontend/components/dashboard/assistant/RouterDock.test.tsx` |
+| §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-11 | `backend/api/test/assistant/answer.test.ts`, `backend/api/test/routes/assistant.test.ts` |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-12 | `backend/api/test/assistant/route.test.ts` |
+| §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-13 | `backend/api/test/assistant/answer.test.ts`, `backend/api/test/routes/assistant.test.ts` |
+| §5.16 In-app "Ask LateLens" assistant (owner:  | AC-ASK-14 | `backend/api/test/assistant/answer.test.ts`, `frontend/components/dashboard/assistant/Router.test.tsx`, `frontend/components/dashboard/assistant/RouterDock.test.tsx` |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-NFR-ASK-01 | **not named by a test** |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-NFR-ASK-02 | `backend/api/test/assistant/route.test.ts` |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-NFR-ASK-03 | **not named by a test** |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-SEC-ASK-01 | `backend/api/test/assistant/answer.test.ts`, `backend/api/test/assistant/route.test.ts` |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-SEC-ASK-02 | `backend/api/test/assistant/route.test.ts` |
-| §5.16 In-app "Ask LateLens" assistant (owner:  | AC-SEC-ASK-03 | `backend/api/test/assistant/answer.test.ts`, `backend/api/test/assistant/llm-tools.test.ts`, `frontend/components/dashboard/assistant/AskPanel.test.tsx` |
+| §5.16 In-app "Ask LateLens" assistant (owner:  | AC-SEC-ASK-03 | `backend/api/test/assistant/answer.test.ts`, `backend/api/test/assistant/llm-tools.test.ts`, `frontend/components/dashboard/assistant/RouterDock.test.tsx` |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-SEC-ASK-04 | `backend/api/test/routes/assistant-tools.test.ts` |
 | §5.16 In-app "Ask LateLens" assistant (owner:  | AC-SEC-ASK-05 | `backend/api/test/assistant/route.test.ts` |
-| §5.16 In-app "Ask LateLens" assistant (owner:  | AC-SEC-ASK-06 | `backend/api/test/assistant/answer.test.ts`, `frontend/components/dashboard/assistant/AskPanel.test.tsx` |
+| §5.16 In-app "Ask LateLens" assistant (owner:  | AC-SEC-ASK-06 | `backend/api/test/assistant/answer.test.ts`, `frontend/components/dashboard/assistant/RouterDock.test.tsx` |
 | §5.17 One-time address link (owner: Email; E19 | AC-LINK-01 | `backend/api/test/intake/link-draft.test.ts`, `backend/api/test/intake/link.test.ts` |
-| §5.17 One-time address link (owner: Email; E19 | AC-LINK-02 | **not named by a test** |
-| §5.17 One-time address link (owner: Email; E19 | AC-LINK-03 | `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link.test.ts` |
-| §5.17 One-time address link (owner: Email; E19 | AC-LINK-04 | `backend/api/test/intake/link.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-02 | `backend/api/test/routes/link.test.ts`, `frontend/components/confirm/ConfirmScreen.test.tsx` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-03 | `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link.test.ts`, `frontend/components/confirm/ConfirmScreen.test.tsx` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-04 | `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts` |
 | §5.17 One-time address link (owner: Email; E19 | AC-LINK-05 | `backend/api/test/intake/link-repo.test.ts`, `backend/api/test/intake/link-seed.test.ts`, `backend/api/test/intake/link.test.ts` |
-| §5.17 One-time address link (owner: Email; E19 | AC-LINK-06 | **not named by a test** |
-| §5.17 One-time address link (owner: Email; E19 | AC-LINK-07 | `backend/api/test/intake/link.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-06 | `backend/api/test/routes/link.test.ts`, `frontend/components/dashboard/intake/IntakeScreen.test.tsx` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-07 | `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts`, `frontend/e2e/confirm.spec.ts`, `frontend/lib/confirm/load.test.ts` |
 | §5.17 One-time address link (owner: Email; E19 | AC-LINK-08 | `backend/api/test/intake/link.test.ts` |
-| §5.17 One-time address link (owner: Email; E19 | AC-LINK-09 | `backend/api/test/intake/link-config.test.ts`, `backend/api/test/intake/link-draft.test.ts`, `backend/api/test/intake/link.test.ts` |
-| §5.17 One-time address link (owner: Email; E19 | AC-LINK-10 | **not named by a test** |
-| §5.17 One-time address link (owner: Email; E19 | AC-LINK-11 | **not named by a test** |
-| §5.17 One-time address link (owner: Email; E19 | AC-NFR-LINK-01 | **not named by a test** |
-| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-01 | `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link.test.ts` |
-| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-02 | `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link.test.ts` |
-| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-03 | `backend/api/test/intake/link.test.ts` |
-| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-04 | `backend/api/test/intake/link.test.ts` |
-| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-05 | **not named by a test** |
-| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-06 | `backend/api/test/intake/link.test.ts` |
-| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-07 | **not named by a test** |
-| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-08 | `backend/api/test/intake/link.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-09 | `backend/api/test/intake/link-config.test.ts`, `backend/api/test/intake/link-draft.test.ts`, `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts`, `frontend/lib/auth/link.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-10 | `frontend/components/confirm/ConfirmScreen.test.tsx` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-11 | `backend/api/test/intake/review.test.ts`, `backend/api/test/routes/link.test.ts`, `frontend/components/dashboard/intake/OrderReview.test.tsx` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-12 | `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts`, `frontend/components/confirm/ConfirmScreen.test.tsx` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-13 | `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link.test.ts`, `frontend/components/confirm/ConfirmScreen.test.tsx` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-14 | `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link.test.ts`, `backend/api/test/intake/review.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-15 | `frontend/components/confirm/ConfirmScreen.test.tsx` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-16 | `backend/api/test/intake/link.test.ts`, `frontend/components/confirm/ConfirmScreen.test.tsx` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-17 | `backend/api/test/intake/link-deps.test.ts`, `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts`, `frontend/components/confirm/VerifyStep.test.tsx`, `frontend/lib/confirm/load.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-18 | `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts`, `frontend/components/confirm/VerifyStep.test.tsx` |
+| §5.17 One-time address link (owner: Email; E19 | AC-LINK-19 | `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts`, `frontend/components/confirm/ConfirmScreen.test.tsx`, `frontend/components/confirm/VerifyStep.test.tsx` |
+| §5.17 One-time address link (owner: Email; E19 | AC-NFR-LINK-01 | `frontend/e2e/confirm.spec.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-01 | `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-02 | `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-03 | `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-04 | `backend/api/test/intake/link.test.ts`, `frontend/lib/auth/link.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-05 | `backend/api/test/routes/link.test.ts`, `backend/api/test/routes/permissions.test.ts`, `frontend/e2e/confirm.spec.ts`, `frontend/lib/auth/link.test.ts`, `frontend/lib/confirm/load.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-06 | `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-07 | `frontend/e2e/confirm.spec.ts`, `frontend/lib/auth/link.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-08 | `backend/api/test/intake/link-deps.test.ts`, `backend/api/test/intake/link.test.ts`, `backend/api/test/intake/maps-sas.test.ts`, `backend/api/test/routes/link.test.ts`, `frontend/lib/auth/link.test.ts`, `frontend/lib/confirm/atlas.test.ts` |
 | §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-09 | `backend/api/test/intake/link.test.ts` |
 | §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-10 | `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link.test.ts` |
-| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-11 | `backend/api/test/intake/link.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-11 | `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts` |
+| §5.17 One-time address link (owner: Email; E19 | AC-SEC-LINK-12 | `backend/api/test/intake/link.test.ts`, `backend/api/test/routes/link.test.ts`, `frontend/lib/auth/link.test.ts` |
 | §8 Non-functional and security requirements | AC-NFR-01 | `backend/api/test/routes/warehouse.test.ts` |
 | §8 Non-functional and security requirements | AC-NFR-02 | `backend/api/test/intake/decision-time.test.ts` |
 | §8 Non-functional and security requirements | AC-NFR-03 | **not named by a test** |
@@ -234,6 +252,13 @@ a test file names it.
 | §6 Acceptance criteria | AC-JRN-13 | `backend/api/test/carriers/orderEvents.test.ts`, `backend/api/test/routes/order-events.test.ts` |
 | §6 Acceptance criteria | AC-SEC-JRN-04 | `backend/api/test/carriers/orderEvents.test.ts`, `backend/api/test/intake/wms.test.ts`, `backend/api/test/routes/order-events.test.ts` |
 | §6 Acceptance criteria | AC-JRN-14 | `backend/api/test/carriers/journey.test.ts` |
+| §6 Acceptance criteria | AC-JRN-15 | `backend/api/test/carriers/autoAdvance.test.ts`, `backend/api/test/intake/wms.test.ts`, `backend/api/test/routes/intake.test.ts` |
+| §6 Acceptance criteria | AC-JRN-16 | `backend/api/test/intake/wms.test.ts` |
+| §6 Acceptance criteria | AC-JRN-17 | `backend/api/test/routes/auto-advance.test.ts` |
+| §6 Acceptance criteria | AC-JRN-18 | `backend/api/test/carriers/autoAdvance.test.ts`, `backend/api/test/carriers/journey.test.ts` |
+| §6 Acceptance criteria | AC-JRN-19 | `backend/api/test/intake/wms.test.ts` |
+| §6 Acceptance criteria | AC-SET-01 | `backend/api/test/routes/settings.test.ts` |
+| §6 Acceptance criteria | AC-SET-02 | `frontend/components/dashboard/settings/AutoAdvanceCard.test.tsx` |
 | §6 Acceptance criteria | AC-NFR-JRN-01 | **not named by a test** |
 | §6 Acceptance criteria | AC-SEC-JRN-01 | **not named by a test** |
 | §6 Acceptance criteria | AC-SEC-JRN-02 | **not named by a test** |
