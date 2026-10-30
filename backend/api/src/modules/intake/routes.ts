@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { allowList, config } from '../../core/config.js';
 import { restore } from '../../core/pii/redact.js';
 import { actorOf } from '../../core/auth.js';
-import { logOverride } from '../carriers/index.js';
+import { logOverride, recordOrderEvent } from '../carriers/index.js';
 import { diagnosisApi } from '../warehouse/index.js';
 import { ACTIONS, applyAction } from './actions.js';
 import { runAlerts } from './alerts.js';
@@ -12,6 +12,7 @@ import { getDeps } from './deps.js';
 import { processEmail } from './pipeline.js';
 import { POLL_MAX, pollLogFields, runPoll } from './poll.js';
 import { reviewQueue } from './review.js';
+import { httpWms } from './wms.js';
 
 const EmailBody = z.object({
   from: z.string().min(3), subject: z.string(), body: z.string().min(1),
@@ -34,6 +35,7 @@ export function preview(body: string): string {
 }
 
 const routes: FastifyPluginAsync = async (app) => {
+  const wms = httpWms(config.WMS_URL, config.WMS_TOKEN); // null without WMS_URL (design §5)
   app.get('/intake', async () => {
     const { repo, gmail } = getDeps();
     const last = await repo.lastPoll();
@@ -101,9 +103,10 @@ const routes: FastifyPluginAsync = async (app) => {
     const deps = getDeps();
     const result = await applyAction(deps.repo, Number(req.params.id), body.data.action, actorOf(req),
       { gmail: deps.gmail, allow: allowList },
-      { edited: body.data.reply, reason: body.data.reason, carrier: body.data.carrier, overrides: logOverride });
-    req.log.info({ emailId: Number(req.params.id), action: body.data.action, carrier: body.data.carrier ?? null, code: result.code },
-      'intake action');
+      { edited: body.data.reply, reason: body.data.reason, carrier: body.data.carrier, overrides: logOverride,
+        wms, orderEvents: recordOrderEvent });
+    req.log.info({ emailId: Number(req.params.id), action: body.data.action, carrier: body.data.carrier ?? null, code: result.code,
+      error: result.error ?? null }, 'intake action');
     return reply.code(result.code).send(result.error ? { error: result.error } : { status: result.status });
   });
 

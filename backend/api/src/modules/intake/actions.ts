@@ -5,6 +5,7 @@ import { restore } from '../../core/pii/redact.js';
 import { senderAddress, sendReply } from './mailbox.js';
 import type { Repo } from './repo.js';
 import { carrierChoices } from './review.js';
+import { type Wms, wmsOrder } from './wms.js';
 
 export const ACTIONS = ['approve', 'reject', 'send_reply', 'send_to_wms'] as const;
 export type Action = (typeof ACTIONS)[number];
@@ -12,11 +13,17 @@ export interface ActionResult { code: 200 | 400 | 403 | 404 | 409 | 503; status?
 export interface Outbox { gmail: Pick<GmailClient, 'sendMessage'> | null; allow: Set<string> }
 /** The Carriers module's override log (`logOverride` in modules/carriers/index.ts), the one writer of override_log. */
 export type OverrideLog = (o: { orderRef: string; from: string; to: string; reason: string; user: string }) => Promise<number>;
+/** The Carriers module's `recordOrderEvent` (modules/carriers/index.ts), the one writer of order_events (design §7). */
+export type OrderEventLog = (o: { orderRef: string; event: 'wms_entered'; detail: Record<string, unknown> }) =>
+  Promise<{ code: number; error?: string }>;
 /**
  * `edited`: the operator's own reply text (send_reply). `reason`: why an order is rejected, or why its carrier changes.
  * `carrier`: the supervisor's carrier for an ALL_CLEAR order (approve only). `overrides`: where that change is logged.
+ * `wms`: the WMS send_to_wms hands the order to (null when WMS_URL is unset); `orderEvents`: where `wms_entered` goes.
  */
-export interface ActionOptions { edited?: string; reason?: string; carrier?: CarrierId; overrides?: OverrideLog }
+export interface ActionOptions {
+  edited?: string; reason?: string; carrier?: CarrierId; overrides?: OverrideLog; wms?: Wms | null; orderEvents?: OrderEventLog;
+}
 
 const MIN_REASON = 3;
 
@@ -84,7 +91,26 @@ export async function applyAction(repo: Repo, id: number, action: Action, actor:
     return { code: 200, status };
   }
   if (x?.decision !== 'ALL_CLEAR') return { code: 409, error: 'only ALL_CLEAR orders go to the WMS' };
+  // Design §5: the order counts as entered only once the WMS has accepted it; without WMS_URL, as before (status only).
+  let payload: object = who;
+  if (opts.wms) {
+    const order = wmsOrder(email, x);
+    if (!order) return { code: 409, error: 'the order has no promise, warehouse or carrier to send' };
+    if (!opts.orderEvents) return { code: 503, error: 'the order event log is not available' };
+    let wmsOrderId: string;
+    try {
+      ({ wmsOrderId } = await opts.wms.sendOrder(order));
+    } catch {
+      return { code: 503, error: 'WMS not reachable' };
+    }
+    const r = await opts.orderEvents({ orderRef: order.orderRef, event: 'wms_entered', detail: { wmsOrderId } });
+    // A retry after a lost response finds wms_entered already there: the WMS has the order, so it is entered.
+    if (r.code !== 201 && r.code !== 200 && r.error !== 'already recorded') {
+      return { code: 503, error: `the WMS entry was not recorded: ${r.error ?? r.code}` };
+    }
+    payload = { ...who, wmsOrderId };
+  }
   await repo.setStatus(id, 'ENTERED');
-  await repo.logApproval(id, 'send_to_wms', user, who);
+  await repo.logApproval(id, 'send_to_wms', user, payload);
   return { code: 200, status: 'ENTERED' };
 }
