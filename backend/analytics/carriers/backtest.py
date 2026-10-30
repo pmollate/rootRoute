@@ -26,7 +26,7 @@ def backtest(d: pd.DataFrame) -> pd.DataFrame:
     lanes = lane_scores(train)
     any_day = _best(lanes)
     friday = _best(lanes[lanes.carrier_id.ne(core.FRIDAY_CAP_CARRIER)])
-    is_fri = test.order_received_ts.dt.day_of_week.eq(4)
+    is_fri = test.order_received_ts.dt.day_of_week.eq(core.FRIDAY)
     t = pd.concat([test[~is_fri].merge(any_day, on=LANE, how="left"), test[is_fri].merge(friday, on=LANE, how="left")],
                   ignore_index=True)
     # Estimate each order's late chance on the recommended carrier from train orders of the same lane, carrier and

@@ -1,9 +1,15 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { addDays, checkPromise, chooseWarehouse, linkExpiry } from '../../src/modules/warehouse/domain.js';
+import { addDays, checkPromise, chooseWarehouse, CUTOFF_HOUR, linkExpiry } from '../../src/modules/warehouse/domain.js';
 
 const MILES_MIDWEST = { W1: 150, W2: 200, W3: 700, W4: 800, W5: 1700 };
 
 describe('promise rules', () => {
+  it('the order-time cut-off matches the analytics rules config', () => {
+    const rules = JSON.parse(readFileSync(new URL('../../../analytics/rules.json', import.meta.url), 'utf8'));
+    expect(CUTOFF_HOUR).toBe(rules.cutoff_hour);
+  });
+
   it('AC-PRO-01: same-day at 08:00 becomes next day with a reason; 07:59 keeps same day', () => {
     const late = checkPromise('same_day', '2026-10-26 08:00');
     expect(late).toMatchObject({ commitment: 'next_day', promiseDate: '2026-10-28', downgraded: true });
