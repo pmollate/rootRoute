@@ -30,13 +30,24 @@ export const Env = z.object({
   // D7 Ask LateLens: Bearer token for /api/mcp; unset or empty = endpoint off
   MCP_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(16).optional()),
   ALLOW_LIST: z.string().default(''),
+  // E19 one-time address link (SPEC §5.17; design settings, not data). Off by default (REQ-LINK-09).
+  CONFIRM_LINK: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['on', 'off']).default('off')),
+  CONFIRM_LINK_HOURS: z.coerce.number().int().min(1).max(72).default(24),
+  // The web app's public address (same value as the web's AUTH_URL): the link is <AUTH_URL>/confirm/<token>
+  AUTH_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
   // D10 in-app assistant (SPEC §5.16; design settings, not data). Off by default (REQ-ASK-08).
   ASK_ASSISTANT: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['on', 'off']).default('off')),
   ASK_MAX_TOOL_CALLS: z.coerce.number().int().min(1).max(10).default(5),
   ASK_RATE_PER_MINUTE: z.coerce.number().int().min(1).max(100).default(10),
 });
 
+/** REQ-LINK-09: with CONFIRM_LINK=on the API refuses to start without AUTH_URL, naming the setting (fail closed). */
+export function checkConfirmLink(c: Pick<z.infer<typeof Env>, 'CONFIRM_LINK' | 'AUTH_URL'>): void {
+  if (c.CONFIRM_LINK === 'on' && !c.AUTH_URL) throw new Error('CONFIRM_LINK=on needs AUTH_URL: refusing to start');
+}
+
 export const config = Env.parse(process.env);
+checkConfirmLink(config);
 export const allowList = new Set(
   config.ALLOW_LIST.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
 );

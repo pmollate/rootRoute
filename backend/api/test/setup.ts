@@ -11,3 +11,4 @@ process.env.API_KEY = 'test-key';
 process.env.MCP_TOKEN = 'test-mcp-token-0123456789abcdef';
 process.env.INTAKE_POLL_MINUTES = '0';
 process.env.ALLOW_LIST = 'ops-test@latelens.example,orders@client190.example';
+process.env.CONFIRM_LINK = 'off'; // E19: drafts and recordings as before E19 whatever the local .env says (REQ-LINK-09)

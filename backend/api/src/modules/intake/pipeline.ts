@@ -30,6 +30,7 @@ export interface Deps extends IntakeDeps {
   warehouse: WarehouseApi;
   carriers: CarriersApi;
   gmail: Pick<GmailClient, 'sendMessage' | 'listMessageIds' | 'getMessage'> | null; // null until GMAIL_* is set up
+  confirmLink?: boolean; // E19 CONFIRM_LINK=on (REQ-LINK-01, -09); off or absent = no placeholder
 }
 
 export interface Processed {
@@ -138,6 +139,7 @@ export async function processEmail(input: IncomingEmail, deps: Deps): Promise<Pr
     address: unverified && address.address ? formatAddress(address.address) : null,
     addressIssues: unverified ? address.validation?.issues ?? [] : [],
     suggestion: unverified ? address.validation?.suggestion ?? null : null,
+    ...(deps.confirmLink ? { link: true } : {}),
   };
   const reply = await draftReply(deps.llm, facts);
   await repo.saveExtraction({
