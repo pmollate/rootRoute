@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { RateLimiter, checkDemo, parseDemoUsers } from './demo';
 import { signInternalToken } from './internalToken';
 import { proxy, type ProxySettings } from './proxy';
-import { PAGE_ROLES, ROLES, can, canOpen, homeFor, toRoles } from './roles';
+import { HOME, PAGE_ROLES, ROLES, can, canOpen, homeFor, toRoles } from './roles';
 import { safeReturnPath } from './safeNext';
 import { checkWebAuthEnv } from './startup';
 
@@ -45,10 +45,10 @@ describe('page access (SPEC-auth §4.4)', () => {
   it('AC-AUTH-15: each role opens only the screens in its page matrix; admin opens all; no session hides nothing', () => {
     const opens = (role: (typeof ROLES)[number]) => Object.keys(PAGE_ROLES).filter((p) => canOpen([role], p)).map((p) => p.slice(11));
     expect(opens('order_desk')).toEqual(['overview', 'intake', 'journey']);
-    expect(opens('warehouse_supervisor')).toEqual(['overview', 'intake', 'warehouses', 'journey', 'replay']);
-    expect(opens('carrier_manager')).toEqual(['overview', 'carriers', 'journey', 'replay']);
+    expect(opens('warehouse_supervisor')).toEqual(['overview', 'intake', 'warehouses', 'journey', 'labs']);
+    expect(opens('carrier_manager')).toEqual(['overview', 'carriers', 'journey', 'labs']);
     expect(opens('customer_support')).toEqual(['overview', 'complaints', 'journey']);
-    expect(opens('leadership')).toEqual(['overview', 'warehouses', 'carriers', 'journey', 'replay']);
+    expect(opens('leadership')).toEqual(['overview', 'warehouses', 'carriers', 'journey', 'labs']);
     expect(opens('admin')).toEqual(Object.keys(PAGE_ROLES).map((p) => p.slice(11)));
     expect(canOpen(null, '/dashboard/complaints')).toBe(true);
   });
@@ -59,12 +59,18 @@ describe('page access (SPEC-auth §4.4)', () => {
     for (const p of ['/', '/dashboard', '/dashboard/forbidden']) expect(canOpen(['order_desk'], p), p).toBe(true);
   });
 
-  it('after sign-in each role starts on the first screen in nav order it may open', () => {
+  it('after sign-in each role starts on its own page, which it may open; several roles: the first in ROLES order', () => {
+    expect(HOME).toEqual({
+      order_desk: '/dashboard/intake', warehouse_supervisor: '/dashboard/warehouses', carrier_manager: '/dashboard/carriers',
+      customer_support: '/dashboard/complaints', leadership: '/dashboard/overview', admin: '/dashboard/overview',
+    });
     for (const r of ROLES) {
-      const home = homeFor([r]);
-      expect(canOpen([r], home), r).toBe(true);
-      expect(home, r).toBe('/dashboard/overview'); // Overview is open to every role and first in the nav
+      expect(homeFor([r]), r).toBe(HOME[r]);
+      expect(canOpen([r], homeFor([r])), r).toBe(true);
     }
+    expect(homeFor(['leadership', 'carrier_manager'])).toBe('/dashboard/carriers');
+    expect(homeFor(null)).toBe('/dashboard/overview');
+    expect(homeFor([])).toBe('/dashboard/overview');
   });
 });
 

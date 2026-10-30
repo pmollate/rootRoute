@@ -821,7 +821,7 @@ region, month and client, so the Replay screen can show each group today and wit
 |---|---|
 | AC-REP-07 | Given the dataset, when the pipeline runs, then `scenario_breakdown` has every scenario × dimension of REQ-REP-07, one row per value present in the data (5 warehouses, 24 lanes, 6 carriers, 4 regions, 6 months, 280 clients), and AC-REP-04 holds for it. |
 | AC-REP-08 | Given `as_built_adopted`, when the rows of any dimension are summed, then deliveries are 48,340, late avoided is 7,191.5 ± 0.1 and cost avoided is $707,950 ± $1; the `all` row shows 71.0% → 85.9%, W1 70.4% → 85.1% and D → Midwest 53.4% → 87.5%. |
-| AC-REP-09 | Given `/dashboard/replay`, when it loads, then the card shows W1 70.4% → 85.1% and the "Replay estimate" badge; when "Lane" is picked, then D→Midwest shows 53.4% → 87.5%; given Overview, Warehouses or Carriers, then no "with LateLens" figure is shown. |
+| AC-REP-09 | Given `/dashboard/labs` (the Replay screen, shown as Labs in the bar), when it loads, then the card shows W1 70.4% → 85.1% and the "Replay estimate" badge; when "Lane" is picked, then D→Midwest shows 53.4% → 87.5%; given Overview, Warehouses or Carriers, then no "with LateLens" figure is shown. |
 | AC-REP-10 | Given `GET /api/compare` with an unknown `scenario` or `dimension`, then the API returns 400 naming the allowed values; given the order desk or customer support role, then the API returns 403. |
 
 ### 5.9 Address checks on API and EDI orders (owner: Email; E11, synthetic)

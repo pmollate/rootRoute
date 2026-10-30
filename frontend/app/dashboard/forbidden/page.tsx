@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import s from '@/components/auth/auth.module.css';
-import { SCREENS } from '@/config/dashboard';
+import { MORE, SCREENS } from '@/config/dashboard';
 import { ROLE_LABELS, canOpen } from '@/lib/auth/roles';
 import { currentUser } from '@/lib/auth/session';
 
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'Not available for your role' };
 export default async function Forbidden() {
   const user = await currentUser();
   const roles = user?.roles ?? [];
-  const open = SCREENS.filter((sc) => canOpen(roles, sc.href));
+  const open = [...SCREENS, ...MORE].filter((sc) => canOpen(roles, sc.href));
   return (
     <div className={s.inShell}>
       <div className={s.card}>

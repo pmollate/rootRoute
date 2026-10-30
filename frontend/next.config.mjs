@@ -23,6 +23,10 @@ const nextConfig = {
   poweredByHeader: false,
   // middleware only sees env passed through here, not the root .env loaded above
   env: { MAINTENANCE_MODE: process.env.MAINTENANCE_MODE ?? 'false' },
+  // Replay moved to Labs; old links and bookmarks still land on it.
+  async redirects() {
+    return [{ source: '/dashboard/replay', destination: '/dashboard/labs', permanent: false }];
+  },
   async headers() {
     return [
       { source: '/media/:path*', headers: [{ key: 'Cache-Control', value: ASSET_CACHE }] },

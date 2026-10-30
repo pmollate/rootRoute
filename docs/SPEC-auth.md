@@ -138,7 +138,7 @@ matrix; `backend/api/src/core/permissions.ts` gives each GET the roles of the pa
 
 | Page | `order_desk` | `warehouse_supervisor` | `carrier_manager` | `customer_support` | `leadership` | `admin` |
 |---|---|---|---|---|---|---|
-| `/dashboard` (opens Overview) | Y | Y | Y | Y | Y | Y |
+| `/dashboard` (opens the role's start page, below) | Y | Y | Y | Y | Y | Y |
 | "Ask LateLens" panel on every screen (D10, when `ASK_ASSISTANT=on`) | Y | Y | Y | Y | Y | Y |
 | Overview | Y | Y | Y | Y | Y | Y |
 | Order emails (incl. order review) | Y | Y | | | | Y |
@@ -146,7 +146,7 @@ matrix; `backend/api/src/core/permissions.ts` gives each GET the roles of the pa
 | Warehouses | | Y | | | Y | Y |
 | Carriers | | | Y | | Y | Y |
 | Order journey | Y | Y | Y | Y | Y | Y |
-| Replay | | Y | Y | | Y | Y |
+| Labs (the Replay screen, `/dashboard/labs`; `/dashboard/replay` redirects there) | | Y | Y | | Y | Y |
 
 | GET route | Pages that use it | Roles |
 |---|---|---|
@@ -158,6 +158,9 @@ matrix; `backend/api/src/core/permissions.ts` gives each GET the roles of the pa
 | `complaints` | Complaints | `customer_support`, `admin` |
 | `carriers`, `carriers/backtest`, `tracking` | Carriers | `carrier_manager`, `leadership`, `admin` |
 
+- **Start page after sign-in** (`HOME` in `frontend/lib/auth/roles.ts`): `order_desk` Order emails, `warehouse_supervisor`
+  Warehouses, `carrier_manager` Carriers, `customer_support` Complaints, `leadership` and `admin` Overview. A user with
+  several roles starts on the page of the first one in that order. A sign-in link that names a page opens that page.
 - The nav lists only the screens the role may open. A link to a screen the role cannot open shows as plain text.
 - Opening a screen outside the matrix shows "This page is not available for your role" with HTTP 403. The URL stays
   as typed, and the page lists the screens the role can open.
@@ -344,7 +347,7 @@ in the journey) still holds.
 | AC-AUTH-12 | Given the Entra issuer is unreachable, when `/login` loads and "Sign in with Microsoft" is clicked, then the plain message shows with no stack trace; a user signed in before keeps loading pages; with `AUTH_DEMO=on`, a demo user can sign in. |
 | AC-AUTH-13 | Given `AUTH_REQUIRED=off`, when a keyed route is called with the right `x-api-key` and no token, then it succeeds and an `auth_would_deny` line is logged; when `/dashboard` is opened without a session, then it loads. Given `AUTH_REQUIRED=on`, when the same call is made with only `x-api-key`, then 401. |
 | AC-AUTH-14 | Given an `order_desk` user approving an order with a different, unblocked carrier, then the approval succeeds and one `override_log` row names that user; given the same user calling `POST /api/overrides` directly, then 403. |
-| AC-AUTH-15 | Given an `order_desk` user, when any dashboard page loads, then the nav lists only Overview, Order emails and Order journey; when `/dashboard/carriers` is opened, then the response is 403 and the page says it is not available for the role. Given `leadership`, then the nav lists Overview, Warehouses, Carriers, Order journey and Replay. |
+| AC-AUTH-15 | Given an `order_desk` user, when any dashboard page loads, then the nav lists only Overview, Order emails and Order journey; when `/dashboard/carriers` is opened, then the response is 403 and the page says it is not available for the role. Given `leadership`, then the nav lists Overview, Warehouses, Carriers, Order journey and Labs (the Replay screen). |
 | AC-AUTH-16 | Given `AUTH_REQUIRED=on`, when `GET /api/carriers` is called with an `order_desk` token, `GET /api/complaints` with `leadership` or `warehouse_supervisor`, `GET /api/intake` with `carrier_manager`, or `GET /api/warehouses` with `customer_support`, then each returns 403 `forbidden`. |
 | AC-NFR-AUTH-01 | Given the deployed apps, when 50 `GET /api/overview` calls go through the proxy and 50 go to the API with a token, then the p95 difference is ≤ 50 ms. |
 | AC-NFR-AUTH-02 | Given a session signed in 8 hours ago and used every minute since, when a page loads, then the browser lands on `/login`. |

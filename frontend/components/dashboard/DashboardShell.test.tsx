@@ -49,20 +49,20 @@ describe('dashboard navigation (master nav, REQ-AUTH-15)', () => {
   it('a Dashboard menu of the reports, Orders, Labs and Settings; the drawer lists the same, in order', () => {
     render(<DashboardShell>x</DashboardShell>);
     expect(bar()).toEqual(['Orders', 'Labs', 'Settings']);
-    expect(reports()).toEqual(['Overview', 'Complaints', 'Warehouses', 'Carriers', 'Order journey', 'Replay']);
-    expect(drawer()).toEqual(['Overview', 'Complaints', 'Warehouses', 'Carriers', 'Order journey', 'Replay', 'Orders', 'Labs', 'Settings']);
+    expect(reports()).toEqual(['Overview', 'Complaints', 'Warehouses', 'Carriers', 'Order journey']);
+    expect(drawer()).toEqual(['Overview', 'Complaints', 'Warehouses', 'Carriers', 'Order journey', 'Orders', 'Labs', 'Settings']);
   });
 
-  it('AC-AUTH-15: the order desk sees Orders and only its reports', () => {
+  it('AC-AUTH-15: the order desk sees Orders and only its reports; no Labs (Replay)', () => {
     render(<DashboardShell user={asRole('order_desk')}>x</DashboardShell>);
-    expect(bar()).toEqual(['Orders', 'Labs', 'Settings']);
+    expect(bar()).toEqual(['Orders', 'Settings']);
     expect(reports()).toEqual(['Overview', 'Order journey']);
   });
 
   it('AC-AUTH-15: leadership has no Orders, and the analytical reports', () => {
     render(<DashboardShell user={asRole('leadership')}>x</DashboardShell>);
     expect(bar()).toEqual(['Labs', 'Settings']);
-    expect(reports()).toEqual(['Overview', 'Warehouses', 'Carriers', 'Order journey', 'Replay']);
+    expect(reports()).toEqual(['Overview', 'Warehouses', 'Carriers', 'Order journey']);
   });
 
   it('the Dashboard menu reads as current on a report screen and marks that screen', () => {

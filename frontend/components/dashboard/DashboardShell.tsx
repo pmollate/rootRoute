@@ -28,7 +28,6 @@ const ICONS: Record<string, ReactNode> = {
   '/dashboard/warehouses': <><path d="M3 21V8l9-5 9 5v13" /><path d="M7 21v-8h10v8M7 17h10" /></>,
   '/dashboard/carriers': <><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="18" r="2" /></>,
   '/dashboard/journey': <><circle cx="6" cy="19" r="2" /><circle cx="18" cy="5" r="2" /><path d="M8 19h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7" /></>,
-  '/dashboard/replay': <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></>,
   '/dashboard/labs': <><path d="M9 3h6M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3" /><path d="M7.5 15h9" /></>,
   '/dashboard/settings': <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>,
 };
@@ -50,16 +49,17 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
   const path = usePathname();
   // REQ-AUTH-15: only the screens the user's roles may open; everything with nobody signed in (AUTH_REQUIRED=off).
   const screens = SCREENS.filter((sc) => canOpen(user?.roles ?? null, sc.href));
+  const more = MORE.filter((it) => canOpen(user?.roles ?? null, it.href));
   const pinned = screens.some((sc) => sc.href === ORDERS.href) ? ORDERS : undefined;
   const reports = screens.filter((sc) => sc.href !== ORDERS.href);
   // Overview has its own assistant (Router); /dashboard only redirects, but is covered in case it ever renders Overview.
   const dock = assistant && path !== '/dashboard' && !path.startsWith('/dashboard/overview');
-  const current = [...screens, ...MORE].find((sc) => path.startsWith(sc.href))?.href;
+  const current = [...screens, ...more].find((sc) => path.startsWith(sc.href))?.href;
   // One list for the phone drawer, in bar order, with the reports under a "Dashboard" heading.
   const drawer = [
     ...reports.map((sc) => ({ href: sc.href, label: sc.label, group: 'Dashboard' })),
     ...(pinned ? [{ href: pinned.href, label: pinned.label }] : []),
-    ...MORE,
+    ...more,
   ];
   const brand = (
     <Link className={h.mark} href="/" aria-label={`${BRAND} home`}>
@@ -92,7 +92,7 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
             {pinned && (
               <Link className={h.navLink} href={pinned.href} aria-current={pinned.href === current ? 'page' : undefined}>{pinned.label}</Link>
             )}
-            {MORE.map((it) => (
+            {more.map((it) => (
               <Link key={it.href} className={h.navLink} href={it.href} aria-current={it.href === current ? 'page' : undefined}>{it.label}</Link>
             ))}
             <ThemeToggle />

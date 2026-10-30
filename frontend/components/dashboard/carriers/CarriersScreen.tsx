@@ -218,7 +218,7 @@ export function CarriersScreen() {
           <button type="button" className={s.heroBtn} disabled={!rec} onClick={() => rec && exportLane(region, commitment, rec)}>
             <Icon>{ICON.fileExport}</Icon>Export <span className={s.fileName}>carriers-{region}-{commitment}.csv</span>
           </button>
-          <Link className={s.heroCta} href="/dashboard/replay"><Icon size={14}>{ICON.play}</Icon>Open replay</Link>
+          <Link className={s.heroCta} href="/dashboard/labs"><Icon size={14}>{ICON.play}</Icon>Open in Labs</Link>
         </div>
       </PageHero>
 

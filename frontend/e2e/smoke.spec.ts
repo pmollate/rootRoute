@@ -11,7 +11,7 @@ const SCREENS = [
   { path: '/dashboard/warehouses', title: 'Warehouses', h1: 'Warehouses' },
   { path: '/dashboard/carriers', title: 'Carriers', h1: 'Carriers' },
   { path: '/dashboard/journey', title: 'Order journey', h1: 'after the promise' },
-  { path: '/dashboard/replay', title: 'Replay', h1: 'Replay' },
+  { path: '/dashboard/labs', title: 'Labs', h1: 'Labs' },
 ];
 
 /** Opens a screen and fails on any uncaught page error or failed API call. */
@@ -76,7 +76,7 @@ test.describe('figures match the SPEC', () => {
   });
 
   test('Replay: today 71.0%, full programme 92.0%, and no other company\'s product modelled', async ({ page }) => {
-    await open(page, '/dashboard/replay');
+    await open(page, '/dashboard/labs');
     const main = page.locator('main');
     await expect(main.getByText('71.0%').first()).toBeVisible();
     await expect(main.getByText(/92\.0%/).first()).toBeVisible();
@@ -115,7 +115,6 @@ test.describe('figures match the SPEC', () => {
 const ASK_SCREENS = [
   ...SCREENS.filter((sc) => sc.path !== '/dashboard/overview'),
   { path: '/dashboard/complaints', title: 'Complaints' },
-  { path: '/dashboard/labs', title: 'Labs' },
   { path: '/dashboard/settings', title: 'Settings' },
 ];
 

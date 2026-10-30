@@ -25,7 +25,7 @@ and handling in 6 months; the full programme reaches 92.0%. Before/after and met
 | Carriers | Lane scorecards on fair data, capacity days, a recommended carrier with override | Carrier manager, leadership |
 | Complaints | Each complaint linked to its delivery and triaged by cause | Customer support |
 | Order journey | One delivery from email to doorstep, stage by stage | All roles |
-| Replay | Past deliveries replayed with each fix on, by segment | Warehouse supervisor, carrier manager, leadership |
+| Labs (Replay) | Past deliveries replayed with each fix on, by segment | Warehouse supervisor, carrier manager, leadership |
 
 Admin sees everything. AI only reads emails and drafts replies; a person approves every order before it reaches the
 WMS, and outbound email goes only to an allow-list (`docs/SPEC.md` §8).
