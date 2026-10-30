@@ -168,6 +168,7 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
 .botIcon { width: 18px; height: 18px; }
 .botSmall .botIcon { width: 12px; height: 12px; }
 .thread { min-height: 0; overflow-y: auto; padding: 16px var(--pad); background: var(--chat-bg); display: grid; align-content: start; gap: 14px; }
+.asked { display: grid; gap: 14px; }
 .day { margin: 0; text-align: center; font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); }
 .you { justify-self: end; max-width: 85%; margin: 0 0 14px auto; width: fit-content; padding: 10px 14px; border-radius: 10px; background: var(--ink); color: var(--surface); font-size: 0.76rem; }
 .reply { display: flex; gap: 10px; align-items: flex-start; }

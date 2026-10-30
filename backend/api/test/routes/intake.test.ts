@@ -16,7 +16,7 @@ describe.skipIf(!hasDb)('intake routes (needs test database)', () => {
     receivedAt: fx[id].gold.received_at });
 
   beforeAll(async () => {
-    await query('TRUNCATE intake_extractions, outbound_messages, intake_emails RESTART IDENTITY CASCADE');
+    await query('TRUNCATE intake_extractions, outbound_messages, intake_emails, recommendations RESTART IDENTITY CASCADE');
     setDeps({ gmail: null });
     app = await buildApp();
   });
