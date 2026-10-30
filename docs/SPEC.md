@@ -1308,6 +1308,8 @@ SEC-ASK-01 to -06 (§5.16), NFR-LINK-01 and SEC-LINK-01 to -11 (§5.17). They ad
 ### 9.1 Test plan
 Unit: flag definitions (AC-DIAG-01), block rule (AC-CAR-02), promise rules (AC-PRO-*), risk inputs (AC-RISK-01).
 Golden: every number in §2 (AC-DIAG-04, AC-DIAG-07, AC-REP-01, AC-REP-06). Extraction: 50 fixtures (AC-INT-*). Security: AC-SEC-02 to 04, AC-SEC-06.
+AI evals: every eval of the AI calls (intake extraction, address validator, Ask LateLens, reply drafts), their graders,
+gates and how to run and re-record them are in `docs/SPEC-ai-evals.md` (REQ-EVAL-*, AC-EVAL-*).
 Synthetic consistency: AC-STK-01, AC-TRK-01, AC-API-02, AC-NFR-05.
 E2E: fixture email → decision → reply draft → dashboard shows it. Smoke: Playwright opens every screen on the deployed
 app at phone and desktop width after each deploy (P6, core). Backup demo video recorded on 29 Oct.
