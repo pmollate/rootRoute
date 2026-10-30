@@ -139,6 +139,21 @@ close the firewall → deploy API and web app → restart web → smoke check th
 `/dashboard` serves the new build → Playwright e2e signed in with the demo accounts. Azure resources are created once
 by `infra/setup.sh` (az CLI); rollback is redeploying the previous commit and rerunning the pipeline (SPEC §9.3).
 
+**Environments.** Three, each with its own non-secret settings in `config/environments/<APP_ENV>.env`; secrets never
+go in these files.
+
+| Environment | Where | Settings come from (first wins) | Database | AI, PII, map |
+|---|---|---|---|---|
+| `development` | A developer's machine | shell → root `.env` (local secrets, gitignored) → `development.env` | `latelens` (Docker) | recorded, or Azure when keys are in `.env` |
+| `test` | `npm test`, CI | shell / CI env → `test.env` → root `.env` | `latelens_test` (Docker or CI service) | recorded only; inbox polling off |
+| `production` | Azure App Service `rootroute01-*`, deployed by CD in the GitHub environment `copilot` | App Service app settings → `production.env` (shipped in both packages). Secrets: Key Vault references for the database, API key and sign-in (`infra/setup.sh`, `setup-auth.sh`); AI, Maps and Gmail secrets from the `copilot` environment, copied in by `cd.yml` | Azure Postgres | Azure OpenAI |
+
+`APP_ENV` picks the file; without it, `NODE_ENV` does (`production`, `test`, else `development`). The API
+(`core/config.ts`), the web app (`next.config.mjs`) and the pipeline (`analytics/core/db.py`) load them the same way;
+`backend/api/test/env-config.test.ts` checks the choice, the order and that no file holds a secret. The GitHub
+environment `copilot` is production's deploy environment (Azure's OIDC trust names it, so renaming it would break the
+Azure sign-in); the `dev` and `test` GitHub environments are empty, because CI needs no secret.
+
 ## 5. Decision log
 
 | # | Decision | Chosen | Alternative considered | Why | Trade-off | Source |

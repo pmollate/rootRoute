@@ -75,8 +75,17 @@ npm run dev:all                           # API on :3001, web on :3000 (landing 
 npm run bench                             # optional: timed 1x / 10x / second-client run, no DB write (docs/SCALE-RUN.md)
 ```
 
+**Verified on a fresh clone** (30 Oct 2026, commit `812155d`, macOS arm64, Node 22, Python 3.14): the steps above,
+unchanged, took 2 min 35 s with no manual step, and `npm test` passed 740 of 740
+([run record](docs/agent-runs/2026-10-30-clean-clone.md)).
+
 Activate the venv in every new terminal; `pipeline`, `data` and `test:py` call `python`. One `.env` at the repo root
 serves every script (`.env.example` lists each setting).
+
+**Environments.** `development`, `test` and `production` each have their own non-secret settings in
+[`config/environments/`](config/environments/); `APP_ENV` picks one (tests pick `test` by themselves). Your `.env`
+holds secrets and local overrides. Production reads Key Vault through App Service settings. Details and the order in
+which settings win: [`docs/ARCHITECTURE.md` §4](docs/ARCHITECTURE.md#4-hosting-and-deploy).
 
 ## Sample input
 
@@ -173,6 +182,8 @@ message per field in `fields` (REQ-INT-16, AC-INT-16 to -18). The paste form sho
 curl -s localhost:3001/api/intake/email -H 'content-type: application/json' -H 'x-api-key: dev-key' \
   -d '{"from": "orders", "receivedAt": "20/10/2026 9:30", "body": "   "}'
 ```
+
+Screenshots of the paste form and the API's answers for each case: [`docs/TEST-EVIDENCE.md`](docs/TEST-EVIDENCE.md#bad-input-screenshots-and-logs).
 
 ## Test
 

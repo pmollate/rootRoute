@@ -1,0 +1,48 @@
+# Bad input sent straight to the API (POST /api/intake/email), local run 30 Oct 2026 18:46, commit 812155d
+# Nothing is stored and no AI service is called for any of these (REQ-INT-16).
+
+### Empty body
+$ curl -X POST /api/intake/email -d '{"from":"orders@client190.example","subject":"x","receivedAt":"2026-10-21 08:05","body":"   "}'
+{"error":"The email body is empty.","fields":{"body":"The email body is empty."}}
+HTTP 400
+
+### Missing fields
+$ curl -X POST /api/intake/email -d '{"subject":"x"}'
+{"error":"From is missing. The email body is missing. Received at is missing.","fields":{"from":"From is missing.","body":"The email body is missing.","receivedAt":"Received at is missing."}}
+HTTP 400
+
+### Malformed sender and date
+$ curl -X POST /api/intake/email -d '{"from":"orders","receivedAt":"20/10/2026 9:30","body":"hi"}'
+{"error":"From must be an email address, like orders@client190.example. Received at must look like 2026-09-14 09:30 (a real date, 24-hour time).","fields":{"from":"From must be an email address, like orders@client190.example.","receivedAt":"Received at must look like 2026-09-14 09:30 (a real date, 24-hour time)."}}
+HTTP 400
+
+### Impossible date
+$ curl -X POST /api/intake/email -d '{"from":"orders@client190.example","receivedAt":"2026-02-30 08:05","body":"hi"}'
+{"error":"Received at must look like 2026-09-14 09:30 (a real date, 24-hour time).","fields":{"receivedAt":"Received at must look like 2026-09-14 09:30 (a real date, 24-hour time)."}}
+HTTP 400
+
+### Broken JSON
+$ curl -X POST /api/intake/email -d '{"from":'
+{"error":"The request is not valid JSON.","fields":{}}
+HTTP 400
+
+### Empty request
+$ curl -X POST /api/intake/email (no body)
+{"error":"The request is not valid JSON.","fields":{}}
+HTTP 400
+
+### JSON array
+$ curl -X POST /api/intake/email -d '[1,2]'
+{"error":"Send the email as a JSON object with from, subject, body and receivedAt.","fields":{}}
+HTTP 400
+
+### Form-encoded
+$ curl -X POST /api/intake/email -H 'content-type: application/x-www-form-urlencoded' -d 'from=a'
+{"error":"Send the request as JSON (Content-Type: application/json).","fields":{}}
+HTTP 415
+
+### Over 1 MB
+$ curl -X POST /api/intake/email -d @big.json (1.1 MB)
+{"error":"The request is larger than 1 MB. Paste only the text of one email.","fields":{}}
+HTTP 413
+

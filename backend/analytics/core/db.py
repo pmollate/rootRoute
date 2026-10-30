@@ -5,6 +5,7 @@ locks while waiting for others, so a reader joining two of them (complaints JOIN
 pipeline. So the write takes every lock it needs up front, waits a bounded time for readers to finish, and retries
 the whole transaction if Postgres still picks it as a deadlock victim.
 """
+import os
 import time
 from pathlib import Path
 
@@ -15,7 +16,10 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import OperationalError
 
 REPO = Path(__file__).resolve().parents[3]
+# Precedence: real environment variables > root .env > config/environments/<APP_ENV>.env (load_dotenv never overrides).
 load_dotenv(REPO / ".env")
+APP_ENV = os.environ.get("APP_ENV") or "development"
+load_dotenv(REPO / "config" / "environments" / f"{APP_ENV}.env")
 
 ATTEMPTS = 4
 LOCK_TIMEOUT = "30s"  # how long to wait for running readers before giving up this attempt

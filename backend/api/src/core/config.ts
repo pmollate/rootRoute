@@ -2,7 +2,19 @@ import { config as loadEnv } from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
-loadEnv({ path: fileURLToPath(new URL('../../../../.env', import.meta.url)), quiet: true });
+/** development | test | production: APP_ENV if set, else from NODE_ENV (vitest sets test, App Service production). */
+export function appEnv(env: NodeJS.ProcessEnv = process.env): string {
+  return env.APP_ENV || (env.NODE_ENV === 'production' || env.NODE_ENV === 'test' ? env.NODE_ENV : 'development');
+}
+
+// Precedence: real environment variables > root .env (local secrets) > config/environments/<APP_ENV>.env, except in
+// test, where test.env comes before .env so a developer's .env cannot switch tests to live services. dotenv never
+// overwrites a variable that is already set. The same files serve the web app and the pipeline.
+const dotEnv = fileURLToPath(new URL('../../../../.env', import.meta.url));
+const envFile = (name: string) => fileURLToPath(new URL(`../../../../config/environments/${name}.env`, import.meta.url));
+if (appEnv() === 'test') loadEnv({ path: envFile('test'), quiet: true });
+loadEnv({ path: dotEnv, quiet: true });
+loadEnv({ path: envFile(appEnv()), quiet: true });
 
 export const Env = z.object({
   NODE_ENV: z.string().default('development'),

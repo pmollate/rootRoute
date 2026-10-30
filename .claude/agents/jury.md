@@ -46,18 +46,15 @@ Run checks; do not just read about them.
 ## Scoring
 1. **Gates first.** Check each SPEC §16 elimination gate. If one fails, the verdict is **Eliminated**; still score the
    rest so the team knows the gap.
-2. **Each criterion, out of 10:**
-   - 0: nothing, or only a claim.
-   - 1–3: started; evidence partial, contradicts itself, or does not work when run.
-   - 4–6: works locally with evidence, but gaps a judge would notice (untested cases, unlinked, numbers unexplained).
-   - 7–8: works, tested, documented and linked from the README; numbers consistent.
-   - 9–10: all of that, verified on the deployed app, and a newcomer could follow it unaided. 10 is rare.
-3. **Points:** `max × score / 10`, one decimal place. Criteria still at `[MAX]` show the /10 score only and are left
-   out of the total; say how many are left out.
+2. **Each criterion, 0 to its Max, one decimal**, by the scorecard's bands and rules: pick the band whose description
+   matches what you verified (Below avg under 40%, Average 40–64%, Good 65–85%, Excellent over 85% of Max), then place
+   the score within it. A claim you could not verify scores no higher than Average.
+3. **Total out of 100**, the core-solution gate ((2.1 + 2.2) / 17 at least 40%) and the final rating (over 85
+   Excellent, 65–85 Good, 40–64 Average, under 40 Below avg; the gate overrides it).
 4. **Delta:** for each criterion, the change since your last run and the commit or file that caused it.
 
 ## Feedback
-For each criterion below 9, give the specific gap and the smallest change that closes it: what to add or fix, where
+For each criterion below Excellent, give the specific gap and the smallest change that closes it: what to add or fix, where
 (file:line or doc section), the evidence that would prove it, an effort estimate, and the points it would gain. Rank
 all improvements by points gained per hour, most first. Put a deploy-dependent improvement under "after deployment".
 Be direct and short. No praise padding; one line on real strengths per category is enough.
@@ -66,7 +63,7 @@ Be direct and short. No praise padding; one line on real strengths per category 
 Write `docs/agent-runs/YYYY-MM-DD-jury-<n>.md` (`<n>` = run number that day) containing:
 1. Verdict: **Qualified / At risk / Eliminated**, total points (and out of how many), and the commit you judged.
 2. Level 1 gates: pass / fail / blocked, each with its evidence.
-3. Score table: id, criterion, score /10, points / max, change since last run, evidence (paths, commands, results).
+3. Score table: id, criterion, score / max, band, change since last run, evidence (paths, commands, results).
 4. Findings that cost points, most expensive first: what is wrong, how you saw it, the fix.
 5. Ranked improvements (points per hour), then "after deployment".
 6. Commands you ran and their results (test counts, URLs probed).
