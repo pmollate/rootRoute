@@ -144,7 +144,7 @@ test.describe('new orders from the inbox', () => {
     await page.getByLabel('Order', { exact: true }).selectOption(`email:${first.id}`);
     await expect(h1(page)).toHaveText(/: \w+ of 14 steps done\.$|: \d+ of 14 steps done\.$/);
     await expect(page.locator('main header')).toContainText(`Email ${first.id}`);
-    await expect(lead(page)).toContainText('Stages 10 to 13 show once the simulated warehouse and carrier events are built.');
+    await expect(lead(page)).toContainText('Stages 9 to 13 come from the simulated WMS and carriers: synthetic data.');
     // Root Route's rules are replayed on past deliveries only.
     await expect(page.getByRole('switch', { name: 'With Root Route' })).toHaveCount(0);
     await expect(row(await stagesOf(page, 'Order intake'), 'Order received')).toContainText('Done');
