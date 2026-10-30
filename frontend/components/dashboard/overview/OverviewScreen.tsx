@@ -9,10 +9,12 @@ import { MAX_QUESTION, useAsk } from '@/components/dashboard/assistant/useAsk';
 import { PageHero } from '@/components/dashboard/PageHero';
 import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
+import type { DataWindow } from '@/lib/dataWindow';
 import { int, pct, points, usdK, usdShort } from '@/lib/metrics';
 import s from './overview.module.css';
 
-export interface Overview {
+/** `GET /api/overview`, with the data line (window, sites, carriers) of `DataWindow`. */
+export interface Overview extends DataWindow {
   onTime: number; benchmark: number; deliveries: number; late: number; penaltiesUsd: number; handlingCostUsd: number;
   atRiskAccounts: number; atRiskRevenueUsd: number; prePickupShare: number;
 }

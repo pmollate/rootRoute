@@ -563,7 +563,7 @@ rate of the "if fixed" estimate for that set. Values add up to the overall late 
 | REQ-CAR-02 | The recommender **MUST** block a carrier on a lane when fair n < 30, OR fair late rate > 15%, OR fair late rate > 2 × the lane median. It **MUST NOT** use raw late rate (raw rates mix in non-carrier causes). |
 | REQ-CAR-03 | For each order, the recommender **MUST** return a carrier, a backup carrier and a reason string naming the on-time difference and the rate difference. |
 | REQ-CAR-04 | The recommender **SHOULD** apply a capacity cap per carrier per lane per day. |
-| REQ-CAR-05 | The recommender **MUST** report a backtest: train Apr–Jul, test Aug–Sep, on-time and average rate vs the actual carrier choices. |
+| REQ-CAR-05 | The recommender **MUST** report a backtest: train on the window's earlier months, test on its last two calendar months (Apr–Jul / Aug–Sep on the supplied data; `analytics/core/window.py`), on-time and average rate vs the actual carrier choices. |
 | REQ-CAR-06 | Operators **MAY** override a recommendation; each override **MUST** be logged with user and reason. |
 | REQ-CAR-07 | When `carrier_capacity` exists, the capacity cap **SHOULD** use its daily limits instead of `[CAPACITY_SHARE]`. |
 | REQ-CAR-08 | On Fridays the recommender **MUST** apply each carrier's `friday_limit` and send overflow to the next eligible carrier. |
@@ -757,7 +757,7 @@ panel sends typed follow-ups to the same assistant instead (one assistant per sc
 
 | ID | Requirement |
 |---|---|
-| REQ-REP-01 | The replay **MUST** compute every scenario in §2.4 for four segments: overall, email orders, the 9 at-risk accounts, Aug–Sep. |
+| REQ-REP-01 | The replay **MUST** compute every scenario in §2.4 for four segments: overall, email orders, the 9 at-risk accounts, the window's last two calendar months (Aug–Sep on the supplied data; segment key `aug_sep`). |
 | REQ-REP-02 | The replay **MUST** compute cost avoided = late avoided × $34 + estimated penalties avoided (§1.1 method). |
 | REQ-REP-03 | The replay **SHOULD** show the capacity-limited carrier result next to the uncapped one. |
 | REQ-REP-04 | The replay **MUST** use only the supplied dataset; synthetic tables **MUST NOT** change any scenario figure. |

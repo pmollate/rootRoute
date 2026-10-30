@@ -205,9 +205,9 @@ in 0..1, money in USD.
 | `complaints` | A | copy of `complaints.csv` + `at_risk` (boolean) |
 | `delivery_causes` | B | `delivery_id`, `client_id`, `order_channel`, `commitment_type`, `destination_region`, `carrier_id`, `late`, `f_addr`, `f_cutoff`, `f_stock`, `f_stock_out`, `f_skip_nearest`, `f_lane`, `f_bad_lane`, `f_d_friday`, `f_route`, `fair`, `stages` (comma-separated) |
 | `dq_report` | B | `issue`, `count` |
-| `kpis` | B | `key`, `value` — keys: `on_time`, `benchmark`, `deliveries`, `late`, `penalties_usd`, `handling_cost_usd`, `at_risk_accounts`, `at_risk_revenue_usd`, `pre_pickup_share` |
+| `kpis` | B | `key`, `value` — keys: `on_time`, `benchmark`, `deliveries`, `late`, `penalties_usd`, `handling_cost_usd`, `at_risk_accounts`, `at_risk_revenue_usd`, `pre_pickup_share`; the data line (S2, REQ-DATA-12): `warehouses`, `carriers` (distinct in the deliveries), `window_from`, `window_to` (first and last order day), `recent_from` (first day of the window's last two calendar months: backtest test period and `aug_sep` segment, REQ-DATA-14); the three days are epoch milliseconds at UTC midnight |
 | `cause_summary` | B | `segment` (`all`/`email`/`at_risk`), `flag`, `label`, `stage`, `n`, `late_rate` |
-| `scenario_results` | B | `scenario`, `label`, `grp` (`reference`/`area`/`as_built`/`phase2`/`adoption`), `segment` (`all`/`email`/`at_risk`/`aug_sep`), `on_time`, `late_avoided`, `cost_avoided` |
+| `scenario_results` | B | `scenario`, `label`, `grp` (`reference`/`area`/`as_built`/`phase2`/`adoption`), `segment` (`all`/`email`/`at_risk`/`aug_sep`; `aug_sep` is the window's last two calendar months, from `kpis.recent_from`), `on_time`, `late_avoided`, `cost_avoided` |
 | `cause_attribution` | B | `cause`, `label`, `stage`, `deliveries`, `points_lost` (0..1), `share_of_lateness` (0..1) |
 | `cause_kpis` | B | `cause`, `label`, `kpi`, `baseline`, `target`, `owner` |
 | `accounts` | B | `client_id`, `client_name`, `account_tier`, `annual_revenue_usd`, `primary_order_channel`, `deliveries`, `on_time`, `main_cause`, `complaints` |
@@ -277,7 +277,7 @@ Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 
 | Endpoint | Owner | Response |
 |---|---|---|
 | `GET /api/health` | B | `{ db: "ok" \| "down", llm: string, version: string }` |
-| `GET /api/overview` | B | `{ onTime, benchmark, deliveries, late, penaltiesUsd, handlingCostUsd, atRiskAccounts, atRiskRevenueUsd, prePickupShare }` |
+| `GET /api/overview` | B | `{ onTime, benchmark, deliveries, late, penaltiesUsd, handlingCostUsd, atRiskAccounts, atRiskRevenueUsd, prePickupShare, warehouses, carriers, windowFrom, windowTo, recentFrom }`; the last five are the data line (days `YYYY-MM-DD`), `null` when `kpis` predates them |
 | `GET /api/causes?segment=all\|email\|at_risk` | B | `{ segment, causes: [{ flag, label, stage, n, lateRate }] }` |
 | `GET /api/replay?segment=all\|email\|at_risk\|aug_sep` | B | `{ segment, scenarios: [{ scenario, label, grp, onTime, lateAvoided, costAvoided }] }` |
 | `GET /api/attribution` | B | `{ causes: [{ cause, label, stage, deliveries, pointsLost, share }] }` |

@@ -11,7 +11,9 @@ import { BrandMark } from '@/components/ui/BrandMark';
 import h from '@/components/layout/SiteHeader.module.css';
 import { BRAND } from '@/config/copy';
 import { MORE, ORDERS, SCREENS } from '@/config/dashboard';
+import { useApi } from '@/hooks/useApi';
 import { canOpen, type SessionUser } from '@/lib/auth/roles';
+import { dataLine, type DataWindow } from '@/lib/dataWindow';
 import { AskPanel } from './assistant/AskPanel';
 import { AssistantFlag } from './assistant/AssistantFlag';
 import { ReportsMenu } from './ReportsMenu';
@@ -41,6 +43,8 @@ const Icon = ({ children }: { children: ReactNode }) => (
  * `assistant` (ASK_ASSISTANT=on, read on the server by app/dashboard/layout.tsx) adds the Ask LateLens panel to every
  * screen but Overview, whose Router answers follow-ups with the same assistant (one assistant per screen); off, there is
  * no button (REQ-ASK-08). The flag reaches the screens through `AssistantFlag`, never a NEXT_PUBLIC_ variable.
+ * The data line (deliveries, months, sites, carriers) in the drawer and footer is read from `GET /api/overview`
+ * (REQ-DATA-12, AC-DATA-21); until it arrives, or if it fails, the line names the dataset without figures.
  */
 export function DashboardShell({ children, user = null, assistant = false }: { children: ReactNode; user?: SessionUser | null; assistant?: boolean }) {
   const path = usePathname();
@@ -63,11 +67,14 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
       {BRAND.toUpperCase()}
     </Link>
   );
+  // AC-DATA-21: the data line is read from the API (analytics/core/window.py); a neutral line until it arrives.
+  const api = useApi<DataWindow>('/api/overview');
+  const line = dataLine(api.data);
   const dataset = (
     <div className={s.dataset}>
       <p className={s.datasetHead}>Dataset</p>
-      <b>48,340 deliveries</b>
-      <span>Apr–Sep 2026 · 5 sites · 6 carriers</span>
+      <b>{line?.count ?? 'Supplied dataset'}</b>
+      <span>{line?.detail ?? (api.loading ? 'Loading…' : 'Details unavailable')}</span>
     </div>
   );
   return (
@@ -97,7 +104,7 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
         <UserProvider user={user}><AssistantFlag on={assistant}>{children}</AssistantFlag></UserProvider>{dock && <AskPanel />}
       </main>
       <footer className={s.foot}>
-        <p>Computed from the supplied Halcyon dataset · 48,340 deliveries · Apr–Sep 2026 · 5 sites · 6 carriers.</p>
+        <p>{line ? `Computed from the supplied Halcyon dataset · ${line.count} · ${line.detail}.` : 'Computed from the supplied Halcyon dataset.'}</p>
         <p><Pill tone="synthetic">Synthetic</Pill></p>
       </footer>
     </div>

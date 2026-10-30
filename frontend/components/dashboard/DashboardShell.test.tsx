@@ -1,8 +1,8 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAssistantOn } from './assistant/AssistantFlag';
 import { DashboardShell } from './DashboardShell';
-import { asRole } from './test-utils';
+import { asRole, mockApi } from './test-utils';
 
 const nav = vi.hoisted(() => ({ path: '/dashboard/overview' }));
 vi.mock('next/navigation', () => ({ usePathname: () => nav.path, useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
@@ -24,6 +24,7 @@ const reports = () => {
 const drawer = () => texts(navs()[1]);
 
 describe('dashboard navigation (master nav, REQ-AUTH-15)', () => {
+  beforeEach(() => { mockApi({}); });
   afterEach(() => { cleanup(); nav.path = '/dashboard/overview'; });
 
   it('AC-ASK-08: without the flag no Ask LateLens button; AC-ASK-01: with it, the button is on the screen', () => {
@@ -72,5 +73,27 @@ describe('dashboard navigation (master nav, REQ-AUTH-15)', () => {
     expect(button.getAttribute('aria-expanded')).toBe('true');
     const menu = document.getElementById(button.getAttribute('aria-controls')!)!;
     expect(within(menu).getByRole('link', { name: 'Overview' }).getAttribute('aria-current')).toBe('page');
+  });
+});
+
+describe('data line (AC-DATA-21: read from the API, no fixed figures)', () => {
+  afterEach(() => cleanup());
+  const OTHER = { deliveries: 1234, warehouses: 3, carriers: 4, windowFrom: '2026-11-03', windowTo: '2027-02-02', recentFrom: '2027-01-01' };
+
+  it('AC-DATA-21: shows the window and counts the API returns', async () => {
+    mockApi({ '/api/overview': OTHER });
+    render(<DashboardShell>x</DashboardShell>);
+    expect(await screen.findByText('Computed from the supplied Halcyon dataset · 1,234 deliveries · Nov 2026–Feb 2027 · 3 sites · 4 carriers.')).toBeTruthy();
+    expect(screen.getAllByText('1,234 deliveries', { exact: false }).length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toContain('48,340');
+  });
+
+  it('AC-DATA-21: while loading and on error, a neutral line and none of the old fixed numbers', async () => {
+    const fetch = mockApi({});
+    render(<DashboardShell>x</DashboardShell>);
+    expect(screen.getByText('Computed from the supplied Halcyon dataset.')).toBeTruthy();
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/overview'));
+    expect(screen.getByText('Computed from the supplied Halcyon dataset.')).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/48,340|Apr–Sep|5 sites|6 carriers/);
   });
 });
