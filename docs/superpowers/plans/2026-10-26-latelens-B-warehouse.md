@@ -3212,7 +3212,7 @@ if __name__ == "__main__":
 
 ---
 
-### Task B12: Contract check and synthetic-data register (Thursday morning) - Pending (waiting on A and C tables; points-lost rounding to decide)
+### Task B12: Contract check and synthetic-data register (Thursday morning) - Pending (step 4 number check: points-lost rounding to decide, screens to eyeball)
 
 **Files:**
 - Modify: `backend/analytics/tests/test_pipeline.py` (final contract check)
