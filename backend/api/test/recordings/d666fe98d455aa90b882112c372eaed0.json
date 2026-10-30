@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_Dpm6dVrclDwPCaX9itsRqAXQ\",\"name\":\"overview\",\"arguments\":\"{}\"}]}"
+}
