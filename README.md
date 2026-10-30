@@ -20,7 +20,8 @@ and handling in 6 months; the full programme reaches 92.0%. Before/after and met
 |---|---|---|
 | Landing page `/` | The product, public (no sign-in) | Everyone |
 | Overview | On-time rate, the five causes ranked by on-time points lost, what each fix is worth | All roles |
-| Order emails | AI-read email orders with flagged gaps, drafted client replies, approve / reject / send to WMS | Order desk, warehouse supervisor |
+| Order emails | AI-read email orders with flagged gaps, drafted client replies, approve / reject / send to WMS; Tier 1 clients' threads in a collapsible section at the top | Order desk, warehouse supervisor |
+| Address link `/confirm/<token>` | One-time page a client opens from a reply: an emailed code, then the address on a map | The client (no sign-in; the link and code are the credentials) |
 | Warehouses | Cut-off misses, orders from a non-nearest warehouse, unpaid penalties, weekly stock moves | Warehouse supervisor, leadership |
 | Carriers | Lane scorecards on fair data, capacity days, a recommended carrier with override | Carrier manager, leadership |
 | Complaints | Each complaint linked to its delivery and triaged by cause | Customer support |
@@ -185,6 +186,51 @@ curl -s localhost:3001/api/intake/email -H 'content-type: application/json' -H '
 
 Screenshots of the paste form and the API's answers for each case: [`docs/TEST-EVIDENCE.md`](docs/TEST-EVIDENCE.md#bad-input-screenshots-and-logs).
 
+### Address link (E19)
+
+When an order's address is incomplete or the map disagrees with it (street not found, or another city, state or ZIP),
+the order is `CONFIRM_ADDRESS`. The reply names what is wrong and asks for the full, correct address; it never lists
+the client's saved addresses. With `CONFIRM_LINK=on` it also carries a one-time link, made when an operator clicks
+**Request address**.
+
+1. **Check your inbox.** The link opens on the masked sender (`v••••••••@gmail.com`) and **Send code**. The code
+   (6 digits, 10 minutes) goes to the address the order came from; nothing about the address shows yet.
+2. **Confirm the delivery address.** After the code: the email's address in the fields and a map with a pin. Dragging
+   or tapping the pin fills street, city, state and ZIP from the map; zoom and recenter are on the map. On Confirm
+   the server looks the address up again; if the map disagrees, the page shows what it found and asks to confirm again.
+3. The order is decided again (usually `ALL_CLEAR`) and waits in **Order review** marked "Address confirmed by client
+   link". Nothing reaches the WMS until a supervisor approves (SEC-04); approval saves the address for the client.
+
+| Setting | Default | Effect |
+|---|---|---|
+| `CONFIRM_LINK` | `off` | `on`: replies carry the link and `/confirm/*` opens (read by both apps) |
+| `CONFIRM_LINK_CODE` | `on` | The emailed code before the address page; `off` opens the address form directly (API only) |
+| `AUTH_URL` | — | The web app's origin; the link is `<AUTH_URL>/confirm/<token>`. The API will not start with `CONFIRM_LINK=on` without it |
+| `CONFIRM_LINK_HOURS` | `24` | Link life; it also ends 2 hours before the order's 08:00 cut-off, whichever is sooner |
+| `CONFIRM_LINK_RATE_PER_MINUTE` | `30` | Requests per minute per client IP to `/confirm/*` and `/api/confirm/*` (each pin move is one) |
+| `ADDRESS_PROVIDER`, `AZURE_MAPS_KEY` | `recorded` | `azure-maps` checks addresses live with the key (server only) |
+| `AZURE_MAPS_ACCOUNT_ID`, `AZURE_MAPS_SAS_PRINCIPAL_ID` | — | Map tiles in the browser: a SAS token from the Maps account, issued per link and expiring with it |
+
+**Try it locally.** It needs Gmail set up (`GMAIL_*`) and the client's address on `ALLOW_LIST`. A Gmail sender is a
+client only once registered by full address in `client_emails` (`backend/synthetic-data/out/client_emails.csv`, or
+`INSERT INTO client_emails VALUES ('you@gmail.com', 'C130')` locally; never a whole shared domain). Then:
+
+1. In `.env`: `CONFIRM_LINK=on`, `AUTH_URL=http://localhost:3000`, `ADDRESS_PROVIDER=azure-maps`, and restart
+   `npm run dev:all` (the API reads `.env` only at start). `npm run migrate` adds the link tables (103, 105).
+2. Email an order with a wrong city from that address, e.g. `HX-790 x 15` / `HX-618 x 9` /
+   `Deliver to 65156 Powers Rd, Madhapur, OR 97828`. (Gmail messages are told apart by their Gmail id; the paste form
+   treats the same sender and body as the same email, so change the text when pasting again.)
+3. **Sync Gmail**, open it (Confirm address), click **Request address**, open the link from your inbox, **Send code**,
+   enter the code, fix the city (or tap the map) and **Confirm address**. Each link and code works once.
+
+The map tiles need the SAS identity: a user-assigned managed identity attached to the Maps account with the Azure Maps
+Data Reader role (assigning the role needs Owner on the resource group). Without it the page hides the map and the
+fields still work.
+
+Security in short: the token is 32 random bytes and only its SHA-256 is stored; the code and the verification token are
+stored only as hashes and never logged; the token never appears in logs (`/confirm/[token]`); the pages are light only,
+`no-referrer` and cannot be framed; at most 20 map look-ups per link. Full rules and threat model: `docs/SPEC.md` §5.17.
+
 ## Test
 
 ```bash
@@ -221,6 +267,11 @@ smoke test; install its browser once with `npx --prefix frontend playwright inst
 | `npm run seed` fails with `ENOENT ... client_domains.csv` | Synthetic data is not generated yet: `npm run data`, then `npm run seed` |
 | A pasted email shows "Unknown sender" | The sender's domain is not seeded. Use a fixture sender (`orders@clientNNN.example`) and run `npm run seed` |
 | A pasted email stays `WAITING` | No recorded model answer for that text with `LLM_PROVIDER=recorded`. Paste a fixture exactly, or set the `AZURE_OPENAI_*` settings and `LLM_PROVIDER=azure-openai` |
+| An email sent from Gmail does not show in the inbox | Click **Sync Gmail**; the inbox is sorted by priority, so search by subject. A sender that is not a client is "Unknown sender" (see [Address link](#address-link-e19) for registering a Gmail address) |
+| A **Confirm address** reply has no link (no `[CONFIRM_LINK]` in the draft) | `CONFIRM_LINK` was off when the email was read: turn it on, restart `npm run dev:all`, and send a new email (old drafts are not redrafted) |
+| The address link says "This link is no longer valid" | The link was used, expired, replaced by a newer link, or the order was already confirmed through another of its links. Request a new one from a new order email |
+| "Too many tries from this connection" on the address page | More than `CONFIRM_LINK_RATE_PER_MINUTE` requests from one IP in a minute. Wait a minute |
+| The address page's map is blank or hidden | The map tile credential is refused: the SAS identity or its Azure Maps Data Reader role is missing (see [Address link](#address-link-e19)). The fields and Confirm still work |
 | Lost the demo password | It is printed once and only its hash is stored. Delete the `AUTH_DEMO_USERS=` line in `.env`, run `npm run demo-users` for a new one, and restart `npm run dev` |
 | No email/password form on `/login`, or demo sign-in refused | Set `AUTH_DEMO=on` and a filled `AUTH_DEMO_USERS` in `.env` (`npm run demo-users`), then restart `npm run dev` |
 | Web app will not start with `AUTH_REQUIRED=on` | It needs `AUTH_SECRET` and an `INTERNAL_AUTH_SECRET` of 32+ bytes. `npm run demo-users` fills both; or set `AUTH_REQUIRED=off` locally |
@@ -238,6 +289,11 @@ Fastify), PostgreSQL Flexible Server and Key Vault for every secret.
 2. `bash infra/setup-auth.sh` writes the sign-in secrets and demo accounts to Key Vault.
 3. Every push to `main` runs CI (`.github/workflows/ci.yml`), then CD (`.github/workflows/cd.yml`), which builds both
    apps, runs migrations and the pipeline against Azure Postgres, deploys, and runs the end-to-end tests.
+
+The address link is off in Azure until it is set up: CD does not yet pass `CONFIRM_LINK`, `CONFIRM_LINK_CODE`,
+`AZURE_MAPS_ACCOUNT_ID` or `AZURE_MAPS_SAS_PRINCIPAL_ID`. To turn it on, add them to both apps' settings (with
+`AUTH_URL` on the API), give the API's managed identity permission to call `listSas` on the Maps account, and attach
+the SAS identity with the Azure Maps Data Reader role.
 
 ## Documents
 
