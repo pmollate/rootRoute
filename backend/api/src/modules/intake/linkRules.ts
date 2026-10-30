@@ -8,6 +8,14 @@ import { isUsState } from './region.js';
 /** REQ-LINK-01: the reply draft's placeholder; send_reply replaces it in the sent text only (A17). */
 export const LINK_PLACEHOLDER = '[CONFIRM_LINK]';
 
+/**
+ * SEC-02 / REQ-LINK-09: email content is untrusted, so a client cannot plant the placeholder (in an address, a name or
+ * an item) and have it sent as text or turned into a link. Removes it from an untrusted value; other values unchanged.
+ */
+export function neutralisePlaceholder(value: string): string {
+  return value.includes(LINK_PLACEHOLDER) ? value.split(LINK_PLACEHOLDER).join(' ').replace(/\s{2,}/g, ' ').trim() : value;
+}
+
 /** SEC-LINK-01: 32 bytes from the OS's cryptographic source, base64url (43 characters). Only its hash is stored. */
 export const newToken = (): string => randomBytes(32).toString('base64url');
 export const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex');

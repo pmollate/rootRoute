@@ -21,20 +21,29 @@ describe('E19 settings (REQ-LINK-09)', () => {
     expect(Env.safeParse({ ...base, CONFIRM_LINK_HOURS: '0' }).success).toBe(false);
   });
 
-  it('AC-LINK-09: with CONFIRM_LINK=on and no AUTH_URL the check names AUTH_URL; until A17 on is refused; off passes', () => {
+  it('AC-LINK-09: with CONFIRM_LINK=on and no AUTH_URL the check names AUTH_URL; on with AUTH_URL passes; off passes', () => {
     expect(() => checkConfirmLink({ CONFIRM_LINK: 'on', AUTH_URL: undefined })).toThrow(/AUTH_URL/);
-    // Until A17: on is refused even with AUTH_URL, so the placeholder can never be sent as text.
-    expect(() => checkConfirmLink({ CONFIRM_LINK: 'on', AUTH_URL: 'https://latelens.example' })).toThrow(/not available yet/);
+    expect(() => checkConfirmLink({ CONFIRM_LINK: 'on', AUTH_URL: 'https://latelens.example' })).not.toThrow();
     expect(() => checkConfirmLink({ CONFIRM_LINK: 'off', AUTH_URL: undefined })).not.toThrow();
   });
 
-  it('AC-LINK-09: given CONFIRM_LINK=on and AUTH_URL unset, the API exits at start with an error naming AUTH_URL', () => {
+  it('AC-LINK-09: with CONFIRM_LINK=on AUTH_URL must be an origin only (the link is <AUTH_URL>/confirm/<token>)', () => {
+    for (const ok of ['https://latelens.example', 'https://latelens.example/', 'http://localhost:3000']) {
+      expect(() => checkConfirmLink({ CONFIRM_LINK: 'on', AUTH_URL: ok })).not.toThrow();
+    }
+    for (const bad of ['https://latelens.example/app', 'https://latelens.example/?x=1', 'https://latelens.example/#top', 'https://u:p@latelens.example']) {
+      expect(() => checkConfirmLink({ CONFIRM_LINK: 'on', AUTH_URL: bad })).toThrow(/AUTH_URL must be an origin/);
+    }
+    expect(() => checkConfirmLink({ CONFIRM_LINK: 'off', AUTH_URL: 'https://latelens.example/app' })).not.toThrow();
+  });
+
+  it('AC-LINK-09: given CONFIRM_LINK=on and AUTH_URL unset, the API exits at start with an error naming AUTH_URL; with AUTH_URL it starts', () => {
     const bad = loadConfig({ CONFIRM_LINK: 'on', AUTH_URL: '' });
     expect(bad.status).not.toBe(0);
     expect(bad.stderr).toContain('CONFIRM_LINK=on needs AUTH_URL');
-    const early = loadConfig({ CONFIRM_LINK: 'on', AUTH_URL: 'https://latelens.example' });
-    expect(early.status).not.toBe(0); // until A17
-    expect(early.stderr).toContain('CONFIRM_LINK=on is not available yet');
+    const on = loadConfig({ CONFIRM_LINK: 'on', AUTH_URL: 'https://latelens.example' });
+    expect(on.stderr).toBe('');
+    expect(on.status).toBe(0); // A17: send_reply replaces the placeholder, so on with AUTH_URL starts
     const off = loadConfig({ CONFIRM_LINK: 'off', AUTH_URL: 'https://latelens.example' });
     expect(off.stderr).toBe('');
     expect(off.status).toBe(0);

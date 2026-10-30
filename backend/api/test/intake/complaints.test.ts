@@ -38,4 +38,11 @@ describe('complaint queue (E12, E14)', () => {
     expect(q[1].triage).toBeNull();
     expect([isPrePickup(['Carrier']), isPrePickup(['Fulfilment', 'Carrier'])]).toEqual([false, true]);
   });
+
+  it('each complaint carries its delivery\'s cause stages, or null when the delivery has no causes row', () => {
+    const q = complaintQueue(rows, [], new Map([[rows[0].delivery_id, ['Intake', 'Carrier']]]));
+    const byId = Object.fromEntries(q.map((c) => [c.complaintId, c.stages]));
+    expect(byId[rows[0].complaint_id]).toEqual(['Intake', 'Carrier']);
+    expect(complaintQueue(rows, []).every((c) => c.stages === null)).toBe(true);
+  });
 });

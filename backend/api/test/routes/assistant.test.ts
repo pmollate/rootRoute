@@ -31,7 +31,7 @@ describe.skipIf(!hasDb || !hasRecordings)('Ask LateLens, recorded (needs test da
   const ask = async (question: string, role = 'leadership') => app.inject({ method: 'POST', url: '/api/assistant',
     headers: await bearer({ sub: `u-${role}`, roles: [role] }), payload: { question } });
 
-  it('AC-ASK-05, AC-ASK-10: the five blocked lanes with reasons, from lane_scores; the same answer twice', async () => {
+  it('AC-ASK-05, AC-ASK-10, AC-ASK-11: the five blocked lanes with reasons, from lane_scores; the same answer twice', async () => {
     const q = 'Which carrier lanes should we stop using, and why?';
     const a = (await ask(q)).json();
     const src = a.sources.find((s: { tool: string }) => s.tool === 'lane_scores');
@@ -50,7 +50,7 @@ describe.skipIf(!hasDb || !hasRecordings)('Ask LateLens, recorded (needs test da
     expect({ ...(await ask(q)).json(), questionId: a.questionId }).toEqual(a);
   });
 
-  it('AC-ASK-04: the on-time rate is written as a percentage, never as a raw fraction', async () => {
+  it('AC-ASK-04, AC-ASK-11: the on-time rate is written as a percentage, never as a raw fraction', async () => {
     const a = (await ask('What is our on-time rate?')).json();
     expect(a).toMatchObject({ checked: true, refused: false });
     expect(a.answer).toContain('71.0%');

@@ -1147,7 +1147,7 @@ blocks below are the original plan. Changes, each forced by the code or the netw
 ```bash
 #!/usr/bin/env bash
 # Create the LateLens demo environment once (owner C). Requires: az login, and PG_PASSWORD + ANTHROPIC_API_KEY exported.
-# Usage: RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=saiprasad-37/root-route ./infra/setup.sh
+# Usage: RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=Evoke-Hackathon-2026/UnhandledRejections ./infra/setup.sh
 set -euo pipefail
 : "${RG:=rg-unhandled-rejections}" "${LOC:=centralindia}" "${NAME:?set NAME, e.g. rootroute01}" "${GITHUB_REPO:?set GITHUB_REPO owner/name}"
 : "${PG_PASSWORD:?export PG_PASSWORD}" "${ANTHROPIC_API_KEY:?export ANTHROPIC_API_KEY}"
@@ -1210,7 +1210,7 @@ Run it once:
 
 ```bash
 export PG_PASSWORD='<strong password>' ANTHROPIC_API_KEY='<key>'
-RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=saiprasad-37/root-route ./infra/setup.sh
+RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=Evoke-Hackathon-2026/UnhandledRejections ./infra/setup.sh
 ```
 
 Expected: the closing message lists the GitHub secrets and variables to add. The repo owner adds them under Settings → Environments → `demo`.
@@ -1532,7 +1532,9 @@ test (`e2e/smoke.spec.ts`) stays, since A and B keep it current; the journey tes
     address (warehouse and carrier not reached). Skipped when the inbox has no such email;
   - phone width: no sideways scrolling, a place opens its stages.
 - [x] Local run (29 Oct): journey and smoke, 30 passed, 16 skipped (one width only, or no such email).
-- [ ] Live run needs a signed-in session now that `AUTH_REQUIRED=on` (C13 step 5, Q-AUTH-06).
+- [x] Live run needs a signed-in session now that `AUTH_REQUIRED=on` (C13 step 5, Q-AUTH-06): the suite signs in as
+  `admin` when `E2E_DEMO_PASSWORD` is set (CD reads Key Vault `auth-demo-password`). Local run signed in (30 Oct,
+  `AUTH_REQUIRED=on`, throwaway accounts): 42 passed, 16 skipped. The live run waits for that secret (C13 step 6).
 
 ### Task C13: Sign-in and roles (P7, `docs/SPEC-auth.md`) — after code submission
 
@@ -1564,8 +1566,10 @@ since their screens' action calls change.
   -09, -12, AC-NFR-AUTH-02, -03, AC-SEC-AUTH-04, -05, -08, -12). Component tests for the login page and header.
 - [x] **Step 4: Client calls** through `/api` same-origin; remove `NEXT_PUBLIC_API_KEY`; hide buttons by role; keep
   typed input on `session_expired` (AC-AUTH-10, -11, AC-SEC-AUTH-01).
-- [ ] **Step 5: Playwright** sign-in setup per role; workflow tests run signed in; one test per role refusal
-  (AC-NFR-AUTH-04). Tell A and B first.
+- [x] **Step 5: Playwright** sign-in setup per role; workflow tests run signed in; one test per role refusal
+  (AC-NFR-AUTH-04). Tell A and B first. Done 30 Oct: `e2e/auth.setup.ts`, `e2e/roles.spec.ts`, `e2e/refusals.ts`
+  (checked by `lib/auth/refusals.test.ts`); CD `e2e` logs in to Azure in the `demo` environment and reads Key Vault
+  `auth-demo-password`, not an Actions secret (deviation from SPEC-auth §5.5/§9.2, for `spec-writer`).
 - [ ] **Step 6: Azure** (confirm first): app registration and app roles (Q-AUTH-01), Key Vault secrets, app settings,
   access restriction on the API; `AUTH_REQUIRED=on` live (SPEC-auth §10 steps 2–4); App Insights query for sign-in,
   401 and 403 lines; proxy latency (AC-SEC-AUTH-02, -06, -07, AC-NFR-AUTH-01).

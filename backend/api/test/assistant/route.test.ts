@@ -59,7 +59,7 @@ describe('POST /api/assistant (D10)', () => {
     expect(seen[0].tools).toHaveLength(6);
   });
 
-  it('a tool that fails (a database read) gives 503 assistant_unavailable, with no server text', async () => {
+  it('AC-ASK-12: a tool that fails (a database read) gives 503 assistant_unavailable, with no server text', async () => {
     setAssistantDeps({ tools: TOOLS.map((t) => ({ ...t, run: async () => { throw new Error('connect ECONNREFUSED 10.0.0.5:5432'); } })) });
     const r = await on.inject(ask(await bearer({ sub: 'u1', roles: ['admin'] })));
     expect([r.statusCode, r.json()]).toEqual([503, { error: 'assistant_unavailable' }]);

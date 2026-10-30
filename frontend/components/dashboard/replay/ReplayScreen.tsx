@@ -9,6 +9,7 @@ import { canOpen } from '@/lib/auth/roles';
 import { useApi } from '@/hooks/useApi';
 import { int, pct, points, usd, usdShort } from '@/lib/metrics';
 import type { Overview } from '../overview/OverviewScreen';
+import { CompareCard } from './CompareCard';
 import s from './replay.module.css';
 
 interface Scenario { scenario: string; label: string; grp: string; onTime: number; lateAvoided: number; costAvoided: number }
@@ -160,6 +161,7 @@ export function ReplayScreen() {
   const lostBy = new Map((attr.data?.causes ?? []).map((c) => [c.cause, c.pointsLost]));
 
   const accounts = a.data?.accounts ?? [];
+  const atRisk = new Set(accounts.map((x) => x.clientId));
   const revenue = accounts.reduce((t, x) => t + x.revenueUsd, 0);
   const byCause = [...accounts.reduce((m, x) => {
     const c = causeOf(x);
@@ -268,6 +270,8 @@ export function ReplayScreen() {
           </p>
         </section>
       )}
+
+      <CompareCard atRisk={atRisk} />
 
       <div className={s.grid}>
         <section className={`${s.card} ${s.chartCard}`} aria-labelledby="chart-head">

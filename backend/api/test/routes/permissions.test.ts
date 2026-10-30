@@ -69,6 +69,17 @@ describe('permission matrix (SPEC-auth §4.2)', () => {
     }
   });
 
+  it('AC-AUTH-16 (D11): /api/compare is read by the Replay roles only', async () => {
+    expect(rolesFor('GET', '/api/compare')).toEqual(['warehouse_supervisor', 'carrier_manager', 'leadership', 'admin']);
+    const a = await buildApp({ auth: AUTH_ON });
+    const url = '/api/compare?scenario=as_built_adopted&dimension=warehouse';
+    for (const role of ['order_desk', 'customer_support']) {
+      const r = await a.inject({ method: 'GET', url, headers: await bearer({ sub: 'u1', roles: [role] }) });
+      expect([role, r.statusCode]).toEqual([role, 403]);
+    }
+    await a.close();
+  });
+
   it('AC-AUTH-16: each role is refused the reads of pages it cannot open, before any handler runs', async () => {
     const a = await buildApp({ auth: AUTH_ON });
     const refused: [string, string][] = [

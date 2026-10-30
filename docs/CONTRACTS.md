@@ -208,6 +208,7 @@ in 0..1, money in USD.
 | `kpis` | B | `key`, `value` — keys: `on_time`, `benchmark`, `deliveries`, `late`, `penalties_usd`, `handling_cost_usd`, `at_risk_accounts`, `at_risk_revenue_usd`, `pre_pickup_share` |
 | `cause_summary` | B | `segment` (`all`/`email`/`at_risk`), `flag`, `label`, `stage`, `n`, `late_rate` |
 | `scenario_results` | B | `scenario`, `label`, `grp` (`reference`/`area`/`as_built`/`phase2`/`adoption`), `segment` (`all`/`email`/`at_risk`/`aug_sep`), `on_time`, `late_avoided`, `cost_avoided` |
+| `scenario_breakdown` | B | D11 (SPEC §5.8): `scenario` (`as_built_adopted`/`as_built`/`adopt_all`), `label`, `dimension` (`all`/`warehouse`/`lane`/`carrier`/`region`/`month`/`client`), `key` (`all`, `W1`, `D→Midwest`, `D`, `Midwest`, `2026-04`, `C190`), `deliveries`, `on_time_today` (0..1), `on_time_with` (0..1), `late_today`, `late_with` (expected, may be fractional), `cost_avoided` (USD) |
 | `cause_attribution` | B | `cause`, `label`, `stage`, `deliveries`, `points_lost` (0..1), `share_of_lateness` (0..1) |
 | `cause_kpis` | B | `cause`, `label`, `kpi`, `baseline`, `target`, `owner` |
 | `accounts` | B | `client_id`, `client_name`, `account_tier`, `annual_revenue_usd`, `primary_order_channel`, `deliveries`, `on_time`, `main_cause`, `complaints` |
@@ -292,6 +293,7 @@ Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 
 | `GET /api/overview` | B | `{ onTime, benchmark, deliveries, late, penaltiesUsd, handlingCostUsd, atRiskAccounts, atRiskRevenueUsd, prePickupShare }` |
 | `GET /api/causes?segment=all\|email\|at_risk` | B | `{ segment, causes: [{ flag, label, stage, n, lateRate }] }` |
 | `GET /api/replay?segment=all\|email\|at_risk\|aug_sep` | B | `{ segment, scenarios: [{ scenario, label, grp, onTime, lateAvoided, costAvoided }] }` |
+| `GET /api/compare?scenario=as_built_adopted\|as_built\|adopt_all&dimension=all\|warehouse\|lane\|carrier\|region\|month\|client` | B | D11: `{ scenario, label, dimension, rows: [{ key, deliveries, onTimeToday, onTimeWith, lateToday, lateWith, costAvoided }] }`; 400 naming the allowed values for an unknown `scenario` or `dimension`; Replay roles only (SPEC-auth §4.4) |
 | `GET /api/attribution` | B | `{ causes: [{ cause, label, stage, deliveries, pointsLost, share }] }` |
 | `GET /api/cause-kpis` | B | `{ kpis: [{ cause, label, kpi, baseline, target, owner }] }` |
 | `GET /api/accounts` | B | `{ accounts: [{ clientId, clientName, tier, revenueUsd, channel, deliveries, onTime, mainCause, complaints }] }` |

@@ -3,9 +3,10 @@ import { fileURLToPath } from 'node:url';
 import type { PromiseResult } from '../../core/contracts.js';
 import type { LLM } from '../../core/llm/types.js';
 import type { AddressQuery } from '../../core/maps/types.js';
+import type { AddressCheck } from './address.js';
 import type { Decision } from './decide.js';
-import { LINK_PLACEHOLDER } from './linkRules.js';
-import type { SavedAddress } from './schema.js';
+import { LINK_PLACEHOLDER, neutralisePlaceholder as clean } from './linkRules.js';
+import type { Extraction, SavedAddress } from './schema.js';
 import type { AddressIssue } from './validate.js';
 
 /** Checked facts only: the model never sees the raw email when drafting (SEC-02). Names stay as tags (SEC-05). */
@@ -21,6 +22,37 @@ export interface ReplyFacts {
   addressIssues: AddressIssue[];
   suggestion: AddressQuery | null; // the map's reading (never a different street)
   link?: boolean;                  // E19 CONFIRM_LINK=on: a CONFIRM_ADDRESS reply carries [CONFIRM_LINK] (REQ-LINK-01)
+}
+
+export const formatAddress = (a: NonNullable<AddressCheck['address']>) =>
+  `${a.line1}${a.line2 ? `, ${a.line2}` : ''}, ${a.city}, ${a.state} ${a.zip}`;
+
+/**
+ * The checked facts a reply is drafted from, built one way for the pipeline, the flag-off fallback at send time and the
+ * E19 decision again. `piiMap` is the tag -> value map of the email (only its first [PERSON_n] tag is used).
+ */
+export function replyFactsOf(f: { decision: Decision; clientName: string | null; piiMap: Record<string, string>;
+  extraction: Extraction | null; address: AddressCheck | null; promise: PromiseResult | null; link?: boolean }): ReplyFacts {
+  const { address } = f;
+  const unverified = address?.status === 'unverified';
+  const suggestion = unverified ? address.validation?.suggestion ?? null : null;
+  // Every value from the email (or a client-confirmed saved address) has [CONFIRM_LINK] removed (SEC-02, REQ-LINK-09).
+  return {
+    decision: f.decision, clientName: f.clientName,
+    contact: Object.keys(f.piiMap).find((tag) => tag.startsWith('[PERSON_')) ?? null,
+    items: (f.extraction?.items ?? []).map((i) => ({ ...i, sku: clean(i.sku) })), promise: f.promise, missing: address?.missing ?? [],
+    candidates: (address?.candidates ?? []).map((c) => ({ ...c, label: clean(c.label), line1: clean(c.line1), line2: c.line2 && clean(c.line2),
+      city: clean(c.city), state: clean(c.state), zip: clean(c.zip) })),
+    address: unverified && address.address ? clean(formatAddress(address.address)) : null,
+    addressIssues: unverified ? address.validation?.issues ?? [] : [],
+    suggestion: suggestion && { ...suggestion, line1: clean(suggestion.line1), city: clean(suggestion.city), state: clean(suggestion.state), zip: clean(suggestion.zip) },
+    ...(f.link ? { link: true } : {}),
+  };
+}
+
+/** The email's names (tag -> value) with [CONFIRM_LINK] removed, for putting names back into a reply (SEC-02). */
+export function safeNames(piiMap: Record<string, string> | null): Record<string, string> {
+  return Object.fromEntries(Object.entries(piiMap ?? {}).map(([tag, value]) => [tag, clean(value)]));
 }
 
 const FIELD_LABEL: Record<string, string> = {
@@ -106,4 +138,36 @@ export async function draftReply(llm: LLM, f: ReplyFacts): Promise<{ text: strin
     // fall through to the template
   }
   return { text: templateReply(f), source: 'template' };
+}
+
+/**
+ * REQ-LINK-09: with CONFIRM_LINK off (or no link to mint) a reply drafted with [CONFIRM_LINK] never sends it as text.
+ * Only the sentence holding the placeholder is removed (sentences end at . ! or ? and a space, or at the line's end);
+ * a line left empty goes too, with the blank line it leaves doubled. The caller re-checks the required phrases.
+ */
+export function withoutLinkPlaceholder(text: string): string {
+  if (!text.includes(LINK_PLACEHOLDER)) return text;
+  const lines = text.split('\n');
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    if (!lines[i].includes(LINK_PLACEHOLDER)) { out.push(lines[i]); continue; }
+    const kept = withoutPlaceholderSentences(lines[i]);
+    if (kept.trim()) { out.push(kept); continue; }
+    if (out.length && out.at(-1)!.trim() === '' && (lines[i + 1] ?? '').trim() === '') i += 1;
+  }
+  return out.join('\n');
+}
+
+function withoutPlaceholderSentences(line: string): string {
+  let out = line;
+  for (let at = out.indexOf(LINK_PLACEHOLDER); at >= 0; at = out.indexOf(LINK_PLACEHOLDER)) {
+    let start = 0;
+    for (const m of out.slice(0, at).matchAll(/[.!?]\s+/g)) start = m.index + m[0].length;
+    const after = at + LINK_PLACEHOLDER.length;
+    const end = /^.*?[.!?](?:\s+|$)/.exec(out.slice(after));
+    const prefix = out.slice(0, start);
+    const suffix = end ? out.slice(after + end[0].length) : '';
+    out = suffix ? prefix + suffix : prefix.trimEnd();
+  }
+  return out;
 }

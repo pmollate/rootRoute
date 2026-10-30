@@ -24,6 +24,22 @@ describe.skipIf(!hasDb)('warehouse & diagnosis routes (needs test database)', ()
     expect((await app.inject({ method: 'GET', url: '/api/causes?segment=nope' })).statusCode).toBe(400);
   });
 
+  it('AC-REP-10: serves today vs with by dimension, and rejects unknown values', async () => {
+    const r = await get('/api/compare?scenario=as_built_adopted&dimension=warehouse');
+    expect(r).toMatchObject({ scenario: 'as_built_adopted', dimension: 'warehouse' });
+    expect(r.rows).toHaveLength(5);
+    const w1 = r.rows.find((x: { key: string }) => x.key === 'W1');
+    expect(w1.onTimeToday).toBeCloseTo(0.704, 3);
+    expect(w1.onTimeWith).toBeCloseTo(0.851, 3);
+    const all = (await get('/api/compare?scenario=as_built_adopted&dimension=all')).rows[0];
+    expect(all).toMatchObject({ key: 'all', deliveries: 48340, lateToday: 14019, lateWith: 6828, costAvoided: 707950 });
+    for (const url of ['/api/compare?scenario=vendor&dimension=all', '/api/compare?scenario=as_built&dimension=sku']) {
+      const res = await app.inject({ method: 'GET', url });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatch(/must be one of/);
+    }
+  });
+
   it('AC-PEN-01 and second pick through the API', async () => {
     expect((await get('/api/penalties/unpaid')).count).toBe(2002);
     const w = await get('/api/warehouses');

@@ -7,9 +7,10 @@ import { logOverride, recordOrderEvent } from '../carriers/index.js';
 import { diagnosisApi } from '../warehouse/index.js';
 import { ACTIONS, applyAction } from './actions.js';
 import { runAlerts } from './alerts.js';
-import { complaintQueue, listComplaints, savedTriages, saveTriage, triage } from './complaints.js';
+import { complaintQueue, deliveryStages, listComplaints, savedTriages, saveTriage, triage } from './complaints.js';
 import { getDeps } from './deps.js';
 import { processEmail } from './pipeline.js';
+import { safeNames } from './reply.js';
 import { POLL_MAX, pollLogFields, runPoll } from './poll.js';
 import { reviewQueue } from './review.js';
 import { httpWms } from './wms.js';
@@ -66,7 +67,7 @@ const routes: FastifyPluginAsync = async (app) => {
         inReplyTo: email.in_reply_to },
       extraction: x?.extraction ?? null, decision: x?.decision ?? null, checks: x?.checks ?? null,
       // The operator approves exactly what will be sent: names put back, as in the outgoing email.
-      replyDraft: x ? restore(x.reply_draft, email.pii_map ?? {}) : null, replySource: x?.reply_source ?? null,
+      replyDraft: x ? restore(x.reply_draft, safeNames(email.pii_map)) : null, replySource: x?.reply_source ?? null,
     };
   });
 
@@ -110,8 +111,11 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(result.code).send(result.error ? { error: result.error } : { status: result.status });
   });
 
-  // E12 + E14: escalations (Tier 1 or at-risk clients) first, each with its latest saved triage.
-  app.get('/complaints', async () => ({ complaints: complaintQueue(await listComplaints(), await savedTriages()) }));
+  // E12 + E14: escalations (Tier 1 or at-risk clients) first, each with its delivery's cause stages and latest saved triage.
+  app.get('/complaints', async () => {
+    const rows = await listComplaints();
+    return { complaints: complaintQueue(rows, await savedTriages(), await deliveryStages(rows.map((r) => r.delivery_id))) };
+  });
 
   app.post<{ Params: { id: string } }>('/complaints/:id/triage', async (req, reply) => {
     const row = (await listComplaints()).find((c) => c.complaint_id === req.params.id);

@@ -88,7 +88,8 @@ export async function answerQuestion(input: z.output<typeof AssistantRequestSche
       if (!parsed.success || parsed.data.refused || sources.length === 0) {
         return parsed.success || sources.length === 0 ? done(REFUSAL, true, false) : done(COULD_NOT_CHECK, false, false);
       }
-      const unchecked = uncheckedFigures(parsed.data.answer, [input.question, ...sources.map((s) => s.args), ...sources.map((s) => s.result)]);
+      // REQ-ASK-04 (SPEC v0.12): only what a tool returned or was called with counts; a number only in the question does not.
+      const unchecked = uncheckedFigures(parsed.data.answer, [...sources.map((s) => s.args), ...sources.map((s) => s.result)]);
       // SEC-ASK-06: an answer carrying HTML, a Markdown link or a URL is not returned, checked or not.
       const markup = /<|\]\(|https?:|www\./i.test(parsed.data.answer);
       return unchecked.length || markup || parsed.data.answer.length > MAX_ANSWER
