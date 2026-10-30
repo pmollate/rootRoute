@@ -3,6 +3,7 @@
 import { type ClipboardEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { SyntheticBadge } from '@/components/dashboard/ui';
 import { ConfirmScreen, type LinkView } from './ConfirmScreen';
+import { Steps } from './Steps';
 import s from './confirm.module.css';
 import { LINK_INVALID_TEXT } from './text';
 
@@ -25,22 +26,6 @@ type Phase =
   | { kind: 'verify' }
   | { kind: 'address'; view: LinkView; verifyToken: string }
   | { kind: 'invalid' };
-
-const STEPS = ['Verify email', 'Confirm address', 'Done'];
-
-/** Where the client is: step 1 (verify) now; the address page and the thank-you follow. */
-function Stepper() {
-  return (
-    <ol className={s.stepper} aria-label="Steps">
-      {STEPS.map((label, i) => (
-        <li key={label} className={i === 0 ? s.stepNow : s.step} aria-current={i === 0 ? 'step' : undefined}>
-          <span className={s.stepDot} aria-hidden="true">{i + 1}</span>
-          <span>{label}</span>
-        </li>
-      ))}
-    </ol>
-  );
-}
 
 /** The code's remaining life as a ring and mm:ss; a full ring before a code is sent. */
 function Countdown({ left }: { left: number | null }) {
@@ -199,7 +184,7 @@ export function VerifyStep({ token, view }: { token: string; view: VerifyView })
   return (
     <main className={`${s.page} ${s.verifyPage}`}>
       <p className={s.brand}>Halcyon Logistics</p>
-      <Stepper />
+      <Steps current={0} />
       <section className={s.card} aria-labelledby="verify-title">
         <div className={s.cardHead}>
           <Countdown left={left} />

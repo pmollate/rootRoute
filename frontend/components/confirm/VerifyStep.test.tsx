@@ -49,7 +49,7 @@ describe('/confirm/{token} verify step (E19, REQ-LINK-17 to -19)', () => {
     expect(screen.getByRole('timer').textContent).toBe('10:00');
     expect(screen.getByText('0 of 6 digits entered · 5 attempts left')).toBeTruthy();
     expect(button('Send code')).toBeTruthy();
-    expect(screen.queryByLabelText('Address line 1')).toBeNull();
+    expect(screen.queryByLabelText('Street address')).toBeNull();
     expect(screen.getByText('Synthetic data')).toBeTruthy();
     expect(fn).not.toHaveBeenCalled(); // a code goes only on the button (mail scanners open links)
     expect(screen.getByRole('group', { name: '6-digit code' })).toBeTruthy();
@@ -130,10 +130,10 @@ describe('/confirm/{token} verify step (E19, REQ-LINK-17 to -19)', () => {
     render(<VerifyStep token={TOKEN} view={view} />);
     typeCode('654321');
     fireEvent.click(button('Verify and continue'));
-    expect(((await screen.findByLabelText('Address line 1')) as HTMLInputElement).value).toBe('920 Broad St');
+    expect(((await screen.findByLabelText('Street address')) as HTMLInputElement).value).toBe('920 Broad St');
     const get = calls(fn)[1];
     expect([get.url, get.method, get.headers.get('x-link-verify')]).toEqual([`/api/confirm/${TOKEN}`, 'GET', VT]);
-    fireEvent.click(button('Confirm'));
+    fireEvent.click(button('Confirm address'));
     expect(await screen.findByText('Thank you. Your delivery address is confirmed.')).toBeTruthy();
     expect(calls(fn)[2].headers.get('x-link-verify')).toBe(VT);
   });
@@ -143,7 +143,7 @@ describe('/confirm/{token} verify step (E19, REQ-LINK-17 to -19)', () => {
     render(<VerifyStep token={TOKEN} view={view} />);
     typeCode('654321');
     fireEvent.click(button('Verify and continue'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm address' }));
     expect(await screen.findByRole('heading', { name: 'Check your inbox' })).toBeTruthy();
     expect(digits()).toBe('');
     cleanup();

@@ -24,7 +24,7 @@
 .req { margin-left: 2px; color: var(--bad); }
 .field { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 0.95rem; }
 /* 16 px inputs: phones do not zoom in on focus */
-.field input {
+.field input, .field select {
   width: 100%;
   min-height: 44px;
   padding: 8px 10px;
@@ -35,7 +35,7 @@
   font: inherit;
   font-weight: 400;
 }
-.field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.field input:focus-visible, .field select:focus-visible { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
 .mapBlock { display: flex; flex-direction: column; gap: 6px; }
 .mapBlock[hidden] { display: none; } /* a refused map stays mounted, out of sight */
 .mapWrap { width: 100%; }
@@ -114,4 +114,45 @@
   .stepNow span:not(.stepDot) { display: inline; }
   .digits { gap: 6px; grid-template-columns: repeat(3, minmax(0, 1fr)) 10px repeat(3, minmax(0, 1fr)); }
   .digit { height: 54px; font-size: 1.35rem; }
+}
+
+/* "Confirm the delivery address": a card with the form on the left and the map on the right (one column without a
+   map, and on phones the map below the form). */
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.addrPage { max-width: 1040px; }
+.stepDone { color: var(--ink); font-weight: 500; }
+.stepDone::after { background: var(--navy) !important; }
+.stepDone .stepDot { border-color: var(--navy); background: var(--navy); color: #fff; }
+.addrCard { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.formPane { display: flex; flex-direction: column; gap: 16px; padding: 28px; }
+.formPane h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.02em; }
+.formPane .lead { margin-top: -8px; }
+.formPane .muted { margin: -8px 0 0; font-size: 0.85rem; }
+.formPane .field { gap: 6px; }
+.optional { margin-left: auto; font-weight: 500; letter-spacing: normal; text-transform: none; color: var(--ink-2); }
+.formPane .field > .label { display: flex; align-items: baseline; }
+.field select { appearance: auto; }
+.iconInput { position: relative; display: block; }
+.iconInput svg { position: absolute; top: 50%; left: 12px; width: 16px; height: 16px; transform: translateY(-50%); fill: none; stroke: var(--ink-2);
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.iconInput input { padding-left: 36px; }
+.cityRow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.filledNote { margin: -4px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--navy-soft); color: var(--navy); font-size: 0.9rem; }
+.formPane .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--navy); color: #fff; }
+.formPane .button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mapPane { position: relative; min-height: 560px; border-left: 1px solid var(--line); background: var(--bg); }
+.mapPane[hidden] { display: none; }
+.mapPane .mapWrap, .mapPane .map { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 0; }
+.mapChip { position: absolute; top: 16px; left: 16px; margin: 0; padding: 6px 12px 6px 10px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); box-shadow: 0 1px 3px rgb(0 0 0 / 0.08); font-size: 0.85rem; font-weight: 600; pointer-events: none; }
+.mapChip::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--navy); }
+.mapCard { position: absolute; right: 16px; bottom: 16px; left: 16px; display: grid; gap: 2px; padding: 14px 16px; border: 1px solid var(--line);
+  border-radius: 12px; background: var(--surface); box-shadow: 0 4px 16px rgb(0 0 0 / 0.08); pointer-events: none; }
+.mapCard span { color: var(--ink-2); font-size: 0.9rem; }
+@media (max-width: 760px) {
+  .addrCard { grid-template-columns: 1fr; }
+  .formPane { padding: 20px; }
+  .mapPane { min-height: 340px; border-top: 1px solid var(--line); border-left: 0; }
+  .cityRow { grid-template-columns: 1fr 1fr; }
+  .cityRow > :first-child { grid-column: 1 / -1; }
 }

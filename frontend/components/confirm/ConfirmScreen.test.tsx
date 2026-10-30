@@ -58,7 +58,7 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
 
   it('AC-LINK-02 (page): the five fields hold the email\'s address, the pin and the expiry show, and nothing else about the order', () => {
     render(<ConfirmScreen token={TOKEN} view={view} />);
-    expect(['Address line 1', 'Address line 2', 'City', 'State', 'ZIP code'].map((n) => field(n).value))
+    expect(['Street address', 'Apartment, suite, dock', 'City', 'State', 'ZIP code'].map((n) => field(n).value))
       .toEqual(['920 Broad St', 'Dock 5', 'Newark', 'NJ', '85004']);
     expect(screen.getByText('pin 40.7228,-74.1797')).toBeTruthy();
     expect(mapProps.mock.calls[0][0].credential).toEqual(view.map);
@@ -66,7 +66,7 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
       { dateStyle: 'medium', timeStyle: 'short' }));
     const text = document.body.textContent ?? '';
     for (const no of ['HX-', 'qty', 'Promise', 'promise', 'C130', 'Client 130', 'Tom Okafor', '555-0171', 'client130']) expect(text, no).not.toContain(no);
-    expect(screen.getByRole('button', { name: 'Confirm' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Confirm address' })).toBeTruthy();
   });
 
   it('AC-LINK-15, REQ-LINK-02 (page): with no map credential the page is the form alone and Confirm sends no pin; a 409 shows the map\'s reading of the address', async () => {
@@ -75,7 +75,7 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     render(<ConfirmScreen token={TOKEN} view={{ ...view, map: null }} />);
     expect(screen.queryByTestId('map')).toBeNull();
     expect(screen.queryByText(/Drag the pin/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     expect(await screen.findByRole('button', { name: 'Confirm again' })).toBeTruthy();
     expect('pin' in posted(fn)[0].body).toBe(false);
     const reading = screen.getByRole('region', { name: 'The map\'s reading of your address' });
@@ -90,7 +90,7 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     const fn = stubFetch([200, { status: 'confirmed' }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
     fireEvent.click(screen.getByRole('button', { name: 'Fail map' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByText('Thank you. Your delivery address is confirmed.');
     expect('pin' in posted(fn)[0].body).toBe(false);
   });
@@ -99,7 +99,7 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     mapReady.auto = false;
     const fn = stubFetch([200, { status: 'confirmed' }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByText('Thank you. Your delivery address is confirmed.');
     expect('pin' in posted(fn)[0].body).toBe(false);
   });
@@ -107,7 +107,7 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
   it('AC-LINK-15 (page): a working map with a start pin posts that pin', async () => {
     const fn = stubFetch([200, { status: 'confirmed' }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByText('Thank you. Your delivery address is confirmed.');
     expect(posted(fn)[0].body.pin).toEqual(view.pin);
   });
@@ -118,29 +118,45 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     [200, { status: 'confirmed' }]);
     render(<ConfirmScreen token={TOKEN} view={{ ...view, pin: null }} />);
     expect(screen.getByText('pin 39.8283,-98.5795')).toBeTruthy(); // the map's view only
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByRole('button', { name: 'Confirm again' });
     expect('pin' in posted(fn)[0].body).toBe(false);
     expect(screen.getByRole('region', { name: 'The map\'s reading of your address' }).textContent).toContain('The map could not find this address');
     fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
     expect(screen.queryByRole('button', { name: 'Confirm again' })).toBeNull(); // the pin moved: the checkId is dropped
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByText('Thank you. Your delivery address is confirmed.');
     expect(posted(fn)[1].body).toEqual({ address: expect.any(Object), pin: { lat: expect.closeTo(39.8383, 6), lon: -98.5795 } });
     expect(JSON.stringify(posted(fn)[0].body)).not.toMatch(/39\.8283|-98\.5795/);
   });
 
+  // 31 Oct design: two steps (verification check done, address check now) after the code; nothing but the address.
+  it('page: after the code the steps show Verification check done and Address check current; no back, save-default, verified box or order details', () => {
+    render(<ConfirmScreen token={TOKEN} view={view} verifyToken={'V'.repeat(43)} />);
+    const steps = screen.getByRole('list', { name: 'Steps' });
+    expect(steps.textContent).toContain('Verification check (done)');
+    expect(screen.getByText('Address check').closest('li')!.getAttribute('aria-current')).toBe('step');
+    expect(screen.getByRole('heading', { name: 'Confirm the delivery address' })).toBeTruthy();
+    for (const gone of [/Back/, /default address/i, /Address verified/i, /drive time/i, /zone/i, /next day/i, /HX-/]) {
+      expect(document.body.textContent, String(gone)).not.toMatch(gone);
+    }
+    expect(screen.queryByRole('button', { name: /Back/ })).toBeNull();
+    cleanup();
+    render(<ConfirmScreen token={TOKEN} view={view} />); // CONFIRM_LINK_CODE off: no code step, so no steps
+    expect(screen.queryByRole('list', { name: 'Steps' })).toBeNull();
+  });
+
   it('page: line 1, city, state and ZIP are required (red asterisk); Confirm stays disabled until all four are filled', () => {
     render(<ConfirmScreen token={TOKEN} view={{ ...view, address: { city: 'Madhapur' }, pin: null }} />);
-    for (const n of ['Address line 1', 'City', 'State', 'ZIP code']) {
+    for (const n of ['Street address', 'City', 'State', 'ZIP code']) {
       expect(field(n).required, n).toBe(true);
       expect(field(n).closest('label')!.querySelector('[data-required]')?.textContent, n).toBe('*');
     }
-    expect(field('Address line 2').required).toBe(false);
-    expect(field('Address line 2').closest('label')!.querySelector('[data-required]')).toBeNull();
-    const confirm = () => screen.getByRole('button', { name: 'Confirm' }) as HTMLButtonElement;
+    expect(field('Apartment, suite, dock').required).toBe(false);
+    expect(field('Apartment, suite, dock').closest('label')!.querySelector('[data-required]')).toBeNull();
+    const confirm = () => screen.getByRole('button', { name: 'Confirm address' }) as HTMLButtonElement;
     expect(confirm().disabled).toBe(true);
-    fireEvent.change(field('Address line 1'), { target: { value: '65156 Powers Rd' } });
+    fireEvent.change(field('Street address'), { target: { value: '65156 Powers Rd' } });
     fireEvent.change(field('State'), { target: { value: 'OR' } });
     expect(confirm().disabled).toBe(true); // ZIP still empty
     fireEvent.change(field('ZIP code'), { target: { value: '97828' } });
@@ -156,12 +172,12 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     render(<ConfirmScreen token={TOKEN} view={view} />);
     fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
     await waitFor(() => expect(field('City').value).toBe('Enterprise'));
-    expect(['Address line 1', 'Address line 2', 'City', 'State', 'ZIP code'].map((n) => field(n).value))
+    expect(['Street address', 'Apartment, suite, dock', 'City', 'State', 'ZIP code'].map((n) => field(n).value))
       .toEqual(['65156 Powers Rd', 'Dock 5', 'Enterprise', 'OR', '97828']);
     const moved = { lat: view.pin!.lat + 0.01, lon: view.pin!.lon };
     expect(lookups(fn)).toEqual([{ url: `/api/confirm/${TOKEN}/lookup`, body: { pin: moved, line2: 'Dock 5' } }]);
     expect(screen.getByText(/Filled in from the map/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByText('Thank you. Your delivery address is confirmed.');
     expect(posted(fn)[0].body).toEqual({ address: { line1: '65156 Powers Rd', line2: 'Dock 5', city: 'Enterprise', state: 'OR', zip: '97828' },
       pin: moved, checkId: 'fill-1' });
@@ -173,12 +189,12 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     render(<ConfirmScreen token={TOKEN} view={view} />);
     fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
     await waitFor(() => expect(field('City').value).toBe('Enterprise'));
-    expect(field('Address line 1').value).toBe('920 Broad St'); // not read: kept
+    expect(field('Street address').value).toBe('920 Broad St'); // not read: kept
     lookupAnswer = [200, { reading: { line1: '1 Main St', city: 'Joseph', state: 'OR', zip: '97846', found: true }, checkId: 'fill-2' }];
     fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
     await waitFor(() => expect(field('City').value).toBe('Joseph'));
-    fireEvent.change(field('Address line 1'), { target: { value: '2 Main St' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.change(field('Street address'), { target: { value: '2 Main St' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByRole('button', { name: 'Confirm again' });
     expect(posted(fn)[0].body.checkId).toBeUndefined();
   });
@@ -189,11 +205,11 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
       [409, { error: 'needs_second_confirm', checkId: 'chk-2', reading: { of: 'address', found: true, line1: '920 Broad St', city: 'Phoenix', state: 'AZ', zip: '85004', distanceM: null, differs: ['city'] } }],
     );
     render(<ConfirmScreen token={TOKEN} view={view} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByRole('button', { name: 'Confirm again' });
     fireEvent.change(field('City'), { target: { value: 'Phoenix' } });
     expect(screen.queryByRole('button', { name: 'Confirm again' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByRole('button', { name: 'Confirm again' });
     expect(posted(fn).map((p) => p.body.checkId)).toEqual([undefined, undefined]);
   });
@@ -201,7 +217,7 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
   it('AC-LINK-13 (page): a reading of the pin names the parts the map reads differently', async () => {
     stubFetch([409, { error: 'needs_second_confirm', checkId: 'c', reading: { of: 'pin', found: true, line1: '65156 Powers Rd', city: 'Enterprise', state: 'OR', zip: '97828', distanceM: 400, differs: ['city'] } }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     const reading = await screen.findByRole('region', { name: 'The map\'s reading of your pin' });
     expect(reading.textContent).toContain('65156 Powers Rd, Enterprise, OR 97828');
     expect(reading.textContent).toContain('about 400 m from where we placed the pin');
@@ -212,10 +228,10 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     stubFetch([503, { error: 'map_unavailable' }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
     fireEvent.change(field('City'), { target: { value: 'Newark ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     expect(await screen.findByText(/could not check your address on the map just now. Please try again in a minute/)).toBeTruthy();
     expect(field('City').value).toBe('Newark ');
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Confirm' }) as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Confirm address' }) as HTMLButtonElement).disabled).toBe(false));
   });
 
   it('REQ-LINK-02 (page): a map that fails to load is hidden, not unmounted, leaving the form', async () => {
@@ -235,7 +251,7 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     stubFetch([200, { status: 'confirmed' }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
     fireEvent.change(field('ZIP code'), { target: { value: '07102' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     expect(await screen.findByText('Thank you. Your delivery address is confirmed.')).toBeTruthy();
     const text = document.body.textContent ?? '';
     for (const part of ['920 Broad St', 'Dock 5', 'Newark', '07102']) expect(text, part).not.toContain(part);
@@ -264,7 +280,7 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     render(<ConfirmScreen token={TOKEN} view={view} />);
     fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
     fireEvent.change(field('ZIP code'), { target: { value: '07102' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     const reading = await screen.findByRole('region', { name: 'The map\'s reading of your pin' });
     expect(reading.textContent).toContain('920 Broad St, Newark, NJ 07102');
     expect(reading.textContent).toContain('about 1112 m from where we placed the pin');
@@ -286,26 +302,26 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
       [409, { error: 'needs_second_confirm', checkId: 'chk-2', reading: { of: 'pin', found: true, line1: null, city: 'Newark', state: 'NJ', zip: '07102', distanceM: 0, differs: [] } }],
     );
     render(<ConfirmScreen token={TOKEN} view={view} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByRole('button', { name: 'Confirm again' });
     fireEvent.change(field('ZIP code'), { target: { value: '07102' } });
     expect(screen.queryByRole('button', { name: 'Confirm again' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByRole('button', { name: 'Confirm again' });
     expect(posted(fn).map((p) => p.body.checkId)).toEqual([undefined, undefined]);
   });
 
   it('REQ-LINK-03 (page): with no start pin the page asks the client to drag the pin', () => {
     render(<ConfirmScreen token={TOKEN} view={{ ...view, address: { city: 'Orlando', state: 'FL' }, pin: null }} />);
-    expect(screen.getByText('Drag the pin to your delivery entrance.')).toBeTruthy();
-    expect(field('Address line 1').value).toBe('');
+    expect(screen.getByText('Drag the pin to your delivery entrance')).toBeTruthy(); // the map's chip
+    expect(field('Street address').value).toBe('');
     expect(field('ZIP code').value).toBe('');
   });
 
   it('REQ-LINK-07 (page): a 404 on Confirm shows the one invalid-link text and drops the form', async () => {
     stubFetch([404, { error: 'link_invalid' }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     expect(await screen.findByText(LINK_INVALID_TEXT)).toBeTruthy();
     expect(LINK_INVALID_TEXT).toBe('This link is no longer valid. Please reply to our email with the delivery address.');
     expect(screen.queryByLabelText('City')).toBeNull();
@@ -314,24 +330,26 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
   it('SEC-LINK-10 (page): a 400 asks to check the fields and keeps the form with what was typed', async () => {
     stubFetch([400, { error: 'invalid' }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
-    fireEvent.change(field('State'), { target: { value: 'XX' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    // State is a list of US codes now, so the bad value the API refuses is a ZIP
+    fireEvent.change(field('ZIP code'), { target: { value: '1234' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     expect(await screen.findByText(/Please check the address fields/)).toBeTruthy();
-    expect(field('State').value).toBe('XX');
+    expect(field('ZIP code').value).toBe('1234');
+    expect([...(field('State') as unknown as HTMLSelectElement).options].map((o) => o.value)).toHaveLength(52); // Select + 50 states + DC
   });
 
   it('SEC-LINK-04 (page): a 429 asks the client to wait; the form stays', async () => {
     stubFetch([429, { error: 'rate_limited' }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     expect(await screen.findByText(/Please wait a minute and try again/)).toBeTruthy();
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Confirm' }) as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Confirm address' }) as HTMLButtonElement).disabled).toBe(false));
   });
 
   it('SEC-LINK-07: the client\'s text is shown as text, never as markup', async () => {
     stubFetch([409, { error: 'needs_second_confirm', checkId: 'c', reading: { of: 'pin', found: true, line1: '<img src=x onerror=alert(1)>', city: null, state: null, zip: null, distanceM: 0, differs: [] } }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByRole('button', { name: 'Confirm again' });
     expect(document.querySelector('img')).toBeNull();
     expect(screen.getByRole('region', { name: 'The map\'s reading of your pin' }).textContent).toContain('<img src=x onerror=alert(1)>');
@@ -342,13 +360,13 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     render(<ConfirmScreen token={TOKEN} view={view} verifyToken={VT} />);
     fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
     await waitFor(() => expect(lookups(fn)).toHaveLength(1));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByText('Thank you. Your delivery address is confirmed.');
     expect(fn.mock.calls.map(([, init]) => new Headers(init.headers).get('x-link-verify'))).toEqual([VT, VT]);
     cleanup();
     const plain = stubFetch([200, { status: 'confirmed' }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await screen.findByText('Thank you. Your delivery address is confirmed.');
     expect(new Headers(plain.mock.calls[0][1].headers).has('x-link-verify')).toBe(false);
   });
@@ -360,7 +378,7 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     render(<ConfirmScreen token={TOKEN} view={view} verifyToken={'V'.repeat(43)} onVerifyRequired={back} />);
     fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
     await waitFor(() => expect(back).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm address' }));
     await waitFor(() => expect(back).toHaveBeenCalledTimes(2));
   });
 });

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SyntheticBadge } from '@/components/dashboard/ui';
 import { ConfirmMap } from './ConfirmMap';
+import { Steps } from './Steps';
 import s from './confirm.module.css';
 import { LINK_INVALID_TEXT } from './text';
 
@@ -33,12 +34,17 @@ export const NO_PIN_START: LinkPin = { lat: 39.8283, lon: -98.5795 };
 type Fields = { line1: string; line2: string; city: string; state: string; zip: string };
 const REQUIRED: (keyof Fields)[] = ['line1', 'city', 'state', 'zip'];
 const FIELDS: { key: keyof Fields; label: string; auto: string; max: number; mode?: 'numeric' }[] = [
-  { key: 'line1', label: 'Address line 1', auto: 'address-line1', max: 100 },
-  { key: 'line2', label: 'Address line 2', auto: 'address-line2', max: 100 },
+  { key: 'line1', label: 'Street address', auto: 'address-line1', max: 100 },
+  { key: 'line2', label: 'Apartment, suite, dock', auto: 'address-line2', max: 100 },
   { key: 'city', label: 'City', auto: 'address-level2', max: 100 },
   { key: 'state', label: 'State', auto: 'address-level1', max: 2 },
   { key: 'zip', label: 'ZIP code', auto: 'postal-code', max: 10, mode: 'numeric' },
 ];
+
+/** US states and DC, for the State list (the API accepts these codes only, SEC-LINK-10). */
+const US_STATES = ['AK', 'AL', 'AR', 'AZ', 'CA', 'CO', 'CT', 'DC', 'DE', 'FL', 'GA', 'HI', 'IA', 'ID', 'IL', 'IN', 'KS', 'KY', 'LA', 'MA', 'MD', 'ME',
+  'MI', 'MN', 'MO', 'MS', 'MT', 'NC', 'ND', 'NE', 'NH', 'NJ', 'NM', 'NV', 'NY', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VA', 'VT',
+  'WA', 'WI', 'WV', 'WY'];
 
 type Phase =
   | { kind: 'form'; note: string | null }
@@ -168,82 +174,113 @@ export function ConfirmScreen({ token, view, verifyToken, onVerifyRequired }:
     );
   }
 
-  const input = (f: (typeof FIELDS)[number]) => {
+  const input = (f: (typeof FIELDS)[number], icon = false) => {
     const required = f.key !== 'line2';
+    const props = { name: f.key, 'aria-label': f.label, autoComplete: f.auto, required, value: fields[f.key] };
     return (
       <label key={f.key} className={s.field}>
-        <span>{f.label}{required ? <span className={s.req} data-required aria-hidden="true">*</span> : ' (optional)'}</span>
-        <input name={f.key} aria-label={f.label} autoComplete={f.auto} maxLength={f.max} inputMode={f.mode} required={required}
-          value={fields[f.key]} onChange={(e) => setField(f.key, e.target.value)} />
+        <span className={s.label}>
+          {f.label}{required ? <span className={s.req} data-required aria-hidden="true">*</span> : <span className={s.optional}>Optional</span>}
+        </span>
+        {f.key === 'state' ? (
+          <select {...props} onChange={(e) => setField('state', e.target.value)}>
+            <option value="">Select</option>
+            {US_STATES.map((st) => <option key={st} value={st}>{st}</option>)}
+          </select>
+        ) : (
+          <span className={icon ? s.iconInput : undefined}>
+            {icon && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11Z" /><circle cx="12" cy="10" r="2.5" /></svg>}
+            <input {...props} maxLength={f.max} inputMode={f.mode} onChange={(e) => setField(f.key, e.target.value)} />
+          </span>
+        )}
       </label>
     );
   };
+  const by = (k: keyof Fields) => FIELDS.find((f) => f.key === k)!;
+  const street = [fields.line1.trim(), fields.line2.trim()].filter(Boolean).join(', ');
+  const place = [fields.city.trim(), [fields.state, fields.zip.trim()].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  const withMap = Boolean(view.map) && mapShown;
 
   return (
-    <main className={s.page}>
+    <main className={`${s.page} ${s.addrPage}`}>
       <p className={s.brand}>Halcyon Logistics</p>
-      <header className={s.head}>
-        <h1>Confirm your delivery address</h1>
-        {view.synthetic && <SyntheticBadge />}
-      </header>
-      <p className={s.muted}>{expires ? `This link works until ${expires}.` : 'This link works for a limited time.'}</p>
+      {verifyToken && <Steps current={1} />}
+      <section className={`${s.card} ${withMap ? s.addrCard : ''}`} aria-labelledby="addr-title">
+        <form className={s.formPane} onSubmit={(e) => { e.preventDefault(); void confirm(); }}>
+          <div className={s.head}>
+            <h1 id="addr-title">Confirm the delivery address</h1>
+            {view.synthetic && <SyntheticBadge />}
+          </div>
+          <p className={s.lead}>Check the details below. This is where we deliver your order.</p>
+          <p className={s.muted}>{expires ? `This link works until ${expires}.` : 'This link works for a limited time.'}</p>
 
-      <form className={s.form} onSubmit={(e) => { e.preventDefault(); void confirm(); }}>
-        {FIELDS.slice(0, 3).map(input)}
-        <div className={s.row}>{FIELDS.slice(3).map(input)}</div>
+          {input(by('line1'), true)}
+          {input(by('line2'))}
+          <div className={s.cityRow}>{input(by('city'))}{input(by('state'))}{input(by('zip'))}</div>
+
+          {filled && <p className={s.filledNote} role="status">Filled in from the map. Check the address above, then confirm.</p>}
+
+          {phase.kind === 'check' && (
+            <div className={s.check}>
+              <section aria-label="The address you typed" className={s.box}>
+                <h2>You typed</h2>
+                <p>{typedText(phase.typed)}</p>
+              </section>
+              {phase.reading.of === 'address' ? (
+                <section aria-label="The map's reading of your address" className={s.box}>
+                  {phase.reading.found ? (
+                    <>
+                      <h2>The map reads your address as</h2>
+                      <p>{readingText(phase.reading)}</p>
+                      {phase.reading.differs.length > 0 && <p className={s.muted}>The map has a different {partsText(phase.reading.differs)}.</p>}
+                    </>
+                  ) : (
+                    <>
+                      <h2>The map could not find this address</h2>
+                      <p className={s.muted}>Please check it. If it is right, confirm again and our order desk will check it.</p>
+                    </>
+                  )}
+                </section>
+              ) : (
+                <section aria-label="The map's reading of your pin" className={s.box}>
+                  <h2>The map reads your pin as</h2>
+                  <p>{readingText(phase.reading)}</p>
+                  {phase.reading.distanceM !== null && <p className={s.muted}>about {phase.reading.distanceM} m from where we placed the pin</p>}
+                  {phase.reading.differs.length > 0 && (
+                    <p className={s.muted}>The map has a different {partsText(phase.reading.differs)} for the address you typed.</p>
+                  )}
+                </section>
+              )}
+              <p className={s.muted}>{mapShown
+                ? 'If both are right, confirm again. If not, fix the fields or move the pin.'
+                : 'If your address is right, confirm again. If not, fix the fields.'}</p>
+            </div>
+          )}
+
+          {phase.note && <p role="alert" className={s.note}>{phase.note}</p>}
+          {!complete && <p className={s.muted}>Fill in the fields marked <span className={s.req} aria-hidden="true">*</span> to confirm.</p>}
+          <button type="submit" className={s.button} disabled={busy || !complete}>
+            {phase.kind === 'check' ? 'Confirm again' : 'Confirm address'}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </button>
+        </form>
 
         {/* A refused map is hidden, not unmounted: disposing the SDK's map right after a refused tile throws inside the
             SDK (its attribution timer reads the removed style). It is disposed with the page. */}
         {view.map && (
-          <div className={s.mapBlock} hidden={!mapShown}>
-            <p className={s.muted}>{view.pin ? 'Drag the pin if your delivery entrance is somewhere else.' : 'Drag the pin to your delivery entrance.'}</p>
+          <div className={s.mapPane} hidden={!mapShown}>
             <ConfirmMap pin={view.pin ?? NO_PIN_START} credential={view.map} onMove={move} onFail={fail}
               onReady={() => setMapReady(true)} placed={view.pin !== null} />
-            {filled && <p className={s.muted} role="status">Filled in from the map. Check the address above, then Confirm.</p>}
-          </div>
-        )}
-
-        {phase.kind === 'check' && (
-          <div className={s.check}>
-            <section aria-label="The address you typed" className={s.box}>
-              <h2>You typed</h2>
-              <p>{typedText(phase.typed)}</p>
-            </section>
-            {phase.reading.of === 'address' ? (
-              <section aria-label="The map's reading of your address" className={s.box}>
-                {phase.reading.found ? (
-                  <>
-                    <h2>The map reads your address as</h2>
-                    <p>{readingText(phase.reading)}</p>
-                    {phase.reading.differs.length > 0 && <p className={s.muted}>The map has a different {partsText(phase.reading.differs)}.</p>}
-                  </>
-                ) : (
-                  <>
-                    <h2>The map could not find this address</h2>
-                    <p className={s.muted}>Please check it. If it is right, confirm again and our order desk will check it.</p>
-                  </>
-                )}
-              </section>
-            ) : (
-              <section aria-label="The map's reading of your pin" className={s.box}>
-                <h2>The map reads your pin as</h2>
-                <p>{readingText(phase.reading)}</p>
-                {phase.reading.distanceM !== null && <p className={s.muted}>about {phase.reading.distanceM} m from where we placed the pin</p>}
-                {phase.reading.differs.length > 0 && (
-                  <p className={s.muted}>The map has a different {partsText(phase.reading.differs)} for the address you typed.</p>
-                )}
-              </section>
+            <p className={s.mapChip}>{view.pin ? 'Drag the pin if your entrance is elsewhere' : 'Drag the pin to your delivery entrance'}</p>
+            {street && (
+              <div className={s.mapCard} aria-label="The address as it stands">
+                <b>{street}</b>
+                <span>{place ? `${place} · United States` : 'United States'}</span>
+              </div>
             )}
-            <p className={s.muted}>{mapShown
-              ? 'If both are right, confirm again. If not, fix the fields or move the pin.'
-              : 'If your address is right, confirm again. If not, fix the fields.'}</p>
           </div>
         )}
-
-        {phase.note && <p role="alert" className={s.note}>{phase.note}</p>}
-        {!complete && <p className={s.muted}>Fill in the fields marked <span className={s.req} aria-hidden="true">*</span> to confirm.</p>}
-        <button type="submit" className={s.button} disabled={busy || !complete}>{phase.kind === 'check' ? 'Confirm again' : 'Confirm'}</button>
-      </form>
+      </section>
     </main>
   );
 }
