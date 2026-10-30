@@ -9,12 +9,14 @@ import { PERMISSIONS } from '../../core/permissions.js';
 import { type ToolDef, type ToolName, toolParameters } from '../mcp/tools.js';
 import { figuresIn, uncheckedFigures } from './figures.js';
 
-export const REFUSAL = "I can only answer questions about Halcyon's delivery data in Root Route: late-delivery causes, the "
-  + "replay, carrier lanes, carrier recommendations and delivery promises. I don't make decisions for Halcyon and I don't "
-  + "model other companies' products.";
+// REQ-ASK-06 (v0.17): the scope is the current client's own data and Root Route's analysis of it.
+export const REFUSAL = "I can only answer questions about Halcyon's own delivery data and Root Route's analysis of it. I don't act "
+  + "for Halcyon and I don't cover other companies' products or anything outside Halcyon's deliveries.";
 export const COULD_NOT_CHECK = 'I could not check every figure in this answer against Root Route data. Here is what the tools returned.';
+/** REQ-ASK-06 (v0.17): how an in-scope question no tool can answer begins; with no figures it is shown, not refused. */
+export const NOT_HELD = "Root Route's tools don't hold that";
 export const MAX_QUESTION = 500;
-export const MAX_HISTORY = 6;
+export const MAX_HISTORY = 12; // SEC-ASK-01 (v0.17): six earlier exchanges of the window's conversation
 export const MAX_ANSWER = 2000;
 
 // The history comes from the client, so it is as untrusted as the question: user turns keep the question limit
@@ -116,8 +118,14 @@ export async function answerQuestion(input: z.output<typeof AssistantRequestSche
       const raw = FinalAnswer.safeParse((() => { try { return JSON.parse(content); } catch { return null; } })());
       // REQ-ASK-11 (v0.16): a raw fraction (0.8035…) is written as a percentage by code, not sent back to the model.
       const parsed = raw.success ? { ...raw, data: { ...raw.data, answer: percentages(raw.data.answer) } } : raw;
-      // REQ-ASK-06: a refusal, or an answer that called no tool, gets the fixed text.
       if (fallback && (!parsed.success || parsed.data.refused)) return done(fallback, false, true);
+      // REQ-ASK-06 (v0.17): in scope but no tool holds it: shown only as the fixed opening, with no figures.
+      if (parsed.success && !parsed.data.refused && sources.length === 0 && parsed.data.answer.startsWith(NOT_HELD)
+        && !figuresIn(parsed.data.answer).length && !/<|\]\(|https?:|www\./i.test(parsed.data.answer)
+        && parsed.data.answer.length <= MAX_ANSWER) {
+        return done(parsed.data.answer, false, true);
+      }
+      // REQ-ASK-06: a refusal, or any other answer that called no tool, gets the fixed text.
       if (!parsed.success || parsed.data.refused || sources.length === 0) {
         return parsed.success || sources.length === 0 ? done(REFUSAL, true, false) : done(COULD_NOT_CHECK, false, false);
       }

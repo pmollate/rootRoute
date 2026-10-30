@@ -70,6 +70,13 @@ describe.skipIf(!hasDb || !hasRecordings)('Ask LateLens, recorded (needs test da
     }
   });
 
+  it('AC-ASK-06 (v0.17): a question about the client\'s data that no tool holds is answered as such, not refused', async () => {
+    const [{ question }] = fixture<{ id: string; question: string }[]>('questions.json').filter((q) => q.id === 'AC-ASK-06b');
+    const a = (await ask(question)).json();
+    expect(a, question).toMatchObject({ refused: false });
+    expect(a.answer).not.toBe(REFUSAL);
+  });
+
   it('AC-ASK-06: every out-of-scope question gets the fixed refusal', async () => {
     for (const q of fixture<string[]>('out-of-scope.json')) expect((await ask(q)).json(), q).toMatchObject({ answer: REFUSAL, refused: true });
   });

@@ -7,7 +7,7 @@ import { AskAnswer, AskErrorNote } from '@/components/dashboard/assistant/AskAns
 import { useAssistantOn } from '@/components/dashboard/assistant/AssistantFlag';
 import { Reply, RouterFrame, RouterInput } from '@/components/dashboard/assistant/Router';
 import r from '@/components/dashboard/assistant/router.module.css';
-import { MAX_QUESTION, useAsk } from '@/components/dashboard/assistant/useAsk';
+import { MAX_QUESTION, type Turn, useAsk } from '@/components/dashboard/assistant/useAsk';
 import { PageHero } from '@/components/dashboard/PageHero';
 import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
@@ -108,7 +108,8 @@ interface AssistantProps {
 function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, loading, error }: AssistantProps) {
   const [picked, setPicked] = useState(0);
   const carriersOpen = useCanOpen('/dashboard/carriers');
-  const [asked, setAsked] = useState<{ q: string; live: boolean }[]>([]);
+  // `at`: for a typed question sent to the assistant, its place in the window's conversation (REQ-ASK-14).
+  const [asked, setAsked] = useState<{ q: string; live: boolean; at?: number }[]>([]);
   const assistantOn = useAssistantOn();
   const live = useAsk();
   const [draft, setDraft] = useState('');
@@ -135,12 +136,18 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
   /** D10: the follow-up goes to the assistant; with no answer it leaves the thread and goes back into the box. */
   const askLive = async (q: string) => {
     if (!q.trim() || q.trim().length > MAX_QUESTION || live.busy) return;
-    setAsked((list) => [...list, { q: q.trim(), live: true }]);
+    const at = live.exchanges.length;
+    setAsked((list) => [...list, { q: q.trim(), live: true, at }]);
     setDraft('');
-    if (await live.ask(q)) return;
-    setAsked((list) => list.filter((_, i) => i !== list.map((x) => x.live).lastIndexOf(true)));
+    if (await live.ask(q, primer)) return;
+    setAsked((list) => list.filter((x) => !(x.live && x.at === at)));
     setDraft(q);
   };
+  // REQ-ASK-14: the opening question and the plan on screen go first, so "who owns that?" has something to refer to.
+  const primer: Turn[] = steps.length ? [{ role: 'user', text: OPENING }, { role: 'assistant', text: ('I traced every late delivery to '
+    + 'one of five causes. One fix per cause, ranked by impact, replayed on the supplied deliveries at its expected adoption rate: '
+    + steps.map((x, i) => `${i + 1}. ${FIXES[x.cause]?.[0] ?? x.cause}: +${points(x.to - x.from)} points, to ${pct(x.to)}`).join('; ')
+    + '.').slice(0, 2000) }] : [];
   const submit = (e: FormEvent) => { e.preventDefault(); if (assistantOn) void askLive(draft); else ask(draft); };
   const copyPlan = () => {
     const plan = steps.map((x, i) => `${i + 1}. ${FIXES[x.cause]?.[0]}: +${points(x.to - x.from)} pts, to ${pct(x.to)}`).join('\n');
@@ -198,8 +205,8 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
             )}
         </Reply>
         <div className={r.asked} aria-live="polite">
-          {asked.map(({ q, live: isLive }, i) => {
-            const reply = isLive ? live.exchanges[asked.slice(0, i).filter((x) => x.live).length]?.answer : undefined;
+          {asked.map(({ q, live: isLive, at }, i) => {
+            const reply = isLive && at !== undefined ? live.exchanges[at]?.answer : undefined;
             return (
               <div key={i}>
                 <p className={r.you}>{q}</p>

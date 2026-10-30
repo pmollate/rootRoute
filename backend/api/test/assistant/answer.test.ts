@@ -132,6 +132,25 @@ describe('assistant answer loop (D10)', () => {
     expect(await answerQuestion(ask('Which lanes should we stop using?'), null, deps(labelled, tools))).toMatchObject({ checked: true });
   });
 
+  it('AC-ASK-14: earlier turns reach the model before the question, oldest first', async () => {
+    const { tools } = fakeTools();
+    const llm = scripted(call('overview'), final('On-time is 71.0%.'));
+    const history = [{ role: 'user' as const, text: 'What is our on-time rate?' }, { role: 'assistant' as const, text: 'On-time is 71.0%.' }];
+    await answerQuestion(AssistantRequestSchema.parse({ question: 'And how many were late?', history }), null, deps(llm, tools));
+    expect(llm.seen[0].messages).toEqual([{ role: 'user', content: 'What is our on-time rate?' },
+      { role: 'assistant', content: 'On-time is 71.0%.' }, { role: 'user', content: 'And how many were late?' }]);
+  });
+
+  it('AC-ASK-06 (v0.17): in scope but not in the tools: the fixed opening with no figures is shown; anything else is refused', async () => {
+    const { tools } = fakeTools();
+    const held = "Root Route's tools don't hold that: complaints are not in them. They can show causes, the replay and carrier lanes.";
+    expect(await answerQuestion(ask('Which client complained most?'), null, deps(scripted(final(held)), tools)))
+      .toMatchObject({ answer: held, refused: false, checked: true, toolCalls: 0 });
+    for (const text of ["Root Route's tools don't hold that, but 12 clients complained.", 'It is sunny in Chicago.']) {
+      expect((await answerQuestion(ask('q'), null, deps(scripted(final(text)), tools))).answer, text).toBe(REFUSAL);
+    }
+  });
+
   it('AC-ASK-13: a question about what to do gets the evidence and a labelled suggestion, checked like any answer', async () => {
     const { tools } = fakeTools();
     const text = 'On-time is 71.0% with 14019 late deliveries. Suggestion (from the data, not a decision): fix the causes before '
@@ -152,6 +171,10 @@ describe('assistant answer loop (D10)', () => {
     expect(AssistantRequestSchema.safeParse({ question: 'q', history: [{ role: 'user', text: 'x'.repeat(501) }] }).success).toBe(false);
     expect(AssistantRequestSchema.safeParse({ question: 'q', history: [{ role: 'assistant', text: 'x'.repeat(2001) }] }).success).toBe(false);
     expect(AssistantRequestSchema.safeParse({ question: 'q', history: [{ role: 'user', text: 'x'.repeat(500) }] }).success).toBe(true);
+    // v0.17: up to 12 earlier turns (six exchanges of the window's conversation); a 13th is refused.
+    const turns = (n: number) => Array.from({ length: n }, (_, i) => ({ role: i % 2 ? 'assistant' as const : 'user' as const, text: `t${i}` }));
+    expect(AssistantRequestSchema.safeParse({ question: 'q', history: turns(12) }).success).toBe(true);
+    expect(AssistantRequestSchema.safeParse({ question: 'q', history: turns(13) }).success).toBe(false);
   });
 
   it('AC-ASK-09: with AUTH_REQUIRED=on order_desk gets four tools, carrier_manager all six; off offers all six', () => {

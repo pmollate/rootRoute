@@ -97,8 +97,8 @@ export function RouterDock() {
     <RouterFrame subtitle="Answers from Root Route data">
       <div className={r.thread} aria-live="polite" aria-busy={busy}>
         <Reply>
-          <p>Ask me about late-delivery causes, the replay, carrier lanes, a carrier recommendation or a delivery promise. I answer from
-            Root Route data through read-only tools; I never act and never decide for Halcyon.</p>
+          <p>Ask me anything about Halcyon&apos;s delivery data and Root Route&apos;s analysis of it. I answer from Root Route data
+            through read-only tools, remember this conversation while this window is open, and never act for Halcyon.</p>
         </Reply>
         {exchanges.map((x, i) => (
           <div key={i}>
