@@ -139,10 +139,10 @@ never `ALL_CLEAR`).
 ### Try your own email
 
 Paste any order into the form, or change the `curl` body above. The sender's domain must belong to a client
-(`client001.example` … `client280.example`, loaded by `npm run seed`; anything else is "Unknown sender", `MISSING_INFO`, with no AI call). Text
-that is not one of the 50 fixtures has no recording, so with `LLM_PROVIDER=recorded` it waits (`WAITING`); set
-`LLM_PROVIDER=azure-openai` (and the PII and Maps providers) to have it read. Keep it synthetic: no real names or
-addresses of real people.
+(`client001.example` … `client280.example`, loaded by `npm run seed`); anything else is "Unknown sender",
+`MISSING_INFO`, with no AI call. Text that is not one of the 50 fixtures has no recording, so with
+`LLM_PROVIDER=recorded` it waits (`WAITING`); set `LLM_PROVIDER=azure-openai` (and the PII and Maps providers) to have
+it read. Keep it synthetic: no real names or addresses of real people.
 
 ### Bad inputs to try
 
