@@ -53,7 +53,7 @@ were **allowed** to.
 |---|---|
 | Identity provider | **Microsoft Entra ID**, single tenant, for real users. **Demo accounts** (Auth.js Credentials, only when `AUTH_DEMO=on`) for local dev, Playwright and judges |
 | Roles | **One per agent gate:** `order_desk`, `warehouse_supervisor`, `carrier_manager`, `customer_support`, `leadership` (read-only), `admin` |
-| What is public | **The landing page `/` only.** It shows no data from the API. Every other page needs sign-in. Of the API, only `GET /api/health` and `POST /api/mcp` are exempt; MCP keeps its own bearer `MCP_TOKEN` (REQ-MCP-02) |
+| What is public | **The landing page `/` only.** It shows no data from the API. Every other page needs sign-in. Of the API, only `GET /api/health` and `POST /api/mcp` are exempt; MCP keeps its own bearer `MCP_TOKEN` (REQ-MCP-02). The probes an MCP client makes before connecting (`GET`/`DELETE /api/mcp`, `GET /.well-known/*`) are open and return 405 or 404, no data |
 | When | Spec on 29 Oct; build after the code submission, merged behind `AUTH_REQUIRED=off` first |
 | Architecture | Next.js backend-for-frontend. The browser calls same-origin `/api/*`; a Next route handler proxies to the Fastify API with a 60 s HS256 internal JWT (`iss: latelens-web`, `aud: latelens-api`, `sub`, `name`, `roles`) signed with `INTERNAL_AUTH_SECRET`. The API verifies it with `jose` in a `requireUser(roles)` preHandler. The actor written to the database comes only from the token |
 
@@ -108,7 +108,8 @@ the registered routes.
 | Ask the in-app assistant (D10, SPEC §5.16) | `POST /api/assistant` | Y | Y | Y | Y | Y | Y | Yes (30 Oct, `ASK_ASSISTANT` off); `x-api-key` while `off` (SEC-ASK-05); tools filtered by role (REQ-ASK-09) |
 | Health check | `GET /api/health` | Public | | | | | | Yes |
 | Open or confirm an address link (E19, SPEC §5.17) | `GET /api/confirm/:token`, `POST /api/confirm/:token` | Public, token-gated: a valid one-time token in the path, no session, no key (SEC-LINK-05) | | | | | | No (after submission) |
-| Ask LateLens | `POST /api/mcp` | Bearer `MCP_TOKEN` only (REQ-MCP-02); no session | | | | | | Yes |
+| Ask LateLens | `POST /api/mcp` | `MCP_TOKEN` only (REQ-MCP-02), as `Authorization: Bearer` or `x-api-key` (clients that keep Authorization for OAuth); no session | | | | | | Yes |
+| MCP client probes | `GET`/`DELETE /api/mcp` (405), `GET /.well-known/*` (404) | Public: no data, so a client does not mistake them for an OAuth sign-in | | | | | | Yes |
 | Anything else | Any route not listed | | | | | | | Denied |
 
 **Leadership writes nothing.** No route that writes is open to `leadership`. `POST /api/assistant` is the one POST open
