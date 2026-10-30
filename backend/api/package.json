@@ -15,6 +15,7 @@
     "maps:check": "tsx scripts/maps-check.ts",
     "eval:intake": "tsx scripts/eval-intake.ts",
     "record:assistant": "tsx scripts/record-assistant.ts",
+    "walkthrough:link": "tsx scripts/walkthrough-link.ts",
     "test": "vitest run",
     "lint": "tsc --noEmit -p tsconfig.json"
   },
