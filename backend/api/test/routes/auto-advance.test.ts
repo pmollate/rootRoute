@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { pool, query } from '../../src/core/db/pool.js';
 import { autoAdvanceOrder, recordOrderEvent } from '../../src/modules/carriers/index.js';
+import { localNow } from '../../src/modules/carriers/orderEvents.js';
+import { addDays } from '../../src/modules/warehouse/domain.js';
 import { buildApp } from '../../src/server.js';
 import { hasDb } from '../db.js';
 
@@ -41,7 +43,7 @@ describe.skipIf(!hasDb)('order events shown over time (needs test database)', ()
 
   it('AC-JRN-17: 7 s after approval steps 9–10 are done and 11 is current; 26 s after, it is delivered', async () => {
     const order = (id: number, n: string) => ({ orderRef: `email:${id}`, receivedAt: '2026-10-30 07:30',
-      promiseDate: '2026-11-03', wmsOrderId: `WMS-${n}` });
+      promiseDate: addDays(localNow().slice(0, 10), 4), wmsOrderId: `WMS-${n}` });
     const early = await newEmail('early');
     expect(await autoAdvanceOrder(order(early, 'T1'), new Date(Date.now() - 7_000))).toEqual({ ok: true });
     expect(await stages(early)).toEqual(['done', 'done', 'current', 'not_reached', 'not_reached']);
