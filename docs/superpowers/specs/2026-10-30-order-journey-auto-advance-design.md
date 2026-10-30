@@ -38,11 +38,11 @@ one app-wide switch that only admins change.
 ## 4. The setting
 
 - Table `app_settings (key text PRIMARY KEY, value jsonb NOT NULL, updated_by text NOT NULL, updated_at timestamptz NOT
-  NULL DEFAULT now())`, migration `backend/db/migrations/002_app_settings.sql` (shared, so the 0xx range). One row:
+  NULL DEFAULT now())`, migration `backend/db/migrations/302_app_settings.sql` (owner C, with `order_events`; 0xx is B's). One row:
   `auto_advance` = `true` / `false`. No row means off.
 - One writer: a new API module `backend/api/src/modules/settings/` (repo, routes). Python never reads or writes it.
 - `GET /api/settings` → `{ autoAdvance: boolean }`, every signed-in role (the Settings page shows it to all).
-- `PUT /api/settings/auto-advance` with `{ enabled: boolean }`, **admin only**. Each change writes an `audit_log` row
+- `POST /api/settings/auto-advance` (POST: the web proxy `app/api/[...path]` forwards only GET and POST) with `{ enabled: boolean }`, **admin only**. Each change writes an `audit_log` row
   (`action` `set_auto_advance`, `ref` `setting:auto_advance`, payload `{ enabled }`), actor from the session (REQ-AUTH-07).
 - Both routes go in `core/permissions.ts` and the frontend role map (`lib/auth/roles.ts`).
 
@@ -58,8 +58,8 @@ In `applyAction` (`modules/intake/actions.ts`), after an `approve` succeeds on a
    `{ wmsOrderId, auto: true }`. `wmsOrderId` is `WMS-` plus the email id padded to six digits, as the simulator makes it.
 4. Return `{ status: 'ENTERED' }`.
 
-If recording an event fails, the approval still stands (it was saved first): the response is `{ status: 'APPROVED' }`
-with a warning, and the order can be sent to the WMS by hand. No partial status change.
+If recording an event fails, the approval still stands (it was saved first): the response is
+`{ status: 'APPROVED', warning: '<why>' }`, and the order can be sent to the WMS by hand. No partial status change.
 
 The external WMS (`WMS_URL`) is **not** called for auto-advanced orders: the API stands in for the WMS and carriers. With
 `WMS_URL` set and the switch on, auto-advance wins; the local simulator never receives those orders.
@@ -91,7 +91,7 @@ bent to look on time. `out_for_delivery` is not written.
 
 ## 7. Showing events over time
 
-- Migration `backend/db/migrations/302_order_events_visible_at.sql`:
+- Migration `backend/db/migrations/303_order_events_visible_at.sql`:
   `ALTER TABLE order_events ADD COLUMN visible_at timestamptz NOT NULL DEFAULT now()`. Existing rows and events from
   the simulator get `now()`, so they show at once as before.
 - `insertOrderEvent` and `recordOrderEvent` take an optional `visibleAt`. `orderEventRows` (`modules/carriers/queries.ts`)
@@ -135,7 +135,7 @@ A new "Order journey" card on `/dashboard/settings`, a small client component (t
 | AC-JRN-17 | Given auto-advanced events and `now` = approval + 7 s, then the journey shows steps 9–10 done, 11 current, 12–13 not reached; at + 21 s, step 13 is done | route test (test DB) |
 | AC-JRN-18 | Given an approval after the promise date, then `delivered` is after `in_transit` and step 13 is `failed` "N days late" | `journey` unit |
 | AC-JRN-19 | Given an order already `ENTERED`, when `send_to_wms` is posted, then 200 `ENTERED` and nothing new is written | `actions` unit |
-| AC-SET-01 | `PUT /api/settings/auto-advance` is 403 for every role but admin; for admin it saves and writes one audit row | route test + `permissions.test.ts` |
+| AC-SET-01 | `POST /api/settings/auto-advance` is 403 for every role but admin; for admin it saves and writes one audit row | route test + `permissions.test.ts` |
 | AC-SET-02 | The Settings card toggles for admin and is read-only for order desk | `frontend` screen test |
 
 ## 12. Documents to update with the code
@@ -145,7 +145,7 @@ A new "Order journey" card on `/dashboard/settings`, a small client component (t
   routes.
 - SPEC §14.1 discovery log: 30 Oct, Priyank asked for steps 9–13 to run automatically with a Settings switch; answer
   this design.
-- `docs/CONTRACTS.md`: `app_settings`, `order_events.visible_at`, `GET/PUT /api/settings`.
+- `docs/CONTRACTS.md`: `app_settings`, `order_events.visible_at`, `GET /api/settings`, `POST /api/settings/auto-advance`.
 
 ## 13. Out of scope
 
