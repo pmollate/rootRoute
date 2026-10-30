@@ -34,6 +34,7 @@ export const PERMISSIONS: Record<string, Permission> = {
   'GET /api/overview': { roles: ALL },
   'GET /api/causes': { roles: ALL },
   'GET /api/replay': { roles: ALL },
+  'GET /api/compare': { roles: ACCOUNTS_READ }, // D11: Replay only
   'GET /api/attribution': { roles: ALL },
   'GET /api/cause-kpis': { roles: ALL },
   'GET /api/journey/:ref': { roles: ALL },
@@ -60,6 +61,8 @@ export const PERMISSIONS: Record<string, Permission> = {
   'POST /api/overrides': { roles: CARRIERS, legacyKey: true },
   'POST /api/complaints/:id/triage': { roles: SUPPORT, legacyKey: true },
   'POST /api/alerts/run': { roles: SUPPORT, legacyKey: true },
+  // D10 (SEC-ASK-05): every role; the shared key while AUTH_REQUIRED=off, as for every model route (NS-02). Never public.
+  'POST /api/assistant': { roles: ALL, legacyKey: true },
 };
 
 export function permissionFor(method: string, url: string | undefined): Permission | null {

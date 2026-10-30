@@ -3,8 +3,11 @@ import { isUsState } from './region.js';
 import type { ExtractedAddress, SavedAddress } from './schema.js';
 import { type AddressValidation, validateAddress } from './validate.js';
 
-/** complete: all parts present; matched: a saved address; incomplete: parts missing; unverified: the map disagrees. */
-export type AddressStatus = 'complete' | 'matched' | 'incomplete' | 'unverified';
+/**
+ * complete: all parts present; matched: a saved address; incomplete: parts missing; unverified: the map disagrees;
+ * confirmed: the client confirmed it through the one-time address link (E19, REQ-INT-09, REQ-LINK-04).
+ */
+export type AddressStatus = 'complete' | 'matched' | 'incomplete' | 'unverified' | 'confirmed';
 type Field = 'line1' | 'city' | 'state' | 'zip';
 
 export interface AddressCheck {

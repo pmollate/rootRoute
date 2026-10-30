@@ -6,9 +6,7 @@ import { z } from 'zod';
 import { AzureOpenAILLM } from '../../src/core/llm/azureOpenai.js';
 import { RecordedLLM, RecordingLLM } from '../../src/core/llm/recorded.js';
 import type { ToolChatLLM, ToolChatRequest } from '../../src/core/llm/types.js';
-
-// Inlined until C15 creates src/modules/assistant/answer.ts; C15 Step 5 switches this to the import.
-const FinalAnswer = z.object({ answer: z.string(), refused: z.boolean() });
+import { FinalAnswer } from '../../src/modules/assistant/answer.js';
 
 const REQ: ToolChatRequest = { system: 'S', tag: 'assistant', store: false, answerSchema: FinalAnswer,
   messages: [{ role: 'user', content: 'What is our on-time rate?' }],

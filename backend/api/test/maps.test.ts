@@ -38,4 +38,32 @@ describe('Azure Maps validator', () => {
     expect(await new RecordedAddressValidator(dir).geocode(Q)).toEqual(HIT);
     await expect(new RecordedAddressValidator(dir).geocode({ ...Q, zip: '32802' })).rejects.toBeInstanceOf(AddressValidatorError);
   });
+
+  it('REQ-LINK-03 (E19): reverse geocoding sends the pin as lon,lat to /reverseGeocode with the key in a header', async () => {
+    const sent: { url: string; headers: Record<string, string> }[] = [];
+    const fetch = async (url: unknown, init?: RequestInit) => {
+      sent.push({ url: String(url), headers: init?.headers as Record<string, string> });
+      return new Response(JSON.stringify(HIT), { status: 200 });
+    };
+    expect(await new AzureMapsValidator('secret', fetch).reverse({ lat: 28.5, lon: -81.4 })).toEqual(HIT);
+    const url = new URL(sent[0].url);
+    expect(url.origin + url.pathname).toBe('https://atlas.microsoft.com/reverseGeocode');
+    expect(url.searchParams.get('coordinates')).toBe('-81.4,28.5');
+    expect(url.searchParams.get('api-version')).toBeTruthy();
+    expect(sent[0].url).not.toContain('secret');
+    expect(sent[0].headers['subscription-key']).toBe('secret');
+    await expect(new AzureMapsValidator('bad', async () => new Response('denied', { status: 401 })).reverse({ lat: 0, lon: 0 }))
+      .rejects.toMatchObject({ kind: 'transport' });
+  });
+
+  it('REQ-LINK-03 (E19): reverse readings are recorded and replayed by pin; a missing one is a missing_recording error', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'maps-'));
+    const real = { name: 'fake', geocode: async () => HIT, reverse: async () => HIT };
+    await new RecordingAddressValidator(real, dir).reverse({ lat: 28.5, lon: -81.4 });
+    expect(await new RecordedAddressValidator(dir).reverse({ lat: 28.5, lon: -81.4 })).toEqual(HIT);
+    await expect(new RecordedAddressValidator(dir).reverse({ lat: 28.6, lon: -81.4 })).rejects.toMatchObject({ kind: 'missing_recording' });
+    // A wrapped validator that cannot reverse-geocode says so rather than guessing.
+    await expect(new RecordingAddressValidator({ name: 'old', geocode: async () => HIT }, dir).reverse({ lat: 0, lon: 0 }))
+      .rejects.toMatchObject({ kind: 'unsupported' });
+  });
 });

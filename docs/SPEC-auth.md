@@ -1,13 +1,20 @@
 # SPEC — Sign-in and roles ("Login", P7)
 
-**Project:** LateLens (root-route) · **Version:** 0.3 · **Status:** draft for team review; build after code submission (Task C13) · **Date:** 29 Oct 2026
-**Parent spec:** `docs/SPEC.md` v0.11 (source of truth; this file adds P7 and replaces SEC-JRN-02 in `docs/SPEC-order-workflow.md`).
+**Project:** LateLens (root-route) · **Version:** 0.4 · **Status:** draft for team review; build after code submission (Task C13) · **Date:** 30 Oct 2026
+**Parent spec:** `docs/SPEC.md` v0.12 (source of truth; this file adds P7 and replaces SEC-JRN-02 in `docs/SPEC-order-workflow.md`).
 **Owner:** Carriers (Task C13; C owns deploy, SPEC §10.1) · **Touches:** every screen and every API route in all three areas (Email, Warehouse, Carriers).
 
 **Conventions** as in SPEC: **MUST** / **MUST NOT** / **SHOULD** / **MAY** per RFC 2119. Every requirement has an id
 (`REQ-AUTH-NN`, `NFR-AUTH-NN`, `SEC-AUTH-NN`); its acceptance criterion has the same number (`AC-AUTH-NN`,
 `AC-NFR-AUTH-NN`, `AC-SEC-AUTH-NN`). Every **MUST** has an AC that can be tested on its own. This spec states no figures
 from the dataset; time limits and rate limits below are design settings chosen by the team, not data.
+
+**Changes in v0.4** (30 Oct, with SPEC v0.12): the CD `e2e` job reads the demo password from Key Vault
+`auth-demo-password` through Azure OIDC in the `demo` environment, not from a GitHub Actions secret, and fails instead
+of skipping when the password is missing or the live app does not enforce sign-in (C13 step 5; §5.5, §9.1, §9.2,
+SEC-AUTH-02, NFR-AUTH-04, AC-NFR-AUTH-04). Q-AUTH-06 answered with its default (§13). §4.1 and §4.2 say that
+`POST /api/assistant` is the one POST open to `leadership` and only reads: no route that writes is open to it. `AUTH_URL`
+is also read by the API for E19 links (§9.2). D10's row is marked built (flag off).
 
 **Changes in v0.3** (29 Oct, with SPEC v0.11; both features after submission behind flags that default off): §4.2 adds
 `POST /api/assistant` (in-app Ask LateLens, D10, every role) and the address-link routes `GET`/`POST /api/confirm/:token`
@@ -70,7 +77,7 @@ triage is recorded with the signed-in person's id. The API enforces this; hiding
 | `warehouse_supervisor` | Warehouse supervisors (5 sites) | WMS entry (SEC-04); stock decisions when a route for them exists |
 | `carrier_manager` | Carrier management, procurement | Carrier recommender: lane overrides |
 | `customer_support` | Customer success, VP Customer Success | Complaint triage and delay alert agents |
-| `leadership` | COO, CFO | None: read-only. Their agent is Ask LateLens over MCP, which has its own token |
+| `leadership` | COO, CFO | None: read-only. Their agents are Ask LateLens over MCP, which has its own token, and the in-app assistant (D10), which only reads |
 | `admin` | The LateLens team | Every action above |
 
 - A user **MAY** hold several roles; their permissions are the union.
@@ -98,11 +105,14 @@ the registered routes.
 | Override a carrier | `POST /api/overrides` | | | Y | | | Y | Yes |
 | Triage a complaint | `POST /api/complaints/:id/triage` | | | | Y | | Y | Yes |
 | Draft delay notices | `POST /api/alerts/run` | | | | Y | | Y | Yes |
-| Ask the in-app assistant (D10, SPEC §5.16) | `POST /api/assistant` | Y | Y | Y | Y | Y | Y | No (after submission); `x-api-key` while `off` (SEC-ASK-05); tools filtered by role (REQ-ASK-09) |
+| Ask the in-app assistant (D10, SPEC §5.16) | `POST /api/assistant` | Y | Y | Y | Y | Y | Y | Yes (30 Oct, `ASK_ASSISTANT` off); `x-api-key` while `off` (SEC-ASK-05); tools filtered by role (REQ-ASK-09) |
 | Health check | `GET /api/health` | Public | | | | | | Yes |
 | Open or confirm an address link (E19, SPEC §5.17) | `GET /api/confirm/:token`, `POST /api/confirm/:token` | Public, token-gated: a valid one-time token in the path, no session, no key (SEC-LINK-05) | | | | | | No (after submission) |
 | Ask LateLens | `POST /api/mcp` | Bearer `MCP_TOKEN` only (REQ-MCP-02); no session | | | | | | Yes |
 | Anything else | Any route not listed | | | | | | | Denied |
+
+**Leadership writes nothing.** No route that writes is open to `leadership`. `POST /api/assistant` is the one POST open
+to it, and it only reads (REQ-ASK-07); the permissions test names it as the single read-only exception.
 
 The action, not only the route, decides the role for `POST /api/intake/:id/action`: the check reads `body.action`
 before the handler runs. Background work inside the API (the 10-minute Gmail poll, automatic address replies under
@@ -142,6 +152,7 @@ matrix; `backend/api/src/core/permissions.ts` gives each GET the roles of the pa
 |---|---|---|
 | `overview`, `causes`, `replay`, `attribution`, `cause-kpis`, `journey/:ref` | Overview, Order journey (and others) | every role |
 | `accounts` | Warehouses, Replay | `warehouse_supervisor`, `carrier_manager`, `leadership`, `admin` |
+| `compare` (D11, SPEC §5.8) | Replay | `warehouse_supervisor`, `carrier_manager`, `leadership`, `admin` |
 | `warehouses`, `placement`, `penalties/unpaid` | Warehouses | `warehouse_supervisor`, `leadership`, `admin` |
 | `intake`, `intake/:id`, `intake/review` | Order emails (Order journey lists email orders only for these roles) | `order_desk`, `warehouse_supervisor`, `admin` |
 | `complaints` | Complaints | `customer_support`, `admin` |
@@ -211,8 +222,14 @@ The token lives only on the server-to-server hop. It is signed per request and n
 - Accounts come from `AUTH_DEMO_USERS` (Key Vault secret `auth-demo-users` in Azure): JSON with email, display name,
   roles and a bcrypt hash. One account per role, `demo-<role>@rootroute.test` (Q-AUTH-04).
 - Locally, `npm run setup` writes `AUTH_DEMO_USERS` to the gitignored `.env` with a random password, and prints it once.
-- Passwords are never committed and never shown on a page. Judges get them in the submission notes; Playwright reads
-  the GitHub Actions secret `E2E_DEMO_PASSWORD`.
+- Passwords are never committed and never shown on a page. Judges get them in the submission notes. Every demo account
+  shares one password, kept in Key Vault as `auth-demo-password` next to `auth-demo-users`.
+- Playwright reads the password from `E2E_DEMO_PASSWORD`. In the CD `e2e` job (C13 step 5) that variable is filled at run
+  time: the job signs in to Azure through OIDC in the `demo` environment (the only environment Azure's OIDC trust
+  accepts), reads Key Vault `auth-demo-password`, masks it in the log and passes it on only through the job's
+  environment. If the secret is missing or empty the job fails with an error, and the role refusal tests fail in CI
+  if the live app does not redirect a visitor without a session to `/login`: a skip there would hide a real fault.
+  Locally, `E2E_DEMO_PASSWORD` comes from the gitignored `.env`.
 - Every screen shows a "Demo account" badge while a demo user is signed in. Their actions are stored as `demo:<email>`.
 
 ### 5.6 Screens and error states
@@ -285,14 +302,14 @@ The token lives only on the server-to-server hop. It is signed per request and n
 | NFR-AUTH-01 | The proxy **SHOULD** add no more than 50 ms at p95 to an API call (web and API in the same region). |
 | NFR-AUTH-02 | A session **MUST** end 8 hours after sign-in, whatever the activity. |
 | NFR-AUTH-03 | Local dev **MUST** work without Entra: after `npm run setup`, demo accounts sign in with `AUTH_DEMO=on`. |
-| NFR-AUTH-04 | The CD Playwright `e2e` job **MUST** sign in with demo accounts, run the workflow tests signed in, and include one refusal test per role. |
+| NFR-AUTH-04 | The CD Playwright `e2e` job **MUST** sign in with demo accounts, run the workflow tests signed in, and include one refusal test per role. It **MUST** read the demo password from Key Vault at run time, and **MUST** fail, not skip, when the password is missing or empty or when the live app does not enforce sign-in. |
 
 ### 7.3 Security
 
 | Id | Requirement |
 |---|---|
 | SEC-AUTH-01 | No API key, internal token, auth secret or API host **MUST** reach the browser: no `NEXT_PUBLIC_` variable holds one, and no page or `/api` response contains one. |
-| SEC-AUTH-02 | `AUTH_SECRET`, `INTERNAL_AUTH_SECRET`, the Entra client secret, `AUTH_DEMO_USERS` and `E2E_DEMO_PASSWORD` **MUST** live only in Key Vault, GitHub Actions secrets or the gitignored `.env` (SEC-01). |
+| SEC-AUTH-02 | `AUTH_SECRET`, `INTERNAL_AUTH_SECRET`, the Entra client secret, `AUTH_DEMO_USERS` and the demo password (`auth-demo-password`, read into `E2E_DEMO_PASSWORD`) **MUST** live only in Key Vault, GitHub Actions secrets or the gitignored `.env` (SEC-01); a CI job that reads one **MUST** mask it before use. |
 | SEC-AUTH-03 | The API **MUST** accept an internal token only if its signature is HS256 with `INTERNAL_AUTH_SECRET`, `iss` is `latelens-web`, `aud` is `latelens-api`, and it expires within 60 s of issue (5 s clock tolerance). |
 | SEC-AUTH-04 | The session cookie **MUST** be `HttpOnly`, `SameSite=Lax` and, outside `localhost`, `Secure`. The proxy **MUST** refuse with 403, without calling the API, any non-GET request whose `Origin` is missing or not the app's own (`AUTH_URL`). |
 | SEC-AUTH-05 | Demo sign-in **MUST** be absent unless `AUTH_DEMO=on` (no form, endpoint refuses). It **MUST** refuse further attempts, without checking the password, after 5 failures from one IP within a minute, and **MUST** give the same error for an unknown email and a wrong password. |
@@ -332,7 +349,7 @@ in the journey) still holds.
 | AC-NFR-AUTH-01 | Given the deployed apps, when 50 `GET /api/overview` calls go through the proxy and 50 go to the API with a token, then the p95 difference is ≤ 50 ms. |
 | AC-NFR-AUTH-02 | Given a session signed in 8 hours ago and used every minute since, when a page loads, then the browser lands on `/login`. |
 | AC-NFR-AUTH-03 | Given a fresh clone, when `npm run setup` and `npm run dev:all` run with no Entra settings, then a demo user signs in with the printed password. |
-| AC-NFR-AUTH-04 | Given a push to `main`, when the CD `e2e` job runs against the live app, then it signs in with demo accounts, the workflow tests pass signed in, and one refusal test per role passes. |
+| AC-NFR-AUTH-04 | Given a push to `main`, when the CD `e2e` job runs against the live app, then it reads `auth-demo-password` from Key Vault (masked in the log), signs in with demo accounts, the workflow tests pass signed in, and one refusal test per role passes. Given the secret missing or empty, then the job fails at that step. Given CI against an app with `AUTH_REQUIRED=off`, then the refusal tests fail rather than skip. |
 | AC-SEC-AUTH-01 | Given the production build, when `.next/static` and the HTML of every page are searched for the API key, the API host, `INTERNAL_AUTH_SECRET`, `AUTH_SECRET` and a sample internal token, then none is found; given a proxied call, then the response headers and body hold no token. |
 | AC-SEC-AUTH-02 | Given the repo, when the CI secret scan runs, then no auth secret, password or bcrypt hash is found, and `.env.example` holds only empty values for the §9.2 secrets. |
 | AC-SEC-AUTH-03 | Given tokens with the wrong `aud`, the wrong `iss`, `alg: none`, `alg: HS512`, or `exp` more than 60 s after `iat`, then each returns 401. |
@@ -356,7 +373,7 @@ in the journey) still holds.
 | Web (C) | `frontend/auth.ts` (Auth.js v5, both providers, roles in the session); `frontend/app/api/auth/[...nextauth]/route.ts`; `frontend/app/api/[...path]/route.ts` (proxy); `frontend/app/login/page.tsx`; `frontend/app/no-access/page.tsx` | `frontend/middleware.ts` (session redirect after maintenance mode); `frontend/lib/api.ts`, `frontend/config/dashboard.ts` (same-origin `/api`, no key, 401 handling for REQ-AUTH-11); `DashboardShell.tsx` (header) |
 | Screens (A, C) | — | `IntakeScreen.tsx` (drop `user: 'ops'`, buttons by role, keep drafts); `CarriersScreen.tsx` (drop "Full name", form by role) |
 | API (C, routes reviewed by A and B) | `backend/api/src/core/permissions.ts` (§4.2); `backend/api/test/auth.test.ts`; `backend/api/test/routes/permissions.test.ts` | `backend/api/src/core/auth.ts` (`requireUser(roles)` with `jose`); every `modules/*/routes.ts` (preHandler, actor from `req.user`); `server.ts` (CORS off when enforced); the intake poll (actor `system:intake`) |
-| Delivery (C) | `frontend/e2e/auth.setup.ts` (one storage state per role) | `frontend/playwright.config.ts`; `.github/workflows/cd.yml` (`E2E_DEMO_PASSWORD`; drop `NEXT_PUBLIC_API_KEY` and `NEXT_PUBLIC_API_URL` from the build); `infra/setup.sh`; `.env.example`; `npm run setup` (local demo users) |
+| Delivery (C) | `frontend/e2e/auth.setup.ts` (one storage state per role), `frontend/e2e/roles.spec.ts` (one refusal per role) | `frontend/playwright.config.ts`; `.github/workflows/cd.yml` (`e2e` job in the `demo` environment with OIDC, reads Key Vault `auth-demo-password` into `E2E_DEMO_PASSWORD`; drop `NEXT_PUBLIC_API_KEY` and `NEXT_PUBLIC_API_URL` from the build); `infra/setup.sh`; `.env.example`; `npm run setup` (local demo users) |
 
 No new tables. The actor goes where each table already keeps it: `audit_log.actor` (the `sub`; name and roles in
 `payload`) and `override_log.user_name` (the `sub`). Writes with no actor column (`complaint_triage`, `recommendations`,
@@ -367,7 +384,7 @@ No new tables. The actor goes where each table already keeps it: `audit_log.acto
 | Name | App | Secret | Source in Azure | Notes |
 |---|---|---|---|---|
 | `AUTH_REQUIRED` | Web and API | No | App setting | `off` (default until rollout step 4) or `on` (REQ-AUTH-13) |
-| `AUTH_URL` | Web | No | App setting | Public URL of the web app; also the allowed `Origin` (SEC-AUTH-04) |
+| `AUTH_URL` | Web; API with `CONFIRM_LINK=on` | No | App setting | Public URL of the web app; also the allowed `Origin` (SEC-AUTH-04), and the base of E19 address links (SPEC REQ-LINK-09) |
 | `AUTH_SECRET` | Web | Yes | Key Vault `auth-secret` | Auth.js cookie encryption |
 | `AUTH_MICROSOFT_ENTRA_ID_ID` | Web | No | App setting | Client id of `rootroute01-web` |
 | `AUTH_MICROSOFT_ENTRA_ID_SECRET` | Web | Yes | Key Vault `auth-entra-secret` | Client secret of `rootroute01-web` |
@@ -376,7 +393,7 @@ No new tables. The actor goes where each table already keeps it: `audit_log.acto
 | `API_URL` | Web (server only) | No | App setting | Fastify base URL; never `NEXT_PUBLIC_` |
 | `AUTH_DEMO` | Web | No | App setting | `on` locally and for the judged demo |
 | `AUTH_DEMO_USERS` | Web | Yes | Key Vault `auth-demo-users` | JSON with bcrypt hashes; written locally by `npm run setup` |
-| `E2E_DEMO_PASSWORD` | GitHub Actions | Yes | Actions secret | Playwright sign-in in the CD `e2e` job |
+| `E2E_DEMO_PASSWORD` | CD `e2e` job; local Playwright | Yes | Key Vault `auth-demo-password`, read by the `e2e` job through OIDC in the `demo` environment and masked; locally the gitignored `.env` | Playwright sign-in (§5.5); the job fails if it is missing |
 | Removed | — | — | — | `NEXT_PUBLIC_API_KEY`, `NEXT_PUBLIC_API_URL` (step 5); `API_KEY` and Key Vault `api-key` (step 5) |
 
 ### 9.3 Contract changes (`docs/CONTRACTS.md`, in the C13 PR, reviewed by A and B)
@@ -435,4 +452,4 @@ Also listed in SPEC §12.
 | Q-AUTH-03 | Is `send_to_wms` a warehouse supervisor's action, or the order desk's after the supervisor review (E18)? | Email (A) and Warehouse (B) owners | `warehouse_supervisor` and `admin` (§4.2) |
 | Q-AUTH-04 | Should judges get one `admin` demo account or one per role? | Team | One per role is seeded; which to hand out is open |
 | Q-AUTH-05 | May the Order journey show a staff member's name at stage 7 (REQ-JRN-04), given SEC-JRN-01 keeps people's names out of the journey? | Team (C with A) | The journey shows the actor's role, not the name |
-| Q-AUTH-06 | Once `AUTH_DEMO` is off for real data, how does the CD `e2e` job sign in: an Entra test user, or a separate test instance with demo accounts? | Team (C) | `AUTH_DEMO=on` on the live, synthetic-data app |
+| Q-AUTH-06 | Once `AUTH_DEMO` is off for real data, how does the CD `e2e` job sign in: an Entra test user, or a separate test instance with demo accounts? | Team (C) | **Answered 30 Oct with the default:** `AUTH_DEMO=on` on the live, synthetic-data app; the job reads `auth-demo-password` from Key Vault (§5.5). Revisit before real data (SEC-AUTH-11) |

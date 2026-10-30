@@ -60,10 +60,24 @@ describe('permission matrix (SPEC-auth §4.2)', () => {
     expect(who('POST', '/api/alerts/run')).toEqual(['customer_support', 'admin']);
     expect(who('DELETE', '/api/overrides')).toBeNull();
     expect(who('GET', '/api/not-a-route')).toBeNull();
+    expect(who('POST', '/api/assistant')).toEqual(ROLES); // D10: a question, not a write (SEC-ASK-05)
+    // leadership changes nothing: no POST that writes is theirs. The assistant's POST only reads (REQ-ASK-07).
+    const READ_ONLY_POSTS = ['POST /api/assistant'];
     for (const [key, p] of Object.entries(PERMISSIONS)) {
-      if (p === 'public' || !('roles' in p)) continue;
+      if (p === 'public' || !('roles' in p) || READ_ONLY_POSTS.includes(key)) continue;
       if (key.startsWith('POST ')) expect(p.roles, key).not.toContain('leadership');
     }
+  });
+
+  it('AC-AUTH-16 (D11): /api/compare is read by the Replay roles only', async () => {
+    expect(rolesFor('GET', '/api/compare')).toEqual(['warehouse_supervisor', 'carrier_manager', 'leadership', 'admin']);
+    const a = await buildApp({ auth: AUTH_ON });
+    const url = '/api/compare?scenario=as_built_adopted&dimension=warehouse';
+    for (const role of ['order_desk', 'customer_support']) {
+      const r = await a.inject({ method: 'GET', url, headers: await bearer({ sub: 'u1', roles: [role] }) });
+      expect([role, r.statusCode]).toEqual([role, 403]);
+    }
+    await a.close();
   });
 
   it('AC-AUTH-16: each role is refused the reads of pages it cannot open, before any handler runs', async () => {
@@ -103,7 +117,7 @@ describe.skipIf(!hasDb)('roles and actors over HTTP (needs test database)', () =
 
   let since = 0; // audit_log keeps rows for email ids that earlier test files reused: read only this file's rows
   beforeAll(async () => {
-    await query('TRUNCATE intake_extractions, outbound_messages, intake_emails RESTART IDENTITY CASCADE');
+    await query('TRUNCATE intake_extractions, outbound_messages, intake_emails, recommendations RESTART IDENTITY CASCADE');
     since = (await query<{ m: number }>('SELECT coalesce(max(id), 0)::int AS m FROM audit_log'))[0].m;
     setDeps({ gmail: null });
     app = await buildApp({ auth: AUTH_ON });

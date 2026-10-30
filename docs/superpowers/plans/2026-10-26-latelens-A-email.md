@@ -43,7 +43,7 @@ frontend/public/mock-wms.html  frontend/bots/wms-entry.ts (stretch)
 backend/api/src/modules/intake/review.ts  backend/api/test/intake/review.test.ts  backend/api/test/routes/review.test.ts  (A14)
 frontend/components/dashboard/intake/OrderReview.tsx (+ .test.tsx)  (A14: a mode of the Order emails desk)
 frontend/components/dashboard/complaints/ComplaintsScreen.tsx (+ .test.tsx)  frontend/app/dashboard/complaints/page.tsx  (A15)
-backend/db/migrations/102_address_links.sql   backend/api/src/modules/intake/{linkRules,link,linkDeps}.ts  (E19, A16–A18)
+backend/db/migrations/103_address_links.sql   backend/api/src/modules/intake/{linkRules,link,linkDeps}.ts  (E19, A16–A18)
 backend/api/test/intake/{link-rules,link-draft,link}.test.ts  backend/api/test/intake/memoryLinks.ts  backend/api/test/routes/link.test.ts
 frontend/app/confirm/[token]/{page,not-found}.tsx  frontend/components/confirm/  frontend/lib/confirm/load.ts  frontend/e2e/confirm.spec.ts  (A19)
 ```
@@ -92,7 +92,7 @@ Each backend half is usable on its own through the API.
 
 **Status:** not run on the planning machine (no Azure deployment there). Step 4 checks the request shape and error mapping against a fake endpoint; Step 5 checks the real deployment.
 
-- [ ] **Step 1: Write the failing test** `backend/api/test/llm.test.ts`:
+- [x] **Step 1: Write the failing test** `backend/api/test/llm.test.ts`:
 
 ```ts
 import { mkdtempSync } from 'node:fs';
@@ -156,9 +156,9 @@ describe('azure openai LLM', () => {
 });
 ```
 
-- [ ] **Step 2: Run it.** `npm --prefix backend/api test -- test/llm.test.ts` — Expected: FAIL, cannot find `azureOpenai.js`.
+- [x] **Step 2: Run it.** `npm --prefix backend/api test -- test/llm.test.ts` — Expected: FAIL, cannot find `azureOpenai.js`.
 
-- [ ] **Step 3: Implement.** Swap the SDK first (its `openai/helpers/zod` must support zod 4, which the repo uses):
+- [x] **Step 3: Implement.** Swap the SDK first (its `openai/helpers/zod` must support zod 4, which the repo uses):
 
 ```bash
 npm --prefix backend/api uninstall @anthropic-ai/sdk && npm --prefix backend/api install openai@latest
@@ -366,9 +366,9 @@ In `docs/CONTRACTS.md` §7 drop `LLM_MODEL` and `ANTHROPIC_API_KEY`, and make th
 
 Schemas sent to the model must fit Azure's strict mode: every field required (use `.nullable()`, never `.optional()`), and no `.min()`, `.max()`, `.regex()` or array length limits. Check those in code after `parseJson`. `ExtractionSchema` (A4) already fits.
 
-- [ ] **Step 4: Run.** `npm --prefix backend/api test -- test/llm.test.ts && npm --prefix backend/api run lint` — Expected: 4 passed, no type errors.
+- [x] **Step 4: Run.** `npm --prefix backend/api test -- test/llm.test.ts && npm --prefix backend/api run lint` — Expected: 4 passed, no type errors.
 
-- [ ] **Step 5: Live smoke check (needs the key).** With `LLM_PROVIDER=azure-openai` and the three `AZURE_OPENAI_*` values in `.env`:
+- [x] **Step 5: Live smoke check (needs the key).** With `LLM_PROVIDER=azure-openai` and the three `AZURE_OPENAI_*` values in `.env`:
 
 ```bash
 cd backend/api && npx tsx -e "import('./src/core/llm/index.js').then(async m => console.log(await m.createLLM().text({system:'Reply with one word.', user:'Say OK'})))"
@@ -379,7 +379,7 @@ Expected: `OK` (or similar), then `{ sku: 'HX-553', qty: 70 }`. If it fails with
 
 Note for A5: Azure's default content filter includes Prompt Shields, so the prompt-injection fixture may come back as a `refusal` (extraction `null`, decision `MISSING_INFO`) instead of `CONFIRM_ADDRESS`. Both are safe (not `ALL_CLEAR`); count it as a known miss in the eval, not a bug.
 
-- [ ] **Step 6: Commit.** `git add backend/api .env.example docs/CONTRACTS.md && git commit -m "feat(a): AI model layer on Azure OpenAI with recorded replay"`
+- [x] **Step 6: Commit.** `git add backend/api .env.example docs/CONTRACTS.md && git commit -m "feat(a): AI model layer on Azure OpenAI with recorded replay"`
 
 ---
 
@@ -396,7 +396,7 @@ Note for A5: Azure's default content filter includes Prompt Shields, so the prom
 **Interfaces:**
 - Produces: `STATE_REGION`, `CITIES`, `client_domain(client_id)` → `clientNNN.example`, `client_sender(client_id)` → `orders@clientNNN.example`; `client_domains(clients)`, `saved_addresses(clients)` (C190 always has exactly 2); `backend/synthetic-data/out/{client_domains,saved_addresses}.csv`; Node `regionOfState(state)`, `isUsState(state)`; Postgres tables of CONTRACTS §5 range 100; `npm run seed [-- --test]`.
 
-- [ ] **Step 1: Write the failing test** `backend/analytics/tests/test_intake_sd04.py`:
+- [x] **Step 1: Write the failing test** `backend/analytics/tests/test_intake_sd04.py`:
 
 ```python
 import pandas as pd
@@ -427,9 +427,9 @@ def test_nfr_05_sd04_reproducible(clients):
     pd.testing.assert_frame_equal(synthetic.saved_addresses(clients), synthetic.saved_addresses(clients))
 ```
 
-- [ ] **Step 2: Run it.** `python -m pytest backend/analytics/tests/test_intake_sd04.py` — Expected: FAIL, `ModuleNotFoundError: analytics.intake.reference`.
+- [x] **Step 2: Run it.** `python -m pytest backend/analytics/tests/test_intake_sd04.py` — Expected: FAIL, `ModuleNotFoundError: analytics.intake.reference`.
 
-- [ ] **Step 3: Implement.** `backend/synthetic-data/reference/state_regions.json` (also read by Node; CONTRACTS §3):
+- [x] **Step 3: Implement.** `backend/synthetic-data/reference/state_regions.json` (also read by Node; CONTRACTS §3):
 
 ```json
 {
@@ -530,7 +530,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Node side.** `backend/db/migrations/100_intake.sql`:
+- [x] **Step 4: Node side.** `backend/db/migrations/100_intake.sql`:
 
 ```sql
 -- Owner A. Intake tables (CONTRACTS §5).
@@ -690,7 +690,7 @@ Add to the `scripts` in `backend/api/package.json`:
 "seed": "tsx src/modules/intake/seed.ts",
 ```
 
-- [ ] **Step 5: Run.**
+- [x] **Step 5: Run.**
 
 ```bash
 python -m pytest backend/analytics/tests/test_intake_sd04.py && python backend/synthetic-data/generators/sd02_sd04_intake.py
@@ -699,7 +699,7 @@ npm run migrate && npm run migrate:test && npm run seed && npm run seed:test
 
 Expected: 3 passed; `seeded client_domains and saved_addresses` twice.
 
-- [ ] **Step 6: Commit.** `git add backend/synthetic-data backend/analytics/intake backend/analytics/tests backend/db/migrations/100_intake.sql backend/api && git commit -m "feat(a): SD-04 client domains and saved addresses, intake tables"`
+- [x] **Step 6: Commit.** `git add backend/synthetic-data backend/analytics/intake backend/analytics/tests backend/db/migrations/100_intake.sql backend/api && git commit -m "feat(a): SD-04 client domains and saved addresses, intake tables"`
 
 ---
 
@@ -716,7 +716,7 @@ Expected: 3 passed; `seeded client_domains and saved_addresses` twice.
 **Interfaces:**
 - Produces: `make_fixtures(clients, saved) -> list[(eml_text, gold)]`; `matches_saved(address, client_saved)` (same rule as Node `checkAddress`); gold fields `id, layout, from, received_at, client_id, items, address, requested_commitment, missing, matched_saved, decision, injection`. Result: 36 ALL_CLEAR (1 via saved address), 13 CONFIRM_ADDRESS (includes C190 and the prompt-injection email), 1 MISSING_INFO; 14 layouts; 11 same-day orders after 08:00.
 
-- [ ] **Step 1: Write the failing test** `backend/analytics/tests/test_intake_fixtures.py` (includes AC-SEC-05):
+- [x] **Step 1: Write the failing test** `backend/analytics/tests/test_intake_fixtures.py` (includes AC-SEC-05):
 
 ```python
 import pytest
@@ -755,9 +755,9 @@ def test_fixture_bodies_contain_gold_values(fx):
                 assert v.upper() in body, (g["id"], k, v)
 ```
 
-- [ ] **Step 2: Run it.** Expected: FAIL, `ImportError: cannot import name 'fixtures'`.
+- [x] **Step 2: Run it.** Expected: FAIL, `ImportError: cannot import name 'fixtures'`.
 
-- [ ] **Step 3: Implement** `backend/analytics/intake/fixtures.py`:
+- [x] **Step 3: Implement** `backend/analytics/intake/fixtures.py`:
 
 ```python
 """SD-02: 50 synthetic intake emails in 14 layouts, each with a gold answer (SPEC §5.3)."""
@@ -928,10 +928,10 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Run and inspect.** `python -m pytest backend/analytics/tests && python backend/synthetic-data/generators/sd02_sd04_intake.py && ls backend/tests/fixtures/emails | wc -l`
+- [x] **Step 4: Run and inspect.** `python -m pytest backend/analytics/tests && python backend/synthetic-data/generators/sd02_sd04_intake.py && ls backend/tests/fixtures/emails | wc -l`
 Expected: tests pass; `100` files. Open three `.eml` files of different layouts and the C190 one; check they read like real order emails.
 
-- [ ] **Step 5: Commit** (fixtures are committed so Node tests and the eval use the same files). `git add backend/analytics backend/synthetic-data/generators backend/tests/fixtures && git commit -m "feat(a): 50 synthetic intake emails with gold answers (SD-02)"`
+- [x] **Step 5: Commit** (fixtures are committed so Node tests and the eval use the same files). `git add backend/analytics backend/synthetic-data/generators backend/tests/fixtures && git commit -m "feat(a): 50 synthetic intake emails with gold answers (SD-02)"`
 
 **Monday check-in:** model key works (A1 step 5); fixtures committed.
 
@@ -1182,7 +1182,7 @@ export function decide(clientId: string | null, extraction: Extraction | null, a
 
 - [x] **Step 4: Run.** Expected: address tests 7 passed; oracle 50 passed. If an oracle case fails, the Python `matches_saved` and Node `checkAddress` rules have drifted — fix the code, not the fixture.
 
-- [ ] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): grounded address check and decision rules"`
+- [x] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): grounded address check and decision rules"`
 
 ---
 
@@ -1385,7 +1385,7 @@ cd backend/api && RECORD=1 LLM_PROVIDER=azure-openai npm run eval:intake
 
 Expected: last line `N/50 decisions match gold`, N ≥ 48. Look at every `MISS` line: if the model filled an address part that is not in the email, `grounded()` should have removed it; if it missed an item, improve `extract.md` and rerun. Then `npm --prefix backend/api test -- test/intake/eval.test.ts` — Expected: PASS with recorded responses (≥ 90% fields, ≥ 95% incomplete-address recall, injection email not ALL_CLEAR).
 
-- [ ] **Step 6: Commit** (recordings included, so CI can replay them). `git add backend/api && git commit -m "feat(a): order extraction, fixture eval with recorded responses"`
+- [x] **Step 6: Commit** (recordings included, so CI can replay them). `git add backend/api && git commit -m "feat(a): order extraction, fixture eval with recorded responses"`
 
 ---
 
@@ -1547,7 +1547,7 @@ export async function draftReply(llm: LLM, f: ReplyFacts): Promise<{ text: strin
 
 - [x] **Step 4: Run.** Expected: 5 passed.
 
-- [ ] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): reply drafts from checked facts with template fallback"`
+- [x] **Step 5: Commit.** `git add backend/api && git commit -m "feat(a): reply drafts from checked facts with template fallback"`
 
 ---
 
@@ -2016,7 +2016,7 @@ curl -s -X POST localhost:3001/api/intake/email -H 'content-type: application/js
 
 Expected (with `LLM_PROVIDER=azure-openai`): `"decision":"CONFIRM_ADDRESS"`. Then `curl localhost:3001/api/intake/<id>` shows a reply offering both saved C190 addresses.
 
-- [ ] **Step 6: Commit.** `git add backend/api && git commit -m "feat(a): intake pipeline, approvals, allow-listed sending, routes"`
+- [x] **Step 6: Commit.** `git add backend/api && git commit -m "feat(a): intake pipeline, approvals, allow-listed sending, routes"`
 
 **Tuesday check-in:** C190 demo works through the API: CONFIRM_ADDRESS → client reply → ALL_CLEAR.
 
@@ -2182,7 +2182,7 @@ export default function Page() {
 
 - [x] **Step 4: Run.** `npm --prefix frontend test && npm run typecheck` — Expected: PASS. Rehearse the demo with `npm run dev:all` at `http://localhost:3000/dashboard/intake`: paste fixture 34's body, process, approve, then paste a reply that gives the street and ZIP of one of the saved addresses offered in the draft → ALL_CLEAR.
 
-- [ ] **Step 5: Commit.** `git add frontend && git commit -m "feat(a): Order emails screen"`
+- [x] **Step 5: Commit.** `git add frontend && git commit -m "feat(a): Order emails screen"`
 
 ---
 
@@ -4194,18 +4194,22 @@ git commit -m "feat(a): complaints screen, escalation first, poll log names its 
 ## After submission: E19 one-time address link (added 29 Oct, planner)
 
 > **Owner A; built by C (Q-LINK-01 answered 29 Oct: A agrees, A reviews); after submission.** E19 lives in A's folders (intake module,
-> migration 102, the order review), so nothing below starts until the Email owner agrees and says who builds it.
+> migration 103, the order review), so nothing below starts until the Email owner agrees and says who builds it.
 > `CONFIRM_LINK` defaults to off (REQ-LINK-09): every PR can merge with the feature dark. Other open questions use the
 > SPEC default and are named on the step they touch: Q-LINK-02 (tile credential: A20 only), Q-LINK-03 (lifetime and
 > time zone: A16 Step 3 uses `MAILBOX_TIMEZONE`, today `[HALCYON_TIMEZONE]`), Q-LINK-04 (promise from the arrival time:
 > A17 Step 3), Q-LINK-05 (no link in automatic replies: A17 Step 1), Q-LINK-06 (real clients: A20 Step 5).
+>
+> **SPEC v0.12 (30 Oct) changed rules here; `planner` to update A16–A20:** lifetime on instants with the zone's DST rules,
+> not wall-clock minutes (SEC-LINK-02, new AC-SEC-LINK-02 example); SAS only, settings `AZURE_MAPS_ACCOUNT_ID` and
+> `AZURE_MAPS_SAS_PRINCIPAL_ID` (SEC-LINK-08, CONTRACTS §7); AC-LINK-02 uses fixture 21 and AC-LINK-04 fixture 34.
 
 Five tasks, one PR each, in order **A16 → A17 → A18 → A19 → A20**. A16–A18 are backend and run in CI with no Azure key
 (recorded maps, memory repos, the test database). A19 is the web app. A20 is the Azure part and the only one that needs
 the Maps account (not in our resource group today).
 
 **Read first:** SPEC §5.3 steps 11–14, REQ-INT-09, §5.17 (flow, lifetime, threat model L1–L11, REQ/NFR/SEC-LINK-*),
-§12 Q-LINK-01 to -06; CONTRACTS §1.1 (`LinkView`, `MapReading`, `LinkState`), §5 (migration 102), §6 (confirm routes
+§12 Q-LINK-01 to -06; CONTRACTS §1.1 (`LinkView`, `MapReading`, `LinkState`), §5 (migration 103), §6 (confirm routes
 and the intake rows), §7; SPEC-auth §4.2, REQ-AUTH-01, -04, T15; `docs/SPEC-email-address-resolution.md` §9 (token
 rules only). Code: `modules/intake/{actions,pipeline,reply,repo,review,routes,address,decide,mailbox,seed}.ts`,
 `core/maps/*`, `frontend/middleware.ts`, `frontend/lib/auth/{proxy,demo}.ts`, `frontend/auth.ts` (`clientIp`).
@@ -4214,7 +4218,7 @@ rules only). Code: `modules/intake/{actions,pipeline,reply,repo,review,routes,ad
 ran: API `tsc` clean; `link-rules.test.ts` 6, `link-draft.test.ts` 3, `link.test.ts` 10 passing; the whole backend
 suite 289 passing with two failures that only lack the gitignored `synthetic-data/out/` files (`oracle`, `eval`; they
 pass in a normal checkout). A19 Steps 1–3 ran: frontend `tsc` clean, `link.test.ts` 5 passing, all 81 frontend tests
-passing. Not run: migration 102 (A16 Step 7) and the SQL in `linkRepo` (A17 Step 4b), the routes on the test database (A18), the
+passing. Not run: migration 103 (A16 Step 7) and the SQL in `linkRepo` (A17 Step 4b), the routes on the test database (A18), the
 confirm page and map (A19 Steps 4–8), anything in Azure (A20).
 
 **Commands.** Backend: `npm --prefix backend/api test -- <files>`. Frontend: `npm --prefix frontend test -- <files>`
@@ -4234,15 +4238,23 @@ confirm page and map (A19 Steps 4–8), anything in Azure (A20).
 
 ---
 
-### Task A16 (E19, part 1): Migration 102, link rules, reply placeholder
+### Task A16 (E19, part 1): Migration 103, link rules, reply placeholder
 
 **Branch:** `A16-link-data` · **REQ:** REQ-LINK-01 (draft half), REQ-LINK-09 (drafts), SEC-LINK-01, SEC-LINK-02
 (lifetime), SEC-LINK-10, REQ-INT-09 (`confirmed` status) · **AC:** AC-LINK-01 (draft half), AC-LINK-03 (rule),
 AC-LINK-09 (drafts), AC-SEC-LINK-01 (token shape), AC-SEC-LINK-02 (lifetime examples), AC-SEC-LINK-10 ·
 **Blocked by:** Q-LINK-01 (whole task); Q-LINK-03 (lifetime numbers are the SPEC defaults).
 
+> **As built (30 Oct, `A16-link-data`; run record `docs/agent-runs/2026-10-30-implementer-A16-link-data.md`).** Follows
+> SPEC v0.12 where this task's code predates it: `linkExpiry(receivedAt, sentAt: Date, hours, timeZone)` returns a
+> `Date` and works on instants (cut-off via `localToInstant` in the IANA zone), not wall-clock minutes; tests use the
+> AC-SEC-LINK-02 instants incl. the DST example. Migration is `103` (102 is `client_emails`). `saved_addresses.email_id`
+> has no foreign key (a `TRUNCATE intake_emails … CASCADE` would empty the table). The seed moved into `seedTables.ts`
+> (`writeSeed`) so AC-LINK-05 is tested; `checkConfirmLink` in `config.ts` is the REQ-LINK-09 start check;
+> `test/setup.ts` pins `CONFIRM_LINK=off`.
+
 **Files:**
-- Create: `backend/db/migrations/102_address_links.sql`, `backend/api/src/modules/intake/linkRules.ts`,
+- Create: `backend/db/migrations/103_address_links.sql`, `backend/api/src/modules/intake/linkRules.ts`,
   `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link-draft.test.ts`
 - Modify: `backend/api/src/modules/intake/reply.ts` (`ReplyFacts.link`, required phrase, template line),
   `backend/api/src/modules/intake/pipeline.ts` (`Deps.confirmLink`), `backend/api/src/modules/intake/deps.ts`,
@@ -4259,7 +4271,7 @@ AC-LINK-09 (drafts), AC-SEC-LINK-01 (token shape), AC-SEC-LINK-02 (lifetime exam
   the `LinkRepo` interface it implements.)
 - With the flag off nothing a user sees changes: same drafts, same required phrases, same recordings.
 
-- [ ] **Step 1: Write the failing rule tests** `backend/api/test/intake/link-rules.test.ts`:
+- [x] **Step 1: Write the failing rule tests** `backend/api/test/intake/link-rules.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -4315,7 +4327,7 @@ describe('E19 link rules', () => {
 
   Run `npm --prefix backend/api test -- test/intake/link-rules.test.ts`. Expected: FAIL, module not found.
 
-- [ ] **Step 2: Implement** `backend/api/src/modules/intake/linkRules.ts` (no AI anywhere in E19):
+- [x] **Step 2: Implement** `backend/api/src/modules/intake/linkRules.ts` (no AI anywhere in E19):
 
 ```ts
 // E19 one-time address link (SPEC §5.17, owner A): the pure rules. No AI model anywhere in this flow.
@@ -4399,12 +4411,11 @@ export function needsSecondConfirm(start: { pin: { lat: number; lon: number } | 
 }
 ```
 
-- [ ] **Step 3: Run.** Expected: PASS (6). The three AC-SEC-LINK-02 examples are wall-clock times in
-  `MAILBOX_TIMEZONE`; arithmetic is in whole minutes, so a link that spans a daylight-saving change is off by the
-  shift (at most one hour, and only twice a year). Q-LINK-03 (time zone and margin) is open: the numbers are the SPEC
-  defaults, held as named constants.
+- [x] **Step 3: Run.** Expected: PASS. ~~Wall-clock, whole-minute arithmetic~~ superseded by SPEC v0.12: the lifetime
+  works on UTC instants with the zone's DST rules (see "As built" above and AC-SEC-LINK-02's DST example).
+  Q-LINK-03 (time zone and margin) is open: the numbers are the SPEC defaults, held as named constants.
 
-- [ ] **Step 4: Write the failing draft tests** `backend/api/test/intake/link-draft.test.ts`:
+- [x] **Step 4: Write the failing draft tests** `backend/api/test/intake/link-draft.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -4437,7 +4448,7 @@ describe('E19 reply draft (REQ-LINK-01, -09)', () => {
 
   Run. Expected: FAIL on the first test (`[CONFIRM_LINK]` not in the template).
 
-- [ ] **Step 5: Implement the placeholder.**
+- [x] **Step 5: Implement the placeholder.**
   1. `reply.ts`: `import { LINK_PLACEHOLDER } from './linkRules.js';`; add to `ReplyFacts`
      `link?: boolean; // E19 CONFIRM_LINK=on: a CONFIRM_ADDRESS reply carries [CONFIRM_LINK] (REQ-LINK-01)`; in
      `requiredPhrases`, inside the `CONFIRM_ADDRESS` branch, after the ZIP line:
@@ -4471,11 +4482,11 @@ describe('E19 reply draft (REQ-LINK-01, -09)', () => {
      and at the end of the file, fail closed:
      `if (config.CONFIRM_LINK === 'on' && !config.AUTH_URL) throw new Error('CONFIRM_LINK=on needs AUTH_URL: refusing to start');`
 
-- [ ] **Step 6: Run.** `npm --prefix backend/api test -- test/intake && npm run typecheck`
+- [x] **Step 6: Run.** `npm --prefix backend/api test -- test/intake && npm run typecheck`
   Expected: PASS. Every existing intake test and recording is unchanged because the flag is off in `test/setup.ts`.
 
-- [ ] **Step 7: Migration and seed** (needs the test database; not run on the planning machine).
-  1. `backend/db/migrations/102_address_links.sql`:
+- [x] **Step 7: Migration and seed** (needs the test database; not run on the planning machine).
+  1. `backend/db/migrations/103_address_links.sql`:
 
 ```sql
 -- Owner A. E19 one-time address link (SPEC §5.17, CONTRACTS §5). After submission; CONFIRM_LINK defaults to off.
@@ -4513,10 +4524,10 @@ ALTER TABLE saved_addresses
   4. Run `npm run migrate:test && npm run seed:test`, then
      `psql "$TEST_DATABASE_URL" -c '\d address_confirm_tokens' -c '\d saved_addresses'`: the columns of CONTRACTS §5.
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
 
 ```bash
-git add backend/db/migrations/102_address_links.sql backend/api/src/modules/intake backend/api/src/core/config.ts \
+git add backend/db/migrations/103_address_links.sql backend/api/src/modules/intake backend/api/src/core/config.ts \
   backend/api/test/intake/link-rules.test.ts backend/api/test/intake/link-draft.test.ts .env.example
 git commit -m "feat(a): address link data, rules and reply placeholder (E19, REQ-LINK-01, SEC-LINK-01, -02, -10)"
 ```
@@ -4524,6 +4535,15 @@ git commit -m "feat(a): address link data, rules and reply placeholder (E19, REQ
 ---
 
 ### Task A17 (E19, part 2): Mint at `send_reply`, open, confirm, decide again, save on approval
+
+> **From the A16 review (30 Oct, `docs/agent-runs/2026-10-30-reviewer-A16-link-data.md`), A17 must also:**
+> - remove the "not available yet" line in `checkConfirmLink` (`core/config.ts`) in the same commit that replaces
+>   `[CONFIRM_LINK]` at send time, and change `test/intake/link-config.test.ts` back to "on with AUTH_URL starts";
+> - trim a trailing `/` from `AUTH_URL` when building `<AUTH_URL>/confirm/<token>`;
+> - give `repo.savedAddresses` a stable order that does not depend on `id` (a re-seed gives seed rows new, higher ids,
+>   so a kept `source='link'` row would sort first and change prompts and recordings); add a re-seed test with a link row;
+> - when the flag is off at send time, strip only the placeholder sentence, or re-check the required phrases after
+>   stripping and fall back to the template (a model draft may put `[CONFIRM_LINK]` on the line with the promise date).
 
 **Branch:** `A17-link-service` · **REQ:** REQ-LINK-01 (send half), -03, -04, -05, -07, -08, SEC-LINK-01, -02, -03,
 -04 (look-ups), -06, -09, -11, REQ-INT-09 · **AC:** AC-LINK-01, -03, -04, -05, -07, -08, AC-SEC-LINK-01, -02, -03, -04
@@ -4538,7 +4558,7 @@ time); Q-LINK-05 (Step 1: minting lives only in `send_reply`).
   (`GeocodeFeature.geometry`, optional `reverse`), `backend/api/src/core/maps/{azureMaps,recorded}.ts` (`reverse`)
 
 **Interfaces:**
-- Consumes: A16's rules and migration 102; `Deps` (intake: `repo`, `warehouse`, `carriers`); `decide`, `regionOfState`,
+- Consumes: A16's rules and migration 103; `Deps` (intake: `repo`, `warehouse`, `carriers`); `decide`, `regionOfState`,
   `templateReply`; `AddressValidator.geocode` (start pin from the recorded feature's `geometry`, which every saved map
   recording already holds) and `reverse` (new).
 - Produces: `link.ts`: `LinkRepo`, `LinkRow`, `LinkDeps`, `MapCredentials`, `LinkView`, `MapReading`, `LinkState`,
@@ -4548,12 +4568,17 @@ time); Q-LINK-05 (Step 1: minting lives only in `send_reply`).
 - `outbound_messages.body` keeps `[CONFIRM_LINK]`; the Gmail text holds the link. With the flag off, a placeholder in
   an old draft is removed from both (never sent as text).
 
-- [ ] **Step 1: Write the failing service tests** with a memory store. `backend/api/test/intake/memoryLinks.ts`:
+> **As built (30 Oct, `docs/agent-runs/2026-10-30-implementer-A17-link-service.md`):** follows SPEC v0.12 where this
+> plan differs: `linkExpiry(...)` returns the `Date` (no `localToInstant`); `MapCredential.kind` is `'sas'` only; flag
+> off strips the placeholder's sentence and falls back to the template if a required phrase is lost; `savedAddresses`
+> orders `source = 'link'` rows after the seed's; `linkRepo` has its own test-database test (`link-repo.test.ts`).
+
+- [x] **Step 1: Write the failing service tests** with a memory store. `backend/api/test/intake/memoryLinks.ts`:
 
 ```ts
 import type { LinkRepo, LinkRow } from '../../src/modules/intake/link.js';
 
-/** In-memory stand-in for migration 102 (address_confirm_tokens, saved_addresses source 'link'). */
+/** In-memory stand-in for migration 103 (address_confirm_tokens, saved_addresses source 'link'). */
 export function memoryLinks(parents: () => { id: number; in_reply_to: number | null }[]) {
   const rows: LinkRow[] = [];
   const saved: Parameters<LinkRepo['saveAddress']>[0][] = [];
@@ -4735,7 +4760,7 @@ describe('E19 address link (memory)', () => {
 
   Run `npm --prefix backend/api test -- test/intake/link.test.ts`. Expected: FAIL, module not found.
 
-- [ ] **Step 2: Maps.** `core/maps/types.ts`: in `GeocodeFeature` add
+- [x] **Step 2: Maps.** `core/maps/types.ts`: in `GeocodeFeature` add
   `geometry?: { type: 'Point'; coordinates: [number, number] }; // [longitude, latitude] (E19 start pin)`; in
   `AddressValidator` add
   `reverse?(pin: { lat: number; lon: number }): Promise<GeocodeResponse>; // E19 REQ-LINK-03; optional so stand-ins need not implement it`;
@@ -4763,7 +4788,7 @@ describe('E19 address link (memory)', () => {
   key. Add a `test/maps.test.ts` case: a fake `fetchFn` sees `/reverseGeocode?` with `coordinates=lon,lat`. Live
   check in A20 (`npm --prefix backend/api run maps:check`): confirm `API_VERSION` serves `reverseGeocode`.
 
-- [ ] **Step 3: Implement** `backend/api/src/modules/intake/link.ts`. `decideAgain` runs SPEC §5.3 steps 8–10 with
+- [x] **Step 3: Implement** `backend/api/src/modules/intake/link.ts`. `decideAgain` runs SPEC §5.3 steps 8–10 with
   code only, the confirmed address as `status: 'confirmed'`; the promise uses the email's arrival time (REQ-INT-03,
   **Q-LINK-04 open**); the new draft is the fixed template (no model call in E19).
 
@@ -4803,7 +4828,7 @@ export interface LinkRow {
 }
 export type NewLink = Pick<LinkRow, 'token_hash' | 'email_id' | 'issued_at' | 'expires_at' | 'issued_by' | 'prefill' | 'synthetic'>;
 
-/** Migration 102's tables (A). Implemented in repo.ts (`linkRepo`) and test/intake/memoryLinks.ts. */
+/** Migration 103's tables (A). Implemented in repo.ts (`linkRepo`) and test/intake/memoryLinks.ts. */
 export interface LinkRepo {
   /** Every email of the order: the first email and every client answer below it (REQ-LINK-08). */
   orderEmailIds(emailId: number): Promise<number[]>;
@@ -4991,7 +5016,7 @@ export async function saveOnApproval(d: LinkDeps, email: EmailRow, x: Extraction
 }
 ```
 
-- [ ] **Step 4: Wire `applyAction`.** In `actions.ts`:
+- [x] **Step 4: Wire `applyAction`.** In `actions.ts`:
   1. `import { LINK_PLACEHOLDER, type LinkDeps, mintLink, saveOnApproval } from './link.js';`
   2. `ActionOptions` gains `link?: LinkDeps`, and below it:
 
@@ -5033,11 +5058,11 @@ const withoutPlaceholder = (text: string) => text.split('\n').filter((l) => !l.i
   If the operator edits the placeholder out of the reply, no link is minted and the reply goes as written (see the run
   record: SPEC does not say; this keeps the operator in charge of the text).
 
-- [ ] **Step 4b: The SQL store** (runs against the test database in A18). `repo.ts`, after `repo`, with
+- [x] **Step 4b: The SQL store** (runs against the test database in A18). `repo.ts`, after `repo`, with
   `import type { LinkRepo, LinkRow } from './link.js';`:
 
 ```ts
-/** Migration 102 (E19). Only the token's hash is ever read or written (SEC-LINK-01). */
+/** Migration 103 (E19). Only the token's hash is ever read or written (SEC-LINK-01). */
 export const linkRepo: LinkRepo = {
   async orderEmailIds(emailId) {
     const rows = await query<{ id: number }>(
@@ -5091,10 +5116,10 @@ export const linkRepo: LinkRepo = {
 };
 ```
 
-- [ ] **Step 5: Run.** `npm --prefix backend/api test -- test/intake test/maps.test.ts && npm run typecheck`
+- [x] **Step 5: Run.** `npm --prefix backend/api test -- test/intake test/maps.test.ts && npm run typecheck`
   Expected: PASS (`link.test.ts` 10; every A13–A15 test unchanged: `link` is optional).
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add backend/api/src/modules/intake/link.ts backend/api/src/modules/intake/actions.ts backend/api/src/modules/intake/repo.ts backend/api/src/core/maps \

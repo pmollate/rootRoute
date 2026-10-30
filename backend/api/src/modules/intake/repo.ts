@@ -1,6 +1,7 @@
 import { pool, query } from '../../core/db/pool.js';
 import type { AddressCheck } from './address.js';
 import type { Decision } from './decide.js';
+import type { LinkRepo, LinkRow } from './link.js';
 import type { Extraction, SavedAddress } from './schema.js';
 
 export interface EmailRow {
@@ -60,7 +61,8 @@ export interface ClientRow {
 }
 
 export interface Repo {
-  clientByDomain(domain: string): Promise<ClientRow | null>;
+  /** The sender's own address (client_emails) wins; otherwise the domain (client_domains). */
+  clientByDomain(domain: string, address?: string): Promise<ClientRow | null>;
   savedAddresses(clientId: string): Promise<SavedAddress[]>;
   findByHash(hash: string): Promise<EmailRow | null>;
   findByGmailId(gmailId: string): Promise<EmailRow | null>;
@@ -90,14 +92,24 @@ export interface Repo {
 
 const POLL_LOCK = 7_301_015; // any fixed number, shared by every instance of the API
 
+/**
+ * A client's saved addresses in a stable order: the seed's rows first, in the seed file's order, then addresses confirmed
+ * through the E19 link, oldest first. A re-seed gives seed rows new, higher ids than kept link rows; ordering by id alone
+ * would move the link rows first and change the candidates in replies, prompts and recordings (REQ-LINK-05).
+ */
+export const SAVED_ADDRESSES_SQL = `SELECT id, client_id, label, line1, line2, city, state, zip FROM saved_addresses
+  WHERE client_id = $1 ORDER BY source = 'link', id`;
+
 const one = async <T extends object>(sql: string, params: unknown[]): Promise<T | null> => (await query<T>(sql, params))[0] ?? null;
 
 export const repo: Repo = {
-  clientByDomain: (domain) => one<ClientRow>(
+  clientByDomain: (domain, address = '') => one<ClientRow>(
     `SELECT c.client_id, c.client_name, c.sla_penalty_clause, c.region, c.account_tier, c.account_status
-       FROM client_domains d JOIN clients c ON c.client_id = d.client_id WHERE d.domain = $1`, [domain.toLowerCase()]),
-  savedAddresses: (clientId) =>
-    query<SavedAddress>('SELECT id, client_id, label, line1, line2, city, state, zip FROM saved_addresses WHERE client_id = $1 ORDER BY id', [clientId]),
+       FROM clients c
+       JOIN (SELECT client_id, 0 AS rank FROM client_emails WHERE email = $2
+             UNION ALL SELECT client_id, 1 FROM client_domains WHERE domain = $1) m ON m.client_id = c.client_id
+      ORDER BY m.rank LIMIT 1`, [domain.toLowerCase(), address.toLowerCase()]),
+  savedAddresses: (clientId) => query<SavedAddress>(SAVED_ADDRESSES_SQL, [clientId]),
   findByHash: (hash) => one<EmailRow>('SELECT * FROM intake_emails WHERE hash = $1', [hash]),
   findByGmailId: (gmailId) => one<EmailRow>('SELECT * FROM intake_emails WHERE gmail_id = $1', [gmailId]),
   lastInThread: (threadId) => one<EmailRow>('SELECT * FROM intake_emails WHERE thread_id = $1 ORDER BY id DESC LIMIT 1', [threadId]),
@@ -175,5 +187,94 @@ export const repo: Repo = {
     } finally {
       client.release();
     }
+  },
+};
+
+/** SQL for an address part compared by letters and digits only, case-blind (the saved-address duplicate check). */
+const ADDRESS_KEY = (col: string) => `upper(regexp_replace(${col}, '[^A-Za-z0-9]', '', 'g'))`;
+
+/** Migration 103 (E19). Only the token's hash is ever read or written (SEC-LINK-01). */
+export const linkRepo: LinkRepo = {
+  async orderEmailIds(emailId) {
+    const rows = await query<{ id: number }>(
+      `WITH RECURSIVE up AS (
+         SELECT id, in_reply_to FROM intake_emails WHERE id = $1
+         UNION ALL SELECT e.id, e.in_reply_to FROM intake_emails e JOIN up ON e.id = up.in_reply_to),
+       down AS (
+         SELECT id FROM up WHERE in_reply_to IS NULL
+         UNION ALL SELECT e.id FROM intake_emails e JOIN down ON e.in_reply_to = down.id)
+       SELECT id FROM down ORDER BY id`, [emailId]);
+    return rows.map((r) => r.id);
+  },
+  async revokeUnused(ids, at, keepId) {
+    return (await query<{ id: number }>(
+      `UPDATE address_confirm_tokens SET revoked_at = $2
+        WHERE email_id = ANY($1::int[]) AND used_at IS NULL AND revoked_at IS NULL AND id <> coalesce($3, 0) RETURNING id`,
+      [ids, at, keepId ?? null])).length;
+  },
+  async revoke(id, at) {
+    await query('UPDATE address_confirm_tokens SET revoked_at = $2 WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL', [id, at]);
+  },
+  async insert(l) {
+    return (await query<{ id: number }>(
+      `INSERT INTO address_confirm_tokens (token_hash, email_id, issued_at, expires_at, issued_by, prefill, synthetic)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [l.token_hash, l.email_id, l.issued_at, l.expires_at, l.issued_by, JSON.stringify(l.prefill), l.synthetic]))[0].id;
+  },
+  byHash: (h) => one<LinkRow>('SELECT * FROM address_confirm_tokens WHERE token_hash = $1', [h]),
+  async countLookup(id) {
+    return (await query<{ n: number }>(
+      'UPDATE address_confirm_tokens SET map_lookups = map_lookups + 1 WHERE id = $1 RETURNING map_lookups AS n', [id]))[0].n;
+  },
+  async setReading(id, reading) {
+    await query('UPDATE address_confirm_tokens SET map_reading = $2 WHERE id = $1', [id, JSON.stringify(reading)]);
+  },
+  // One transaction (REQ-LINK-04). Single use under concurrency: the WHERE clauses, not a read-then-write, decide who
+  // confirms (SEC-LINK-02); the email must still be SENT (waiting for the client).
+  async confirm(c) {
+    const db = await pool.connect();
+    try {
+      await db.query('BEGIN');
+      const used = await db.query(
+        `UPDATE address_confirm_tokens SET used_at = $5, confirmed_address = $2, lat = $3, lon = $4, map_reading = $6
+          WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > $5 RETURNING id`,
+        [c.linkId, JSON.stringify(c.address), c.pin.lat, c.pin.lon, c.at, c.reading && JSON.stringify(c.reading)]);
+      const moved = used.rowCount === 1 ? await db.query(
+        "UPDATE intake_emails SET status = 'AWAITING_APPROVAL' WHERE id = $1 AND status = 'SENT' RETURNING id", [c.emailId]) : null;
+      if (moved?.rowCount !== 1) {
+        await db.query('ROLLBACK');
+        return false;
+      }
+      const x = c.extraction;
+      await db.query(
+        'INSERT INTO intake_extractions (email_id, extraction, decision, checks, reply_draft, reply_source) VALUES ($1,$2,$3,$4,$5,$6)',
+        [c.emailId, JSON.stringify(x.extraction), x.decision, JSON.stringify(x.checks), x.reply_draft, x.reply_source]);
+      await db.query('INSERT INTO audit_log (actor, action, ref, payload) VALUES ($1,$2,$3,$4)',
+        [c.audit.actor, c.audit.action, `email:${c.emailId}`, JSON.stringify(c.audit.payload)]);
+      await db.query('COMMIT');
+      return true;
+    } catch (err) {
+      await db.query('ROLLBACK');
+      throw err;
+    } finally {
+      db.release();
+    }
+  },
+  async newestFor(ids) {
+    const rows = await query<LinkRow>(
+      'SELECT DISTINCT ON (email_id) * FROM address_confirm_tokens WHERE email_id = ANY($1::int[]) ORDER BY email_id, id DESC', [ids]);
+    return new Map(rows.map((r) => [r.email_id, r]));
+  },
+  // REQ-LINK-05: not added when the client already has the same address (letters and digits only, case-blind, 5-digit ZIP).
+  async saveAddress(a) {
+    return (await query<{ id: number }>(
+      `INSERT INTO saved_addresses (client_id, label, line1, line2, city, state, zip, synthetic, source, lat, lon, email_id, confirmed_at)
+       SELECT $1::text,'Confirmed by client link',$2::text,$3::text,$4::text,$5::text,$6::text,$7::boolean,'link',$8::float8,$9::float8,$10::int,$11::timestamptz
+        WHERE NOT EXISTS (SELECT 1 FROM saved_addresses s WHERE s.client_id = $1
+          AND ${ADDRESS_KEY('s.line1')} = ${ADDRESS_KEY('$2::text')} AND ${ADDRESS_KEY("coalesce(s.line2, '')")} = ${ADDRESS_KEY("coalesce($3::text, '')")}
+          AND ${ADDRESS_KEY('s.city')} = ${ADDRESS_KEY('$4::text')} AND upper(s.state) = upper($5::text) AND left(s.zip, 5) = left($6::text, 5))
+       RETURNING id`,
+      [a.clientId, a.address.line1, a.address.line2, a.address.city, a.address.state, a.address.zip, a.synthetic,
+        a.pin.lat, a.pin.lon, a.emailId, a.confirmedAt])).length === 1;
   },
 };

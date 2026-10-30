@@ -1147,7 +1147,7 @@ blocks below are the original plan. Changes, each forced by the code or the netw
 ```bash
 #!/usr/bin/env bash
 # Create the LateLens demo environment once (owner C). Requires: az login, and PG_PASSWORD + ANTHROPIC_API_KEY exported.
-# Usage: RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=saiprasad-37/root-route ./infra/setup.sh
+# Usage: RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=Evoke-Hackathon-2026/UnhandledRejections ./infra/setup.sh
 set -euo pipefail
 : "${RG:=rg-unhandled-rejections}" "${LOC:=centralindia}" "${NAME:?set NAME, e.g. rootroute01}" "${GITHUB_REPO:?set GITHUB_REPO owner/name}"
 : "${PG_PASSWORD:?export PG_PASSWORD}" "${ANTHROPIC_API_KEY:?export ANTHROPIC_API_KEY}"
@@ -1210,7 +1210,7 @@ Run it once:
 
 ```bash
 export PG_PASSWORD='<strong password>' ANTHROPIC_API_KEY='<key>'
-RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=saiprasad-37/root-route ./infra/setup.sh
+RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=Evoke-Hackathon-2026/UnhandledRejections ./infra/setup.sh
 ```
 
 Expected: the closing message lists the GitHub secrets and variables to add. The repo owner adds them under Settings → Environments → `demo`.
@@ -1532,7 +1532,9 @@ test (`e2e/smoke.spec.ts`) stays, since A and B keep it current; the journey tes
     address (warehouse and carrier not reached). Skipped when the inbox has no such email;
   - phone width: no sideways scrolling, a place opens its stages.
 - [x] Local run (29 Oct): journey and smoke, 30 passed, 16 skipped (one width only, or no such email).
-- [ ] Live run needs a signed-in session now that `AUTH_REQUIRED=on` (C13 step 5, Q-AUTH-06).
+- [x] Live run needs a signed-in session now that `AUTH_REQUIRED=on` (C13 step 5, Q-AUTH-06): the suite signs in as
+  `admin` when `E2E_DEMO_PASSWORD` is set (CD reads Key Vault `auth-demo-password`). Local run signed in (30 Oct,
+  `AUTH_REQUIRED=on`, throwaway accounts): 42 passed, 16 skipped. The live run waits for that secret (C13 step 6).
 
 ### Task C13: Sign-in and roles (P7, `docs/SPEC-auth.md`) — after code submission
 
@@ -1564,8 +1566,10 @@ since their screens' action calls change.
   -09, -12, AC-NFR-AUTH-02, -03, AC-SEC-AUTH-04, -05, -08, -12). Component tests for the login page and header.
 - [x] **Step 4: Client calls** through `/api` same-origin; remove `NEXT_PUBLIC_API_KEY`; hide buttons by role; keep
   typed input on `session_expired` (AC-AUTH-10, -11, AC-SEC-AUTH-01).
-- [ ] **Step 5: Playwright** sign-in setup per role; workflow tests run signed in; one test per role refusal
-  (AC-NFR-AUTH-04). Tell A and B first.
+- [x] **Step 5: Playwright** sign-in setup per role; workflow tests run signed in; one test per role refusal
+  (AC-NFR-AUTH-04). Tell A and B first. Done 30 Oct: `e2e/auth.setup.ts`, `e2e/roles.spec.ts`, `e2e/refusals.ts`
+  (checked by `lib/auth/refusals.test.ts`); CD `e2e` logs in to Azure in the `demo` environment and reads Key Vault
+  `auth-demo-password`, not an Actions secret (deviation from SPEC-auth §5.5/§9.2, for `spec-writer`).
 - [ ] **Step 6: Azure** (confirm first): app registration and app roles (Q-AUTH-01), Key Vault secrets, app settings,
   access restriction on the API; `AUTH_REQUIRED=on` live (SPEC-auth §10 steps 2–4); App Insights query for sign-in,
   401 and 403 lines; proxy latency (AC-SEC-AUTH-02, -06, -07, AC-NFR-AUTH-01).
@@ -2018,7 +2022,7 @@ SPEC default "tools by role").
   `assistant_answer` log line per question with no question or answer text.
 - Stores nothing (SEC-ASK-03): no migration, no table, no `audit_log` row (a question is not an action).
 
-- [ ] **Step 1: Write the failing figure-check tests** `backend/api/test/assistant/figures.test.ts`:
+- [x] **Step 1: Write the failing figure-check tests** `backend/api/test/assistant/figures.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -2049,7 +2053,7 @@ describe('figure check (REQ-ASK-04)', () => {
 
   Run `npm --prefix backend/api test -- test/assistant/figures.test.ts`. Expected: FAIL, module not found.
 
-- [ ] **Step 2: Implement** `backend/api/src/modules/assistant/figures.ts`:
+- [x] **Step 2: Implement** `backend/api/src/modules/assistant/figures.ts`:
 
 ```ts
 // REQ-ASK-04 figure check (SPEC §5.16): every number in the answer must be found in a tool result, the question or the
@@ -2094,7 +2098,7 @@ export function uncheckedFigures(answer: string, sources: unknown[]): string[] {
   invented numbers, not a real number quoted for the wrong thing. That limit is stated in SPEC §5.16 by omission and
   is listed for `spec-writer` in the run record.
 
-- [ ] **Step 3: Write the failing answer-loop tests** `backend/api/test/assistant/answer.test.ts` (scripted model,
+- [x] **Step 3: Write the failing answer-loop tests** `backend/api/test/assistant/answer.test.ts` (scripted model,
   stand-in tools with the registry's names and schemas; no database, no network):
 
 ```ts
@@ -2177,7 +2181,7 @@ describe('assistant answer loop (D10)', () => {
 
   Run. Expected: FAIL, `Cannot find module '../../src/modules/assistant/answer.js'`.
 
-- [ ] **Step 4: Write the system prompt** `backend/api/src/modules/assistant/prompts/system.md` (changing it later
+- [x] **Step 4: Write the system prompt** `backend/api/src/modules/assistant/prompts/system.md` (changing it later
   invalidates every recording: AC-ASK-10 expects a 503 until `RECORD=1` is run again):
 
 ```md
@@ -2193,7 +2197,7 @@ Rules:
 - Reply as JSON: {"answer": "<plain text, no links, no Markdown>", "refused": <true|false>}.
 ```
 
-- [ ] **Step 5: Implement the loop** `backend/api/src/modules/assistant/answer.ts`. The model routes and words; code
+- [x] **Step 5: Implement the loop** `backend/api/src/modules/assistant/answer.ts`. The model routes and words; code
   checks every request against the user's tool list and the tool's zod schema (REQ-ASK-03), builds `sources` from the
   calls it ran (REQ-ASK-05), bounds tool calls and model turns (SEC-ASK-01), refuses an answer that called no tool
   (REQ-ASK-06) and runs the figure check (REQ-ASK-04). Tools by role: SPEC §5.16 default (Q-ASK-03 open).
@@ -2307,7 +2311,7 @@ export async function answerQuestion(input: z.output<typeof AssistantRequestSche
   Run `npm --prefix backend/api test -- test/assistant`. Expected: PASS (answer 6, figures 4, and C14's files). In
   `test/assistant/llm-tools.test.ts` switch the inlined `FinalAnswer` to the import from `answer.js`.
 
-- [ ] **Step 6: Write the failing route tests** `backend/api/test/assistant/route.test.ts` (`buildApp` with the auth
+- [x] **Step 6: Write the failing route tests** `backend/api/test/assistant/route.test.ts` (`buildApp` with the auth
   settings from `test/token.ts`; no database is touched because the tools are stand-ins):
 
 ```ts
@@ -2390,7 +2394,7 @@ describe('POST /api/assistant (D10)', () => {
 
   Run. Expected: FAIL, `Cannot find module '../../src/modules/assistant/limit.js'` (then 404s until the route exists).
 
-- [ ] **Step 7: Implement the route.**
+- [x] **Step 7: Implement the route.**
   1. `backend/api/src/modules/assistant/limit.ts`:
 
 ```ts
@@ -2516,10 +2520,10 @@ export default routes;
   7. `.env.example`, in the API block: `ASK_ASSISTANT=off`, `ASK_MAX_TOOL_CALLS=5`, `ASK_RATE_PER_MINUTE=10`, each with a
      one-line comment "design setting, SPEC §5.16". No `NEXT_PUBLIC_` variable.
 
-- [ ] **Step 8: Run.** `npm --prefix backend/api test -- test/assistant test/routes/permissions.test.ts test/auth.test.ts test/mcp.test.ts test/llm.test.ts && npm run typecheck`
+- [x] **Step 8: Run.** `npm --prefix backend/api test -- test/assistant test/routes/permissions.test.ts test/auth.test.ts test/mcp.test.ts test/llm.test.ts && npm run typecheck`
   Expected: PASS (route 6; `auth.test.ts` unchanged: AC-AUTH-04 lists its routes explicitly).
 
-- [ ] **Step 9: Fixtures.** `backend/api/test/fixtures/assistant/out-of-scope.json` (AC-ASK-06; one per refusal class
+- [x] **Step 9: Fixtures.** `backend/api/test/fixtures/assistant/out-of-scope.json` (AC-ASK-06; one per refusal class
   in SPEC §5.16, the four named in the AC first):
 
 ```json
@@ -2544,7 +2548,7 @@ export default routes;
 ]
 ```
 
-- [ ] **Step 10: Write the recorded end-to-end test** `backend/api/test/routes/assistant.test.ts` (test database; real
+- [x] **Step 10: Write the recorded end-to-end test** `backend/api/test/routes/assistant.test.ts` (test database; real
   registry tools; `LLM_PROVIDER=recorded`, as CI). It fails until Step 11 has committed the recordings: that is the
   expected state of this step.
 
@@ -2606,7 +2610,7 @@ describe.skipIf(!hasDb)('Ask LateLens, recorded (needs test database)', () => {
   Note on AC-ASK-07: `recommend_carrier` in the registry uses `recommendFromLane`, which writes no `recommendations`
   row (C9 as built). The count check runs serially (`fileParallelism: false` in `vitest.config.ts`).
 
-- [ ] **Step 11: Record the model turns (needs Azure; blocked on Q-ASK-02).** Create
+- [x] **Step 11: Record the model turns (needs Azure; Q-ASK-02 answered 30 Oct).** Create
   `backend/api/scripts/record-assistant.ts`: builds the app with `AUTH_REQUIRED=on` settings and a test secret,
   `setAssistantDeps({ enabled: true, limiter: new QuestionLimiter(1000) })`, and posts every question in
   `questions.json` (as its role) and `out-of-scope.json` (as `leadership`), printing `id`, `checked`, `refused`,
@@ -2617,7 +2621,7 @@ describe.skipIf(!hasDb)('Ask LateLens, recorded (needs test database)', () => {
   If the model fails one, change `prompts/system.md`, record again (all recordings change with the prompt). Commit
   only `test/recordings/*.json` files whose `kind` is `tool`.
 
-- [ ] **Step 12: Run everything.** `npm --prefix backend/api test && npm run typecheck`. Expected: PASS, with the test
+- [x] **Step 12: Run everything.** `npm --prefix backend/api test && npm run typecheck`. Expected: PASS, with the test
   database up (AC-NFR-ASK-03: no model key in CI; `LLM_PROVIDER=recorded` is set by `test/setup.ts`).
 
 - [ ] **Step 13: Contract and commit.** CONTRACTS §6 already has the route. Add to CONTRACTS §1.1 (via `spec-writer`,
@@ -2651,7 +2655,7 @@ AC-NFR-ASK-02 (live) · **Blocked by:** Q-ASK-01; Step 6 needs the deployed app 
 - Produces: `<AskPanel />`; `DashboardShell({ assistant?: boolean })`. The flag is read on the server
   (`process.env.ASK_ASSISTANT` in `layout.tsx`) and passed as a prop: no `NEXT_PUBLIC_` variable.
 
-- [ ] **Step 1: Write the failing panel tests** `frontend/components/dashboard/assistant/AskPanel.test.tsx`:
+- [x] **Step 1: Write the failing panel tests** `frontend/components/dashboard/assistant/AskPanel.test.tsx`:
 
 ```tsx
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -2710,7 +2714,7 @@ describe('Ask LateLens panel (D10)', () => {
 
   Run `npm --prefix frontend test -- components/dashboard/assistant`. Expected: FAIL, cannot find `./AskPanel`.
 
-- [ ] **Step 2: Implement** `frontend/components/dashboard/assistant/AskPanel.tsx`:
+- [x] **Step 2: Implement** `frontend/components/dashboard/assistant/AskPanel.tsx`:
 
 ```tsx
 'use client';
@@ -2824,7 +2828,7 @@ export function AskPanel() {
 
   Run again. Expected: PASS (4).
 
-- [ ] **Step 3: Write the failing shell test** (AC-ASK-01 every screen, AC-ASK-08). In
+- [x] **Step 3: Write the failing shell test** (AC-ASK-01 every screen, AC-ASK-08). In
   `frontend/components/dashboard/DashboardShell.test.tsx` add inside the `describe`:
 
 ```tsx
@@ -2839,7 +2843,7 @@ export function AskPanel() {
 
   Run `npm --prefix frontend test -- components/dashboard/DashboardShell.test.tsx`. Expected: FAIL on the second render.
 
-- [ ] **Step 4: Wire it.**
+- [x] **Step 4: Wire it.**
   1. `DashboardShell.tsx`: `import { AskPanel } from './assistant/AskPanel';`; signature
      `DashboardShell({ children, user = null, assistant = false }: { children: ReactNode; user?: SessionUser | null; assistant?: boolean })`;
      inside `<main>` after `<UserProvider …>{children}</UserProvider>` add `{assistant && <AskPanel />}`. Every
@@ -2850,7 +2854,7 @@ export function AskPanel() {
 
   Run `npm --prefix frontend test && npm run typecheck`. Expected: PASS.
 
-- [ ] **Step 5: Smoke test.** In `frontend/e2e/smoke.spec.ts` add one test, skipped unless `ASK_ASSISTANT=on` is set
+- [x] **Step 5: Smoke test.** In `frontend/e2e/smoke.spec.ts` add one test, skipped unless `ASK_ASSISTANT=on` is set
   for the run: on each screen at 375 px the "Ask LateLens" button shows and opening the panel adds no sideways
   scrolling (AC-ASK-01, AC-UI-03). Asking a question is not part of the smoke test (it would call the live model).
 
@@ -2860,10 +2864,17 @@ export function AskPanel() {
   text in no log line (`traces | where message has "<question words>"` returns nothing). Record both in
   `docs/TEST-EVIDENCE.md` via `qa-evidence`. Ask `network-security-auditor` to review T14 before switching on.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
 
 ```bash
 git add frontend/components/dashboard/assistant frontend/components/dashboard/DashboardShell.tsx frontend/components/dashboard/DashboardShell.test.tsx \
   frontend/app/dashboard/layout.tsx frontend/e2e/smoke.spec.ts .env.example
 git commit -m "feat(c): Ask LateLens panel on every screen, plain text, page memory only (D10, REQ-ASK-01)"
 ```
+
+- [ ] **Follow-up (SPEC v0.12, 30 Oct; spec-writer):** REQ-ASK-04 now says a number only in the question does not pass
+  the figure check. In `modules/assistant/answer.ts` drop `input.question` from the `uncheckedFigures` sources (tool
+  results and arguments only); change `test/assistant/figures.test.ts` "a figure from the question or the tool
+  arguments counts" to arguments only, and add the AC-ASK-04 case ("Is our on-time rate 99.9%?" → `checked: false`).
+  New ids to name in tests: AC-ASK-11 (prompt rules + the recorded AC-ASK-05 answer), AC-ASK-12 (the existing 503 tool
+  failure test).

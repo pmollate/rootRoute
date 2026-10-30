@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { useCanOpen } from '@/components/auth/UserContext';
+import { AskAnswer, AskErrorNote } from '@/components/dashboard/assistant/AskAnswer';
+import { useAssistantOn } from '@/components/dashboard/assistant/AssistantFlag';
+import { MAX_QUESTION, useAsk } from '@/components/dashboard/assistant/useAsk';
 import { PageHero } from '@/components/dashboard/PageHero';
 import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
@@ -101,11 +104,17 @@ interface AssistantProps {
   owners: Record<string, string>; loading: boolean; error?: string;
 }
 
-/** Recommendations as a conversation. Answers are worked out from the same replay and attribution figures as the rest of the page. */
+/**
+ * Recommendations as a conversation. Answers are worked out from the same replay and attribution figures as the rest of
+ * the page. With Ask LateLens on (D10), a typed follow-up goes to the assistant instead (`useAsk`, plain text answers);
+ * the suggestion chips keep their worked-out answers.
+ */
 function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, loading, error }: AssistantProps) {
   const [picked, setPicked] = useState(0);
   const carriersOpen = useCanOpen('/dashboard/carriers');
-  const [asked, setAsked] = useState<string[]>([]);
+  const [asked, setAsked] = useState<{ q: string; live: boolean }[]>([]);
+  const assistantOn = useAssistantOn();
+  const live = useAsk();
   /** The assistant is a side popup behind a floating icon. */
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -134,8 +143,17 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
     }
     return <p>I can answer about the five causes, who owns each fix, carrier D&apos;s lanes, or what closes the gap to target.</p>;
   };
-  const ask = (q: string) => { if (q.trim()) setAsked((list) => [...list, q.trim()]); setDraft(''); };
-  const submit = (e: FormEvent) => { e.preventDefault(); ask(draft); };
+  const ask = (q: string) => { if (q.trim()) setAsked((list) => [...list, { q: q.trim(), live: false }]); setDraft(''); };
+  /** D10: the follow-up goes to Ask LateLens; with no answer it leaves the thread and goes back into the box. */
+  const askLive = async (q: string) => {
+    if (!q.trim() || q.trim().length > MAX_QUESTION || live.busy) return;
+    setAsked((list) => [...list, { q: q.trim(), live: true }]);
+    setDraft('');
+    if (await live.ask(q)) return;
+    setAsked((list) => list.filter((_, i) => i !== list.map((x) => x.live).lastIndexOf(true)));
+    setDraft(q);
+  };
+  const submit = (e: FormEvent) => { e.preventDefault(); if (assistantOn) void askLive(draft); else ask(draft); };
   const copyPlan = () => {
     const plan = steps.map((x, i) => `${i + 1}. ${FIXES[x.cause]?.[0]}: +${points(x.to - x.from)} pts, to ${pct(x.to)}`).join('\n');
     navigator.clipboard?.writeText(plan).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1600); }, () => {});
@@ -207,19 +225,28 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
             )}
           </div>
         </div>
-        {asked.map((q, i) => (
-          <div key={i}>
-            <p className={s.you}>{q}</p>
-            <div className={s.reply}><span className={s.botSmall}><BotIcon /></span><div className={s.replyBody}>{answer(q)}</div></div>
-          </div>
-        ))}
+        <div className={s.asked} aria-live="polite">
+          {asked.map(({ q, live: isLive }, i) => {
+            const reply = isLive ? live.exchanges[asked.slice(0, i).filter((x) => x.live).length]?.answer : undefined;
+            return (
+              <div key={i}>
+                <p className={s.you}>{q}</p>
+                <div className={s.reply}><span className={s.botSmall}><BotIcon /></span><div className={s.replyBody}>
+                  {!isLive ? answer(q) : reply ? <AskAnswer a={reply} /> : <p>Asking LateLens…</p>}
+                </div></div>
+              </div>
+            );
+          })}
+        </div>
       </div>
       <div className={s.suggest}>
         {SUGGESTIONS.map((q) => <button key={q} type="button" className={s.chip} onClick={() => ask(q)}><Glyph />{q}</button>)}
       </div>
+      {assistantOn && live.error && <AskErrorNote error={live.error} />}
       <form className={s.ask} onSubmit={submit}>
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Ask a follow-up about delivery performance…" aria-label="Ask a follow-up" />
-        <button type="submit" aria-label="Send" disabled={!draft.trim()}>
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Ask a follow-up about delivery performance…" aria-label="Ask a follow-up"
+          maxLength={assistantOn ? MAX_QUESTION : undefined} />
+        <button type="submit" aria-label="Send" disabled={!draft.trim() || (assistantOn && live.busy)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
         </button>
       </form>

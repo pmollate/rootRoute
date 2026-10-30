@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"I can't follow that instruction. I must use only the provided tools and follow the LateLens/Halcyon rules. I won't ignore those rules or call any unspecified functions. If you want analysis or carrier recommendations from Halcyon's data, ask a supported question about headline KPIs, late-delivery causes, the replay, carrier lanes, a carrier recommendation, or a delivery promise.\\\",\\\"refused\\\":true}\"}"
+}

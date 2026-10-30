@@ -25,7 +25,7 @@ describe.skipIf(!hasDb)('order review over HTTP (needs test database)', () => {
   let since = 0;
   beforeAll(async () => { setDeps({ gmail: null }); app = await buildApp({ auth: AUTH_ON }); });
   beforeEach(async () => {
-    await query('TRUNCATE intake_extractions, outbound_messages, intake_emails RESTART IDENTITY CASCADE');
+    await query('TRUNCATE intake_extractions, outbound_messages, intake_emails, recommendations RESTART IDENTITY CASCADE');
     since = (await query<{ m: number }>('SELECT coalesce(max(id), 0)::int AS m FROM override_log'))[0].m;
   });
   afterAll(async () => { await app.close(); await pool.end(); });

@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json && cp -R src/modules/intake/prompts dist/modules/intake/",
+    "build": "tsc -p tsconfig.json && cp -R src/modules/intake/prompts dist/modules/intake/ && cp -R src/modules/assistant/prompts dist/modules/assistant/",
     "start": "node dist/index.js",
     "migrate": "tsx src/core/db/migrate-cli.ts",
     "migrate:test": "tsx src/core/db/migrate-cli.ts --test",
@@ -14,6 +14,7 @@
     "gmail:fetch": "tsx scripts/gmail-fetch.ts",
     "maps:check": "tsx scripts/maps-check.ts",
     "eval:intake": "tsx scripts/eval-intake.ts",
+    "record:assistant": "tsx scripts/record-assistant.ts",
     "test": "vitest run",
     "lint": "tsc --noEmit -p tsconfig.json"
   },

@@ -13,5 +13,6 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  return <DashboardShell user={await currentUser()}>{children}</DashboardShell>;
+  // D10: ASK_ASSISTANT is read here, on the server, and passed down; no NEXT_PUBLIC_ variable (REQ-ASK-08).
+  return <DashboardShell user={await currentUser()} assistant={process.env.ASK_ASSISTANT === 'on'}>{children}</DashboardShell>;
 }

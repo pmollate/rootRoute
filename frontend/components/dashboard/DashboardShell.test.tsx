@@ -1,9 +1,11 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useAssistantOn } from './assistant/AssistantFlag';
 import { DashboardShell } from './DashboardShell';
 import { asRole } from './test-utils';
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/overview', useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+const nav = vi.hoisted(() => ({ path: '/dashboard/overview' }));
+vi.mock('next/navigation', () => ({ usePathname: () => nav.path, useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 
 // jsdom has no matchMedia; the theme toggle asks it for the system theme.
 vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }));
@@ -22,7 +24,26 @@ const reports = () => {
 const drawer = () => texts(navs()[1]);
 
 describe('dashboard navigation (master nav, REQ-AUTH-15)', () => {
-  afterEach(cleanup);
+  afterEach(() => { cleanup(); nav.path = '/dashboard/overview'; });
+
+  it('AC-ASK-08: without the flag no Ask LateLens button; AC-ASK-01: with it, the button is on the screen', () => {
+    nav.path = '/dashboard/carriers';
+    render(<DashboardShell>x</DashboardShell>);
+    expect(screen.queryByRole('button', { name: 'Ask LateLens' })).toBeNull();
+    cleanup();
+    render(<DashboardShell assistant>x</DashboardShell>);
+    expect(screen.getByRole('button', { name: 'Ask LateLens' })).toBeTruthy();
+  });
+
+  it('REQ-ASK-01: on Overview the dock is hidden (Router answers there) and the flag reaches the screen', () => {
+    const Probe = () => <p>{useAssistantOn() ? 'flag on' : 'flag off'}</p>;
+    render(<DashboardShell assistant><Probe /></DashboardShell>);
+    expect(screen.queryByRole('button', { name: 'Ask LateLens' })).toBeNull();
+    expect(screen.getByText('flag on')).toBeTruthy();
+    cleanup();
+    render(<DashboardShell><Probe /></DashboardShell>);
+    expect(screen.getByText('flag off')).toBeTruthy();
+  });
 
   it('a Dashboard menu of the reports, Orders, Labs and Settings; the drawer lists the same, in order', () => {
     render(<DashboardShell>x</DashboardShell>);
