@@ -30,6 +30,7 @@ needed to inspect the files.
 | SD-06 | Carrier capacity contracts | Carriers (C) | `sd06_capacity.py` | Built |
 | SD-07 | Carrier tracking events (JSON, HTML, CSV) | Carriers (C) | `sd07_tracking.py` | Planned (C6) |
 | SD-08 | Mock mailbox + mock WMS form | Email (A) | none (static pages) | Stretch (A12) |
+| SD-09 | 10× replica + a second client, for the timed scale run | All (S3) | `sd09_scale.py` | Built |
 
 ### SD-01: API JSON orders and EDI 850 files
 
@@ -97,3 +98,16 @@ needed to inspect the files.
 - **Used by:** E13, the entry bot that keys approved ALL_CLEAR orders (stretch).
 - **Generator:** none. The mock WMS form is served by the Next.js app at `/mock-wms.html`.
 - **Replace with (real):** Outlook and the WMS.
+
+### SD-09: scale replica and second client
+
+- **Built from:** the supplied dataset. `x10/` is ten copies of every delivery (copies 1–9 get new delivery, order,
+  penalty and complaint ids with a `-Rkk` suffix; every other value is unchanged), interleaved by order time with a
+  seeded shuffle. `second-client/` is the same deliveries as a made-up "Northwind Freight (synthetic)" would hold them:
+  clients `N1001`–`N1280`, carriers ATLAS…FJORD, warehouses DC1–DC5, dates moved 313 weeks earlier (Apr–Sep 2020),
+  plus `client_profile.json` with that client's carrier rules. Each folder has `manifest.json` and `SYNTHETIC.txt`.
+- **Used by:** the timed scale run only (`npm run bench`, `docs/SCALE-RUN.md`, AC-DATA-23). Never by a screen, the
+  headline figures or the replay.
+- **Generator:** `python backend/synthetic-data/generators/sd09_scale.py [--factor 10]` → `out/scale/x10/` (about
+  80 MB) and `out/scale/second-client/`. `npm run bench` builds them if missing.
+- **Replace with (real):** a second client's own extract, mapped onto the same columns.

@@ -66,6 +66,7 @@ npm run pipeline && npm run pipeline:test # computed tables -> latelens and late
 npm run migrate && npm run migrate:test
 npm run seed && npm run seed:test
 npm run dev:all                           # API on :3001, web on :3000 (landing page) and :3000/dashboard
+npm run bench                             # optional: timed 1x / 10x / second-client run, no DB write (docs/SCALE-RUN.md)
 ```
 
 Activate the venv in every new terminal; `pipeline`, `data` and `test:py` call `python`. One `.env` at the repo root
