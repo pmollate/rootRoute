@@ -103,7 +103,7 @@ export async function processEmail(input: IncomingEmail, deps: Deps): Promise<Pr
       email_id: id, extraction: null, decision,
       checks: { address: null, promise: null, warehouse: null, carrier: null },
       reply_draft: templateReply({ decision, clientName: null, contact: null, items: [], promise: null, missing: [],
-        candidates: [], address: null, addressIssues: [], suggestion: null }),
+        address: null, addressIssues: [], suggestion: null }),
       reply_source: 'template',
     });
     await repo.setStatus(id, 'AWAITING_APPROVAL');

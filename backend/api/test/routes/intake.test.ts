@@ -22,14 +22,13 @@ describe.skipIf(!hasDb)('intake routes (needs test database)', () => {
   });
   afterAll(() => pool.end());
 
-  it('AC-INT-06: C190 without street and ZIP gets CONFIRM_ADDRESS and a draft offering its saved addresses', async () => {
+  it('AC-INT-06: C190 without street and ZIP gets CONFIRM_ADDRESS and a draft asking for the address, listing no saved address', async () => {
     const r = (await paste('34')).json();
     expect(r).toMatchObject({ status: 'AWAITING_APPROVAL', decision: 'CONFIRM_ADDRESS' });
     const d = (await app.inject({ method: 'GET', url: `/api/intake/${r.id}` })).json();
     expect(d.checks.address.missing).toEqual(['address.line1', 'address.zip']);
-    for (const phrase of ['street address', 'ZIP code', '55 Trinity Ave SW', '400 S Orange Ave', '25 Oct 2026']) {
-      expect(d.replyDraft).toContain(phrase);
-    }
+    for (const phrase of ['street address', 'ZIP code', '25 Oct 2026']) expect(d.replyDraft).toContain(phrase);
+    for (const saved of ['55 Trinity Ave SW', '400 S Orange Ave']) expect(d.replyDraft).not.toContain(saved);
     expect(d.email.redactedBody).not.toContain('Sam Kowalski');
     expect(d.replyDraft).toContain('Hello Sam Kowalski,');
   });

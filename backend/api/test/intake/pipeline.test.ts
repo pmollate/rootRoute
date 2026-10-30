@@ -61,7 +61,8 @@ describe('intake pipeline', () => {
     const first = await processEmail({ from: 'orders@client190.example', subject: '[SYNTHETIC] Order',
       body: 'Ship to Dock 2, Atlanta, GA. 45 x HX-616', receivedAt: '2026-10-21 16:51' }, d);
     expect(first.decision).toBe('CONFIRM_ADDRESS');
-    expect(mem.extractions[0].reply_draft).toContain('Main DC: 4411 Mill Rd');
+    expect(mem.extractions[0].reply_draft).toContain('full, correct delivery address');
+    expect(mem.extractions[0].reply_draft).not.toContain('Main DC'); // saved addresses are never listed (31 Oct)
 
     const second = await processEmail({ from: 'orders@client190.example', subject: 'Re: Order',
       body: 'Street is 4411 Mill Rd, ZIP 30303', receivedAt: '2026-10-21 17:30', inReplyTo: first.id }, d);

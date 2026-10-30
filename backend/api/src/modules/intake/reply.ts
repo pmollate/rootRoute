@@ -6,7 +6,7 @@ import type { AddressQuery } from '../../core/maps/types.js';
 import type { AddressCheck } from './address.js';
 import type { Decision } from './decide.js';
 import { LINK_PLACEHOLDER, neutralisePlaceholder as clean } from './linkRules.js';
-import type { Extraction, SavedAddress } from './schema.js';
+import type { Extraction } from './schema.js';
 import type { AddressIssue } from './validate.js';
 
 /** Checked facts only: the model never sees the raw email when drafting (SEC-02). Names stay as tags (SEC-05). */
@@ -17,7 +17,6 @@ export interface ReplyFacts {
   items: { sku: string; qty: number }[];
   promise: PromiseResult | null;
   missing: string[];               // e.g. ["address.line1", "address.zip"]
-  candidates: SavedAddress[];
   address: string | null;          // the address as given, when the map could not confirm it
   addressIssues: AddressIssue[];
   suggestion: AddressQuery | null; // the map's reading (never a different street)
@@ -41,8 +40,6 @@ export function replyFactsOf(f: { decision: Decision; clientName: string | null;
     decision: f.decision, clientName: f.clientName,
     contact: Object.keys(f.piiMap).find((tag) => tag.startsWith('[PERSON_')) ?? null,
     items: (f.extraction?.items ?? []).map((i) => ({ ...i, sku: clean(i.sku) })), promise: f.promise, missing: address?.missing ?? [],
-    candidates: (address?.candidates ?? []).map((c) => ({ ...c, label: clean(c.label), line1: clean(c.line1), line2: c.line2 && clean(c.line2),
-      city: clean(c.city), state: clean(c.state), zip: clean(c.zip) })),
     address: unverified && address.address ? clean(formatAddress(address.address)) : null,
     addressIssues: unverified ? address.validation?.issues ?? [] : [],
     suggestion: suggestion && { ...suggestion, line1: clean(suggestion.line1), city: clean(suggestion.city), state: clean(suggestion.state), zip: clean(suggestion.zip) },
@@ -68,10 +65,6 @@ export function formatDate(iso: string): string {
 
 export function missingLabels(missing: string[]): string[] {
   return missing.map((m) => FIELD_LABEL[m] ?? m);
-}
-
-function addressLine(s: SavedAddress): string {
-  return `${s.label}: ${[s.line1, s.line2, `${s.city}, ${s.state} ${s.zip}`].filter(Boolean).join(', ')}`;
 }
 
 /** Strings that must appear verbatim in any reply for these facts. */
@@ -111,16 +104,15 @@ export function templateReply(f: ReplyFacts): string {
     return `${hello}\n\nThank you for your order. We could not match it to your account or read the items. Could you reply with the SKU and quantity for each item?\n\nHalcyon Logistics`;
   }
   if (f.decision === 'CONFIRM_ADDRESS') {
-    const options = f.candidates.length
-      ? `\n\nIs it one of your saved addresses?\n${f.candidates.map((c) => `- ${addressLine(c)}`).join('\n')}`
-      : '';
+    // 31 Oct (the user): ask for the updated address; saved addresses are never listed in a reply (REQ-INT-06).
     const ask = f.missing.length
-      ? `Before we ship, please send the ${missingLabels(f.missing).join(', ')} for the delivery address.`
+      ? `Before we ship, we need the ${missingLabels(f.missing).join(', ')} for the delivery address. Please reply with the full, correct delivery address.`
       : `Before we ship, please check the delivery address you gave: ${f.address}. `
-        + `${issueSentences(f) || 'We could not confirm it on the map.'} Please reply with the correct `
-        + `${f.addressIssues.length ? [...new Set(f.addressIssues.map((i) => ISSUE_LABEL[i]))].join(', ') : 'street address and ZIP code'}.`;
-    const link = f.link ? `\n\nOr confirm the address on a map with this one-time link: ${LINK_PLACEHOLDER}` : '';
-    return `${hello}\n\nThank you for your order:\n${items}\n\n${ask}${options}${link}\n\n${promise}\n\nHalcyon Logistics`;
+        + `${issueSentences(f) || 'We could not confirm it on the map.'} Please check the `
+        + `${f.addressIssues.length ? [...new Set(f.addressIssues.map((i) => ISSUE_LABEL[i]))].join(', ') : 'street address and ZIP code'}`
+        + ' and reply with the full, correct delivery address.';
+    const link = f.link ? `\n\nYou can also update the address with this one-time link: ${LINK_PLACEHOLDER}` : '';
+    return `${hello}\n\nThank you for your order:\n${items}\n\n${ask}${link}\n\n${promise}\n\nHalcyon Logistics`;
   }
   return `${hello}\n\nYour order is confirmed:\n${items}\n\n${promise}\n\nHalcyon Logistics`;
 }
@@ -132,7 +124,7 @@ export async function draftReply(llm: LLM, f: ReplyFacts): Promise<{ text: strin
   const required = requiredPhrases(f);
   try {
     const user = JSON.stringify({ decision: f.decision, client_name: f.clientName, contact: f.contact, items: f.items,
-      promise: f.promise, missing: f.missing.length ? missingLabels(f.missing) : [], candidates: f.candidates,
+      promise: f.promise, missing: f.missing.length ? missingLabels(f.missing) : [],
       address: f.address, address_problem: f.addressIssues.length ? issueSentences(f) : null, required_phrases: required });
     const text = await llm.text({ system: REPLY_SYSTEM, user, tag: 'reply' });
     if (text && required.every((p) => text.includes(p))) return { text, source: 'model' };
