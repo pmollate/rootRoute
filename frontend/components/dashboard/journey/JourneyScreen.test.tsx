@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { act, cleanup, fireEvent, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mockApi, renderScreen } from '../test-utils';
 import { JourneyScreen } from './JourneyScreen';
 
@@ -34,7 +34,10 @@ const place = (name: RegExp) => within(screen.getByRole('region', { name: 'Journ
 const popup = (title: string) => screen.getByRole('group', { name: `${title}: stages` });
 
 describe('Order journey', () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
 
   it('AC-JRN-07: says when it was delivered and which decisions made it late, with the parcel on the first that went wrong', async () => {
     mockApi({ '/api/journey/delivery:D000213': D000213, '/api/intake': INBOX });
@@ -145,5 +148,25 @@ describe('Order journey', () => {
     renderScreen(<JourneyScreen initialRef="delivery:D999999" />);
     expect((await screen.findByRole('alert')).textContent).toMatch(/No delivery found with ID D999999/);
     expect((screen.getByLabelText('Delivery ID') as HTMLInputElement).value).toBe('D999999');
+  });
+
+  it('REQ-JRN-15: refetches a new order every 5 seconds while its steps appear, and stops once it is delivered', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const order = (delivered: string) => ({ ref: 'email:8', kind: 'order', synthetic: true, rounds: [],
+      summary: { clientId: 'C003', tier: 'Tier 2', channel: 'Email', commitment: 'same_day', destination: 'Detroit, MI, 48226',
+        promisedDate: '2026-10-29', outcome: 'entered' },
+      stages: D000213.stages.map((st) => (st.n === 9 ? { ...st, status: 'done' } : st.n === 13 ? { ...st, status: delivered }
+        : st.n > 9 && st.n < 13 ? { ...st, status: 'not_reached' } : st)) });
+    const routes: Record<string, unknown> = { '/api/journey/email:8': order('not_reached'), '/api/intake': INBOX };
+    const fetch = mockApi(routes);
+    const loads = () => fetch.mock.calls.filter(([u]) => String(u).endsWith('/api/journey/email:8')).length;
+    renderScreen(<JourneyScreen initialRef="email:8" />);
+    await screen.findByRole('region', { name: 'Journey map' });
+    expect(loads()).toBe(1);
+    routes['/api/journey/email:8'] = order('done');
+    await act(() => vi.advanceTimersByTimeAsync(5_000));
+    expect(loads()).toBe(2);
+    await act(() => vi.advanceTimersByTimeAsync(15_000));
+    expect(loads()).toBe(2);
   });
 });
