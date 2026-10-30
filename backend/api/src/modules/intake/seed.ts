@@ -2,7 +2,7 @@
 import { config as loadEnv } from 'dotenv';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { type SeedData, writeSeed } from './seedTables.js';
+import { parseClientEmails, type SeedData, writeSeed } from './seedTables.js';
 
 loadEnv({ path: fileURLToPath(new URL('../../../../../.env', import.meta.url)), quiet: true });
 if (process.argv.includes('--test')) process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
@@ -21,8 +21,9 @@ try {
   await client.query('BEGIN');
   await writeSeed(client, {
     domains: csv<SeedData['domains'][number]>('client_domains.csv'),
-    // Optional test senders on a shared domain (gmail.com): email,client_id. Not part of the generated data.
-    emails: csv<SeedData['emails'][number]>('client_emails.csv', true),
+    // Optional test senders on a shared domain (gmail.com): email,client_id. Not part of the generated data. Also read
+    // from CLIENT_EMAILS, which is how a deploy gets them (the CSV is gitignored).
+    emails: [...csv<SeedData['emails'][number]>('client_emails.csv', true), ...parseClientEmails(process.env.CLIENT_EMAILS)],
     addresses: csv<SeedData['addresses'][number]>('saved_addresses.csv'),
   });
   await client.query('COMMIT');
