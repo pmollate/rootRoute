@@ -1,9 +1,12 @@
 import { allowList } from '../../core/config.js';
-import type { AuthUser, CarrierId, CarrierRecommendation } from '../../core/contracts.js';
+import type { AuthUser, CarrierId, CarrierRecommendation, PromiseResult } from '../../core/contracts.js';
 import type { GmailClient } from '../../core/gmail.js';
 import { restore } from '../../core/pii/redact.js';
+import type { AddressCheck } from './address.js';
+import { LINK_PLACEHOLDER, type LinkDeps, mintLink, saveOnApproval } from './link.js';
 import { senderAddress, sendReply } from './mailbox.js';
-import type { Repo } from './repo.js';
+import { replyFactsOf, requiredPhrases, templateReply, withoutLinkPlaceholder } from './reply.js';
+import type { EmailRow, ExtractionRow, Repo } from './repo.js';
 import { carrierChoices } from './review.js';
 
 export const ACTIONS = ['approve', 'reject', 'send_reply', 'send_to_wms'] as const;
@@ -16,9 +19,25 @@ export type OverrideLog = (o: { orderRef: string; from: string; to: string; reas
  * `edited`: the operator's own reply text (send_reply). `reason`: why an order is rejected, or why its carrier changes.
  * `carrier`: the supervisor's carrier for an ALL_CLEAR order (approve only). `overrides`: where that change is logged.
  */
-export interface ActionOptions { edited?: string; reason?: string; carrier?: CarrierId; overrides?: OverrideLog }
+export interface ActionOptions { edited?: string; reason?: string; carrier?: CarrierId; overrides?: OverrideLog; link?: LinkDeps }
 
 const MIN_REASON = 3;
+
+/**
+ * REQ-LINK-09: a reply holding [CONFIRM_LINK] that gets no link (CONFIRM_LINK off, or no link service) never sends it as
+ * text. The placeholder's sentence goes; if that loses a required phrase the text held (a model draft may put the
+ * placeholder on the promise line), the fixed template for the same facts is sent instead.
+ */
+async function withoutLink(repo: Repo, email: EmailRow, x: ExtractionRow | null, text: string): Promise<string> {
+  const stripped = withoutLinkPlaceholder(text);
+  if (!x) return stripped;
+  const from = senderAddress(email.from_addr);
+  const client = await repo.clientByDomain(from.split('@')[1] ?? '', from);
+  const facts = replyFactsOf({ decision: x.decision, clientName: client?.client_name ?? null, piiMap: email.pii_map ?? {},
+    extraction: x.extraction, address: x.checks.address as AddressCheck | null, promise: x.checks.promise as PromiseResult | null });
+  const lost = requiredPhrases(facts).some((p) => text.includes(p) && !stripped.includes(p));
+  return lost ? restore(templateReply(facts), email.pii_map ?? {}) : stripped;
+}
 
 /**
  * E8 / E18 / SEC-03 / SEC-04: nothing leaves without an operator's approval; replies go only to allow-listed addresses,
@@ -59,7 +78,10 @@ export async function applyAction(repo: Repo, id: number, action: Action, actor:
         checks: { ...x.checks, carrier: { ...rec, carrier: change } }, reply_draft: x.reply_draft, reply_source: x.reply_source });
     }
     await repo.setStatus(id, 'APPROVED');
-    await repo.logApproval(id, 'approve', user, change && rec ? { ...who, carrier: change, from: rec.carrier, reason } : who);
+    // E19 REQ-LINK-05: a link-confirmed address joins the client's saved addresses only now.
+    const saved = opts.link ? await saveOnApproval(opts.link, email, x) : false;
+    await repo.logApproval(id, 'approve', user, { ...(change && rec ? { ...who, carrier: change, from: rec.carrier, reason } : who),
+      ...(saved ? { savedAddress: 'link' } : {}) });
     return { code: 200, status: 'APPROVED' };
   }
 
@@ -74,9 +96,21 @@ export async function applyAction(repo: Repo, id: number, action: Action, actor:
       return { code: 403, error: `${to} is not on the allow-list` };
     }
     if (!outbox.gmail) return { code: 503, error: 'Gmail is not set up (GMAIL_* in .env): reply not sent' };
-    const body = opts.edited ?? restore(x?.reply_draft ?? '', email.pii_map ?? {});
-    const gmailId = await sendReply(outbox.gmail,
-      { to, subject: email.subject, body, threadId: email.thread_id, inReplyTo: email.message_id }, outbox.allow);
+    let body = opts.edited ?? restore(x?.reply_draft ?? '', email.pii_map ?? {});
+    // E19 REQ-LINK-01, SEC-LINK-01, -09: only here, after the allow-list and Gmail checks, a CONFIRM_ADDRESS reply's
+    // placeholder becomes a new one-time link in the sent text; the stored copy keeps the placeholder, never the token.
+    // Text without the placeholder (the operator removed it) is sent as written and mints nothing.
+    const link = opts.link?.enabled && x?.decision === 'CONFIRM_ADDRESS' && body.includes(LINK_PLACEHOLDER) ? opts.link : null;
+    if (!link && body.includes(LINK_PLACEHOLDER)) body = await withoutLink(repo, email, x, body);
+    const sent = link ? await mintLink(link, email, x, user, body) : body;
+    let gmailId: string;
+    try {
+      gmailId = await sendReply(outbox.gmail,
+        { to, subject: email.subject, body: sent, threadId: email.thread_id, inReplyTo: email.message_id }, outbox.allow);
+    } catch (err) {
+      if (link) await link.links.revokeUnused([id], link.now()); // a link nobody received never works
+      throw err;
+    }
     await repo.logOutbound(id, to, body, 'sent', gmailId);
     const status = email.status === 'ENTERED' ? 'ENTERED' : 'SENT';
     await repo.setStatus(id, status);

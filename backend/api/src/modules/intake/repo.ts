@@ -1,6 +1,7 @@
 import { pool, query } from '../../core/db/pool.js';
 import type { AddressCheck } from './address.js';
 import type { Decision } from './decide.js';
+import type { LinkRepo, LinkRow } from './link.js';
 import type { Extraction, SavedAddress } from './schema.js';
 
 export interface EmailRow {
@@ -91,6 +92,14 @@ export interface Repo {
 
 const POLL_LOCK = 7_301_015; // any fixed number, shared by every instance of the API
 
+/**
+ * A client's saved addresses in a stable order: the seed's rows first, in the seed file's order, then addresses confirmed
+ * through the E19 link, oldest first. A re-seed gives seed rows new, higher ids than kept link rows; ordering by id alone
+ * would move the link rows first and change the candidates in replies, prompts and recordings (REQ-LINK-05).
+ */
+export const SAVED_ADDRESSES_SQL = `SELECT id, client_id, label, line1, line2, city, state, zip FROM saved_addresses
+  WHERE client_id = $1 ORDER BY source = 'link', id`;
+
 const one = async <T extends object>(sql: string, params: unknown[]): Promise<T | null> => (await query<T>(sql, params))[0] ?? null;
 
 export const repo: Repo = {
@@ -100,8 +109,7 @@ export const repo: Repo = {
        JOIN (SELECT client_id, 0 AS rank FROM client_emails WHERE email = $2
              UNION ALL SELECT client_id, 1 FROM client_domains WHERE domain = $1) m ON m.client_id = c.client_id
       ORDER BY m.rank LIMIT 1`, [domain.toLowerCase(), address.toLowerCase()]),
-  savedAddresses: (clientId) =>
-    query<SavedAddress>('SELECT id, client_id, label, line1, line2, city, state, zip FROM saved_addresses WHERE client_id = $1 ORDER BY id', [clientId]),
+  savedAddresses: (clientId) => query<SavedAddress>(SAVED_ADDRESSES_SQL, [clientId]),
   findByHash: (hash) => one<EmailRow>('SELECT * FROM intake_emails WHERE hash = $1', [hash]),
   findByGmailId: (gmailId) => one<EmailRow>('SELECT * FROM intake_emails WHERE gmail_id = $1', [gmailId]),
   lastInThread: (threadId) => one<EmailRow>('SELECT * FROM intake_emails WHERE thread_id = $1 ORDER BY id DESC LIMIT 1', [threadId]),
@@ -179,5 +187,58 @@ export const repo: Repo = {
     } finally {
       client.release();
     }
+  },
+};
+
+/** Migration 103 (E19). Only the token's hash is ever read or written (SEC-LINK-01). */
+export const linkRepo: LinkRepo = {
+  async orderEmailIds(emailId) {
+    const rows = await query<{ id: number }>(
+      `WITH RECURSIVE up AS (
+         SELECT id, in_reply_to FROM intake_emails WHERE id = $1
+         UNION ALL SELECT e.id, e.in_reply_to FROM intake_emails e JOIN up ON e.id = up.in_reply_to),
+       down AS (
+         SELECT id FROM up WHERE in_reply_to IS NULL
+         UNION ALL SELECT e.id FROM intake_emails e JOIN down ON e.in_reply_to = down.id)
+       SELECT id FROM down ORDER BY id`, [emailId]);
+    return rows.map((r) => r.id);
+  },
+  async revokeUnused(ids, at) {
+    return (await query<{ id: number }>(
+      `UPDATE address_confirm_tokens SET revoked_at = $2
+        WHERE email_id = ANY($1::int[]) AND used_at IS NULL AND revoked_at IS NULL RETURNING id`, [ids, at])).length;
+  },
+  async insert(l) {
+    return (await query<{ id: number }>(
+      `INSERT INTO address_confirm_tokens (token_hash, email_id, issued_at, expires_at, issued_by, prefill, synthetic)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [l.token_hash, l.email_id, l.issued_at, l.expires_at, l.issued_by, JSON.stringify(l.prefill), l.synthetic]))[0].id;
+  },
+  byHash: (h) => one<LinkRow>('SELECT * FROM address_confirm_tokens WHERE token_hash = $1', [h]),
+  async countLookup(id) {
+    return (await query<{ n: number }>(
+      'UPDATE address_confirm_tokens SET map_lookups = map_lookups + 1 WHERE id = $1 RETURNING map_lookups AS n', [id]))[0].n;
+  },
+  async setReading(id, reading) {
+    await query('UPDATE address_confirm_tokens SET map_reading = $2 WHERE id = $1', [id, JSON.stringify(reading)]);
+  },
+  // Single use under concurrency: the WHERE clause, not a read-then-write, decides who confirms (SEC-LINK-02).
+  async markUsed(id, address, pin, reading, at) {
+    return (await query<{ id: number }>(
+      `UPDATE address_confirm_tokens SET used_at = $5, confirmed_address = $2, lat = $3, lon = $4, map_reading = $6
+        WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > $5 RETURNING id`,
+      [id, JSON.stringify(address), pin.lat, pin.lon, at, reading && JSON.stringify(reading)])).length === 1;
+  },
+  async newestFor(ids) {
+    const rows = await query<LinkRow>(
+      'SELECT DISTINCT ON (email_id) * FROM address_confirm_tokens WHERE email_id = ANY($1::int[]) ORDER BY email_id, id DESC', [ids]);
+    return new Map(rows.map((r) => [r.email_id, r]));
+  },
+  async saveAddress(a) {
+    await query(
+      `INSERT INTO saved_addresses (client_id, label, line1, line2, city, state, zip, synthetic, source, lat, lon, email_id, confirmed_at)
+       VALUES ($1,'Confirmed by client link',$2,$3,$4,$5,$6,$7,'link',$8,$9,$10,$11)`,
+      [a.clientId, a.address.line1, a.address.line2, a.address.city, a.address.state, a.address.zip, a.synthetic,
+        a.pin.lat, a.pin.lon, a.emailId, a.confirmedAt]);
   },
 };

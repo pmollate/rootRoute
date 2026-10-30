@@ -3,12 +3,11 @@ import type { CarrierRecommendation, CarriersApi, PromiseResult, WarehouseApi, W
 import type { GmailClient } from '../../core/gmail.js';
 import { LLMError } from '../../core/llm/types.js';
 import { PiiError } from '../../core/pii/types.js';
-import type { AddressCheck } from './address.js';
 import type { Decision } from './decide.js';
 import { senderAddress } from './mailbox.js';
 import { type EarlierEmail, type IntakeDeps, readOrder } from './read.js';
 import { regionOfState } from './region.js';
-import { draftReply, type ReplyFacts, templateReply } from './reply.js';
+import { draftReply, replyFactsOf, templateReply } from './reply.js';
 import type { EmailRow, Repo } from './repo.js';
 
 export { mergeExtraction } from './read.js';
@@ -46,9 +45,6 @@ export const UNKNOWN_SENDER = 'unknown sender';
 export function emailHash(e: IncomingEmail): string {
   return createHash('sha256').update(`${senderAddress(e.from)}\n${e.body}`).digest('hex');
 }
-
-const formatAddress = (a: NonNullable<AddressCheck['address']>) =>
-  `${a.line1}${a.line2 ? `, ${a.line2}` : ''}, ${a.city}, ${a.state} ${a.zip}`;
 
 /** The redacted text of the email this one answers, and of the emails before it, for grounding the merged address. */
 async function earlierEmail(repo: Repo, email: EmailRow | null): Promise<EarlierEmail | undefined> {
@@ -131,16 +127,8 @@ export async function processEmail(input: IncomingEmail, deps: Deps): Promise<Pr
     carrier = await carriers.recommendCarrier({ region, commitment: promise.commitment, slaClause: client.sla_penalty_clause === 'Y' });
   }
 
-  const unverified = address?.status === 'unverified';
-  const facts: ReplyFacts = {
-    decision, clientName: client?.client_name ?? null,
-    contact: Object.keys(redacted.replacements).find((tag) => tag.startsWith('[PERSON_')) ?? null,
-    items: extraction?.items ?? [], promise, missing: address?.missing ?? [], candidates: address?.candidates ?? [],
-    address: unverified && address.address ? formatAddress(address.address) : null,
-    addressIssues: unverified ? address.validation?.issues ?? [] : [],
-    suggestion: unverified ? address.validation?.suggestion ?? null : null,
-    ...(deps.confirmLink ? { link: true } : {}),
-  };
+  const facts = replyFactsOf({ decision, clientName: client?.client_name ?? null, piiMap: redacted.replacements, extraction,
+    address, promise, link: deps.confirmLink });
   const reply = await draftReply(deps.llm, facts);
   await repo.saveExtraction({
     email_id: id, extraction, decision, checks: { address, promise, warehouse: warehouseChoice, carrier },
