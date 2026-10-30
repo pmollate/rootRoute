@@ -185,7 +185,7 @@ Python pipeline ─────────┤
   builders, tested without a database), reads in `queries.ts`, the route in `routes.ts`. Being inside Carriers lets the
   past-delivery note use `laneRows` + `recommendFromLane` directly, which log nothing; the public `recommendCarrier`
   writes a `recommendations` row and would break REQ-JRN-02.
-- **Table `order_events`** (migration `301_order_events.sql`, writer: Node journey module): `id`, `order_ref`, `event`
+- **Table `order_events`** (migration `301_order_events.sql`, writer: `recordOrderEvent` in `modules/carriers/index.ts`; intake calls it for `wms_entered`): `id`, `order_ref`, `event`
   (`wms_entered` | `picked` | `picked_up` | `in_transit` | `out_for_delivery` | `delivered`), `ts`, `detail jsonb`,
   `synthetic boolean`, unique (`order_ref`, `event`).
 - **WMS entry:** `applyAction(… 'send_to_wms')` calls the WMS (`modules/intake/wms.ts`) and then C's
@@ -201,7 +201,7 @@ Python pipeline ─────────┤
 |---|---|---|---|
 | Past-delivery journey (REQ-JRN-01, -07, SEC) | Core | **Built (C11)** | B5 causes, C6 tracking |
 | New-order journey, stages 1–9 (REQ-JRN-01–04) | Core | **Built (C11)**; the Intake link (REQ-JRN-09) waits for A's open changes | A8 intake |
-| Simulated stages 10–13 (REQ-JRN-05, -06, -10) | Synthetic | built 30 Oct (simulator) | A's review of the `send_to_wms` hook |
+| Simulated stages 10–13 (REQ-JRN-05, -06, -13) | Synthetic | built 30 Oct (simulator) | A's review of the `send_to_wms` change |
 | Delay notice (REQ-JRN-12) | Stretch | — | E10 |
 
 Drop order if behind: delay notice → simulated stages → new-order journey. The past-delivery journey stays: it is the
@@ -221,7 +221,7 @@ per-order proof of SPEC §2.2.
 |---|---|
 | Simulated delivery stages read as real tracking | Badge on every synthetic stage and a page note (REQ-JRN-08); simulated data never feeds a headline figure (SPEC §12.1). |
 | A "With LateLens" note reads as a guaranteed on-time result | The note shows the rule's output only; on-time rates appear only on Replay (§4.3). |
-| Touching A's `send_to_wms` the day before submission | The hook is one call after ENTERED and fails safe: an error is logged and the order stays ENTERED. A reviews it before merge. |
+| Touching A's `send_to_wms` the day before submission | A WMS failure answers 503 and leaves the status unchanged, and no event is written. The Email owner (A) reviews the `send_to_wms` change before merge. |
 | Scope too large for one day | Tiered as in §8; the past-delivery journey alone meets the success measure for the "before pickup" argument. |
 
 ## 11. Open items
