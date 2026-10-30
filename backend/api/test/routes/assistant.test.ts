@@ -18,9 +18,8 @@ const NODE_TABLES = ['audit_log', 'intake_emails', 'intake_extractions', 'outbou
 const counts = async () => Object.fromEntries(await Promise.all(NODE_TABLES.map(async (t) =>
   [t, (await query<{ n: number }>(`SELECT count(*)::int AS n FROM ${t}`, []))[0].n] as const)));
 
-// The assistant's model turns are recorded against Azure OpenAI in C15 Step 11 (`npm run record:assistant`), which is
-// blocked on Q-ASK-02. Until `kind: "tool"` recordings are committed in test/recordings/, this file is skipped, not
-// failed; it runs as soon as they exist.
+// The assistant's model turns are recorded against Azure OpenAI by C15 Step 11 (`npm run record:assistant`). The file
+// skips, rather than fails, if no `kind: "tool"` recordings are in test/recordings/ (e.g. while they are re-recorded).
 const hasRecordings = readdirSync(RECORDINGS_DIR).some((f) => f.endsWith('.json')
   && (JSON.parse(readFileSync(join(RECORDINGS_DIR, f), 'utf8')) as { kind?: string }).kind === 'tool');
 

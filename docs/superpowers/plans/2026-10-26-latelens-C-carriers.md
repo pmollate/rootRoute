@@ -2606,7 +2606,7 @@ describe.skipIf(!hasDb)('Ask LateLens, recorded (needs test database)', () => {
   Note on AC-ASK-07: `recommend_carrier` in the registry uses `recommendFromLane`, which writes no `recommendations`
   row (C9 as built). The count check runs serially (`fileParallelism: false` in `vitest.config.ts`).
 
-- [ ] **Step 11: Record the model turns (needs Azure; blocked on Q-ASK-02).** Create
+- [x] **Step 11: Record the model turns (needs Azure; Q-ASK-02 answered 30 Oct).** Create
   `backend/api/scripts/record-assistant.ts`: builds the app with `AUTH_REQUIRED=on` settings and a test secret,
   `setAssistantDeps({ enabled: true, limiter: new QuestionLimiter(1000) })`, and posts every question in
   `questions.json` (as its role) and `out-of-scope.json` (as `leadership`), printing `id`, `checked`, `refused`,

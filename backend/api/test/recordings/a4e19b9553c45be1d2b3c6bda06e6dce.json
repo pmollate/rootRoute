@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"I can't send notices or take actions like sending the delay notice to Client 25. I can, however, provide allowed information: headline KPIs, late-delivery causes, a replay, carrier lanes, a carrier recommendation, or a delivery promise if you provide the order details. Tell me which of those you want and any needed context (e.g., region, commitment, receivedAt) and I will use LateLens data to prepare it.\\\",\\\"refused\\\":true}\"}"
+}
