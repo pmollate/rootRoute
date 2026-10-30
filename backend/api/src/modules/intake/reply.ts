@@ -58,7 +58,7 @@ export function safeNames(piiMap: Record<string, string> | null): Record<string,
 const FIELD_LABEL: Record<string, string> = {
   'address.line1': 'street address', 'address.city': 'city', 'address.state': 'state', 'address.zip': 'ZIP code',
 };
-const ISSUE_LABEL: Record<AddressIssue, string> = { street_not_found: 'street address', zip_mismatch: 'ZIP code', state_mismatch: 'state' };
+const ISSUE_LABEL: Record<AddressIssue, string> = { street_not_found: 'street address', city_mismatch: 'city', zip_mismatch: 'ZIP code', state_mismatch: 'state' };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function formatDate(iso: string): string {
@@ -81,6 +81,7 @@ export function requiredPhrases(f: ReplyFacts): string[] {
   if (f.decision === 'CONFIRM_ADDRESS') {
     out.push(...missingLabels(f.missing), ...f.addressIssues.map((i) => ISSUE_LABEL[i]));
     if (f.addressIssues.includes('zip_mismatch') && f.suggestion) out.push(f.suggestion.zip);
+    if (f.addressIssues.includes('city_mismatch') && f.suggestion) out.push(f.suggestion.city);
     if (f.link) out.push(LINK_PLACEHOLDER); // a model draft without it falls back to the template
   }
   return [...new Set(out)];
@@ -95,6 +96,7 @@ function issueSentences(f: ReplyFacts): string {
   return f.addressIssues.map((issue) => {
     if (issue === 'street_not_found') return `We could not find ${street} in ${city}, ${state}.`;
     if (issue === 'zip_mismatch') return `The ZIP code ${zip} does not match ${city}, ${state}${s ? `; the map shows ${s.zip} for this street` : ''}.`;
+    if (issue === 'city_mismatch') return `The map places ${street}, ${state} ${zip} in ${s ? s.city : 'another city'}, not ${city}.`;
     return `The state does not match ${city}.`;
   }).join(' ');
 }

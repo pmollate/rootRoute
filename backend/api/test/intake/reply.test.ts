@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LLM } from '../../src/core/llm/types.js';
 import { restore } from '../../src/core/pii/redact.js';
-import { draftReply, formatDate, type ReplyFacts, templateReply } from '../../src/modules/intake/reply.js';
+import { draftReply, formatDate, type ReplyFacts, requiredPhrases, templateReply } from '../../src/modules/intake/reply.js';
 import { checkPromise } from '../../src/modules/warehouse/domain.js';
 
 const C190_SAVED = [
@@ -41,6 +41,14 @@ describe('reply drafting', () => {
     expect(text).toContain('ZIP code 19107 does not match Orlando, FL');
     expect(text).toContain('32819');
     expect(text).toContain('Main DC: 4411 Mill Rd');
+  });
+
+  it('says which city the map puts the street in, and that city is required text', () => {
+    const facts = { ...base, decision: 'CONFIRM_ADDRESS' as const, address: '65156 Powers Rd, Madhapur, OR 97828',
+      addressIssues: ['city_mismatch' as const], suggestion: { line1: '65156 Powers Rd', city: 'Enterprise', state: 'OR', zip: '97828' } };
+    const text = templateReply(facts);
+    expect(text).toContain('The map places 65156 Powers Rd, OR 97828 in Enterprise, not Madhapur.');
+    expect(requiredPhrases(facts)).toEqual(expect.arrayContaining(['city', 'Enterprise']));
   });
 
   it('asks for the street when the map cannot find it, without guessing one', () => {

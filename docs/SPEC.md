@@ -655,8 +655,11 @@ Pipeline (code controls every step; AI only at steps 5 and 11). Code: `backend/a
 6. Address check (`address.ts`): a value counts only if it appears in the email text; complete means line1 + city +
    state + 5-digit ZIP; with no street, a ZIP matching exactly one saved address counts as that address.
 7. **Map check** (Azure Maps geocoding, `validate.ts`) for complete addresses not taken from a saved address: the map's
-   best match gives a confidence `high` | `medium` | `low` and any issues `street_not_found` | `state_mismatch` |
-   `zip_mismatch`. Map not reachable → WAITING, retried by the next poll.
+   best match gives a confidence `high` | `medium` | `low` and any issues `street_not_found` | `city_mismatch` |
+   `state_mismatch` | `zip_mismatch`. The address is sent as one line of text (the structured query put a rural street
+   in another state, 30 Oct), so the map may place the street in its real city: a city that differs from the email's
+   (ignoring case, punctuation and Saint/St, Fort/Ft, Mount/Mt) is `city_mismatch`. Any issue makes the confidence
+   `low`. Map not reachable → WAITING, retried by the next poll.
 8. Decide (code only, `decide.ts`): `ALL_CLEAR` | `CONFIRM_ADDRESS` | `MISSING_INFO` (rules in REQ-INT-09). Any
    unknown item from step 5a makes the decision `MISSING_INFO` (REQ-SKU-03).
 9. Promise (`checkPromise`) 10. Warehouse (`pickWarehouse`) and carrier (`recommendCarrier`), for `ALL_CLEAR` only.

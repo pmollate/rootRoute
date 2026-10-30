@@ -85,7 +85,7 @@ const TEMPLATE: Record<Decision, string> = { ALL_CLEAR: 'Order confirmed', CONFI
 const REQUEST: Record<Exclude<Decision, 'ALL_CLEAR'>, string> = { CONFIRM_ADDRESS: 'Request address', MISSING_INFO: 'Request details' };
 const FIELD: Record<string, string> = { 'address.line1': 'street address', 'address.city': 'city', 'address.state': 'state', 'address.zip': 'ZIP code' };
 const ISSUE: Record<string, string> = {
-  street_not_found: 'street not found on the map', zip_mismatch: 'ZIP code does not match the city', state_mismatch: 'state does not match the city',
+  street_not_found: 'street not found on the map', city_mismatch: 'the map puts this street in another city', zip_mismatch: 'ZIP code does not match the city', state_mismatch: 'state does not match the city',
 };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const day = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return `${d} ${MONTHS[m - 1]} ${y}`; };
