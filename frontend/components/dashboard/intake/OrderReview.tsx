@@ -16,7 +16,17 @@ export interface ReviewOrder {
   warehouseId: string | null; carrier: string; carrierReason: string; choices: CarrierChoice[]; blocked: string[];
   commitment?: string | null; promiseReason?: string | null; warehouseReason?: string | null; warnClient?: boolean;
   addressStatus?: string | null; blockedLanes?: { carrier: string; onTime: number | null }[];
+  /** E19 (REQ-LINK-11), with CONFIRM_LINK=on: where the address came from and, for `link`, the three addresses. */
+  addressSource?: 'email' | 'saved' | 'link';
+  emailAddress?: Partial<LinkAddress>; confirmedAddress?: LinkAddress | null; mapReading?: MapReading | null;
 }
+interface LinkAddress { line1: string; line2: string | null; city: string; state: string; zip: string }
+interface MapReading { line1: string | null; city: string | null; state: string | null; zip: string | null; distanceM: number }
+
+/** An address on one line, as text; missing parts left out. */
+const oneLine = (a: { line1?: string | null; line2?: string | null; city?: string | null; state?: string | null; zip?: string | null }) =>
+  [a.line1, a.line2, a.city, [a.state, a.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+const addressChecked = (st: string) => st === 'complete' || st === 'matched' || st === 'confirmed';
 
 const pct = (x: number | null | undefined) => (x == null ? '—' : `${(x * 100).toFixed(1)}%`);
 const MIN_REASON = 3;
@@ -109,10 +119,21 @@ export function OrderReview({ onChange }: { onChange?: () => void }) {
             <div className={s.rvSection}>
               <p className={s.rvLabel}>Fulfil from warehouse</p>
               <p className={s.rvWarehouse}><b>{o.warehouseId ?? 'Not chosen'}</b>{o.warehouseReason && <span>{o.warehouseReason}</span>}</p>
+              {o.addressSource === 'link' && (o.emailAddress || o.confirmedAddress) && (
+                // REQ-LINK-11 (L3): the supervisor sees what the email gave next to what the client confirmed, as text.
+                <dl className={s.rvAddr} role="group" aria-label={`Address for order ${o.id}`}>
+                  <div><dt>Email gave</dt><dd>{o.emailAddress && oneLine(o.emailAddress) || 'No address'}</dd></div>
+                  <div><dt>Client confirmed</dt><dd>{o.confirmedAddress ? oneLine(o.confirmedAddress) : '—'}</dd></div>
+                  <div><dt>Map reads the pin as</dt><dd>{o.mapReading ? oneLine(o.mapReading) || 'No address at the pin'
+                    : 'Not read: the pin stayed within 500 m of the map\'s match and the ZIP was unchanged'}</dd></div>
+                </dl>
+              )}
               <div className={s.rvChips}>
-                {o.addressStatus && (
-                  <span className={`${s.rvChip} ${o.addressStatus === 'complete' || o.addressStatus === 'matched' ? s.tGood : s.tWarn}`}>
-                    {o.addressStatus === 'complete' || o.addressStatus === 'matched' ? 'Address checked' : 'Address to check'}
+                {o.addressSource === 'link' ? (
+                  <span className={`${s.rvChip} ${s.tGood}`}>Address confirmed by client link</span>
+                ) : o.addressStatus && (
+                  <span className={`${s.rvChip} ${addressChecked(o.addressStatus) ? s.tGood : s.tWarn}`}>
+                    {addressChecked(o.addressStatus) ? 'Address checked' : 'Address to check'}
                   </span>
                 )}
                 {o.commitment && (

@@ -430,3 +430,39 @@ describe('Order emails', () => {
     });
   });
 });
+
+describe('Order emails: address link states (E19, SPEC §5.17)', () => {
+  afterEach(() => { cleanup(); localStorage.clear(); });
+  const link = (state: string) => ({ state, expiresAt: '2026-10-22T07:27:00.000Z' });
+
+  it('AC-LINK-06 (UI): an expired unused link shows "Address not confirmed"; a live one "Link sent"; a used one "Confirmed by client link"', async () => {
+    mockApi({ '/api/intake': { emails: [
+      item(21, { status: 'SENT', link: link('expired') }),
+      item(22, { status: 'SENT', link: link('sent'), priority: false }),
+      item(23, { status: 'AWAITING_APPROVAL', decision: 'ALL_CLEAR', link: link('confirmed'), priority: false }),
+      item(24, { status: 'SENT', link: null, priority: false }),
+    ] } });
+    renderScreen(<IntakeScreen />);
+    const row = (id: number) => screen.getByRole('button', { name: `Open email ${id}` }).textContent;
+    await screen.findByRole('button', { name: 'Open email 21' });
+    expect(row(21)).toContain('Address not confirmed');
+    expect(row(22)).toContain('Link sent');
+    expect(row(23)).toContain('Confirmed by client link');
+    for (const t of ['Address not confirmed', 'Link sent', 'Confirmed by client link']) expect(row(24)).not.toContain(t);
+  });
+
+  it('REQ-LINK-11 (UI): an order re-decided from the client link counts its address as done and says where it came from', async () => {
+    const confirmed = detail(23, { decision: 'ALL_CLEAR',
+      checks: { address: { status: 'confirmed', missing: [], validation: null,
+        address: { line1: '400 S Orange Ave', line2: null, city: 'Orlando', state: 'FL', zip: '32801' } },
+      promise: { promiseDate: '2026-10-25', reason: null }, warehouse: null, carrier: null } });
+    mockApi({ '/api/intake': { emails: [item(23, { decision: 'ALL_CLEAR', link: link('confirmed') })] }, '/api/intake/23': confirmed });
+    renderScreen(<IntakeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open email 23' }));
+    expect(await screen.findByText(/confirmed by client link/)).toBeTruthy();
+    expect(screen.getByText('400 S Orange Ave', { exact: false })).toBeTruthy();
+    const ready = screen.getByRole('region', { name: 'Readiness' });
+    expect(ready.textContent).toContain('Ship-to address completeDone');
+    expect(screen.getByRole('list', { name: 'Order progress' }).querySelector('li:nth-child(3)')!.className).toMatch(/step_done/);
+  });
+});

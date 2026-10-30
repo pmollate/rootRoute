@@ -76,3 +76,32 @@ describe('Order review (E18)', () => {
     expect(screen.queryByLabelText('Reason for order 8')).toBeNull();
   });
 });
+
+describe('Order review: link-confirmed orders (E19, SPEC §5.17)', () => {
+  afterEach(() => cleanup());
+
+  it('AC-LINK-11 (UI): shows "Address confirmed by client link", the email\'s address, the confirmed address and the map\'s reading', async () => {
+    // Fixture 34 (C190): the email gave only a city and state; the client confirmed 400 S Orange Ave through the link.
+    const linked = { ...order, id: 34, addressStatus: 'confirmed', addressSource: 'link',
+      emailAddress: { line2: 'Dock 2', city: 'Orlando', state: 'FL' },
+      confirmedAddress: { line1: '400 S Orange Ave', line2: null, city: 'Orlando', state: 'FL', zip: '32801' },
+      mapReading: { line1: '400 S Orange Ave', city: 'Orlando', state: 'FL', zip: '32801', distanceM: 0 } };
+    mockApi({ '/api/intake/review': { orders: [linked] } });
+    renderScreen(<OrderReview />, asRole('order_desk'));
+    const card = await screen.findByRole('article', { name: 'Order 34' });
+    expect(card.textContent).toContain('Address confirmed by client link');
+    const box = screen.getByRole('group', { name: 'Address for order 34' });
+    expect(box.textContent).toContain('Email gaveDock 2, Orlando, FL');
+    expect(box.textContent).toContain('Client confirmed400 S Orange Ave, Orlando, FL 32801');
+    expect(box.textContent).toContain('Map reads the pin as400 S Orange Ave, Orlando, FL 32801');
+    expect(card.textContent).not.toContain('Address to check');
+  });
+
+  it('REQ-LINK-11 (UI): an order not confirmed by link shows no link block', async () => {
+    mockApi({ '/api/intake/review': { orders: [{ ...order, addressSource: 'email' }] } });
+    renderScreen(<OrderReview />, asRole('order_desk'));
+    await screen.findByRole('article', { name: 'Order 8' });
+    expect(screen.queryByText('Address confirmed by client link')).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Address for order 8' })).toBeNull();
+  });
+});

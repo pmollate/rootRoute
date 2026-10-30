@@ -15,6 +15,7 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "azure-maps-control": "3.7.4",
     "bcryptjs": "3.0.3",
     "gsap": "^3.13.0",
     "jose": "6.2.12",

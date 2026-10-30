@@ -1,0 +1,52 @@
+/* E19 /confirm/{token}: one column, nothing wider than the screen, so 375 px has no sideways scrolling (NFR-LINK-01). */
+.page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.page *, .page *::before, .page *::after { box-sizing: border-box; }
+.head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.head h1 { margin: 0; font-size: 1.4rem; line-height: 1.25; }
+.muted { margin: 6px 0; color: var(--ink-2); font-size: 0.95rem; }
+.message { margin: 48px 0; font-size: 1.1rem; }
+.form { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
+.field { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 0.95rem; }
+/* 16 px inputs: phones do not zoom in on focus */
+.field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 400;
+}
+.field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mapBlock { display: flex; flex-direction: column; gap: 6px; }
+.mapWrap { width: 100%; }
+.map { width: 100%; height: 280px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; touch-action: none; }
+.check { display: grid; gap: 10px; }
+.box { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.box h2 { margin: 0 0 4px; font-size: 0.95rem; }
+.box p { margin: 0; }
+.note { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
+.button {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.button:disabled { opacity: 0.6; cursor: wait; }

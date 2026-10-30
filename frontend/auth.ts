@@ -24,7 +24,7 @@ class RateLimited extends CredentialsSignin { code = 'rate_limited'; }
 const limiter = new RateLimiter();
 
 /** The last X-Forwarded-For entry is the one App Service's front end added ("ip:port"); earlier ones the client wrote. */
-function clientIp(req: Request): string {
+export function clientIp(req: Request): string {
   const fwd = req.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ?? '';
   return fwd.replace(/:\d+$/, '') || 'unknown';
 }

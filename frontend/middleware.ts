@@ -1,15 +1,14 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
-import { auth } from '@/auth';
+import { auth, clientIp } from '@/auth';
+import { RateLimiter } from '@/lib/auth/demo';
+import { LINK_HEADERS, linkGate, linkRoutePattern } from '@/lib/auth/linkGate';
 import { authLog } from '@/lib/auth/log';
+import { isOpen } from '@/lib/auth/open';
 import { internalUrl } from '@/lib/auth/rewrite';
 import { canOpen, toRoles } from '@/lib/auth/roles';
 
-/**
- * Pages any visitor may open (REQ-AUTH-01): the landing page `/` and the sign-in pages. `/api/*` checks the session
- * itself: the proxy answers 401, not a redirect.
- */
-const OPEN = ['/', '/login', '/no-access', '/maintenance'];
-const isOpen = (path: string) => OPEN.includes(path) || path.startsWith('/api/');
+/** E19 (SEC-LINK-04): requests per minute per client IP to /confirm/* and /api/confirm/*, in this process's memory. */
+const linkLimiter = new RateLimiter(Number(process.env.CONFIRM_LINK_RATE_PER_MINUTE) || 10);
 
 /**
  * P7 (SPEC-auth §5.1): no session → /login?next=<path>; signed in with no LateLens role → /no-access (REQ-AUTH-03).
@@ -18,7 +17,7 @@ const isOpen = (path: string) => OPEN.includes(path) || path.startsWith('/api/')
  */
 const requireSession = (orig: NextRequest, ev: NextFetchEvent) => auth((req) => {
   const path = req.nextUrl.pathname;
-  if (isOpen(path)) return NextResponse.next();
+  if (isOpen(path, process.env.CONFIRM_LINK === 'on')) return NextResponse.next();
   if (!req.auth?.user) {
     const login = new URL('/login', req.url);
     login.searchParams.set('next', path + req.nextUrl.search);
@@ -48,6 +47,24 @@ export async function middleware(req: NextRequest, ev: NextFetchEvent) {
   }
   // with the flag off, the page doesn't exist
   if (!on && atPage) return NextResponse.rewrite(new URL('/404', req.url));
+  // E19 (SPEC §5.17): link paths are 404 with the flag off, limited per IP, and open without a session (SEC-LINK-04, -05).
+  const path = req.nextUrl.pathname;
+  const gate = linkGate(path, clientIp(req), process.env.CONFIRM_LINK === 'on', linkLimiter);
+  if (gate.kind === 'not_found') {
+    return path.startsWith('/api/')
+      ? NextResponse.json({ error: 'link_invalid' }, { status: 404 })
+      : NextResponse.rewrite(new URL('/404', req.url), { status: 404 });
+  }
+  if (gate.kind === 'rate_limited') {
+    // SEC-LINK-11: logged by route pattern, never the path with its token (SEC-LINK-01)
+    authLog('link_rate_limited', { route: linkRoutePattern(path), status: 429 });
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '60', ...LINK_HEADERS } });
+  }
+  if (gate.kind === 'pass') {
+    const res = NextResponse.next();
+    for (const [k, v] of Object.entries(gate.headers)) res.headers.set(k, v);
+    return res;
+  }
   // AUTH_REQUIRED=off (the default): no redirect, as before P7 (REQ-AUTH-13)
   if (process.env.AUTH_REQUIRED !== 'on') return NextResponse.next();
   return requireSession(req, ev);

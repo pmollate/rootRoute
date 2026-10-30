@@ -15,7 +15,10 @@ export interface EmailItem {
   decision: Decision | null; inReplyTo: number | null; priority: boolean;
   /** Client facts from clients.csv, the parsed items and the first lines of the body (older APIs leave them out). */
   clientName?: string | null; tier?: string | null; items?: Item[] | null; preview?: string;
+  /** E19, with CONFIRM_LINK=on: the newest address link of this email (`expired` is worked out when read, REQ-LINK-06). */
+  link?: LinkInfo | null;
 }
+export interface LinkInfo { state: 'sent' | 'confirmed' | 'expired' | 'revoked'; expiresAt: string }
 /** lastPoll: the API's last Gmail check, scheduled or by hand. */
 /** limits: the longest email the API accepts (REQ-INT-16); older APIs leave it out and the form shows no counter. */
 interface Inbox { emails: EmailItem[]; lastPoll?: { startedAt: string; finishedAt: string | null; ok: boolean | null } | null;
@@ -27,6 +30,8 @@ export interface Detail {
   decision: Decision | null; replyDraft: string | null; replySource: 'model' | 'template' | null;
   /** Whether a reply has gone out: an order can reach the WMS before its reply does. */
   replySent?: boolean;
+  /** E19, with CONFIRM_LINK=on (REQ-LINK-06). */
+  link?: LinkInfo | null;
   extraction: { items: Item[] } | null;
   checks: {
     address: { status: string; missing: string[]; address: Address | null;
@@ -164,8 +169,25 @@ function toThreads(emails: EmailItem[]): Thread[] {
   });
 }
 
+/** The address counts as done: complete, a saved address, or confirmed by the client through the link (E19). */
+const addressDone = (a: string | undefined) => a === 'complete' || a === 'matched' || a === 'confirmed';
+
+/**
+ * E19 (REQ-LINK-06, SPEC §5.17): the address link's state, while the order waits on the client (SENT) or once the client
+ * confirmed. "Address not confirmed" is a link that expired unused: the order desk follows up as before.
+ */
+function linkChip(e: EmailItem): { text: string; tone: string } | null {
+  if (e.link?.state === 'confirmed') return { text: 'Confirmed by client link', tone: s.tGood };
+  if (e.status !== 'SENT') return null;
+  if (e.link?.state === 'expired') return { text: 'Address not confirmed', tone: s.tBad };
+  if (e.link?.state === 'sent') return { text: 'Link sent', tone: s.tWarn };
+  return null;
+}
+
 /** The thread's state in a few words, for its chip in the list. */
 function chip(e: EmailItem): { text: string; tone: string } {
+  const l = linkChip(e);
+  if (l && e.status === 'SENT') return l;
   if (e.status === 'WAITING') return { text: 'Waiting for AI', tone: s.tNeutral };
   if (e.clientId === null && e.decision === 'MISSING_INFO' && e.status === 'AWAITING_APPROVAL') return { text: 'Unknown sender', tone: s.tBad };
   if (e.status === 'ENTERED') return { text: 'In WMS', tone: s.tGood };
@@ -211,7 +233,7 @@ function Stepper({ d }: { d: Detail }) {
   const steps: [string, Step][] = [
     ['Received', 'done'],
     ['Parsed', d.extraction?.items.length ? 'done' : st === 'WAITING' ? 'current' : 'warn'],
-    ['Address complete', a === 'complete' || a === 'matched' ? 'done' : a ? 'warn' : 'todo'],
+    ['Address complete', addressDone(a) ? 'done' : a ? 'warn' : 'todo'],
     approval(d, st),
     // Highlighted only once an all-clear order is approved and its reply is the next thing to go.
     ['Reply sent', after('SENT', 'ENTERED') ? 'done' : st === 'APPROVED' && d.decision === 'ALL_CLEAR' ? 'current' : 'todo'],
@@ -275,7 +297,7 @@ function ShipTo({ d }: { d: Detail }) {
       )}
       <p className={s.source}>
         From email {d.email.id}{d.email.inReplyTo ? `, completes the address missing in ${d.email.inReplyTo}` : ''}
-        {a.status === 'matched' ? ' · saved address' : v && v.confidence !== 'unavailable' ? ` · map: ${v.confidence} confidence` : ''}
+        {a.status === 'confirmed' ? ' · confirmed by client link' : a.status === 'matched' ? ' · saved address' : v && v.confidence !== 'unavailable' ? ` · map: ${v.confidence} confidence` : ''}
       </p>
     </>
   );
@@ -328,8 +350,8 @@ function Readiness({ d }: { d: Detail }) {
   const approved = ['APPROVED', 'SENT', 'ENTERED'].includes(st);
   const rows: { label: string; state: 'ok' | 'pending' | 'bad' | 'todo'; value: string }[] = [
     { label: 'Items and quantities parsed', state: d.extraction?.items.length ? 'ok' : 'bad', value: d.extraction?.items.length ? 'Done' : 'Not read' },
-    { label: 'Ship-to address complete', state: a === 'complete' || a === 'matched' ? 'ok' : a === 'unverified' ? 'pending' : 'bad',
-      value: a === 'complete' || a === 'matched' ? 'Done' : a === 'unverified' ? 'Check' : a ? 'Missing' : 'Not read' },
+    { label: 'Ship-to address complete', state: addressDone(a) ? 'ok' : a === 'unverified' ? 'pending' : 'bad',
+      value: addressDone(a) ? 'Done' : a === 'unverified' ? 'Check' : a ? 'Missing' : 'Not read' },
     d.decision === 'ALL_CLEAR'
       ? { label: 'Approval', state: approved ? 'ok' : st === 'AWAITING_APPROVAL' ? 'pending' : 'todo', value: approved ? 'Done' : st === 'AWAITING_APPROVAL' ? 'Pending' : '—' }
       : { label: 'Approval', state: 'todo', value: 'Needs full details' },
@@ -665,6 +687,7 @@ export function IntakeScreen() {
                       {(e.tier || e.priority) && (
                         <span className={s.tier} title={e.priority ? 'Tier 1 or at-risk client: handled first' : undefined}>{e.tier ?? 'Priority'}</span>
                       )}
+                      {(() => { const l = linkChip(e); return l && <span className={`${s.chip} ${l.tone}`}>{l.text}</span>; })()}
                       <time>{timeOf(e.receivedAt)}</time>
                     </span>
                     <span className={s.rowSubject}><span>{bare(e.subject)}</span>{t.emails.length > 1 && <i>{t.emails.length}</i>}</span>

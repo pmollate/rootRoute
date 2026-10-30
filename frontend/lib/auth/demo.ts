@@ -30,6 +30,12 @@ export class RateLimiter {
   }
   blocked(key: string): boolean { return this.recent(key).length >= this.max; }
   fail(key: string): void { this.recent(key).push(this.now()); }
+  /** Counts one request and says whether it is within the limit (E19 per-IP limit, SEC-LINK-04). */
+  take(key: string): boolean {
+    if (this.blocked(key)) return false;
+    this.fail(key);
+    return true;
+  }
 }
 
 // Compared against when the email is unknown, so both failures take the same time and give the same answer.

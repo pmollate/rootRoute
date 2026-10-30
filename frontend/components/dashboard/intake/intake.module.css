@@ -419,6 +419,10 @@
 .rvWarehouse { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 0.7763rem; }
 .rvWarehouse b { padding: 5px 10px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 0.828rem; }
 .rvWarehouse span { color: var(--ink-2); }
+.rvAddr { display: grid; gap: 4px; margin: 10px 0 0; font-size: 0.7763rem; }
+.rvAddr div { display: grid; grid-template-columns: minmax(0, 11em) minmax(0, 1fr); gap: 8px; }
+.rvAddr dt { color: var(--ink-2); }
+.rvAddr dd { margin: 0; overflow-wrap: anywhere; }
 .rvChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .rvChip { padding: 5px 9px; border-radius: 6px; font-size: 0.6728rem; font-weight: 600; }
 .rvCarriers { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
