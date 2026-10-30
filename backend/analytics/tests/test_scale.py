@@ -91,7 +91,6 @@ def test_bench_write_refuses_the_app_databases(monkeypatch):
 
 def test_profile_overrides_are_restored(second, tmp_path):
     """The client profile is applied for one run only; Halcyon's rules are back afterwards."""
-    from analytics.carriers import backtest
     from analytics.core import load
     before = (set(load.BAD_LANES), load.FRIDAY_CAP_CARRIER)
     profile = json.loads((second / "client_profile.json").read_text())

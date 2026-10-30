@@ -65,12 +65,12 @@ them without indexes on each run.
 
 **Measured with a second client** (`docs/SCALE-RUN.md` "Reuse"): a synthetic "Northwind Freight" built from the
 supplied deliveries with other client ids (`N1001`–`N1280`), other carrier codes (ATLAS…FJORD), other warehouse codes
-(DC1–DC5) and dates moved to Apr–Sep 2020. With **no analysis code change** and a 4-key `client_profile.json` (bad
-lanes, Friday-cap carrier, backtest split date, which carriers send API / portal / batch feeds), all 25 tables build
+(DC1–DC5) and dates moved to Apr–Sep 2020. With **no analysis code change** and a 3-key `client_profile.json` (bad
+lanes, Friday-cap carrier, which carriers send API / portal / batch feeds; the backtest split comes from the data), all 25 tables build
 in 4.2 s and every checked figure equals Halcyon's (71.0% on-time, 14,019 late, attribution 7.6 / 7.0 / 5.6 / 5.6 /
 3.2, replay 88.5% as built). Without the profile the run fails at the tracking adapters; with only the feeds named it
 runs but is **silently wrong** (carrier-lane cause 0.0 points instead of 7.6, "as built" 79.9% instead of 88.5%,
-backtest on 0 orders). Two more limits found: client ids must be a letter plus digits (synthetic SKU generator) and
+21 lanes blocked instead of 15). Two more limits found: client ids must be a letter plus digits (synthetic SKU generator) and
 carrier codes must not contain `_` (tracking file names). The profile is applied by the bench only; the pipeline does
 not read it yet (N1).
 

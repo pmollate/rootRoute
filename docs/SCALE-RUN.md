@@ -51,6 +51,10 @@ tracemalloc peaks per step (1× / 10×): load 30 / 300, core 63 / 631, warehouse
 intake 73 / 714. They come from a second pass with tracing on (tracing slows the steps 2–6×, so its times are not
 used). A repeat without the write, minutes earlier, gave analysis totals of 4.49 s (1×) and 17.88 s (10×).
 
+**Re-run after merging with the data-derived window (S2), 30 Oct, same machine, no write:** analysis 4.89 s (1×),
+20.81 s (10×), 4.77 s (second client); peak resident memory 224 / 1,075 / 254 MB; every golden check passes on all
+three. `core` is about 0.5 s slower at 1× because it now also works out the data window.
+
 Where the write time goes (1×, each table written on its own, same throwaway database): `deliveries_clean` 11.0 s
 (38%), `carrier_events` 8.8 s (31%, 193,360 rows), `delivery_causes` 6.1 s (21%), `stock_daily` 2.0 s (7%); the
 other 21 tables together about 1 s.
@@ -82,13 +86,13 @@ and outside the headline figures (REQ-REP-04).
 
 The second client has nothing in common with Halcyon's labels: clients `N1001`–`N1280`, deliveries `NW…`, carriers
 ATLAS, BOREAL, CEDAR, DUNE, EMBER, FJORD, warehouses DC1–DC5, and every date 2,191 days (313 weeks) earlier, so weekdays
-and calendar months match. The only extra input is `client_profile.json` (4 keys, generated with the data):
+and calendar months match. The only extra input is `client_profile.json` (3 keys, generated with the data; the backtest split, a 4th key when
+this was first measured, now comes from the data itself):
 
 | Key | Halcyon value (in code) | Second client |
 |---|---|---|
 | `bad_lanes` | D→Midwest, D→Southeast, E→West, F→Northeast, F→Southeast | the same lanes under DUNE, EMBER, FJORD |
 | `friday_cap_carrier` | `D` | `DUNE` |
-| `backtest_split` | 2026-08-01 | 2020-08-01 |
 | `tracking_feeds` | API: A, B, C · portal: D · batch: E, F | API: ATLAS, BOREAL, CEDAR · portal: DUNE · batch: EMBER, FJORD |
 
 **Analysis code changed for the second client: none.** With the profile, all 25 tables build and every checked figure
@@ -102,10 +106,9 @@ What happens without the profile, measured by running the second client with par
 | Profile given | Result |
 |---|---|
 | None | Fails in the `carriers` step: the tracking adapter expects feeds from carriers A, B and C (`AttributeError … shipment_ref`) |
-| `tracking_feeds` only | Runs, and is **silently wrong**: on-time 71.0% and late 14,019 are right, but the lane cause drops from 7.63 to 0.0 points, "as built" replay reads 79.9% instead of 88.5%, 21 lanes are blocked instead of 15, and the backtest has 0 test orders |
-| + `backtest_split` | Backtest back to 15,041 test orders; lane cause still 0.0 points |
+| `tracking_feeds` only | Runs, and is **silently wrong**: on-time 71.0% and late 14,019 are right, and the backtest finds its 15,041 test orders from the data's own dates, but the lane cause drops from 7.63 to 0.0 points, "as built" replay reads 79.9% instead of 88.5%, and 21 lanes are blocked instead of 15 |
 | + `friday_cap_carrier` | Lane cause 2.67 points, as built 82.9% |
-| + `bad_lanes` (all four keys) | Every figure equals Halcyon's |
+| + `bad_lanes` (all three keys) | Every figure equals Halcyon's |
 
 So the risk for a new client is not a crash but a quiet under-count of the carrier cause. The fix in ROADMAP N1 (bad
 lanes derived from the client's data, gated on matching the known lanes) removes the need to type them in.
