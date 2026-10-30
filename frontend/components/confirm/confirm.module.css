@@ -156,3 +156,20 @@
   .cityRow { grid-template-columns: 1fr 1fr; }
   .cityRow > :first-child { grid-column: 1 / -1; }
 }
+
+/* Narrow screens: step labels shrink with an ellipsis instead of running into the next step; at 360 px and below the
+   card's padding and the code boxes' gaps shrink so each box stays at least 36 px wide (tappable). */
+.stepper li > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mapChip { max-width: calc(100% - 32px); }
+@media (max-width: 360px) {
+  .cardHead, .cardBody { padding: 16px; }
+  .cardFoot { padding: 12px 16px; }
+  .digits { gap: 5px; grid-template-columns: repeat(3, minmax(0, 1fr)) 8px repeat(3, minmax(0, 1fr)); }
+  .formPane { padding: 16px; }
+}
+@media (max-width: 480px) {
+  /* Only the current step shows its label: it keeps its full width; the other step is its dot (and its line). */
+  .stepper li { flex: 0 0 auto; }
+  .stepper li:not(:last-child) { flex: 1 1 0; }
+  .stepper li.stepNow { flex: 1 0 auto; }
+}
