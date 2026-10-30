@@ -14,6 +14,8 @@
     "gmail:fetch": "tsx scripts/gmail-fetch.ts",
     "maps:check": "tsx scripts/maps-check.ts",
     "eval:intake": "tsx scripts/eval-intake.ts",
+    "eval:assistant": "tsx scripts/eval-assistant.ts",
+    "eval:reply": "tsx scripts/eval-reply.ts",
     "record:assistant": "tsx scripts/record-assistant.ts",
     "walkthrough:link": "tsx scripts/walkthrough-link.ts",
     "test": "vitest run",
