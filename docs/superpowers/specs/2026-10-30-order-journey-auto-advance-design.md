@@ -13,7 +13,7 @@ step 9 or 10, so the journey cannot be shown end to end in a demo.
 
 An admin switch on the Settings page, **Auto-advance approved orders**, off by default. When it is on, approving an
 ALL_CLEAR order also enters it in the WMS and records steps 10–13 straight away, each with a realistic synthetic
-timestamp and a `visible_at` a few seconds after the one before, so the journey fills in on screen over about 20 seconds.
+timestamp and a `visible_at` a few seconds after the one before, so the journey fills in on screen over about 25 seconds.
 Every delivery is on time when the promise date allows it.
 
 This reverses, for orders approved while the switch is on, the simulator design's decision "manual steps, not a clock"
@@ -52,7 +52,7 @@ In `applyAction` (`modules/intake/actions.ts`), after an `approve` succeeds on a
 
 1. Check the order has a promise, warehouse and carrier (`wmsOrder` returns non-null). If not, stop here: the order
    stays `APPROVED` and is handled by hand, as today.
-2. Build the five events (§6) and record them through the existing order-event writer (`modules/carriers`
+2. Build the six events (§6) and record them through the existing order-event writer (`modules/carriers`
    `recordOrderEvent`), in order. The writer keeps its order and repeat rules; "already recorded" counts as success.
 3. Set the status to `ENTERED` and write an audit row `send_to_wms` with actor `system:auto-advance` and payload
    `{ wmsOrderId, auto: true }`. `wmsOrderId` is `WMS-` plus the email id padded to six digits, as the simulator makes it.
@@ -80,12 +80,14 @@ received time, `P` = the promise date.
 | `picked` | pick-list day at 10:00: the date of `R`, or the next day if `R` is after 08:00 | approval + 5 s |
 | `picked_up` | the picked day at 15:00 | + 10 s |
 | `in_transit` | the picked day at 16:00 | + 15 s |
-| `delivered` | `P` at 12:00 | + 20 s |
+| `out_for_delivery` | `P` at 08:00 | + 20 s |
+| `delivered` | `P` at 12:00 | + 25 s |
 
 Each `ts` is moved forward to the previous event's `ts` when it would be earlier (an approval after the pick-list day
 puts every later step at or after `A`; a `delivered` before `in_transit` becomes `in_transit` + 1 hour). If that pushes
 `delivered` past the end of `P`, the journey shows the order late (REQ-JRN-06 rules, unchanged). The data is not
-bent to look on time. `out_for_delivery` is not written.
+bent to look on time. `out_for_delivery` is written because the shared order rule (`checkEvent`) requires it before
+`delivered`; it is never earlier than `in_transit`, and `delivered` is at least an hour after it.
 
 `detail` on `wms_entered` is `{ wmsOrderId, auto: true }`; the other events carry `{ auto: true }`.
 
@@ -130,9 +132,9 @@ A new "Order journey" card on `/dashboard/settings`, a small client component (t
 
 | AC | Given / when / then | Where |
 |---|---|---|
-| AC-JRN-15 | Given the switch on and an ALL_CLEAR order with promise, warehouse and carrier, when it is approved, then the status is `ENTERED`, five events exist in order with non-decreasing `ts` and `visible_at` 0/5/10/15/20 s after approval, and the audit has `send_to_wms` by `system:auto-advance` | `actions` unit (memory repo) |
+| AC-JRN-15 | Given the switch on and an ALL_CLEAR order with promise, warehouse and carrier, when it is approved, then the status is `ENTERED`, six events exist in order with non-decreasing `ts` and `visible_at` 0/5/10/15/20/25 s after approval, and the audit has `send_to_wms` by `system:auto-advance` | `actions` unit (memory repo) |
 | AC-JRN-16 | Given the switch off, when an order is approved, then the status is `APPROVED` and no event is written | `actions` unit |
-| AC-JRN-17 | Given auto-advanced events and `now` = approval + 7 s, then the journey shows steps 9–10 done, 11 current, 12–13 not reached; at + 21 s, step 13 is done | route test (test DB) |
+| AC-JRN-17 | Given auto-advanced events and `now` = approval + 7 s, then the journey shows steps 9–10 done, 11 current, 12–13 not reached; at + 26 s, step 13 is done | route test (test DB) |
 | AC-JRN-18 | Given an approval after the promise date, then `delivered` is after `in_transit` and step 13 is `failed` "N days late" | `journey` unit |
 | AC-JRN-19 | Given an order already `ENTERED`, when `send_to_wms` is posted, then 200 `ENTERED` and nothing new is written | `actions` unit |
 | AC-SET-01 | `POST /api/settings/auto-advance` is 403 for every role but admin; for admin it saves and writes one audit row | route test + `permissions.test.ts` |
@@ -149,6 +151,6 @@ A new "Order journey" card on `/dashboard/settings`, a small client component (t
 
 ## 13. Out of scope
 
-Automatic approval or reply; late deliveries on purpose (D000213 and D000559 cover late cases); `out_for_delivery`;
+Automatic approval or reply; late deliveries on purpose (D000213 and D000559 cover late cases);
 deploying the simulator; a real WMS or carrier API; per-user settings; backfilling orders approved before the switch was
 turned on (they still need "Send to WMS").

@@ -6,7 +6,7 @@
 the (simulated) WMS and record steps 10–13, revealed in the order journey a few seconds apart.
 
 **Architecture:** A new `settings` API module owns one table, `app_settings`. On `approve`, intake asks the setting
-and, when on, calls the Carriers module's `autoAdvanceOrder`, which records all five `order_events` at once through the
+and, when on, calls the Carriers module's `autoAdvanceOrder`, which records all six `order_events` (wms_entered to delivered, with out_for_delivery) at once through the
 existing writer, each with a `visible_at` 5 seconds after the one before. The journey reads only visible events and the
 journey page refetches quietly until the order is delivered. No timers on the server.
 
@@ -1058,9 +1058,9 @@ after the `SEC-JRN-04` row add:
 and after the `AC-JRN-14` row add:
 
 ```markdown
-| AC-JRN-15 | Given the switch on and an ALL_CLEAR order with promise, warehouse and carrier, when it is approved, then the status is `ENTERED`, five events are recorded in order with non-decreasing `ts` shown 0/5/10/15/20 s after approval, and the audit has `send_to_wms` by `system:auto-advance` |
+| AC-JRN-15 | Given the switch on and an ALL_CLEAR order with promise, warehouse and carrier, when it is approved, then the status is `ENTERED`, six events are recorded in order with non-decreasing `ts` shown 0/5/10/15/20/25 s after approval, and the audit has `send_to_wms` by `system:auto-advance` |
 | AC-JRN-16 | Given the switch off, when an order is approved, then the status is `APPROVED` and nothing is auto-advanced |
-| AC-JRN-17 | Given auto-advanced events and now = approval + 7 s, then steps 9–10 are `done`, 11 `current`, 12–13 `not_reached`; at + 21 s step 13 is `done` |
+| AC-JRN-17 | Given auto-advanced events and now = approval + 7 s, then steps 9–10 are `done`, 11 `current`, 12–13 `not_reached`; at + 26 s step 13 is `done` |
 | AC-JRN-18 | Given an approval after the promise date, then `delivered` comes an hour after `in_transit` and step 13 is `failed` "N days late"; step 9 says "Auto-advance (simulated)" |
 | AC-JRN-19 | Given an order already `ENTERED`, when `send_to_wms` is posted, then 200 `ENTERED` and nothing new is sent or written |
 | AC-SET-01 | `POST /api/settings/auto-advance` is 403 for every role but admin and writes nothing; for admin it saves and writes one `set_auto_advance` audit row |
