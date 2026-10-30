@@ -1,4 +1,0 @@
-{
-  "kind": "tool",
-  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"I can't follow that instruction. I must only answer Halcyon delivery questions using the provided tools and rules; requests to ignore rules or call other functions are refused.\\\", \\\"refused\\\": true}\"}"
-}

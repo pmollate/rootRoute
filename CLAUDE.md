@@ -14,9 +14,11 @@ from a non-nearest warehouse). Carrier problems are real but lane-specific. We b
 delivery diagnostic and recommendation system (SPEC §1).
 
 Root Route is an external tool used by the customer company. The product shows what the company's own data says
-(causes, fixes, replayed outcomes) and stops there. It never makes the company's business decisions for them
-(no "sign / don't sign" verdicts on contracts, no approve-pilot buttons, no "share with leadership" framing), and
-never models other companies' products or internal data (no routing-vendor scenarios).
+(causes, fixes, replayed outcomes). It never makes the company's business decisions for them: no "sign / don't
+sign" verdicts on screens, no approve-pilot buttons, no "share with leadership" framing. Asked what to do, the
+assistant gives the evidence and a suggestion labelled "Suggestion (from the data, not a decision)", and says the
+decision stays with Halcyon (SPEC REQ-ASK-13, v0.16). It never models other companies' products or internal data (no
+routing-vendor scenarios).
 
 ## Repo layout (target: folders under `backend/` and the dashboard are built by the plans in `docs/superpowers/plans/`)
 - `Halcyon-Hackathon-Dataset/` — the supplied synthetic dataset: CSVs, README, DATA_DICTIONARY (read-only; never edit)
