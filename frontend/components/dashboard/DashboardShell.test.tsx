@@ -45,11 +45,11 @@ describe('dashboard navigation (master nav, REQ-AUTH-15)', () => {
     expect(screen.getByText('flag off')).toBeTruthy();
   });
 
-  it('Orders, a Dashboard menu of the reports, Labs and Settings; the drawer lists the same, in order', () => {
+  it('a Dashboard menu of the reports, Orders, Labs and Settings; the drawer lists the same, in order', () => {
     render(<DashboardShell>x</DashboardShell>);
     expect(bar()).toEqual(['Orders', 'Labs', 'Settings']);
     expect(reports()).toEqual(['Overview', 'Complaints', 'Warehouses', 'Carriers', 'Order journey', 'Replay']);
-    expect(drawer()).toEqual(['Orders', 'Overview', 'Complaints', 'Warehouses', 'Carriers', 'Order journey', 'Replay', 'Labs', 'Settings']);
+    expect(drawer()).toEqual(['Overview', 'Complaints', 'Warehouses', 'Carriers', 'Order journey', 'Replay', 'Orders', 'Labs', 'Settings']);
   });
 
   it('AC-AUTH-15: the order desk sees Orders and only its reports', () => {

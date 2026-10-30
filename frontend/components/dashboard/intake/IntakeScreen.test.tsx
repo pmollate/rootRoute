@@ -29,7 +29,7 @@ describe('Order emails', () => {
     expect(await screen.findByText('No all-clear orders are waiting for approval.')).toBeTruthy();
   });
 
-  it('AC-INT-10 (UI): an email from an unknown sender shows "Unknown sender" in the list and in the order summary', async () => {
+  it('AC-INT-10 (UI): an email from an unknown sender says in the order summary that it was not read', async () => {
     const unknown = detail(50, {
       email: { ...detail(50).email, from: 'buyer@unknown-co.example', clientId: null, redactedBody: null },
       decision: 'MISSING_INFO', extraction: null, replySource: 'template',
@@ -38,7 +38,7 @@ describe('Order emails', () => {
     mockApi({ '/api/intake': { emails: [item(50, { clientId: null, from: 'buyer@unknown-co.example', decision: 'MISSING_INFO', priority: false })] },
       '/api/intake/50': unknown });
     renderScreen(<IntakeScreen />);
-    expect(await screen.findByText('Unknown sender')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Open email 50' }));
     expect(await screen.findByText(/not read by the AI and no automatic reply/)).toBeTruthy();
   });
 
@@ -62,7 +62,6 @@ describe('Order emails', () => {
       '/api/intake/34': detail(34) });
     renderScreen(<IntakeScreen />);
     expect(await screen.findAllByTitle('Tier 1 or at-risk client: handled first')).toHaveLength(1);
-    expect(screen.queryAllByTitle('All clear')).toHaveLength(0);
     expect(screen.getByText('Synthetic data')).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
     expect(await screen.findByText(/Ship to:/)).toBeTruthy();
@@ -165,7 +164,6 @@ describe('Order emails', () => {
         promise: { promiseDate: '2026-10-24', reason: null }, warehouse: { warehouseId: 'W5', reason: 'Nearest warehouse W5 has stock.' },
         carrier: { carrier: 'A', reason: 'Carrier A for West standard' } } }) });
     renderScreen(<IntakeScreen />);
-    expect(await screen.findAllByTitle('All clear')).toHaveLength(1);
     fireEvent.click(await screen.findByRole('button', { name: 'Open email 9' }));
     expect(await screen.findByText(/ZIP code does not match the city/)).toBeTruthy();
     expect(screen.getByText(/map shows 32819/)).toBeTruthy();

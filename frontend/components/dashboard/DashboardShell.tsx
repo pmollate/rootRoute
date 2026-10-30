@@ -37,7 +37,7 @@ const Icon = ({ children }: { children: ReactNode }) => (
 /**
  * Chrome for every /dashboard screen: the landing page's floating pill bar (brand, the master navigation, theme toggle,
  * and the signed-in user: REQ-AUTH-08, -09); pages run full width. `user` is null when nobody is signed in
- * (AUTH_REQUIRED=off). Navigation: Orders, a Dashboard menu of the report screens, Labs, Settings (config/dashboard.ts).
+ * (AUTH_REQUIRED=off). Navigation: a Dashboard menu of the screens, Orders, Labs, Settings (config/dashboard.ts).
  * `assistant` (ASK_ASSISTANT=on, read on the server by app/dashboard/layout.tsx) adds the Ask LateLens panel to every
  * screen but Overview, whose Router answers follow-ups with the same assistant (one assistant per screen); off, there is
  * no button (REQ-ASK-08). The flag reaches the screens through `AssistantFlag`, never a NEXT_PUBLIC_ variable.
@@ -46,15 +46,15 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
   const path = usePathname();
   // REQ-AUTH-15: only the screens the user's roles may open; everything with nobody signed in (AUTH_REQUIRED=off).
   const screens = SCREENS.filter((sc) => canOpen(user?.roles ?? null, sc.href));
-  const orders = screens.find((sc) => sc.href === ORDERS.href);
-  const reports = screens.filter((sc) => sc !== orders);
+  const pinned = screens.some((sc) => sc.href === ORDERS.href) ? ORDERS : undefined;
+  const reports = screens.filter((sc) => sc.href !== ORDERS.href);
   // Overview has its own assistant (Router); /dashboard only redirects, but is covered in case it ever renders Overview.
   const dock = assistant && path !== '/dashboard' && !path.startsWith('/dashboard/overview');
   const current = [...screens, ...MORE].find((sc) => path.startsWith(sc.href))?.href;
   // One list for the phone drawer, in bar order, with the reports under a "Dashboard" heading.
   const drawer = [
-    ...(orders ? [{ href: orders.href, label: ORDERS.label }] : []),
     ...reports.map((sc) => ({ href: sc.href, label: sc.label, group: 'Dashboard' })),
+    ...(pinned ? [{ href: pinned.href, label: pinned.label }] : []),
     ...MORE,
   ];
   const brand = (
@@ -78,12 +78,12 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
             items={drawer.map((it) => ({ ...it, icon: <Icon>{ICONS[it.href]}</Icon>, current: it.href === current }))} />
           {brand}
           <nav className={`${h.nav} ${s.nav}`} aria-label="Dashboard">
-            {orders && (
-              <Link className={h.navLink} href={orders.href} aria-current={orders.href === current ? 'page' : undefined}>{ORDERS.label}</Link>
-            )}
             {reports.length > 0 && (
               <ReportsMenu label="Dashboard" current={reports.some((sc) => sc.href === current) ? current : undefined}
                 items={reports.map((sc) => ({ href: sc.href, label: sc.label, icon: <Icon>{ICONS[sc.href]}</Icon> }))} />
+            )}
+            {pinned && (
+              <Link className={h.navLink} href={pinned.href} aria-current={pinned.href === current ? 'page' : undefined}>{pinned.label}</Link>
             )}
             {MORE.map((it) => (
               <Link key={it.href} className={h.navLink} href={it.href} aria-current={it.href === current ? 'page' : undefined}>{it.label}</Link>

@@ -604,8 +604,6 @@ export function IntakeScreen() {
             )}
             {shown.map((t) => {
               const e = t.latest;
-              const items = [...t.emails].reverse().find((x) => x.items?.length)?.items;
-              const c = chip(e);
               const unread = t.emails.some((x) => !read.has(x.id));
               return (
                 <button key={t.id} type="button" aria-label={`Open email ${e.id}`} aria-pressed={pane === 'email' && t === thread}
@@ -623,10 +621,6 @@ export function IntakeScreen() {
                     </span>
                     <span className={s.rowSubject}><span>{bare(e.subject)}</span>{t.emails.length > 1 && <i>{t.emails.length}</i>}</span>
                     {e.preview && <span className={s.preview}>{e.preview}</span>}
-                    <span className={s.chips}>
-                      <span className={`${s.chip} ${c.tone}`} title={e.decision === 'ALL_CLEAR' ? 'All clear' : undefined}>{c.text}</span>
-                      {items && <span className={`${s.chip} ${s.tNeutral}`}>{plural(units(items), 'unit')} · {plural(items.length, 'SKU')}</span>}
-                    </span>
                   </span>
                 </button>
               );
