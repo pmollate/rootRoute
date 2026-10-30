@@ -18,6 +18,10 @@ PR #88) · **Machine:** macOS, Node 22.22.0, Python 3.14.4, Postgres 16 in Docke
 
 ## Summary
 
+**Latest:** on `812155d` (environments added), a fresh clone following the README passed **740 / 740** (API 502,
+dashboard 137, pytest 96, simulator 5) and typecheck: [`agent-runs/2026-10-30-clean-clone.md`](agent-runs/2026-10-30-clean-clone.md).
+The tables below are the full run on `32c8197`.
+
 | Suite | Command | Files | Tests passed / total |
 |---|---|---|---|
 | Python analysis and data (pytest) | `python -m pytest -q` | 16 | **96 / 96** |
@@ -106,6 +110,22 @@ The rules config is checked from both sides. `test_cause_rules_come_from_config`
   `validator-eval.test.ts` (56) and `eval.test.ts` (scores above).
 - **The 34 real complaints** from `complaints.csv`, wrapped as emails, feed the complaint tests (`intake/complaints`,
   `routes/complaints`).
+
+## Bad input: screenshots and logs
+
+Taken 30 Oct 2026 on commit `812155d` with Playwright against the local app (`npm run dev:all`), and with `curl`
+against the local API. Each case is refused before anything is stored or any AI service is called (REQ-INT-16,
+AC-INT-16 to -18); the automated checks are in `backend/api/test/routes/intake-input.test.ts` and the dashboard's
+`IntakeScreen` tests.
+
+| Case | What the user sees | Evidence |
+|---|---|---|
+| Empty body (spaces only) | **Process email** stays disabled | [`01-empty-body.png`](evidence/bad-input/01-empty-body.png) |
+| Sender is not an email address | "From must be an email address, like orders@client190.example." | [`02-from-not-an-email.png`](evidence/bad-input/02-from-not-an-email.png) |
+| Body over 20,000 characters | "The email body is longer than 20,000 characters (20,500 now)." and the button is disabled | [`03-oversized-body.png`](evidence/bad-input/03-oversized-body.png) |
+| Received at in the future | "Received at is in the future. Pick when the email arrived." | [`04-received-in-future.png`](evidence/bad-input/04-received-in-future.png) |
+| Sender left empty | "From is empty." | [`05-missing-from.png`](evidence/bad-input/05-missing-from.png) |
+| Straight to the API: empty body, missing fields, malformed sender and date, impossible date, broken JSON, empty request, JSON array, form-encoded (415), over 1 MB (413) | One readable sentence in `error`, one per field in `fields` | [`api-responses.txt`](evidence/bad-input/api-responses.txt) |
 
 ## Edge cases tested
 

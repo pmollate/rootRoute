@@ -104,7 +104,7 @@ Effort is a **rough estimate in person-days** for one developer who knows the co
 
 | Step | What | Effort (est.) | Links |
 |---|---|---|---|
-| N1 | Rules as configuration (cut-off, overrun, Friday rule, lane thresholds) and bad lanes derived from the window's data, gated on matching today's five lanes | 2–3 | U4, AC-DATA-05; L1; scorecard 3.4 |
+| N1 | Rules as configuration: **done 30 Oct** (`backend/analytics/rules.json`, `ANALYTICS_RULES`). Left: bad lanes derived from the window's data, gated on matching today's five lanes | 1–2 | U4, AC-DATA-05; L1; scorecard 3.4 |
 | N2 | Confirm the time zone and make the cut-off check zone-aware (daylight saving included) | 1–2 | SPEC §12 `[HALCYON_TIMEZONE]`; L2 |
 | N3 | Data store, validator with readable errors, seed, CSV upload page | 8–10 | U1, U3, U6, U13; REQ-DATA-01/02/04/05; L3; scorecard 2.1, 2.2 |
 | N4 | "Late with no known cause" count on Overview and an alert when it rises, so real data's unexplained lateness is visible, not hidden | 2 | L8; SPEC §12 |
