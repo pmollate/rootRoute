@@ -4568,7 +4568,12 @@ time); Q-LINK-05 (Step 1: minting lives only in `send_reply`).
 - `outbound_messages.body` keeps `[CONFIRM_LINK]`; the Gmail text holds the link. With the flag off, a placeholder in
   an old draft is removed from both (never sent as text).
 
-- [ ] **Step 1: Write the failing service tests** with a memory store. `backend/api/test/intake/memoryLinks.ts`:
+> **As built (30 Oct, `docs/agent-runs/2026-10-30-implementer-A17-link-service.md`):** follows SPEC v0.12 where this
+> plan differs: `linkExpiry(...)` returns the `Date` (no `localToInstant`); `MapCredential.kind` is `'sas'` only; flag
+> off strips the placeholder's sentence and falls back to the template if a required phrase is lost; `savedAddresses`
+> orders `source = 'link'` rows after the seed's; `linkRepo` has its own test-database test (`link-repo.test.ts`).
+
+- [x] **Step 1: Write the failing service tests** with a memory store. `backend/api/test/intake/memoryLinks.ts`:
 
 ```ts
 import type { LinkRepo, LinkRow } from '../../src/modules/intake/link.js';
@@ -4755,7 +4760,7 @@ describe('E19 address link (memory)', () => {
 
   Run `npm --prefix backend/api test -- test/intake/link.test.ts`. Expected: FAIL, module not found.
 
-- [ ] **Step 2: Maps.** `core/maps/types.ts`: in `GeocodeFeature` add
+- [x] **Step 2: Maps.** `core/maps/types.ts`: in `GeocodeFeature` add
   `geometry?: { type: 'Point'; coordinates: [number, number] }; // [longitude, latitude] (E19 start pin)`; in
   `AddressValidator` add
   `reverse?(pin: { lat: number; lon: number }): Promise<GeocodeResponse>; // E19 REQ-LINK-03; optional so stand-ins need not implement it`;
@@ -4783,7 +4788,7 @@ describe('E19 address link (memory)', () => {
   key. Add a `test/maps.test.ts` case: a fake `fetchFn` sees `/reverseGeocode?` with `coordinates=lon,lat`. Live
   check in A20 (`npm --prefix backend/api run maps:check`): confirm `API_VERSION` serves `reverseGeocode`.
 
-- [ ] **Step 3: Implement** `backend/api/src/modules/intake/link.ts`. `decideAgain` runs SPEC §5.3 steps 8–10 with
+- [x] **Step 3: Implement** `backend/api/src/modules/intake/link.ts`. `decideAgain` runs SPEC §5.3 steps 8–10 with
   code only, the confirmed address as `status: 'confirmed'`; the promise uses the email's arrival time (REQ-INT-03,
   **Q-LINK-04 open**); the new draft is the fixed template (no model call in E19).
 
@@ -5011,7 +5016,7 @@ export async function saveOnApproval(d: LinkDeps, email: EmailRow, x: Extraction
 }
 ```
 
-- [ ] **Step 4: Wire `applyAction`.** In `actions.ts`:
+- [x] **Step 4: Wire `applyAction`.** In `actions.ts`:
   1. `import { LINK_PLACEHOLDER, type LinkDeps, mintLink, saveOnApproval } from './link.js';`
   2. `ActionOptions` gains `link?: LinkDeps`, and below it:
 
@@ -5053,7 +5058,7 @@ const withoutPlaceholder = (text: string) => text.split('\n').filter((l) => !l.i
   If the operator edits the placeholder out of the reply, no link is minted and the reply goes as written (see the run
   record: SPEC does not say; this keeps the operator in charge of the text).
 
-- [ ] **Step 4b: The SQL store** (runs against the test database in A18). `repo.ts`, after `repo`, with
+- [x] **Step 4b: The SQL store** (runs against the test database in A18). `repo.ts`, after `repo`, with
   `import type { LinkRepo, LinkRow } from './link.js';`:
 
 ```ts
@@ -5111,10 +5116,10 @@ export const linkRepo: LinkRepo = {
 };
 ```
 
-- [ ] **Step 5: Run.** `npm --prefix backend/api test -- test/intake test/maps.test.ts && npm run typecheck`
+- [x] **Step 5: Run.** `npm --prefix backend/api test -- test/intake test/maps.test.ts && npm run typecheck`
   Expected: PASS (`link.test.ts` 10; every A13–A15 test unchanged: `link` is optional).
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```bash
 git add backend/api/src/modules/intake/link.ts backend/api/src/modules/intake/actions.ts backend/api/src/modules/intake/repo.ts backend/api/src/core/maps \

@@ -44,9 +44,13 @@ export const Env = z.object({
 /** REQ-LINK-09: with CONFIRM_LINK=on the API refuses to start without AUTH_URL, naming the setting (fail closed). */
 export function checkConfirmLink(c: Pick<z.infer<typeof Env>, 'CONFIRM_LINK' | 'AUTH_URL'>): void {
   if (c.CONFIRM_LINK === 'on' && !c.AUTH_URL) throw new Error('CONFIRM_LINK=on needs AUTH_URL: refusing to start');
-  // Until A17 replaces the placeholder at send time, a draft with [CONFIRM_LINK] would reach the client as text
-  // (SPEC §5.17 step 2: never sent as text). A17 removes this line in the same change that makes sending safe.
-  if (c.CONFIRM_LINK === 'on') throw new Error('CONFIRM_LINK=on is not available yet (E19 A17 sends the link): refusing to start');
+  // The link is <AUTH_URL>/confirm/<token>: AUTH_URL must be the web app's origin, nothing more.
+  if (c.CONFIRM_LINK === 'on' && c.AUTH_URL) {
+    const u = new URL(c.AUTH_URL);
+    if (u.pathname !== '/' || u.search || u.hash || u.username || u.password) {
+      throw new Error('CONFIRM_LINK=on: AUTH_URL must be an origin only (https://host[:port], no path, query or fragment): refusing to start');
+    }
+  }
 }
 
 export const config = Env.parse(process.env);
