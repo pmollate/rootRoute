@@ -3252,3 +3252,157 @@ def test_pipeline_builds_every_contract_table():
   - Committed `4bff9c7` on `B12-contract-check-and-synthetic-data-register-thursday-morning`; not pushed.
 
 Then follow the overview plan §6 (submission).
+
+---
+
+### Task B18: Today vs With LateLens compare (D11) - Done (30 Oct, not merged)
+
+Goal: the Replay screen shows, for each warehouse, lane, carrier, region, month or client, on-time today and with
+LateLens, from the replay on the supplied data (SPEC §5.7, §5.8 REQ-REP-07 to -11). Overview, Warehouses and Carriers
+report the data only (team decision, 30 Oct). Python sums the per-delivery estimates the replay already makes; Node
+only looks them up.
+
+**Files:**
+- Modify: `backend/analytics/core/scenarios.py` (adds `scenario_breakdown`), `backend/analytics/core/build.py`
+- Modify: `backend/analytics/tests/test_scenarios.py`, `backend/analytics/tests/test_pipeline.py` (`CONTRACT_TABLES`)
+- Modify: `backend/api/src/modules/warehouse/queries.ts`, `routes.ts`; `backend/api/test/routes/warehouse.test.ts`
+- Modify: `backend/api/src/core/permissions.ts` (`GET /api/compare`: Replay roles), `backend/api/test/routes/permissions.test.ts`
+- Create: `frontend/components/dashboard/replay/CompareCard.tsx`, `compare.module.css`: `CompareCard`, `Delta`
+- Modify: `ReplayScreen.tsx`, `ReplayScreen.test.tsx`
+
+**Interfaces:**
+- Consumes: `SCENARIOS`, `estimate(d, s)`, `paid_ratio`, `cost_avoided` (B6); `delivery_causes` is not needed.
+- Produces: table `scenario_breakdown` (CONTRACTS §4); `GET /api/compare?scenario=&dimension=` (CONTRACTS §6), read
+  by the Replay roles only (SPEC-auth §4.4).
+- Rule: no figure is computed in Node or the browser beyond rounding and today → with formatting (Python computes,
+  Node looks up).
+
+- [x] **Step 1: Write the failing Python test** in `backend/analytics/tests/test_scenarios.py` (AC-REP-07, AC-REP-08):
+
+```python
+from analytics.core.scenarios import COMPARE_DIMENSIONS, COMPARE_SCENARIOS, scenario_breakdown
+
+
+@pytest.fixture(scope="module")
+def breakdown(d, penalties):
+    return scenario_breakdown(d, penalties)
+
+
+def test_ac_rep_07_breakdown_rows(breakdown):
+    """AC-REP-07: every scenario x dimension, one row per value present in the data."""
+    sizes = breakdown.groupby(["scenario", "dimension"]).size().unstack()
+    assert set(sizes.index) == set(COMPARE_SCENARIOS)
+    assert sizes.loc["as_built_adopted"].to_dict() == {
+        "all": 1, "warehouse": 5, "lane": 24, "carrier": 6, "region": 4, "month": 6, "client": 280}
+
+
+@pytest.mark.parametrize("dimension", COMPARE_DIMENSIONS)
+def test_ac_rep_08_rows_add_up(breakdown, results, dimension):
+    """AC-REP-08 / REQ-REP-08: rows of each dimension add up to the scenario's `all` figures."""
+    for scenario in COMPARE_SCENARIOS:
+        rows = breakdown[(breakdown.scenario == scenario) & (breakdown.dimension == dimension)]
+        ref = results.loc[(scenario, "all")]
+        assert rows.deliveries.sum() == 48_340
+        assert (rows.late_today - rows.late_with).sum() == pytest.approx(ref.late_avoided, abs=0.1)
+        assert rows.cost_avoided.sum() == pytest.approx(ref.cost_avoided, abs=1)
+
+
+def test_ac_rep_08_golden(breakdown):
+    """AC-REP-08: 71.0 -> 85.9 overall, W1 70.4 -> 85.1, D->Midwest 53.4 -> 87.5; cost avoided $707,950."""
+    b = breakdown[breakdown.scenario == "as_built_adopted"].set_index(["dimension", "key"])
+    for key, today, with_ in [(("all", "all"), 71.0, 85.9), (("warehouse", "W1"), 70.4, 85.1),
+                              (("lane", "D→Midwest"), 53.4, 87.5)]:
+        assert round(100 * b.loc[key].on_time_today, 1) == today
+        assert round(100 * b.loc[key].on_time_with, 1) == with_
+    assert b.loc[("all", "all")].cost_avoided == pytest.approx(707_950, abs=1)
+```
+
+  Run `npm run test:py` (or `python -m pytest backend/analytics/tests/test_scenarios.py`). Expected: FAIL
+  (`scenario_breakdown` not defined).
+
+- [x] **Step 2: Implement `scenario_breakdown`** in `backend/analytics/core/scenarios.py`:
+
+```python
+COMPARE_SCENARIOS = ["as_built_adopted", "as_built", "adopt_all"]
+COMPARE_DIMENSIONS = ["all", "warehouse", "lane", "carrier", "region", "month", "client"]
+
+
+def _dimension_keys(d: pd.DataFrame) -> dict[str, pd.Series]:
+    return {
+        "all": pd.Series("all", index=d.index),
+        "warehouse": d.fulfilment_warehouse_id,
+        "lane": d.carrier_id + "→" + d.destination_region,
+        "carrier": d.carrier_id,
+        "region": d.destination_region,
+        "month": d.order_received_ts.dt.strftime("%Y-%m"),
+        "client": d.client_id,
+    }
+
+
+def scenario_breakdown(d: pd.DataFrame, penalties: pd.DataFrame) -> pd.DataFrame:
+    """Today vs with LateLens by dimension (SPEC §5.8 D11). Sums the per-delivery replay estimates; supplied data only."""
+    ratio = paid_ratio(d, penalties)
+    by_key = {s.key: s for s in SCENARIOS}
+    keys = _dimension_keys(d)
+    rows = []
+    for name in COMPARE_SCENARIOS:
+        s = by_key[name]
+        est = estimate(d, s)
+        for dim, key in keys.items():
+            for k, idx in d.groupby(key).groups.items():
+                _, usd = cost_avoided(d.loc[idx], est[idx], ratio)
+                late = d.late[idx]
+                rows.append({"scenario": name, "label": s.label, "dimension": dim, "key": str(k),
+                             "deliveries": len(idx), "on_time_today": 1 - float(late.mean()),
+                             "on_time_with": 1 - float(est[idx].mean()), "late_today": int(late.sum()),
+                             "late_with": float(est[idx].sum()), "cost_avoided": usd})
+    return pd.DataFrame(rows)
+```
+
+  Add `"scenario_breakdown": scenario_breakdown(d, penalties)` to `build()` in `core/build.py`, and
+  `"scenario_breakdown"` to `CONTRACT_TABLES` in `test_pipeline.py`. Re-run Step 1 and `test_pipeline.py`. Expected:
+  PASS. Then `npm run pipeline` to load the table.
+
+- [x] **Step 3: Write the failing API test** in `backend/api/test/routes/warehouse.test.ts` (AC-REP-10, contract):
+
+```ts
+it('serves today vs with by dimension, and rejects unknown values (AC-REP-10)', async () => {
+  const r = await get('/api/compare?scenario=as_built_adopted&dimension=warehouse');
+  expect(r.rows).toHaveLength(5);
+  const w1 = r.rows.find((x: { key: string }) => x.key === 'W1');
+  expect(w1.onTimeToday).toBeCloseTo(0.704, 3);
+  expect(w1.onTimeWith).toBeCloseTo(0.851, 3);
+  for (const url of ['/api/compare?scenario=vendor&dimension=all', '/api/compare?scenario=as_built&dimension=sku']) {
+    const res = await app.inject({ method: 'GET', url });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toMatch(/must be one of/);
+  }
+});
+```
+
+- [x] **Step 4: Implement the endpoint.** In `queries.ts` add `COMPARE_SCENARIOS`, `COMPARE_DIMENSIONS` and a cached
+  `compare(scenario, dimension)` that selects from `scenario_breakdown` ordered by `key` and maps to the CONTRACTS §6
+  shape (`lateWith` and `costAvoided` rounded; rates passed through). In `routes.ts` add `GET /compare` with the same
+  400 pattern as `/replay`. In `permissions.ts` give `GET /api/compare` the Replay roles (`ACCOUNTS_READ`), and
+  test that the order desk and customer support get 403 (AC-REP-10). Expected: PASS.
+
+- [x] **Step 5: Write the failing UI test** in `ReplayScreen.test.tsx` (AC-REP-09, REQ-REP-11): with mocked
+  `/api/compare` responses, the card shows W1 and the "Replay estimate" badge; "Lane" shows D→Midwest `53.4% → 87.5%`,
+  `+34.1 pts` and the carrier note; the scenario picker loads `adopt_all`; "Client" marks an at-risk account; no text
+  matches `/sign|vendor|pilot/i`.
+
+- [x] **Step 6: Build the card.** `replay/CompareCard.tsx`: a "Compare by" segmented switch (warehouse, lane, carrier,
+  region, month, client), a scenario select (as built at expected adoption, as built at full fix, full programme), and
+  a table of deliveries, on-time today → with, late today → expected, cost avoided, under a "Replay estimate" badge;
+  lane and carrier views carry the REQ-REP-11 note; client rows of the 9 at-risk accounts get an "At risk" pill.
+  `ReplayScreen.tsx` renders it under the summary. Run `npm --prefix frontend test`. Expected: PASS.
+
+- [x] **Step 7: Check in the browser.** `npm run dev:all` on the test database, open `/dashboard/replay`, check W1
+  70.4% → 85.1%, Lane D→Midwest 53.4% → 87.5%, 375 px width (AC-UI-03); Overview, Warehouses and Carriers show no
+  "with LateLens" figures. Ask the numbers-auditor agent to compare the card with SPEC §2.4 and AC-REP-08.
+
+- [ ] **Step 8: Commit.** `git add backend/analytics backend/api frontend && git commit -m "feat(b): today vs with LateLens compare (D11, REQ-REP-07..11)"`.
+  - **Done (30 Oct):** built on branch `B18-today-vs-with-compare`. A first cut put the compare on Overview and
+    Warehouses too; the team decided the same day that only Replay shows what LateLens could improve, so it was reduced
+    to the Replay card. The two API intake suites that fail in a fresh worktree need `backend/synthetic-data/out/`
+    (gitignored); they fail the same way without B18.

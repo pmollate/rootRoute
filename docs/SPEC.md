@@ -1,12 +1,12 @@
 # LateLens — Product and Technical Spec
 
-Repo: root-route · Status: draft v0.13 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
+Repo: root-route · Status: draft v0.14 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
 Hackathon: FDE AI Hackathon 5.0, Problem 2 (Halcyon Logistics). Coding: Mon 26 – Thu 29 Oct 2026. Code submission: 29 Oct, `[DEADLINE_TIME]`.
 Source brief: `docs/Halcyon.docx` (Participant Problem Statement). Data: `Halcyon-Hackathon-Dataset/` (supplied) and `backend/synthetic-data/` (ours, §12.1).
 
 **Changes in v0.4** (aligned with the team's *Halcyon Delivery Diagnostic* deck): five root causes replace the six flags —
 carrier lanes with a Friday cap on D, and route detours above 20% (§2.2, §5.1); lane rules block 5 lanes, not D everywhere
-(§2.3, §5.2); expected-adoption replay (92.0% vs 78.3% for the routing vendor) is the headline, full-fix figures are the
+(§2.3, §5.2); expected-adoption replay (92.0%; the routing-vendor comparison was removed in v0.9) is the headline, full-fix figures are the
 upper bound (§1.1, §2.4); cause attribution in points of on-time lost (§2.2); one KPI per cause with owner and target
 (§1.4); Tier 1 and at-risk clients handled first (§5.15); the deck's data findings and open questions (§2.1, §12, §14).
 Platform stays Azure. v0.3 added the stack, team split, synthetic-data features and dated plan.
@@ -62,13 +62,23 @@ operator's edits, a flag turned off, the `AUTH_URL` setting, revocation across t
 (REQ-LINK-01, -05, -08, -09); AC-LINK-02 and AC-LINK-04 name fixtures that match their gold JSON and recordings; rate
 limits are per process. Also touched: §3, §4.4, §5.7, §12 (Q-LINK-02, -03, Q-AUTH-06), §14.1, §16. CONTRACTS §1.1
 (`ToolChatLLM`, `answerSchema`, recording key), §5, §6, §7; `docs/SPEC-auth.md` v0.4 (e2e password from Key Vault,
-leadership's one read-only POST, `AUTH_URL` on the API). No figure, cause or fair-data definition changes.
+leadership's one read-only POST, `AUTH_URL` on the API). REQ-REP-06 and the v0.4 note drop the routing-vendor case
+that v0.9 removed. §1.1 and the demo close (§11) state what the data shows instead of a verdict on the routing
+contract ("do not sign", "defer"), which stays Halcyon's decision (CLAUDE.md). No figure, cause or fair-data
+definition changes.
 **Changes in v0.13** (30 Oct, scope and traceability pass for the jury's requirements check): §3 gains an explicit
 **Out of scope** list and a **Constraints** list, each line with its source; no tier changes. New §9.4 lists 20 edge cases
 with the expected behaviour, the REQ/AC id, the code that handles it and the test that covers it, or "not tested". It
 records two gaps between REQ-INT-09 and the code (a `medium` map result and an unreachable map both still reach
 `ALL_CLEAR`; the operator approval, SEC-04, still stands before WMS entry) and that SEC-06 automatic replies are not built.
 No requirement, figure, cause or fair-data definition changes.
+**Changes in v0.14** (30 Oct, team request): new feature D11 "Today vs With LateLens" (§3, §5.7, §5.8): the replay's
+per-delivery estimates are summed by warehouse, lane, carrier, region, order month and client into a new Python table
+`scenario_breakdown`, served by `GET /api/compare`, so the Replay screen can show each group today and with LateLens
+side by side (REQ-REP-07 to -11, AC-REP-07 to -10). Team decision the same day: Overview, Warehouses and Carriers report
+the data only; what LateLens could improve is shown on Replay alone. Two assumptions added to §12 (carrier rows
+stay with the carrier that delivered; per-row penalties use the company-wide paid share). CONTRACTS §4 and §6 and SPEC-auth §4.4 updated;
+plan task B18. No existing figure, cause or fair-data definition changes.
 
 **Conventions.** **MUST** / **SHOULD** / **MAY** follow RFC 2119. Every requirement has an ID (`REQ-<module>-NN`,
 `NFR-NN`, `SEC-NN`). Its acceptance criterion has the same number (`AC-<module>-NN`). Every **MUST** has an AC.
@@ -77,19 +87,20 @@ Feature IDs (E1, W1, C1, D1, P1 …) are listed in §3. All figures are computed
 
 ---
 
-## 1. Problem, decision and recommendation
+## 1. Problem and what the data shows
 
 Leadership asks: "Confirm the routing vendor and speed up deployment" ($680K budget, contract in 2 weeks).
 They believe carrier routing and selection is the cause of 71% on-time delivery.
 
-### 1.1 Our recommendation
-**Do not sign the routing contract as scoped.** Five causes explain every late delivery; carrier lanes are about a
-quarter of the problem and the other three quarters start before a truck is booked.
+### 1.1 What the data shows
+Five causes explain every late delivery; carrier lanes are about a quarter of the problem and the other three quarters
+start before a truck is booked. LateLens shows these causes, the fixes for each and their replayed outcomes; the
+decision on the routing contract stays with Halcyon (CLAUDE.md).
 
 Headline (expected adoption: each fix works on 85% of address problems, 90% of bad-lane shipments, 85% of cut-off cases,
 60% of wrong-warehouse cases, 30% of route detours — see §2.4):
 
-| Option | On-time (replay) | Late deliveries avoided (6 mo) | Cost avoided (6 mo) |
+| Scenario | On-time (replay) | Late deliveries avoided (6 mo) | Cost avoided (6 mo) |
 |---|---|---|---|
 | **Fix all five causes** (the programme) | **92.0%** | **10,150** | **≈ $981K** |
 | LateLens as built this week (email addresses, cut-off, nearest warehouse, lane rules) | 85.9% | 7,191 | ≈ $708K |
@@ -98,14 +109,14 @@ Upper bounds (every fix works 100%): route overruns only 73.6%; carrier lanes + 
 as built 88.5%; as built + API/EDI checks + stock placement 96.3%.
 
 Lane rules and a Friday cap on D reach the carrier part of the problem (§5.2). What remains for a routing
-engine is route detours: 3.2 points of on-time, about $113K over 6 months (≈ $232K a year) against a $680K budget.
-Recommendation:
-1. Fix intake (address validation), promise rules (8am cut-off) and nearest-warehouse fulfilment first.
-2. Replace the carrier preference spreadsheet with lane rules: stop D into the Midwest and Southeast, E into the West,
-   F into the Northeast and Southeast; cap D on Fridays with overflow to A, B and C; revisit F's preferred-supplier deal.
-3. Alert clients before the promised date, Tier 1 and at-risk accounts first (§5.15).
-4. Defer the routing contract. Decision gate after the pilot (§9.2): if carrier and route causes still cost more than
-   3 points of on-time, pilot the routing vendor on the remaining lanes.
+engine is route detours: 3.2 points of on-time, about $113K over 6 months (≈ $232K a year).
+Fixes the data points to, largest effect first:
+1. Intake (address validation), promise rules (8am cut-off) and nearest-warehouse fulfilment.
+2. Lane rules in place of the carrier preference spreadsheet: D into the Midwest and Southeast, E into the West and
+   F into the Northeast and Southeast are the late lanes; D is over capacity on Fridays, with A, B and C able to take
+   the overflow.
+3. Client alerts before the promised date, Tier 1 and at-risk accounts first (§5.15).
+After the pilot (§9.2), the replay shows how many points of on-time the carrier and route causes still cost.
 
 Cost method: late-delivery handling cost $34 × late deliveries avoided, plus SLA penalties avoided
 = $180 × late deliveries avoided for clients with a penalty clause × 0.708 (share of such late deliveries that were
@@ -326,6 +337,7 @@ Four tiers. **Core** must work at submission. **Synthetic** features are built o
 | D7 | "Ask LateLens" agent over MCP (leadership) | Carriers | Core | §5.14 |
 | D8 | Cause attribution (points lost) and one KPI per cause on Overview | Warehouse (shared) | Core | §1.4, §5.1, §5.7 |
 | D10 | In-app "Ask LateLens" assistant: chat panel in the dashboard (on Overview, the "Router" panel), read-only tools shared with D7 (flag `ASK_ASSISTANT`) | Carriers | Stretch (after submission; built 30 Oct, flag off) | §5.16 |
+| D11 | "Today vs With LateLens" card on the Replay screen (replay estimates by warehouse, lane, carrier, region, month, client) | Warehouse (shared) | Stretch (after submission) | §5.7, §5.8 |
 | E14 | Tier 1 and at-risk clients first: intake queue, alerts, complaint escalation | Email | Core | §5.15 |
 | E15 | Scheduled Gmail poll (every 10 minutes) | Email | Core | §5.3 |
 | E16 | Unknown senders skipped before any AI call | Email | Core | §5.3 |
@@ -422,7 +434,7 @@ replay and the live app cannot disagree.
 
 | Written by Python (`backend/analytics/`) | Written by Node (`backend/api/`) |
 |---|---|
-| `deliveries_clean`, `delivery_causes`, `dq_report`, `kpis`, `cause_summary`, `cause_attribution`, `cause_kpis`, `accounts`, `clients`, `carriers`, `warehouses`, `complaints`, `lane_scores`, `carrier_capacity`, `carrier_backtest`, `scenario_results`, `risk_lookup`, `warehouse_region_distance`, `client_region_nearest`, `warehouse_stats`, `penalty_reconciliation`, `stock_daily`, `placement_suggestions`, `placement_impact`, `carrier_events` | `audit_log` (approvals and actions), `intake_emails`, `intake_extractions`, `outbound_messages`, `saved_addresses`, `client_domains`, `inbound_orders`, `recommendations`, `alerts`, `override_log`, `complaint_triage`, `address_confirm_tokens` (E19) |
+| `deliveries_clean`, `delivery_causes`, `dq_report`, `kpis`, `cause_summary`, `cause_attribution`, `cause_kpis`, `accounts`, `clients`, `carriers`, `warehouses`, `complaints`, `lane_scores`, `carrier_capacity`, `carrier_backtest`, `scenario_results`, `scenario_breakdown` (D11), `risk_lookup`, `warehouse_region_distance`, `client_region_nearest`, `warehouse_stats`, `penalty_reconciliation`, `stock_daily`, `placement_suggestions`, `placement_impact`, `carrier_events` | `audit_log` (approvals and actions), `intake_emails`, `intake_extractions`, `outbound_messages`, `saved_addresses`, `client_domains`, `inbound_orders`, `recommendations`, `alerts`, `override_log`, `complaint_triage`, `address_confirm_tokens` (E19) |
 
 ### 4.3 Repository layout (one folder per problem area in every layer)
 Two top-level apps: `frontend/` (everything the browser loads) and `backend/` (everything else). The root `package.json`
@@ -732,7 +744,13 @@ is a client component that reads the Node API (`NEXT_PUBLIC_API_URL`).
 | Intake | Email | Email queue (Tier 1 and at-risk clients first, marked Priority) → extracted fields with checks and map confidence → reply draft → Approve; automatic replies marked "Auto-sent" with their text and time; order review for supervisors: `ALL_CLEAR` orders with Approve, Reject (reason) and a carrier choice among unblocked carriers (E18); last poll time; API/EDI orders (E11) and complaints (E12); with E19 on, each address link's state (sent, confirmed, "Address not confirmed") and "Address confirmed by client link" in the order review (§5.17) |
 | Warehouses | Warehouse | Cut-off misses, out-of-stock and skipped-nearest by site; second pick run; placement suggestions (W5) |
 | Carriers | Carriers | Region/promise picker; ranked carriers Recommended / Backup / Blocked with reason; backtest; tracking (C8) |
-| Replay & decision | Warehouse | Programme waterfall (expected adoption); full-fix upper bounds; on-time vs 94% benchmark; cost avoided; 9 at-risk accounts |
+| Replay & decision | Warehouse | Programme waterfall (expected adoption); today vs with LateLens by warehouse, lane, carrier, region, month or client (D11); full-fix upper bounds; on-time vs 94% benchmark; cost avoided; 9 at-risk accounts |
+
+**Today vs With LateLens (D11, §5.8).** Overview, Warehouses and Carriers report the data as it is; what LateLens could
+improve is shown on Replay & decision only. There, a "Today vs with LateLens" card has a "Compare by" switch (warehouse,
+lane, carrier, region, month, client) and a scenario picker (as built at expected adoption, as built at full fix, full
+programme); each row shows on-time and late deliveries today → with, the change, and cost avoided, under a "Replay
+estimate" badge.
 
 With `ASK_ASSISTANT=on`, every screen except Overview also has the "Ask LateLens" panel (D10, owner Carriers, §5.16),
 built in `frontend/components/dashboard/assistant/` and opened from `DashboardShell.tsx`; on Overview the "Router"
@@ -762,7 +780,7 @@ panel sends typed follow-ups to the same assistant instead (one assistant per sc
 | REQ-REP-03 | The replay **SHOULD** show the capacity-limited carrier result next to the uncapped one. |
 | REQ-REP-04 | The replay **MUST** use only the supplied dataset; synthetic tables **MUST NOT** change any scenario figure. |
 | REQ-REP-05 | The replay **MUST** support expected adoption: a fix with rate r removes its cause from a share r of the deliveries that have it; with every rate at 1.0 the result **MUST** equal the full-fix estimate. |
-| REQ-REP-06 | The replay **MUST** produce the programme waterfall and the routing-vendor case of §2.4. |
+| REQ-REP-06 | The replay **MUST** produce the programme waterfall of §2.4. |
 
 | ID | Acceptance criterion |
 |---|---|
@@ -771,6 +789,25 @@ panel sends typed follow-ups to the same assistant instead (one assistant per sc
 | AC-REP-04 | Given `backend/synthetic-data/out/` is deleted, when the replay runs, then every figure is unchanged. |
 | AC-REP-05 | Given any set of fixes at rate 1.0, when the adoption replay runs, then each delivery's estimate equals the full-fix estimate. |
 | AC-REP-06 | Given the adoption rates of §2.4, when the waterfall runs, then on-time is 71.0, 76.2, 82.5, 87.3, 91.0, 92.0%. |
+
+**Today vs With LateLens (D11).** The replay already gives each delivery a late probability under each scenario
+(`estimate()` in `backend/analytics/core/scenarios.py`). D11 sums those estimates by warehouse, lane, carrier,
+region, month and client, so the Replay screen can show each group today and with LateLens. Python writes every figure; Node only looks them up.
+
+| ID | Requirement |
+|---|---|
+| REQ-REP-07 | The pipeline **MUST** write `scenario_breakdown` for the scenarios `as_built_adopted`, `as_built` and `adopt_all`, with one row per value of each dimension: `all`, `warehouse` (fulfilment warehouse), `lane` (carrier → destination region), `carrier`, `region` (destination), `month` (order month) and `client`. Each row **MUST** carry deliveries, on-time and late today, on-time and expected late with the scenario, and cost avoided (REQ-REP-02 method, with the company-wide paid share of penalties). |
+| REQ-REP-08 | For each scenario and dimension, the rows **MUST** add up to that scenario's `all` figures in `scenario_results` (deliveries, late avoided, cost avoided). |
+| REQ-REP-09 | Replay & decision **MUST** show the "Today vs with LateLens" card of §5.7; no other screen **MUST** show "with LateLens" figures, and `GET /api/compare` **MUST** be readable only by the roles that may open Replay (SPEC-auth §4.2). |
+| REQ-REP-10 | Every row of the card **MUST** show today → with and the change, and the card **MUST** show a "Replay estimate" badge. The comparison **MUST NOT** show per-delivery outcomes (dates, delivered or not), only rates and expected counts, and **MUST NOT** carry decision wording (sign, approve, vendor). |
+| REQ-REP-11 | Carrier and lane rows **SHOULD** say that deliveries stay under the carrier that delivered them (the replay does not move volume between carriers, §12). |
+
+| ID | Acceptance criterion |
+|---|---|
+| AC-REP-07 | Given the dataset, when the pipeline runs, then `scenario_breakdown` has every scenario × dimension of REQ-REP-07, one row per value present in the data (5 warehouses, 24 lanes, 6 carriers, 4 regions, 6 months, 280 clients), and AC-REP-04 holds for it. |
+| AC-REP-08 | Given `as_built_adopted`, when the rows of any dimension are summed, then deliveries are 48,340, late avoided is 7,191.5 ± 0.1 and cost avoided is $707,950 ± $1; the `all` row shows 71.0% → 85.9%, W1 70.4% → 85.1% and D → Midwest 53.4% → 87.5%. |
+| AC-REP-09 | Given `/dashboard/replay`, when it loads, then the card shows W1 70.4% → 85.1% and the "Replay estimate" badge; when "Lane" is picked, then D→Midwest shows 53.4% → 87.5%; given Overview, Warehouses or Carriers, then no "with LateLens" figure is shown. |
+| AC-REP-10 | Given `GET /api/compare` with an unknown `scenario` or `dimension`, then the API returns 400 naming the allowed values; given the order desk or customer support role, then the API returns 403. |
 
 ### 5.9 Address checks on API and EDI orders (owner: Email; E11, synthetic)
 Synthetic inputs (SD-01): API JSON orders and simplified EDI 850 files generated from real API/EDI deliveries, with
@@ -1339,8 +1376,8 @@ deliveries start before pickup; 28 of 34 complaints) → Carriers (five bad lane
 regions; D only fails on Fridays) → live: C190's messy email (Tier 1, priority), processed by the real AI model on the
 deployed app, showing the model's extracted JSON next to the code's address check and decision → agent asks for the
 address → client replies → ALL_CLEAR → one complaint triaged (cause found, draft response) → Warehouses (cut-off and stock) → Replay: the programme step by step, from 71.0% to the full programme
-(**92.0%**) → "Ask LateLens" in Claude: "Which carrier lanes should we stop using, and why?" → Decision:
-don't sign as scoped; run the programme and pilot; decide on routing at the gate. If the live AI call fails, switch to
+(**92.0%**) → "Ask LateLens" in Claude: "Which carrier lanes should we stop using, and why?" → Close: what the data
+shows (three quarters of lateness starts before pickup; routes cost 3.2 points). If the live AI call fails, switch to
 recorded responses (`LLM_PROVIDER=recorded`) and say so.
 
 ## 12. Assumptions and open questions
@@ -1362,6 +1399,8 @@ Assumptions (how we would test each):
 - Carriers A, B and C have spare lane capacity for the volume moved off the bad lanes and D's Friday overflow. Test: procurement.
 - Warehouses can run a midday pick wave (second pick run). Test: warehouse supervisor.
 - Weekend picking and shipping is normal operation. Test: warehouse supervisor.
+- Today vs With LateLens (D11): carrier and lane rows keep each delivery under the carrier that delivered it; the replay removes the lane cause but does not move volume to A, B or C, so their "with" rows do not show the extra load. Test: the C7 backtest with the Friday cap.
+- D11 cost avoided per warehouse, lane or client uses the company-wide share of penalties actually paid (0.708), not each client's own share. Test: penalty reconciliation (W7) per client.
 - In this synthetic data a delivery with no flag is never late; real data will have unexplained lateness. Test: pilot control group.
 - Penalty savings assume 70.8% of penalty-eligible late deliveries are paid, as in the data. Test: ask the CFO.
 - **Confirmed (Q-005, §14.1):** email `order_received_ts` is the time the order was keyed into the WMS, not when the

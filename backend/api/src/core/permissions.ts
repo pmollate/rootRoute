@@ -34,6 +34,7 @@ export const PERMISSIONS: Record<string, Permission> = {
   'GET /api/overview': { roles: ALL },
   'GET /api/causes': { roles: ALL },
   'GET /api/replay': { roles: ALL },
+  'GET /api/compare': { roles: ACCOUNTS_READ }, // D11: Replay only
   'GET /api/attribution': { roles: ALL },
   'GET /api/cause-kpis': { roles: ALL },
   'GET /api/journey/:ref': { roles: ALL },

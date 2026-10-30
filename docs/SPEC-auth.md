@@ -152,6 +152,7 @@ matrix; `backend/api/src/core/permissions.ts` gives each GET the roles of the pa
 |---|---|---|
 | `overview`, `causes`, `replay`, `attribution`, `cause-kpis`, `journey/:ref` | Overview, Order journey (and others) | every role |
 | `accounts` | Warehouses, Replay | `warehouse_supervisor`, `carrier_manager`, `leadership`, `admin` |
+| `compare` (D11, SPEC §5.8) | Replay | `warehouse_supervisor`, `carrier_manager`, `leadership`, `admin` |
 | `warehouses`, `placement`, `penalties/unpaid` | Warehouses | `warehouse_supervisor`, `leadership`, `admin` |
 | `intake`, `intake/:id`, `intake/review` | Order emails (Order journey lists email orders only for these roles) | `order_desk`, `warehouse_supervisor`, `admin` |
 | `complaints` | Complaints | `customer_support`, `admin` |

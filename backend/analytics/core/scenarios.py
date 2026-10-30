@@ -75,6 +75,42 @@ def scenario_results(d: pd.DataFrame, penalties: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+# Today vs with LateLens (SPEC §5.8, D11): the replay's per-delivery estimates summed the way each screen groups its data.
+COMPARE_SCENARIOS = ["as_built_adopted", "as_built", "adopt_all"]
+
+
+def _dimension_keys(d: pd.DataFrame) -> dict[str, pd.Series]:
+    return {
+        "all": pd.Series("all", index=d.index),
+        "warehouse": d.fulfilment_warehouse_id,
+        "lane": d.carrier_id + "→" + d.destination_region,
+        "carrier": d.carrier_id,
+        "region": d.destination_region,
+        "month": d.order_received_ts.dt.strftime("%Y-%m"),
+        "client": d.client_id,
+    }
+
+
+def scenario_breakdown(d: pd.DataFrame, penalties: pd.DataFrame) -> pd.DataFrame:
+    """Today and with each compare scenario, by dimension (REQ-REP-07, -08). Supplied data only (REQ-REP-04)."""
+    ratio = paid_ratio(d, penalties)
+    by_key = {s.key: s for s in SCENARIOS}
+    keys = _dimension_keys(d)
+    rows = []
+    for name in COMPARE_SCENARIOS:
+        s = by_key[name]
+        est = estimate(d, s)
+        for dim, key in keys.items():
+            for k, idx in d.groupby(key).groups.items():
+                _, usd = cost_avoided(d.loc[idx], est[idx], ratio)
+                late = d.late[idx]
+                rows.append({"scenario": name, "label": s.label, "dimension": dim, "key": str(k),
+                             "deliveries": len(idx), "on_time_today": 1 - float(late.mean()),
+                             "on_time_with": 1 - float(est[idx].mean()), "late_today": int(late.sum()),
+                             "late_with": float(est[idx].sum()), "cost_avoided": usd})
+    return pd.DataFrame(rows)
+
+
 CAUSE_LABEL = {"f_addr": "Incomplete address", "f_stock": "Wrong warehouse (stock-out)", "f_cutoff": "Same-day promise after cutoff",
                "f_lane": "Carrier lane / Friday overload", "f_route": "Last-mile route detour"}
 CAUSE_STAGE = {"f_addr": "Intake", "f_stock": "Fulfilment", "f_cutoff": "Promise", "f_lane": "Carrier", "f_route": "Delivery"}
