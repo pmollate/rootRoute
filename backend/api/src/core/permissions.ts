@@ -25,6 +25,7 @@ const ORDER_DESK: readonly Role[] = ['order_desk', 'admin'];
 const WMS_ENTRY: readonly Role[] = ['warehouse_supervisor', 'admin'];
 const CARRIERS: readonly Role[] = ['carrier_manager', 'admin'];
 const SUPPORT: readonly Role[] = ['customer_support', 'admin'];
+const ADMIN: readonly Role[] = ['admin']; // App settings (design 2026-10-30-order-journey-auto-advance §4, SEC-SET-01)
 
 export const PERMISSIONS: Record<string, Permission> = {
   'GET /api/health': 'public',
@@ -50,6 +51,7 @@ export const PERMISSIONS: Record<string, Permission> = {
   'GET /api/carriers': { roles: CARRIER_READ },
   'GET /api/carriers/backtest': { roles: CARRIER_READ },
   'GET /api/tracking': { roles: CARRIER_READ },
+  'GET /api/settings': { roles: ALL }, // the Settings page shows every role the switch's state
 
   // Agent gates
   'POST /api/intake/email': { roles: ORDER_DESK, legacyKey: true },
@@ -62,6 +64,7 @@ export const PERMISSIONS: Record<string, Permission> = {
   'POST /api/overrides': { roles: CARRIERS, legacyKey: true },
   'POST /api/complaints/:id/triage': { roles: SUPPORT, legacyKey: true },
   'POST /api/alerts/run': { roles: SUPPORT, legacyKey: true },
+  'POST /api/settings/auto-advance': { roles: ADMIN, legacyKey: true },
   // D10 (SEC-ASK-05): every role; the shared key while AUTH_REQUIRED=off, as for every model route (NS-02). Never public.
   'POST /api/assistant': { roles: ALL, legacyKey: true },
 };
