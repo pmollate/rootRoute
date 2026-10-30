@@ -21,6 +21,7 @@
     "data": "for g in backend/synthetic-data/generators/*.py; do python \"$g\"; done",
     "pipeline": "cd backend && python -m analytics.pipeline",
     "pipeline:test": "cd backend && python -m analytics.pipeline --test-db",
+    "bench": "cd backend && python -m analytics.bench",
     "migrate": "npm --prefix backend/api run migrate",
     "migrate:test": "npm --prefix backend/api run migrate:test",
     "seed": "npm --prefix backend/api run seed",
