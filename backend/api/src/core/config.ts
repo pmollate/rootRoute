@@ -29,6 +29,9 @@ export const Env = z.object({
   AZURE_LANGUAGE_KEY: z.string().optional(),
   ADDRESS_PROVIDER: z.enum(['azure-maps', 'recorded']).default('recorded'),
   AZURE_MAPS_KEY: z.string().optional(), // Azure Maps account shared key (Authentication tab)
+  // E19 map tile SAS (SPEC §5.17, A20): the Maps account's ARM id and the user-assigned identity the SAS is issued for
+  AZURE_MAPS_ACCOUNT_ID: z.string().optional(),
+  AZURE_MAPS_SAS_PRINCIPAL_ID: z.string().optional(),
   RECORD: z.string().optional(),
   GMAIL_ACCOUNT: z.string().optional(), // the demo inbox; scripts refuse to touch any other account
   GMAIL_CLIENT_ID: z.string().optional(),

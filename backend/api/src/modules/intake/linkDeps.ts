@@ -1,5 +1,7 @@
 // E19 one-time address link (SPEC §5.17): what the confirm routes and send_reply need, from the settings. Tests override.
+import { DefaultAzureCredential } from '@azure/identity';
 import { config } from '../../core/config.js';
+import { azureMapsSas } from '../../core/maps/credentials.js';
 import { getDeps } from './deps.js';
 import type { LinkDeps, MapCredentials } from './link.js';
 import { MAILBOX_TIMEZONE } from './mailbox.js';
@@ -7,12 +9,15 @@ import { linkRepo } from './repo.js';
 
 /**
  * SEC-LINK-08: the map tile credential, an Azure Maps SAS token expiring with the link, issued only for a valid link and
- * never stored or logged. `recorded` (tests, local demo) returns a fixed stand-in; `azure-maps` refuses until the
- * `listSas` issuer is built (Q-LINK-02, Task A20), so a live page never gets a Maps key or a longer-lived credential.
+ * never stored or logged. `recorded` (tests, local demo) returns a fixed stand-in; `azure-maps` asks listSas (A20), signed
+ * in with the API's managed identity on App Service or `az login` locally, so a page never gets a Maps key.
  */
+let sasCredential: DefaultAzureCredential | undefined;
 export function createMapCredentials(provider: string = config.ADDRESS_PROVIDER): MapCredentials {
   if (provider === 'recorded') return { issue: async (e) => ({ kind: 'sas', token: 'recorded', expiresAt: e.toISOString() }) };
-  return { issue: async () => { throw new Error('Map tile credential not set up (Q-LINK-02, Task A20)'); } };
+  sasCredential ??= new DefaultAzureCredential();
+  return azureMapsSas({ accountId: config.AZURE_MAPS_ACCOUNT_ID, principalId: config.AZURE_MAPS_SAS_PRINCIPAL_ID,
+    credential: sasCredential });
 }
 
 let overrides: Partial<LinkDeps> = {};

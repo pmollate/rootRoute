@@ -20,6 +20,7 @@
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@azure/identity": "4.13.3",
     "@fastify/cors": "^11.3.1",
     "@modelcontextprotocol/sdk": "1.32.1",
     "dotenv": "^18.0.9",
