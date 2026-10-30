@@ -1393,7 +1393,8 @@ Assumptions (how we would test each):
   order entry, pick lists and stock allocation are simulated. We assume `POST /orders` (client, items, ship-to address,
   promise date, warehouse, carrier) → WMS order number, and `GET /inventory` (warehouse × SKU on hand). Today
   `send_to_wms` (§7) simulates the first by setting the order ENTERED after approval; W5 uses SD-05 for the second.
-  `[WMS_CONTRACT]`: Email owner to add the request and response shapes to `docs/CONTRACTS.md`.
+  `[WMS_CONTRACT]`: closed 30 Oct. The assumed interface is in `docs/CONTRACTS.md` §6 (WMS interface), served by the
+  simulator `tools/wms-simulator` (design `docs/superpowers/specs/2026-10-30-order-journey-simulator-design.md`).
 - "If fixed" estimates assume causes are independent of the other flags and that carrier volume can move. Test: the pilot (§9.2).
 - Adoption rates (address 85%, lanes 90%, cut-off 85%, warehouse 60%, route 30%) are the team's estimates. Test: per-cause KPIs in the pilot.
 - Carriers A, B and C have spare lane capacity for the volume moved off the bad lanes and D's Friday overflow. Test: procurement.
