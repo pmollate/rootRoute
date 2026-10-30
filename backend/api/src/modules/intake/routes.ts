@@ -7,7 +7,7 @@ import { logOverride } from '../carriers/index.js';
 import { diagnosisApi } from '../warehouse/index.js';
 import { ACTIONS, applyAction } from './actions.js';
 import { runAlerts } from './alerts.js';
-import { complaintQueue, listComplaints, savedTriages, saveTriage, triage } from './complaints.js';
+import { complaintQueue, deliveryStages, listComplaints, savedTriages, saveTriage, triage } from './complaints.js';
 import { getDeps } from './deps.js';
 import { processEmail } from './pipeline.js';
 import { POLL_MAX, pollLogFields, runPoll } from './poll.js';
@@ -107,8 +107,11 @@ const routes: FastifyPluginAsync = async (app) => {
     return reply.code(result.code).send(result.error ? { error: result.error } : { status: result.status });
   });
 
-  // E12 + E14: escalations (Tier 1 or at-risk clients) first, each with its latest saved triage.
-  app.get('/complaints', async () => ({ complaints: complaintQueue(await listComplaints(), await savedTriages()) }));
+  // E12 + E14: escalations (Tier 1 or at-risk clients) first, each with its delivery's cause stages and latest saved triage.
+  app.get('/complaints', async () => {
+    const rows = await listComplaints();
+    return { complaints: complaintQueue(rows, await savedTriages(), await deliveryStages(rows.map((r) => r.delivery_id))) };
+  });
 
   app.post<{ Params: { id: string } }>('/complaints/:id/triage', async (req, reply) => {
     const row = (await listComplaints()).find((c) => c.complaint_id === req.params.id);

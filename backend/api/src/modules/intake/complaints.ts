@@ -27,16 +27,18 @@ export interface SavedTriage {
 }
 
 /**
- * E12 + E14 (REQ-CMP-03, REQ-PRI-02): every complaint with its escalation flag (Tier 1 or at-risk client) and its
- * latest triage; escalations first, otherwise in the given order.
+ * E12 + E14 (REQ-CMP-03, REQ-PRI-02): every complaint with its escalation flag (Tier 1 or at-risk client), the cause
+ * stages of its delivery (null when the delivery has no causes row) and its latest triage; escalations first, otherwise
+ * in the given order.
  */
-export function complaintQueue(rows: ComplaintRow[], saved: SavedTriage[]) {
+export function complaintQueue(rows: ComplaintRow[], saved: SavedTriage[], stagesOf: Map<string, string[]> = new Map()) {
   const last = new Map(saved.map((t) => [t.complaint_id, t]));
   const items = rows.map((c) => {
     const t = last.get(c.complaint_id);
     return {
       complaintId: c.complaint_id, clientId: c.client_id, deliveryId: c.delivery_id, category: c.category,
       date: c.complaint_date, text: c.text, atRisk: c.at_risk, tier: c.account_tier, escalate: isPriority(c.account_tier, c.at_risk),
+      stages: stagesOf.get(c.delivery_id) ?? null,
       triage: t ? { stages: t.stages, prePickup: isPrePickup(t.stages), escalate: t.escalate, draft: t.draft, source: t.draft_source, at: t.at } : null,
     };
   });
@@ -48,6 +50,13 @@ export const savedTriages = () => query<SavedTriage>(
   `SELECT DISTINCT ON (complaint_id) complaint_id, stages, escalate, draft, draft_source,
           to_char(created_at, 'YYYY-MM-DD HH24:MI') AS at
      FROM complaint_triage ORDER BY complaint_id, id DESC`, []);
+
+/** The cause stages of each delivery (delivery_causes.stages, written by the pipeline), for the complaint list. */
+export async function deliveryStages(ids: string[]): Promise<Map<string, string[]>> {
+  const rows = await query<{ delivery_id: string; stages: string | null }>(
+    'SELECT delivery_id, stages FROM delivery_causes WHERE delivery_id = ANY($1)', [ids]);
+  return new Map(rows.map((r) => [r.delivery_id, String(r.stages ?? '').split(',').filter(Boolean)]));
+}
 
 export function causeSentences(c: DeliveryCauses): string[] {
   return Object.entries(CAUSE_TEXT).filter(([f]) => c.flags[f as keyof DeliveryCauses['flags']]).map(([, t]) => t);
