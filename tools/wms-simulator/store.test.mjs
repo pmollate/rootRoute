@@ -35,4 +35,6 @@ test('a step is stamped now, never before the last step; a late delivery lands N
   assert.equal(stepTs(o, 'picked_up', 0, '2026-10-30 11:00'), '2026-10-30 12:00');
   assert.equal(stepTs(o, 'delivered', 2, '2026-10-30 13:00'), '2026-11-02 14:00');
   assert.equal(addDays('2026-12-31', 1), '2027-01-01');
+  const past = { ...ORDER, promiseDate: '2026-10-23', steps: [{ event: 'out_for_delivery', ts: '2026-10-30 15:15' }] };
+  assert.equal(stepTs(past, 'delivered', 2, '2026-10-30 15:20'), '2026-10-30 15:15');
 });

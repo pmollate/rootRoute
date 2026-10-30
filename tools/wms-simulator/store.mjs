@@ -33,9 +33,16 @@ export function receive(orders, order, now) {
 
 export const nextStep = (order) => STEPS[order.steps.length] ?? null;
 
-/** Now, but never before the last step; a delivery `lateDays` > 0 lands at 14:00 that many days after the promise date. */
+/**
+ * Never before the last step. A late delivery (`lateDays` > 0) lands at 14:00 that many days after the promise date,
+ * or at the last step's time if that is later (a promise date already in the past would otherwise stamp before it).
+ */
 export function stepTs(order, step, lateDays, now) {
-  if (step === 'delivered' && lateDays > 0) return `${addDays(order.promiseDate, lateDays)} 14:00`;
   const last = order.steps.at(-1)?.ts;
-  return last && TS.test(last) && last > now ? last : now;
+  const floor = last && TS.test(last) ? last : null;
+  if (step === 'delivered' && lateDays > 0) {
+    const late = `${addDays(order.promiseDate, lateDays)} 14:00`;
+    return floor && floor > late ? floor : late;
+  }
+  return floor && floor > now ? floor : now;
 }
