@@ -255,17 +255,39 @@ jobs:
 
   # P6 (owner C): Playwright smoke test of the deployed app, every screen at phone and desktop width, read-only.
   # Its own job, so a failing check is visible without marking the deployment itself as failed.
-  # It needs no secrets, so it runs outside the demo environment.
+  # P7 (NFR-AUTH-04): it signs in with the demo accounts, so it reads their password from Key Vault. Azure's OIDC trust
+  # is for the demo environment only (infra/setup.sh), hence the environment here.
   e2e:
     needs: [gate, deploy]
     if: github.event_name != 'workflow_dispatch' || inputs.run_e2e
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: demo
+    permissions:
+      contents: read
+      id-token: write   # OIDC sign-in to Azure, as in deploy
     env:
       WEB_URL: ${{ needs.deploy.outputs.web_url }}
       API_URL: ${{ needs.deploy.outputs.api_url }}
+      KEY_VAULT: ${{ vars.KEY_VAULT || format('{0}-kv', vars.NAME) }}
       CI: "true"
     steps:
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Read the demo accounts' password from Key Vault
+        # Masked before use and passed only through GITHUB_ENV. The live app enforces sign-in, so without the password
+        # every screen would only show the login page: stop here with a clear error instead.
+        run: |
+          v=$(az keyvault secret show --vault-name "$KEY_VAULT" -n auth-demo-password --query value -o tsv 2>/dev/null || true)
+          if [ -z "$v" ]; then
+            echo "::error::Key Vault secret auth-demo-password is missing or empty: the e2e job cannot sign in"
+            exit 1
+          fi
+          echo "::add-mask::$v"
+          echo "E2E_DEMO_PASSWORD=$v" >> "$GITHUB_ENV"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.gate.outputs.sha }}
@@ -277,7 +299,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm --prefix frontend ci --no-audit --no-fund
       - run: npx --prefix frontend playwright install --with-deps chromium
-      - name: Smoke test every screen
+      - name: Smoke test every screen (signed in), and one refusal per role
         working-directory: frontend
         run: npm run e2e
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
