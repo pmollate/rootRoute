@@ -49,6 +49,10 @@ export function ConfirmMap({ pin, credential, onMove, onFail, onReady, placed = 
   const ready = useRef(onReady);
   ready.current = onReady;
   const start = useRef(pin); // the map is built once, at the pin the page started with
+  // The map and its pin, for the zoom and recenter buttons (shown once the map is ready).
+  const mapRef = useRef<InstanceType<Atlas['Map']> | null>(null);
+  const markerRef = useRef<InstanceType<Atlas['HtmlMarker']> | null>(null);
+  const [live, setLive] = useState(false);
   const [failed, setFailed] = useState(false);
   // A map that cannot load is taken away by the page (an empty box helps no one); the address fields still work.
   useEffect(() => { if (failed) fail.current(); }, [failed]);
@@ -64,6 +68,7 @@ export function ConfirmMap({ pin, credential, onMove, onFail, onReady, placed = 
         authOptions: { authType: atlas.AuthenticationType.sas, getToken: (resolve) => resolve(credential.token) },
       });
       map = m;
+      mapRef.current = m;
       // A refused credential: before the map is ready, any error; after it, a tile refused with 401 or 403 (the SDK reports
       // the map ready before its tiles load). Other later tile errors (a dropped connection) are ignored.
       let isReady = false;
@@ -76,6 +81,7 @@ export function ConfirmMap({ pin, credential, onMove, onFail, onReady, placed = 
         setFailed(false);
         const marker = new atlas.HtmlMarker({ position: at, draggable: true });
         m.markers.add(marker);
+        markerRef.current = marker;
         m.events.add('dragend', marker, () => {
           const p = marker.getOptions().position;
           if (p) move.current({ lat: p[1], lon: p[0] });
@@ -87,15 +93,41 @@ export function ConfirmMap({ pin, credential, onMove, onFail, onReady, placed = 
           marker.setOptions({ position: p });
           move.current({ lat: p[1], lon: p[0] });
         });
-        if (!gone) ready.current?.();
+        if (!gone) { setLive(true); ready.current?.(); }
       });
     }).catch(() => { if (!gone) setFailed(true); });
-    return () => { gone = true; map?.dispose(); };
+    return () => { gone = true; mapRef.current = null; markerRef.current = null; setLive(false); map?.dispose(); };
   }, [credential.token, placed]);
+
+  const zoomBy = (d: number) => {
+    const m = mapRef.current;
+    if (m) m.setCamera({ zoom: (m.getCamera().zoom ?? 3) + d, type: 'ease', duration: 200 });
+  };
+  /** Back to where the pin is now (it may have been dragged), at street level when the map is zoomed out. */
+  const recenter = () => {
+    const m = mapRef.current;
+    const p = markerRef.current?.getOptions().position;
+    if (m && p) m.setCamera({ center: [p[0], p[1]], zoom: Math.max(m.getCamera().zoom ?? 0, 16), type: 'ease', duration: 300 });
+  };
 
   return (
     <div className={s.mapWrap}>
       <div ref={box} className={s.map} role="application" aria-label="Map with your delivery pin" />
+      {live && (
+        <div className={s.mapCtrls}>
+          <div className={s.zoomPair}>
+            <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => zoomBy(1)}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            </button>
+            <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => zoomBy(-1)}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
+            </button>
+          </div>
+          <button type="button" aria-label="Recenter on the pin" title="Recenter on the pin" onClick={recenter}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

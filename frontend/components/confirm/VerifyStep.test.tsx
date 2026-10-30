@@ -57,10 +57,11 @@ describe('/confirm/{token} verify step (E19, REQ-LINK-17 to -19)', () => {
     expect([digit(2).maxLength, digit(6).maxLength]).toEqual([1, 1]);
   });
 
-  it('AC-LINK-17 (page): the server render holds no locale-formatted expiry (formatted after mount)', () => {
+  it('AC-LINK-17 (page): the server render holds no date, no trust row and no link expiry line', () => {
     const html = renderToString(<VerifyStep token={TOKEN} view={view} />);
-    expect(html).toContain('This link works for a limited time.');
     expect(html).not.toContain('2026');
+    // 31 Oct (the user): no trust row and no link expiry line on this step
+    for (const gone of ['Single-use code', 'Sent only to the address', 'This link works']) expect(html).not.toContain(gone);
   });
 
   it('AC-LINK-18 (page): Send code posts to /code, says where it went and holds the button for retryIn seconds', async () => {

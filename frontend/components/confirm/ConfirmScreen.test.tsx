@@ -183,6 +183,17 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
       pin: moved, checkId: 'fill-1' });
   });
 
+  // 31 Oct: every look-up counts in the per-IP limit; a burst of moves must be one request, for where the pin ends.
+  it('AC-LINK-16 (page): moves in quick succession are looked up once, when the pin has been still for half a second', async () => {
+    lookupAnswer = [200, { reading: { line1: '65156 Powers Rd', city: 'Enterprise', state: 'OR', zip: '97828', found: true }, checkId: 'fill-3' }];
+    const fn = stubFetch();
+    render(<ConfirmScreen token={TOKEN} view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
+    await waitFor(() => expect(field('City').value).toBe('Enterprise'));
+    expect(lookups(fn)).toHaveLength(1);
+  });
+
   it('AC-LINK-16 (page): editing a field after the fill drops the look-up checkId; a reading with parts missing fills only what it has', async () => {
     lookupAnswer = [200, { reading: { line1: null, city: 'Enterprise', state: 'OR', zip: '97828', found: true }, checkId: null }];
     const fn = stubFetch([409, { error: 'needs_second_confirm', checkId: 'c-9', reading: { of: 'pin', found: true, line1: null, city: 'Enterprise', state: 'OR', zip: '97828', distanceM: 900, differs: [] } }]);

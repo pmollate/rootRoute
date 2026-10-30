@@ -18,7 +18,6 @@ const CODE_SECONDS = 10 * 60;
 const MAX_TRIES = 5;
 const DIGITS = 6;
 
-const until = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 const clock = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
 const json = { 'content-type': 'application/json' };
 
@@ -64,9 +63,6 @@ export function VerifyStep({ token, view }: { token: string; view: VerifyView })
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const boxes = useRef<(HTMLInputElement | null)[]>([]);
-  // Formatted after hydration, in the reader's locale and zone (as ConfirmScreen does).
-  const [expires, setExpires] = useState<string | null>(null);
-  useEffect(() => { setExpires(until(view.expiresAt)); }, [view.expiresAt]);
   useEffect(() => {
     if (wait <= 0) return undefined;
     const t = setTimeout(() => setWait((w) => w - 1), 1000);
@@ -246,12 +242,6 @@ export function VerifyStep({ token, view }: { token: string; view: VerifyView })
         <p className={s.cardFoot}>Didn&apos;t get it? Check your spam folder.</p>
       </section>
 
-      <ul className={s.trust}>
-        <li>Single-use code</li>
-        <li>Expires in 10 minutes</li>
-        <li>Sent only to the address your order came from</li>
-      </ul>
-      <p className={s.muted}>{expires ? `This link works until ${expires}.` : 'This link works for a limited time.'}</p>
     </main>
   );
 }

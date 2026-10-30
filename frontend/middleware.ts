@@ -8,7 +8,7 @@ import { internalUrl } from '@/lib/auth/rewrite';
 import { canOpen, toRoles } from '@/lib/auth/roles';
 
 /** E19 (SEC-LINK-04): requests per minute per client IP to /confirm/* and /api/confirm/*, in this process's memory. */
-const linkLimiter = new RateLimiter(Number(process.env.CONFIRM_LINK_RATE_PER_MINUTE) || 10);
+const linkLimiter = new RateLimiter(Number(process.env.CONFIRM_LINK_RATE_PER_MINUTE) || 30);
 
 /**
  * P7 (SPEC-auth §5.1): no session → /login?next=<path>; signed in with no LateLens role → /no-access (REQ-AUTH-03).

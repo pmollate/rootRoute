@@ -104,10 +104,6 @@
 .linkBtn:disabled { color: var(--ink-2); font-weight: 500; cursor: not-allowed; }
 .cardBody .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--navy); color: #fff; }
 .cardFoot { margin: 0; padding: 14px 22px; border-top: 1px solid var(--line); background: var(--bg); color: var(--ink-2); font-size: 0.9rem; text-align: right; }
-.trust { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; margin: 18px 0 6px; padding: 0; list-style: none;
-  color: var(--ink-2); font-size: 0.85rem; }
-.trust li::before { content: '✓'; margin-right: 6px; color: var(--gain-ink); }
-.verifyPage > .muted { text-align: center; }
 @media (max-width: 480px) {
   .cardHead { grid-template-columns: 1fr; justify-items: start; }
   .stepper span:not(.stepDot) { display: none; }
@@ -173,3 +169,25 @@
   .stepper li:not(:last-child) { flex: 1 1 0; }
   .stepper li.stepNow { flex: 1 0 auto; }
 }
+
+/* The steps sit in the middle: each step is as wide as its dot and label, with a fixed-length line between them. */
+.stepper { justify-content: center; }
+.stepper li, .stepper li:not(:last-child), .stepper li.stepNow { flex: 0 1 auto; }
+.stepper li:not(:last-child)::after { flex: 0 0 clamp(32px, 14vw, 180px); margin: 0 4px 0 6px; }
+@media (max-width: 480px) {
+  .stepper li.stepNow { flex: 0 0 auto; }
+}
+
+/* Map controls (top right): zoom in and out as one pair, then recenter on the pin. */
+.mapWrap { position: relative; }
+.mapCtrls { position: absolute; top: 16px; right: 16px; z-index: 2; display: flex; flex-direction: column; gap: 8px; }
+.zoomPair { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08); }
+.zoomPair button + button { border-top: 1px solid var(--line); }
+.mapCtrls button { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; background: var(--surface); color: var(--ink);
+  cursor: pointer; }
+.mapCtrls > button { border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.08); }
+.mapCtrls button:hover { background: var(--bg); }
+.mapCtrls button:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.mapCtrls svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.mapChip { max-width: calc(100% - 96px); }

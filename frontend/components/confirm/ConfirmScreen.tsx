@@ -46,6 +46,9 @@ const US_STATES = ['AK', 'AL', 'AR', 'AZ', 'CA', 'CO', 'CT', 'DC', 'DE', 'FL', '
   'MI', 'MN', 'MO', 'MS', 'MT', 'NC', 'ND', 'NE', 'NH', 'NJ', 'NM', 'NV', 'NY', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VA', 'VT',
   'WA', 'WI', 'WV', 'WY'];
 
+/** How long the pin must be still before it is looked up (a design setting). */
+const PIN_SETTLE_MS = 500;
+
 type Phase =
   | { kind: 'form'; note: string | null }
   | { kind: 'check'; reading: MapReading; checkId: string; typed: LinkAddress; note: string | null }
@@ -109,7 +112,15 @@ export function ConfirmScreen({ token, view, verifyToken, onVerifyRequired }:
   // format (SEC-LINK-10) and the map (REQ-LINK-12).
   const complete = REQUIRED.every((k) => fields[k].trim() !== '');
   const fail = () => { setMapShown(false); setMapReady(false); back(); };
-  const move = (p: LinkPin) => { setPin(p); setFilled(null); back(); void readPin(p); };
+  // The pin is looked up once it has been still for half a second: a burst of drags and taps is one request
+  // (every look-up counts in the per-IP limit, SEC-LINK-04, and the link's 20 map look-ups).
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (settle.current) clearTimeout(settle.current); }, []);
+  const move = (p: LinkPin) => {
+    setPin(p); setFilled(null); back();
+    if (settle.current) clearTimeout(settle.current);
+    settle.current = setTimeout(() => { void readPin(p); }, PIN_SETTLE_MS);
+  };
 
   /** REQ-LINK-16: the server reads the pin (no map key or geocoding in the browser, SEC-LINK-08); the latest move wins. */
   async function readPin(p: LinkPin) {
