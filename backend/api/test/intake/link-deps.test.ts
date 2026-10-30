@@ -14,9 +14,9 @@ describe('E19 link deps (A18)', () => {
     expect(getLinkDeps()).toMatchObject({ enabled: false, timeZone: 'UTC' });
   });
 
-  it('AC-SEC-LINK-08: the recorded issuer gives a SAS credential expiring with the link; azure-maps needs its settings', async () => {
+  // The azure-maps issuer and its missing settings are tested without .env in maps-sas.test.ts.
+  it('AC-SEC-LINK-08: the recorded issuer gives a SAS credential expiring with the link', async () => {
     const at = new Date('2026-10-31T06:00:00Z');
     expect(await createMapCredentials('recorded').issue(at)).toEqual({ kind: 'sas', token: 'recorded', expiresAt: at.toISOString() });
-    await expect(createMapCredentials('azure-maps').issue(at)).rejects.toThrow(/AZURE_MAPS_ACCOUNT_ID/);
   });
 });

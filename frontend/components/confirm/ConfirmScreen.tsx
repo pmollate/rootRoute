@@ -11,7 +11,8 @@ export interface LinkAddress { line1: string; line2: string | null; city: string
 export interface LinkPin { lat: number; lon: number }
 export interface MapReading { line1: string | null; city: string | null; state: string | null; zip: string | null; distanceM: number }
 export interface MapCredential { kind: 'sas'; token: string; expiresAt: string }
-export interface LinkView { address: Partial<LinkAddress>; pin: LinkPin | null; expiresAt: string; synthetic: boolean; map: MapCredential }
+/** `map` is null when the API could not issue a tile credential: the page is then the address form alone. */
+export interface LinkView { address: Partial<LinkAddress>; pin: LinkPin | null; expiresAt: string; synthetic: boolean; map: MapCredential | null }
 
 export { LINK_INVALID_TEXT };
 
@@ -33,7 +34,7 @@ const FIELDS: { key: keyof Fields; label: string; auto: string; max: number; mod
 type Phase =
   | { kind: 'form'; note: string | null }
   | { kind: 'check'; reading: MapReading; checkId: string; typed: LinkAddress; note: string | null }
-  | { kind: 'done' }
+  | { kind: 'done'; address: LinkAddress }
   | { kind: 'invalid' };
 
 const oneLine = (parts: (string | null | undefined)[]) => parts.filter(Boolean).join(', ');
@@ -53,6 +54,9 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
   const [pin, setPin] = useState<LinkPin>(view.pin ?? NO_PIN_START);
   const [phase, setPhase] = useState<Phase>({ kind: 'form', note: null });
   const [busy, setBusy] = useState(false);
+  // No credential, or the map refused it: the page is the form alone. The pin stays where it started (REQ-LINK-03 still
+  // checks it), but its reading is not shown: the client never saw or placed it.
+  const [mapShown, setMapShown] = useState(view.map !== null);
 
   /** A reading only counts for the pin and ZIP it was read for: moving either drops it (and its checkId). */
   const back = () => setPhase((p) => (p.kind === 'check' ? { kind: 'form', note: null } : p));
@@ -73,7 +77,7 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
         method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store',
         body: JSON.stringify(checkId ? { address, pin, checkId } : { address, pin }),
       });
-      if (r.status === 200) setPhase({ kind: 'done' });
+      if (r.status === 200) setPhase({ kind: 'done', address });
       else if (r.status === 404) setPhase({ kind: 'invalid' });
       else if (r.status === 409) {
         const b = (await r.json()) as { reading: MapReading; checkId: string };
@@ -89,10 +93,28 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
   }
 
   if (phase.kind === 'invalid') return <main className={s.page}><p className={s.message}>{LINK_INVALID_TEXT}</p></main>;
-  if (phase.kind === 'done') return <main className={s.page}><p className={s.message}>Thank you. Your delivery address is confirmed.</p></main>;
+  if (phase.kind === 'done') {
+    return (
+      <main className={s.page}>
+        <p className={s.brand}>Halcyon Logistics</p>
+        <p className={s.message}>Thank you. Your delivery address is confirmed.</p>
+        <p className={s.box}>{typedText(phase.address)}</p>
+        <p className={s.muted}>Our order desk will check it before your order ships. You can close this page.</p>
+      </main>
+    );
+  }
+
+  const input = (f: (typeof FIELDS)[number]) => (
+    <label key={f.key} className={s.field}>
+      <span>{f.label}{f.key === 'line2' ? ' (optional)' : ''}</span>
+      <input name={f.key} aria-label={f.label} autoComplete={f.auto} maxLength={f.max} inputMode={f.mode}
+        value={fields[f.key]} onChange={(e) => setField(f.key, e.target.value)} />
+    </label>
+  );
 
   return (
     <main className={s.page}>
+      <p className={s.brand}>Halcyon Logistics</p>
       <header className={s.head}>
         <h1>Confirm your delivery address</h1>
         {view.synthetic && <SyntheticBadge />}
@@ -100,18 +122,15 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
       <p className={s.muted}>This link works until {until(view.expiresAt)}.</p>
 
       <form className={s.form} onSubmit={(e) => { e.preventDefault(); void confirm(); }}>
-        {FIELDS.map((f) => (
-          <label key={f.key} className={s.field}>
-            <span>{f.label}{f.key === 'line2' ? ' (optional)' : ''}</span>
-            <input name={f.key} aria-label={f.label} autoComplete={f.auto} maxLength={f.max} inputMode={f.mode}
-              value={fields[f.key]} onChange={(e) => setField(f.key, e.target.value)} />
-          </label>
-        ))}
+        {FIELDS.slice(0, 3).map(input)}
+        <div className={s.row}>{FIELDS.slice(3).map(input)}</div>
 
-        <div className={s.mapBlock}>
-          <p className={s.muted}>{view.pin ? 'Drag the pin if your delivery entrance is somewhere else.' : 'Drag the pin to your delivery entrance.'}</p>
-          <ConfirmMap pin={pin} credential={view.map} onMove={move} placed={view.pin !== null} />
-        </div>
+        {mapShown && view.map && (
+          <div className={s.mapBlock}>
+            <p className={s.muted}>{view.pin ? 'Drag the pin if your delivery entrance is somewhere else.' : 'Drag the pin to your delivery entrance.'}</p>
+            <ConfirmMap pin={pin} credential={view.map} onMove={move} onFail={() => setMapShown(false)} placed={view.pin !== null} />
+          </div>
+        )}
 
         {phase.kind === 'check' && (
           <div className={s.check}>
@@ -119,12 +138,18 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
               <h2>You typed</h2>
               <p>{typedText(phase.typed)}</p>
             </section>
-            <section aria-label="The map's reading of your pin" className={s.box}>
-              <h2>The map reads your pin as</h2>
-              <p>{readingText(phase.reading)}</p>
-              {view.pin && <p className={s.muted}>about {phase.reading.distanceM} m from where we placed the pin</p>}
-            </section>
-            <p className={s.muted}>If both are right, confirm again. If not, fix the fields or move the pin.</p>
+            {mapShown ? (
+              <>
+                <section aria-label="The map's reading of your pin" className={s.box}>
+                  <h2>The map reads your pin as</h2>
+                  <p>{readingText(phase.reading)}</p>
+                  {view.pin && <p className={s.muted}>about {phase.reading.distanceM} m from where we placed the pin</p>}
+                </section>
+                <p className={s.muted}>If both are right, confirm again. If not, fix the fields or move the pin.</p>
+              </>
+            ) : (
+              <p className={s.muted}>Please check the address above and confirm again.</p>
+            )}
           </div>
         )}
 

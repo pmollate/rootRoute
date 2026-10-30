@@ -35,14 +35,18 @@ function loadAtlas(): Promise<Atlas> {
  * E19 (SPEC §5.17): the draggable pin. Tiles are fetched with the SAS token the API issued for this link, expiring with
  * it (SEC-LINK-08): no Maps key and no NEXT_PUBLIC_ setting reaches the browser. Width 100%, height 280 px (NFR-LINK-01).
  */
-export function ConfirmMap({ pin, credential, onMove, placed = true }: {
-  pin: LinkPin; credential: MapCredential; onMove: (pin: LinkPin) => void; placed?: boolean;
+export function ConfirmMap({ pin, credential, onMove, onFail, placed = true }: {
+  pin: LinkPin; credential: MapCredential; onMove: (pin: LinkPin) => void; onFail: () => void; placed?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const move = useRef(onMove);
   move.current = onMove;
+  const fail = useRef(onFail);
+  fail.current = onFail;
   const start = useRef(pin); // the map is built once, at the pin the page started with
   const [failed, setFailed] = useState(false);
+  // A map that cannot load is taken away by the page (an empty box helps no one); the address fields still work.
+  useEffect(() => { if (failed) fail.current(); }, [failed]);
 
   useEffect(() => {
     let map: { dispose(): void } | null = null;
@@ -55,9 +59,13 @@ export function ConfirmMap({ pin, credential, onMove, placed = true }: {
         authOptions: { authType: atlas.AuthenticationType.sas, getToken: (resolve) => resolve(credential.token) },
       });
       map = m;
-      // A refused credential before the map is ready: say so; the address fields still work. A later tile error is ignored.
+      // A refused credential: before the map is ready, any error; after it, a tile refused with 401 or 403 (the SDK reports
+      // the map ready before its tiles load). Other later tile errors (a dropped connection) are ignored.
       let ready = false;
-      m.events.add('error', () => { if (!gone && !ready) setFailed(true); });
+      m.events.add('error', (e) => {
+        const status = (e as { error?: { status?: number } }).error?.status;
+        if (!gone && (!ready || status === 401 || status === 403)) setFailed(true);
+      });
       m.events.add('ready', () => {
         ready = true;
         setFailed(false);
@@ -75,7 +83,6 @@ export function ConfirmMap({ pin, credential, onMove, placed = true }: {
   return (
     <div className={s.mapWrap}>
       <div ref={box} className={s.map} role="application" aria-label="Map with your delivery pin" />
-      {failed && <p className={s.muted}>The map could not load. You can still confirm the address fields.</p>}
     </div>
   );
 }

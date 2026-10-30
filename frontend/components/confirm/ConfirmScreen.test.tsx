@@ -5,12 +5,13 @@ import { ConfirmScreen, LINK_INVALID_TEXT, type LinkView } from './ConfirmScreen
 // The real map loads the Azure Maps web SDK from its CDN; here a stub shows where the pin is and moves it on a click.
 const mapProps = vi.fn();
 vi.mock('./ConfirmMap', () => ({
-  ConfirmMap: (p: { pin: { lat: number; lon: number }; credential: { kind: string }; onMove: (pin: { lat: number; lon: number }) => void }) => {
+  ConfirmMap: (p: { pin: { lat: number; lon: number }; credential: { kind: string }; onMove: (pin: { lat: number; lon: number }) => void; onFail: () => void }) => {
     mapProps(p);
     return (
       <div data-testid="map">
         <span>pin {p.pin.lat},{p.pin.lon}</span>
         <button type="button" onClick={() => p.onMove({ lat: p.pin.lat + 0.01, lon: p.pin.lon })}>Move pin</button>
+        <button type="button" onClick={p.onFail}>Fail map</button>
       </div>
     );
   },
@@ -52,6 +53,36 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     const text = document.body.textContent ?? '';
     for (const no of ['HX-', 'qty', 'Promise', 'promise', 'C130', 'Client 130', 'Tom Okafor', '555-0171', 'client130']) expect(text, no).not.toContain(no);
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeTruthy();
+  });
+
+  it('REQ-LINK-02 (page): with no map credential the page is the address form alone; Confirm still sends the start pin', async () => {
+    const fn = stubFetch([409, { error: 'needs_second_confirm', checkId: 'c-1', reading: { line1: null, city: 'Lebanon', state: 'KS', zip: null, distanceM: 0 } }]);
+    render(<ConfirmScreen token={TOKEN} view={{ ...view, map: null }} />);
+    expect(screen.queryByTestId('map')).toBeNull();
+    expect(screen.queryByText(/Drag the pin/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(await screen.findByRole('button', { name: 'Confirm again' })).toBeTruthy();
+    expect(posted(fn)[0].body.pin).toEqual(view.pin);
+    expect(screen.getByText(/920 Broad St/, { selector: 'p' })).toBeTruthy();
+    // without a map the pin is not the client's: its reading would only confuse
+    expect(screen.queryByText('The map reads your pin as')).toBeNull();
+  });
+
+  it('REQ-LINK-02 (page): a map that fails to load is taken away, leaving the form', async () => {
+    render(<ConfirmScreen token={TOKEN} view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Fail map' }));
+    await waitFor(() => expect(screen.queryByTestId('map')).toBeNull());
+    expect(screen.queryByText(/Drag the pin/)).toBeNull();
+    expect(field('City').value).toBe('Newark');
+  });
+
+  it('page: the thank-you screen repeats the confirmed address', async () => {
+    stubFetch([200, { status: 'confirmed' }]);
+    render(<ConfirmScreen token={TOKEN} view={view} />);
+    fireEvent.change(field('ZIP code'), { target: { value: '07102' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(await screen.findByText('Thank you. Your delivery address is confirmed.')).toBeTruthy();
+    expect(screen.getByText('920 Broad St, Dock 5, Newark, NJ 07102')).toBeTruthy();
   });
 
   it('AC-LINK-10: a synthetic order shows the "Synthetic data" badge; a real one does not', () => {

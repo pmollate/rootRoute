@@ -24,7 +24,8 @@ export interface MapReading { line1: string | null; city: string | null; state: 
 export type LinkState = 'sent' | 'confirmed' | 'expired' | 'revoked';
 /** SEC-LINK-08: the map tile credential is an Azure Maps SAS token only, expiring no later than the link. */
 export interface MapCredential { kind: 'sas'; token: string; expiresAt: string }
-export interface LinkView { address: Partial<LinkAddress>; pin: LinkPin | null; expiresAt: string; synthetic: boolean; map: MapCredential }
+/** `map` is null when no tile credential could be issued: the page then shows the address fields without a map. */
+export interface LinkView { address: Partial<LinkAddress>; pin: LinkPin | null; expiresAt: string; synthetic: boolean; map: MapCredential | null }
 
 /** The reading shown at a second Confirm, with what it was read for; the client's next Confirm must match it. */
 export interface PendingCheck { checkId: string; pin: LinkPin; zip: string; reading: MapReading }
@@ -158,8 +159,13 @@ export async function viewLink(d: LinkDeps, token: string): Promise<LinkView | n
   const l = await find(d, token);
   if (!l) return null;
   d.log('link_opened', fieldsOf(l));
-  return { address: l.prefill.address, pin: l.prefill.pin, expiresAt: l.expires_at.toISOString(), synthetic: l.synthetic,
-    map: await d.credentials.issue(l.expires_at) };
+  let map: MapCredential | null = null;
+  try {
+    map = await d.credentials.issue(l.expires_at);
+  } catch {
+    d.log('link_map_unavailable', fieldsOf(l)); // the address still works without the map; the issuer's error is not logged here
+  }
+  return { address: l.prefill.address, pin: l.prefill.pin, expiresAt: l.expires_at.toISOString(), synthetic: l.synthetic, map };
 }
 
 export type ConfirmResult =

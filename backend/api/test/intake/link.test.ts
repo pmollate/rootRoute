@@ -130,6 +130,17 @@ describe('E19 address link (memory)', () => {
     expect(t.issued).toHaveLength(1);
   });
 
+  it('REQ-LINK-02, SEC-LINK-08: a map credential that cannot be issued leaves map null; the address still opens and confirms', async () => {
+    const t = await setup(); await t.send();
+    t.link.credentials = { issue: async () => { throw new Error('Azure Maps listSas failed: 403'); } };
+    const view = (await viewLink(t.link, t.tokenOf()!))!;
+    expect(view.map).toBeNull();
+    expect(view.address).toMatchObject({ city: expect.any(String) });
+    expect(t.events.map((e) => e.event)).toContain('link_map_unavailable');
+    expect(JSON.stringify(t.events)).not.toContain('403'); // the issuer's error stays out of the link log
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: START })).code).toBe(200);
+  });
+
   it('AC-LINK-03: 600 m → 409 with the reading and an unused link; again with the checkId → confirmed', async () => {
     const t = await setup(); await t.send();
     const first = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(600) });
