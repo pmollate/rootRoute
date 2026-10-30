@@ -26,6 +26,7 @@ export async function buildApp(opts: BuildOptions = {}): Promise<FastifyInstance
   }
   // Before P7 the browser called the API directly. Once enforced, only the web app's proxy does (SEC-AUTH-13).
   if (!auth.required) await app.register(cors, { origin: true });
+  app.decorate('authRequired', auth.required);
   app.decorateRequest('user', null);
   app.addHook('preHandler', requireUser(auth)); // every route, including ones added later: default deny (REQ-AUTH-06)
   app.get('/api/health', async () => ({

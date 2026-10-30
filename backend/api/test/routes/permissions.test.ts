@@ -60,8 +60,11 @@ describe('permission matrix (SPEC-auth §4.2)', () => {
     expect(who('POST', '/api/alerts/run')).toEqual(['customer_support', 'admin']);
     expect(who('DELETE', '/api/overrides')).toBeNull();
     expect(who('GET', '/api/not-a-route')).toBeNull();
+    expect(who('POST', '/api/assistant')).toEqual(ROLES); // D10: a question, not a write (SEC-ASK-05)
+    // leadership changes nothing: no POST that writes is theirs. The assistant's POST only reads (REQ-ASK-07).
+    const READ_ONLY_POSTS = ['POST /api/assistant'];
     for (const [key, p] of Object.entries(PERMISSIONS)) {
-      if (p === 'public' || !('roles' in p)) continue;
+      if (p === 'public' || !('roles' in p) || READ_ONLY_POSTS.includes(key)) continue;
       if (key.startsWith('POST ')) expect(p.roles, key).not.toContain('leadership');
     }
   });

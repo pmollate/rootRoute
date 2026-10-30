@@ -18,6 +18,10 @@ export interface AuthSettings {
 }
 
 declare module 'fastify' {
+  interface FastifyInstance {
+    /** buildApp's AUTH_REQUIRED (tests pass their own), for routes whose behaviour depends on it. */
+    authRequired: boolean;
+  }
   interface FastifyRequest {
     /** The verified caller; with AUTH_REQUIRED=off, the shared-key caller as before P7. Null on open reads. */
     user: AuthUser | null;

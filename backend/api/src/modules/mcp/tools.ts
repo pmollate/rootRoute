@@ -15,7 +15,7 @@ export interface ToolDef<I extends z.ZodRawShape = z.ZodRawShape> {
   name: ToolName;
   title: string;
   description: string;
-  input: I;               // zod shape; MCP's SDK checks it, the assistant calls runTool (REQ-ASK-03)
+  input: I;               // zod shape; MCP's SDK checks it; so does the assistant before it runs a tool (REQ-ASK-03)
   readOnly: true;
   run(args: z.infer<z.ZodObject<I>>): Promise<unknown>;
 }

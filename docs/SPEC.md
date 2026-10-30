@@ -1244,6 +1244,9 @@ Open questions:
     **Answered 29 Oct: yes**; CLAUDE.md updated. D10 is built after submission (C14–C16).
   - Q-ASK-02: is `[AI_MODEL]` (today the Azure OpenAI deployment the intake uses) good enough at function calling, and
     may the same deployment serve both, given PC-04 (GlobalStandard processing, stored completions)? Carriers with Email.
+    **Answered 30 Oct: yes**; D10 uses the intake's deployment (`[AI_MODEL]`, today gpt-5-mini, GlobalStandard). Tools
+    return aggregates only (SEC-ASK-04) and calls send `store: false` (SEC-ASK-03), so PC-04 stays the intake's fix (A).
+    Tool calling is checked by C15 Step 11 recordings; if they fail, the prompt or model is revisited. A to be told.
   - Q-ASK-03: should every role get every tool (the data is aggregate), or only the tools of the screens it may open
     (the default in §5.16, following REQ-AUTH-16)? Team.
   - Q-ASK-04: should the panel also answer in the Order journey's context ("why is this order late?"), which would need
@@ -1334,6 +1337,7 @@ changed. A question with no answer yet stays in §12 and §14 until it gets one.
 | 29 Oct | What is "AI assistant wire up – router"? | Team (Priyank) | An in-app "Ask LateLens" chat panel in the dashboard: the model routes each question to the same read-only tools as the MCP server, answers only from their results, cites them, refuses out-of-scope questions and never acts; every role may ask; built after submission behind a flag | v0.11: D10, §5.16 (REQ-ASK-*, NFR-ASK-*, SEC-ASK-*), shared tool registry (§4.4, §5.14), SPEC-auth §4.2 row; Q-ASK-01 (CLAUDE.md "AI only reads emails and drafts replies") to -04 in §12 |
 | 29 Oct | What is "Magic link – address mapping"? | Team (Priyank) | A one-time link in `CONFIRM_ADDRESS` replies to a page with the US address fields and a draggable Azure Maps pin; Confirm sends the order on, still to a supervisor's approval before the WMS; token rules from the earlier address-resolution design; owned by Email, built by C if A agrees; built after submission behind a flag | v0.11: E19, §5.17 (REQ-LINK-*, NFR-LINK-01, SEC-LINK-*, threat model), REQ-INT-09 and §5.3 step 14, `address_confirm_tokens` (§4.2, §6, CONTRACTS); `/confirm/*` the one token-gated public page (SPEC-auth v0.3); Q-LINK-01 to -06 in §12 |
 | 29 Oct | Does the team agree to widen the AI rule (Q-ASK-01), and does A agree to E19 (Q-LINK-01)? | Team, Email owner (via Priyank) | Yes to both; C builds E19 and A reviews | CLAUDE.md rule widened for D10; §5.16 unblocked; Q-ASK-01 and Q-LINK-01 answered in §12; C14 started |
+| 30 Oct | May the assistant (D10) use the intake's Azure OpenAI deployment, and is it good enough at tool calling (Q-ASK-02)? | Carriers owner (Priyank), owner jointly with Email | Yes: same deployment (`[AI_MODEL]`, today gpt-5-mini, GlobalStandard). Tools return aggregates only (SEC-ASK-04) and calls send `store: false` with nothing saved (SEC-ASK-03), so the assistant adds nothing to PC-04, which stays A's fix. Tool calling is judged by recordings: AC-ASK-05 must call `lane_scores` and every out-of-scope question must be refused; if not, change the prompt or revisit the model | No new deployment; C15 Step 11 (recordings) unblocked; Q-ASK-02 answered in §12; Email owner (A) to be told, since the deployment is shared |
 
 ## 15. Mapping to the brief's task list
 | Brief asks | Where in this spec |
