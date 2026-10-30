@@ -1,5 +1,5 @@
 import cors from '@fastify/cors';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { type AuthSettings, authSettings, checkAuthSettings, requireUser } from './core/auth.js';
 import { config } from './core/config.js';
 import { dbOk } from './core/db/pool.js';
@@ -14,6 +14,27 @@ export interface BuildOptions {
   onRoute?: (method: string, url: string) => void;
 }
 
+/**
+ * REQ-INT-16: a request the API cannot read (too large, not JSON, broken JSON) gets one readable sentence in the same
+ * `{ error, fields }` shape as a refused field, instead of Fastify's default. Any other error goes on to Fastify's default
+ * handler unchanged.
+ */
+export function bodyErrors(bodyLimit: number) {
+  const mb = Math.round((bodyLimit / 1048576) * 10) / 10;
+  const messages: Record<string, string> = {
+    FST_ERR_CTP_BODY_TOO_LARGE: `The request is larger than ${mb} MB. Paste only the text of one email.`,
+    FST_ERR_CTP_INVALID_MEDIA_TYPE: 'Send the request as JSON (Content-Type: application/json).',
+    FST_ERR_CTP_INVALID_JSON_BODY: 'The request is not valid JSON.',
+    FST_ERR_CTP_EMPTY_JSON_BODY: 'The request is not valid JSON.',
+    FST_ERR_CTP_INVALID_CONTENT_LENGTH: 'The request was cut off. Send it again.',
+  };
+  return (err: FastifyError, _req: FastifyRequest, reply: FastifyReply) => {
+    const error = err.code ? messages[err.code] : undefined;
+    if (!error) throw err; // Fastify's default handler
+    return reply.code(err.statusCode ?? 400).send({ error, fields: {} });
+  };
+}
+
 export async function buildApp(opts: BuildOptions = {}): Promise<FastifyInstance> {
   const auth = { ...authSettings(), ...opts.auth };
   checkAuthSettings(auth); // SEC-AUTH-09: fail closed before anything listens
@@ -26,6 +47,7 @@ export async function buildApp(opts: BuildOptions = {}): Promise<FastifyInstance
   }
   // Before P7 the browser called the API directly. Once enforced, only the web app's proxy does (SEC-AUTH-13).
   if (!auth.required) await app.register(cors, { origin: true });
+  app.setErrorHandler(bodyErrors(app.initialConfig.bodyLimit ?? 1048576));
   app.decorate('authRequired', auth.required);
   app.decorateRequest('user', null);
   app.addHook('preHandler', requireUser(auth)); // every route, including ones added later: default deny (REQ-AUTH-06)

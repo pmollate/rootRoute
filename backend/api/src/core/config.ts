@@ -23,6 +23,9 @@ export const Env = z.object({
   GMAIL_CLIENT_SECRET: z.string().optional(),
   GMAIL_REFRESH_TOKEN: z.string().optional(),
   INTAKE_POLL_MINUTES: z.coerce.number().int().min(0).max(60).default(10), // E15: Gmail poll interval; 0 = off
+  // REQ-INT-16: longest pasted email body and subject, in characters (design settings, not data); longer is refused (400)
+  INTAKE_MAX_BODY_CHARS: z.coerce.number().int().min(1000).max(200000).default(20000),
+  INTAKE_MAX_SUBJECT_CHARS: z.coerce.number().int().min(50).max(2000).default(300),
   API_KEY: z.string().min(1),
   // P7 sign-in (SPEC-auth §9.2): off keeps the x-api-key path and logs auth_would_deny; on enforces the internal token
   AUTH_REQUIRED: z.enum(['on', 'off']).default('off'),
