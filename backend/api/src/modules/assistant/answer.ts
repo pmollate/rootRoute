@@ -9,10 +9,10 @@ import { PERMISSIONS } from '../../core/permissions.js';
 import { type ToolDef, type ToolName, toolParameters } from '../mcp/tools.js';
 import { uncheckedFigures } from './figures.js';
 
-export const REFUSAL = "I can only answer questions about Halcyon's delivery data in LateLens: late-delivery causes, the "
+export const REFUSAL = "I can only answer questions about Halcyon's delivery data in Root Route: late-delivery causes, the "
   + "replay, carrier lanes, carrier recommendations and delivery promises. I don't make decisions for Halcyon and I don't "
   + "model other companies' products.";
-export const COULD_NOT_CHECK = 'I could not check every figure in this answer against LateLens data. Here is what the tools returned.';
+export const COULD_NOT_CHECK = 'I could not check every figure in this answer against Root Route data. Here is what the tools returned.';
 export const MAX_QUESTION = 500;
 export const MAX_HISTORY = 6;
 export const MAX_ANSWER = 2000;

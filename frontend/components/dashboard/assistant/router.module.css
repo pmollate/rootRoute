@@ -1,0 +1,56 @@
+/* Router: the assistant on every dashboard screen. A floating icon opens a side popup the height of the screen; the
+   thread scrolls inside it; tapping the scrim, the close button or Esc shuts it. Fits 375 px (AC-UI-03). */
+.assistant { --chat-bg: #d9d6d642; --pad: clamp(18px, 2.4vw, 24px); position: fixed; top: 16px; right: 16px; bottom: 16px; z-index: calc(var(--z-header) + 4);
+  display: flex; flex-direction: column; width: min(560px, calc(100vw - 32px)); overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.5);
+  transform: translateX(calc(100% + 24px)); visibility: hidden; transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s 0.3s; }
+.assistant[data-open='true'] { transform: none; visibility: visible; transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+.assistant > * { flex: none; }
+.assistant .thread { flex: 1 1 0; contain: size; }
+.chatHead { display: flex; align-items: center; gap: 12px; padding: 14px var(--pad); border-bottom: 1px solid var(--line); }
+.chatHead b { display: block; font-size: 0.82rem; }
+.chatHead small { font-size: 0.66rem; color: var(--ink-2); }
+.bot, .botSmall { position: relative; display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 7px;
+  background: var(--hero-ink); color: #fff; }
+.bot i { position: absolute; right: -2px; bottom: -2px; width: 9px; height: 9px; border-radius: 50%; background: #34c47c; border: 2px solid var(--surface); }
+.botSmall { width: 20px; height: 20px; border-radius: 5px; }
+.botIcon { width: 18px; height: 18px; }
+.botSmall .botIcon { width: 12px; height: 12px; }
+.thread { min-height: 0; overflow-y: auto; padding: 16px var(--pad); background: var(--chat-bg); display: grid; align-content: start; gap: 14px; }
+.asked { display: grid; gap: 14px; }
+.day { margin: 0; text-align: center; font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); }
+.you { justify-self: end; max-width: 85%; margin: 0 0 14px auto; width: fit-content; padding: 10px 14px; border-radius: 10px; background: var(--ink); color: var(--surface); font-size: 0.76rem;
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+.reply { display: flex; gap: 10px; align-items: flex-start; }
+.replyBody { flex: 1; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 0.76rem; line-height: 1.55; }
+.replyBody p { margin: 0 0 10px; }
+.replyBody p:last-child { margin-bottom: 0; }
+.replyBody a { color: var(--accent-text); font-weight: 600; }
+.note { background: var(--chat-bg); padding: 8px var(--pad) 0; font-size: 0.72rem; }
+.note p { margin: 0; }
+.ask { background: var(--chat-bg); display: flex; gap: 10px; padding: 12px var(--pad) var(--pad); }
+.ask input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 0.78rem; }
+/* A thin focus ring on the text box: the border takes the accent colour, no outline outside it. */
+.ask input:focus-visible { outline: 0; border-color: var(--accent-text); }
+.ask button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.ask button { display: grid; place-items: center; flex: none; width: 40px; border: 0; border-radius: 8px; background: var(--ink); color: var(--surface); cursor: pointer; }
+.ask button:disabled { opacity: 0.4; cursor: default; }
+@media (max-width: 600px) { .reply .botSmall { display: none; } .you { max-width: 100%; } }
+.launcher { display: grid; position: fixed; right: 16px; bottom: 16px; z-index: calc(var(--z-header) + 2); width: 52px; height: 52px; border: 0; border-radius: 50%;
+  box-shadow: 0 10px 28px -8px rgb(0 0 0 / 0.45); cursor: pointer; transition: transform 0.2s ease; }
+.launcher .botIcon { width: 24px; height: 24px; }
+.launcher i { right: 2px; bottom: 2px; }
+.launcher:hover { transform: translateY(-2px); }
+.launcher:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
+.launcherTip { position: absolute; right: calc(100% + 10px); top: 50%; transform: translateY(-50%); padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink); font-size: 0.72rem; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+.launcher:hover .launcherTip, .launcher:focus-visible .launcherTip { opacity: 1; }
+.scrim { position: fixed; inset: 0; z-index: calc(var(--z-header) + 3); background: rgb(0 0 0 / 0.35); opacity: 0; visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0s 0.3s; }
+.scrim[data-open='true'] { opacity: 1; visibility: visible; transition: opacity 0.3s ease; }
+.close { display: grid; place-items: center; margin-left: auto; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.close:hover { color: var(--ink); }
+.close:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .launcher, .scrim, .assistant { transition: none; } }
+

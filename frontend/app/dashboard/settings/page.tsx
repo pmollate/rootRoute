@@ -26,7 +26,8 @@ export default async function Page() {
             <dt>Account</dt><dd>{user.demo ? 'Demo account' : 'Organisation account'}</dd>
           </dl>
         ) : (
-          <p className={ui.lede}>Nobody is signed in: sign-in is switched off (AUTH_REQUIRED=off).</p>
+          // AUTH_REQUIRED=off and nobody signed in. Say nothing about how the app is configured.
+          <p className={ui.lede}>You are not signed in. Your name and roles are shown here once you sign in.</p>
         )}
       </section>
       <section className={ui.card}>

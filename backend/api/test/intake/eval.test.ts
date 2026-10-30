@@ -52,6 +52,10 @@ describe.skipIf(!hasModelRecordings)('intake eval on 50 fixtures (recorded respo
     for (const value of fixtures.flatMap((fx) => fx.gold.pii)) {
       expect(sent.some((t) => t.includes(value)), value).toBe(false);
     }
+    // Exact scores for docs/TEST-EVIDENCE.md; the asserts below are the floors.
+    const pct = (n: number, d: number) => `${n}/${d} (${((100 * n) / d).toFixed(1)}%)`;
+    console.log(`intake eval: fields ${pct(correct, fields)} · incomplete caught ${pct(incompleteCaught, incompleteSeen)}`
+      + ` · decisions ${pct(decisionsRight, fixtures.length)}`);
     expect(correct / fields).toBeGreaterThanOrEqual(0.9);
     expect(incompleteCaught / incompleteSeen).toBeGreaterThanOrEqual(0.95);
     expect(decisionsRight).toBeGreaterThanOrEqual(fixtures.length - 2);

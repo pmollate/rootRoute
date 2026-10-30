@@ -1,4 +1,6 @@
 """Load the supplied dataset and add the cause flags defined in SPEC §5.1."""
+import json
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -6,6 +8,9 @@ import pandas as pd
 BACKEND = Path(__file__).resolve().parents[2]
 REPO = BACKEND.parent
 DATA_DIR = REPO / "Halcyon-Hackathon-Dataset"
+# Cause rules and adoption rates live in config, not code (ROADMAP L1). ANALYTICS_RULES points at another client's file.
+RULES_PATH = Path(os.environ.get("ANALYTICS_RULES") or BACKEND / "analytics" / "rules.json")
+RULES = json.loads(RULES_PATH.read_text())
 DATE_COLS = ["order_received_ts", "shipped_ts", "promised_date", "pick_list_date", "delivered_date"]
 
 # The five root causes (SPEC §5.1). Together they explain every late delivery in the data.
@@ -13,12 +18,13 @@ FLAGS = ["f_addr", "f_stock", "f_cutoff", "f_lane", "f_route"]
 # Split flag sets used by the area / "as built" scenarios (SPEC §2.4).
 AREA_FLAGS = ["f_addr_email", "f_addr_other", "f_cutoff", "f_skip_nearest", "f_stock_out", "f_lane", "f_route"]
 PICK_FLAGS = ["f_addr_email", "f_addr_other", "f_cut_early", "f_cut_late", "f_skip_nearest", "f_stock_out", "f_lane", "f_route"]
-CUTOFF_HOUR = 8
-ROUTE_OVERRUN = 1.20   # no otherwise-clean delivery is late below a 20% overrun
-FRIDAY = 4
-FRIDAY_CAP_CARRIER = "D"   # the carrier whose Friday volume overloads it (SPEC §5.2)
+CUTOFF_HOUR = RULES["cutoff_hour"]
+SECOND_PICK_HOUR = RULES["second_pick_hour"]   # after-cut-off orders before this hour can catch a second pick run
+ROUTE_OVERRUN = RULES["route_overrun"]   # no otherwise-clean delivery is late below a 20% overrun
+FRIDAY = RULES["friday_cap"]["day_of_week"]
+FRIDAY_CAP_CARRIER = RULES["friday_cap"]["carrier"]   # the carrier whose Friday volume overloads it (SPEC §5.2)
 # Carrier x region lanes that fail on fair data every day of the week (reproduced by analytics/carriers/lanes.py).
-BAD_LANES = {("D", "Midwest"), ("D", "Southeast"), ("E", "West"), ("F", "Northeast"), ("F", "Southeast")}
+BAD_LANES = {tuple(lane) for lane in RULES["bad_lanes"]}
 
 
 def add_flags(d: pd.DataFrame) -> pd.DataFrame:
@@ -39,8 +45,8 @@ def add_flags(d: pd.DataFrame) -> pd.DataFrame:
     d["f_route"] = d.route_dev.gt(ROUTE_OVERRUN)  # NaN (missing actual km) -> False
     d["f_addr_email"] = d.f_addr & d.order_channel.eq("Email")
     d["f_addr_other"] = d.f_addr & d.order_channel.ne("Email")
-    d["f_cut_early"] = d.f_cutoff & (hour < 11)
-    d["f_cut_late"] = d.f_cutoff & (hour >= 11)
+    d["f_cut_early"] = d.f_cutoff & (hour < SECOND_PICK_HOUR)
+    d["f_cut_late"] = d.f_cutoff & (hour >= SECOND_PICK_HOUR)
     d["fair"] = ~(d.f_addr | d.f_stock | d.f_cutoff)
     return d
 

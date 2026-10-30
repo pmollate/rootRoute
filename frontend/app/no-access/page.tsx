@@ -14,10 +14,10 @@ export default async function NoAccess() {
   return (
     <main className={s.page}>
       <div className={s.card}>
-        <p className={s.brand}>LATELENS</p>
+        <p className={s.brand}>{BRAND.toUpperCase()}</p>
         <h1 className={s.title}>No access</h1>
         <p className={s.lead}>
-          {ph(`You are signed in as ${user?.name ?? 'an unknown user'} but have no LateLens role. Ask [ROLE_ADMIN] for access.`)}
+          {ph(`You are signed in as ${user?.name ?? 'an unknown user'} but have no Root Route role. Ask [ROLE_ADMIN] for access.`)}
         </p>
         <SignOutButton />
       </div>

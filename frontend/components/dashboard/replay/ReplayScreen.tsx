@@ -204,8 +204,8 @@ export function ReplayScreen() {
     <div className={s.screen}>
       <div className={s.pageHead}>
         <div className={s.headText}>
-          <p className={s.eyebrow}>What-if scenarios</p>
-          <h1 className={s.title}>Replay</h1>
+          <p className={s.eyebrow}>Replay · what-if scenarios</p>
+          <h1 className={s.title}>Labs</h1>
           <p className={s.lede}>Rerun every delivery under what-if scenarios to see how on-time performance and cost would change.</p>
         </div>
         <div className={s.actions}>

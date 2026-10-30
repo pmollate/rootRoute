@@ -224,6 +224,10 @@
 /* Order summary and readiness. */
 .cardHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 15px 18px; border-bottom: 1px solid var(--line); }
 .cardHead h3, .ready h3 { margin: 0; font-size: 0.8798rem; font-weight: 600; }
+.senderAlert { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 12px 18px; border-bottom: 1px solid var(--line);
+  background: var(--hot-bg); color: var(--hot-ink); font-size: 0.7245rem; line-height: 1.5; }
+.senderAlert svg { flex: none; margin-top: 2px; }
+.senderAlert b { font-weight: 600; }
 .block { margin: 0; padding: 15px 18px; border-bottom: 1px solid var(--line); }
 .block:last-child { border-bottom: 0; }
 .block > p { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: 0.7245rem; }
@@ -258,7 +262,7 @@
 
 /* Paste pane. */
 .pasteWrap { flex: 1; min-height: 0; padding: 23px 27px; overflow: auto; animation: fade 0.35s both; }
-.pasteForm { display: grid; grid-template-columns: 1fr 1fr 149px; gap: 12px; max-width: 762px; padding: 20px; background: var(--surface);
+.pasteForm { display: grid; grid-template-columns: 1fr 1fr 210px; gap: 12px; max-width: 762px; padding: 20px; background: var(--surface);
   border-radius: 12px; }
 .pasteTop { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .pasteTop h3 { margin: 0; font-family: var(--font-display); font-size: 1.035rem; font-weight: 700; }
@@ -395,6 +399,49 @@
 .review { display: flex; flex-direction: column; gap: 12px; padding: 16px; overflow-y: auto; min-width: 0; }
 .reviewHead { display: flex; align-items: center; gap: 10px; }
 .reviewHead h2 { margin: 0; font-size: 1.1rem; }
-.reviewCard { display: flex; flex-direction: column; gap: 8px; padding: 14px; }
+.reviewCard { display: flex; flex-direction: column; padding: 20px 22px; }
 .reviewCard p { margin: 0; overflow-wrap: anywhere; }
-.reviewCard select, .reviewCard input { width: 100%; max-width: 100%; }
+.reviewCard input { width: 100%; max-width: 100%; }
+/* Order review card (E18): who and what, promise on the right; warehouse; carrier cards; reason and actions. */
+.rvHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px 24px;
+  padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.rvWho { min-width: 0; }
+.rvWho h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; }
+.rvOrder { margin-top: 6px !important; font-size: 0.9rem; font-weight: 600; }
+.rvPromise { display: grid; justify-items: end; gap: 2px; text-align: right; }
+.rvPromise span { font-size: 0.6728rem; color: var(--ink-2); }
+.rvPromise b { font-family: var(--font-display); font-size: 1.05rem; }
+.rvPromise small { font-size: 0.6728rem; color: var(--ink-2); }
+.rvSection { padding-top: 16px; }
+.rvRow { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+.rvLabel { margin-bottom: 8px !important; font-size: 0.7245rem; font-weight: 600; }
+.rvHint { font-size: 0.6728rem; color: var(--ink-2); }
+.rvWarehouse { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 0.7763rem; }
+.rvWarehouse b { padding: 5px 10px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 0.828rem; }
+.rvWarehouse span { color: var(--ink-2); }
+.rvChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.rvChip { padding: 5px 9px; border-radius: 6px; font-size: 0.6728rem; font-weight: 600; }
+.rvCarriers { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.rvCarrier { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface);
+  color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.rvCarrier:hover:not(:disabled) { border-color: var(--navy-2); }
+.rvCarrier:focus-visible { outline: 2px solid var(--navy-2); outline-offset: 2px; }
+.rvCarrier:disabled { cursor: default; }
+.rvOn { border: 2px solid var(--navy); padding: 9px 11px; background: var(--navy-soft); }
+.rvTop { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.rvTop b { font-size: 0.828rem; }
+.rvTop em { font-size: 0.6211rem; font-style: normal; font-weight: 600; color: var(--ink-2); }
+.rvCarrier strong { font-family: var(--font-display); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.rvCarrier small { font-size: 0.6728rem; color: var(--ink-2); }
+.rvBlocked { border-style: dashed; background: transparent; color: var(--muted); cursor: default; }
+.rvBlocked strong { color: var(--muted); }
+.rvWhy { margin-top: 10px !important; font-size: 0.7245rem; color: var(--ink-2); }
+.rvFoot { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.rvReason { flex: 1 1 260px; }
+@media (max-width: 560px) {
+  .reviewCard { padding: 16px 14px; }
+  .rvPromise { justify-items: start; text-align: left; }
+  .rvCarriers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rvFoot .buttons { width: 100%; margin-left: 0; }
+  .rvFoot .buttons .btn { flex: 1; }
+}

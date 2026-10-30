@@ -5,12 +5,13 @@ import pandas as pd
 
 from analytics.core.diagnosis import segments
 from analytics.core.ifixed import adopted, cost_avoided, if_fixed, paid_ratio, shapley
-from analytics.core.load import AREA_FLAGS, FLAGS, PICK_FLAGS
+from analytics.core.load import AREA_FLAGS, FLAGS, PICK_FLAGS, RULES
 
-# Share of each cause a fix removes in practice (SPEC §2.4, from the diagnostic deck). Full-fix scenarios use 1.0.
-ADOPTION = {"f_addr": 0.85, "f_lane": 0.90, "f_cutoff": 0.85, "f_stock": 0.60, "f_route": 0.30}
+# Share of each cause a fix removes in practice (SPEC §2.4, §12 assumptions; set in analytics/rules.json).
+# Full-fix scenarios use 1.0.
+ADOPTION = RULES["adoption"]
 AS_BUILT = ["f_addr_email", "f_cutoff", "f_skip_nearest", "f_lane"]
-AS_BUILT_ADOPTION = {"f_addr_email": 0.85, "f_cutoff": 0.85, "f_skip_nearest": 0.60, "f_lane": 0.90}
+AS_BUILT_ADOPTION = RULES["as_built_adoption"]
 
 
 @dataclass(frozen=True)
@@ -24,15 +25,15 @@ class Scenario:
 
 
 def _waterfall() -> list[Scenario]:
-    steps = [("adopt_address", "+ address check (85%)", "f_addr"),
-             ("adopt_lanes", "+ lane rules and Friday cap (90%)", "f_lane"),
-             ("adopt_cutoff", "+ cutoff-aware promise (85%)", "f_cutoff"),
-             ("adopt_warehouse", "+ warehouse fallback (60%)", "f_stock"),
-             ("adopt_all", "+ last-mile watch (30%): full programme", "f_route")]
+    steps = [("adopt_address", "+ address check ({})", "f_addr"),
+             ("adopt_lanes", "+ lane rules and Friday cap ({})", "f_lane"),
+             ("adopt_cutoff", "+ cutoff-aware promise ({})", "f_cutoff"),
+             ("adopt_warehouse", "+ warehouse fallback ({})", "f_stock"),
+             ("adopt_all", "+ last-mile watch ({}): full programme", "f_route")]
     out, rates = [], {}
     for key, label, flag in steps:
         rates = {**rates, flag: ADOPTION[flag]}
-        out.append(Scenario(key, label, "adoption", FLAGS, rates=dict(rates)))
+        out.append(Scenario(key, label.format(f"{ADOPTION[flag]:.0%}"), "adoption", FLAGS, rates=dict(rates)))
     return out
 
 

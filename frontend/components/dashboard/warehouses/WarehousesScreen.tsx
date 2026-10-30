@@ -575,7 +575,7 @@ export function WarehousesScreen() {
                 )}
                 <div className={s.fixFoot}>
                   <span className={s.owners}><small>Owners</small><span className={`${s.owner} ${s.navy}`}><Icon size={12}>{ICON.headset}</Icon>Sales ops</span><span className={`${s.owner} ${s.teal}`}><Icon size={12}>{ICON.carry}</Icon>Warehouse teams</span></span>
-                  <Link className={s.primary} href="/dashboard/replay"><Icon>{ICON.replay}</Icon>Simulate in replay</Link>
+                  <Link className={s.primary} href="/dashboard/labs"><Icon>{ICON.replay}</Icon>Simulate in Labs</Link>
                 </div>
               </article>
 
@@ -618,7 +618,7 @@ export function WarehousesScreen() {
                 <p className={s.fixNote} title="Freight averaged across all sites">Freight per order · misallocated orders <b>{int(allSkip)} → 0</b></p>
                 <div className={s.fixFoot}>
                   <span className={s.owners}><small>Owner</small><span className={`${s.owner} ${s.plum}`}><Icon size={12}>{ICON.tie}</Icon>Warehouse supervisors</span></span>
-                  <Link className={s.primary} href="/dashboard/replay"><Icon>{ICON.replay}</Icon>Simulate in replay</Link>
+                  <Link className={s.primary} href="/dashboard/labs"><Icon>{ICON.replay}</Icon>Simulate in Labs</Link>
                 </div>
               </article>
             </div>

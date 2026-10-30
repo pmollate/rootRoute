@@ -67,7 +67,7 @@ is onboarding work on the customer side (Q-DATA-01). For the demo, a second loca
 | `load(data_dir)` reads CSVs; `Ctx.csv(name)` reads the other files | `analytics/core/load.py`, `core/context.py` | Read from the store for a window: `load_window(engine, from, to)`, `Ctx.table(name)` (U2) |
 | `pipeline.py` always analyses the whole supplied dataset | `analytics/pipeline.py` | `--from/--to`, progress lines, run summary (U8) |
 | `write_tables` replaces every result table in one transaction | `analytics/core/db.py` | None. The dashboard keeps showing the old results until a run commits |
-| Bad lanes are a fixed list `BAD_LANES` | `analytics/core/load.py:20` | Derive from the window's data (U4) |
+| Bad lanes are a fixed list in config (`bad_lanes`) | `analytics/rules.json` | Derive from the window's data (U4) |
 | Backtest split is fixed: `SPLIT = 2026-08-01` | `analytics/carriers/backtest.py:9` | Relative to the window (U5) |
 | Segment `aug_sep` is fixed to months ≥ 8 | `analytics/core/diagnosis.py:34` | "Last two months of the window" (U5) |
 | API caches result tables "that never change while the server runs" | `api/src/core/cache.ts` | `clearCache()` after every successful analysis (U9) |

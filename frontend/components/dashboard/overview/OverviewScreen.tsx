@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { useCanOpen } from '@/components/auth/UserContext';
 import { AskAnswer, AskErrorNote } from '@/components/dashboard/assistant/AskAnswer';
 import { useAssistantOn } from '@/components/dashboard/assistant/AssistantFlag';
+import { Reply, RouterFrame, RouterInput } from '@/components/dashboard/assistant/Router';
+import r from '@/components/dashboard/assistant/router.module.css';
 import { MAX_QUESTION, useAsk } from '@/components/dashboard/assistant/useAsk';
 import { PageHero } from '@/components/dashboard/PageHero';
 import { Status } from '@/components/dashboard/ui';
@@ -27,14 +29,6 @@ const TARGET = 0.95;
 
 /** A small square glyph, as used on the chips and card corners of the design. */
 const Glyph = () => <span className={s.glyph} aria-hidden="true" />;
-
-/** The Router mark: a large and a small sparkle, filled with the current text colour. */
-const BotIcon = () => (
-  <svg className={s.botIcon} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <path d="M10 3c.4 3.9 2.6 6.1 6.5 6.5-3.9.4-6.1 2.6-6.5 6.5-.4-3.9-2.6-6.1-6.5-6.5C7.4 9.1 9.6 6.9 10 3Z" />
-    <path d="M18 13.5c.2 2 1.3 3.1 3.3 3.3-2 .2-3.1 1.3-3.3 3.3-.2-2-1.3-3.1-3.3-3.3 2-.2 3.1-1.3 3.3-3.3Z" />
-  </svg>
-);
 
 /** 24px line icons for the KPI cards, drawn with the current text colour. */
 const KPI_ICONS = {
@@ -108,7 +102,7 @@ interface AssistantProps {
 
 /**
  * Recommendations as a conversation. Answers are worked out from the same replay and attribution figures as the rest of
- * the page. With Ask LateLens on (D10), a typed follow-up goes to the assistant instead (`useAsk`, plain text answers);
+ * the page. With the assistant on (D10), a typed follow-up goes to the assistant instead (`useAsk`, plain text answers);
  * the suggestion chips keep their worked-out answers.
  */
 function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, loading, error }: AssistantProps) {
@@ -117,14 +111,6 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
   const [asked, setAsked] = useState<{ q: string; live: boolean }[]>([]);
   const assistantOn = useAssistantOn();
   const live = useAsk();
-  /** The assistant is a side popup behind a floating icon. */
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
   const [draft, setDraft] = useState('');
   const [copied, setCopied] = useState(false);
   const final = steps.at(-1)?.to;
@@ -146,7 +132,7 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
     return <p>I can answer about the five causes, who owns each fix, carrier D&apos;s lanes, or what closes the gap to target.</p>;
   };
   const ask = (q: string) => { if (q.trim()) setAsked((list) => [...list, { q: q.trim(), live: false }]); setDraft(''); };
-  /** D10: the follow-up goes to Ask LateLens; with no answer it leaves the thread and goes back into the box. */
+  /** D10: the follow-up goes to the assistant; with no answer it leaves the thread and goes back into the box. */
   const askLive = async (q: string) => {
     if (!q.trim() || q.trim().length > MAX_QUESTION || live.busy) return;
     setAsked((list) => [...list, { q: q.trim(), live: true }]);
@@ -162,26 +148,11 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
   };
 
   return (
-    <>
-    <button type="button" className={`${s.bot} ${s.launcher}`} aria-expanded={open} aria-controls="assistant" aria-label="Open Router"
-      onClick={() => setOpen(true)}>
-      <BotIcon /><i /><span className={s.launcherTip} aria-hidden="true">Ask Router</span>
-    </button>
-    <div className={s.scrim} data-open={open} aria-hidden="true" onClick={() => setOpen(false)} />
-    <section id="assistant" className={`${s.panel} ${s.assistant}`} data-open={open} aria-label="Router">
-      <div className={s.chatHead}>
-        <span className={s.bot}><BotIcon /><i /></span>
-        <div><b>Router</b>{deliveries != null && <small>Analysed {int(deliveries)} deliveries</small>}</div>
-        <button type="button" className={s.close} aria-label="Close assistant" onClick={() => setOpen(false)}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
-        </button>
-      </div>
-      <div className={s.thread}>
-        <p className={s.day}>Today</p>
-        <p className={s.you}>{OPENING}</p>
-        <div className={s.reply}>
-          <span className={s.botSmall}><BotIcon /></span>
-          <div className={s.replyBody}>
+    <RouterFrame subtitle={deliveries != null ? `Analysed ${int(deliveries)} deliveries` : undefined}>
+      <div className={r.thread}>
+        <p className={r.day}>Today</p>
+        <p className={r.you}>{OPENING}</p>
+        <Reply>
             <p>I traced every late delivery to one of five causes. Here&apos;s <b>one fix per cause, ranked by impact</b>. I replayed each on your
               supplied deliveries at its expected adoption rate. Select a fix to see what it targets.</p>
             <Status loading={loading} error={error} skeleton="rows" count={5} />
@@ -225,17 +196,14 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
                 <button type="button" className={s.ghost} onClick={copyPlan}><Glyph />{copied ? 'Copied' : 'Copy plan'}</button>
               </>
             )}
-          </div>
-        </div>
-        <div className={s.asked} aria-live="polite">
+        </Reply>
+        <div className={r.asked} aria-live="polite">
           {asked.map(({ q, live: isLive }, i) => {
             const reply = isLive ? live.exchanges[asked.slice(0, i).filter((x) => x.live).length]?.answer : undefined;
             return (
               <div key={i}>
-                <p className={s.you}>{q}</p>
-                <div className={s.reply}><span className={s.botSmall}><BotIcon /></span><div className={s.replyBody}>
-                  {!isLive ? answer(q) : reply ? <AskAnswer a={reply} /> : <p>Asking LateLens…</p>}
-                </div></div>
+                <p className={r.you}>{q}</p>
+                <Reply>{!isLive ? answer(q) : reply ? <AskAnswer a={reply} /> : <p>Asking Router…</p>}</Reply>
               </div>
             );
           })}
@@ -244,16 +212,10 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
       <div className={s.suggest}>
         {SUGGESTIONS.map((q) => <button key={q} type="button" className={s.chip} onClick={() => ask(q)}><Glyph />{q}</button>)}
       </div>
-      {assistantOn && live.error && <AskErrorNote error={live.error} />}
-      <form className={s.ask} onSubmit={submit}>
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Ask a follow-up about delivery performance…" aria-label="Ask a follow-up"
-          maxLength={assistantOn ? MAX_QUESTION : undefined} />
-        <button type="submit" aria-label="Send" disabled={!draft.trim() || (assistantOn && live.busy)}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-        </button>
-      </form>
-    </section>
-    </>
+      {assistantOn && live.error && <div className={r.note}><AskErrorNote error={live.error} /></div>}
+      <RouterInput value={draft} onChange={setDraft} onSubmit={submit} disabled={!draft.trim() || (assistantOn && live.busy)}
+        maxLength={assistantOn ? MAX_QUESTION : undefined} />
+    </RouterFrame>
   );
 }
 

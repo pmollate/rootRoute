@@ -292,7 +292,8 @@ function Summary({ d, e }: { d: Detail; e: EmailItem | undefined }) {
           : <span className={`${s.chip} ${s.tBad}`}>Not read</span>}
       </header>
       {d.email.clientId === null && d.decision === 'MISSING_INFO' && (
-        <p className={s.badText}><Icon size={12}>{ICON.alert}</Icon>Unknown sender: not read by the AI and no automatic reply. Check who sent it before answering.</p>
+        <p className={s.senderAlert}><Icon size={14}>{ICON.alert}</Icon>
+          <span><b>Unknown sender.</b> Not read by the AI and no automatic reply. Check who sent it before answering.</span></p>
       )}
       <div className={s.block}>
         <p className={s.label}>Items</p>
@@ -349,6 +350,12 @@ function Readiness({ d }: { d: Detail }) {
 }
 
 interface Note { id: number; text: string; tone: 'info' | 'ok' | 'bad' }
+/** A time as the browser's datetime-local value, to the minute, in the operator's own time zone. */
+export function localMinute(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 const DRAFT_KEY = (id: number) => `rr.intake.draft.${id}`;
 const readDraft = (id: number) => { try { return localStorage.getItem(DRAFT_KEY(id)); } catch { return null; } };
 const writeDraft = (id: number, text: string | null) => {
@@ -507,6 +514,11 @@ export function IntakeScreen() {
   const invalid = (field: Field) => (pasteError?.fields[field] ? true : undefined);
   const bodyLimit = list.data?.limits?.bodyChars;
   const bodyOver = bodyLimit !== undefined && draft.body.length > bodyLimit;
+  // Received at is picked on a calendar (datetime-local, "YYYY-MM-DDTHH:mm") and sent as "YYYY-MM-DD HH:mm".
+  // Nothing after the operator's own clock: the picker greys it out, and a typed future time blocks sending.
+  const latestAt = localMinute(new Date());
+  const receivedFuture = draft.receivedAt.replace(' ', 'T') > latestAt;
+  const receivedBad = !draft.receivedAt || receivedFuture;
 
   const submit = () => run('act', async () => {
     setPasteError(null);
@@ -695,8 +707,15 @@ export function IntakeScreen() {
                 <label className={s.field}><span>Subject</span>
                   <input value={draft.subject} aria-invalid={invalid('subject')} onChange={(e) => editDraft('subject', e.target.value)} /></label>
                 <label className={`${s.field} ${s.fieldShort}`}><span>Received at</span>
-                  <input value={draft.receivedAt} aria-invalid={invalid('receivedAt')} placeholder="2026-09-14 09:30"
-                    onChange={(e) => editDraft('receivedAt', e.target.value)} /></label>
+                  <input type="datetime-local" step={60} max={latestAt} value={draft.receivedAt.replace(' ', 'T')}
+                    aria-invalid={invalid('receivedAt') ?? (receivedBad || undefined)}
+                    aria-describedby={receivedBad ? 'paste-received-note' : undefined}
+                    onChange={(e) => editDraft('receivedAt', e.target.value.replace('T', ' '))} /></label>
+                {receivedBad && (
+                  <p id="paste-received-note" className={`${s.pasteCount} ${s.pasteCountOver}`}>
+                    {receivedFuture ? 'Received at is in the future. Pick when the email arrived.' : 'Pick when the email arrived.'}
+                  </p>
+                )}
                 <textarea className={s.textarea} aria-label="Body" placeholder="Paste the email body here" value={draft.body}
                   aria-invalid={invalid('body') ?? (bodyOver || undefined)} aria-describedby={bodyLimit !== undefined ? 'paste-body-count' : undefined}
                   onChange={(e) => editDraft('body', e.target.value)} />
@@ -711,7 +730,7 @@ export function IntakeScreen() {
                   <p className={s.pasteError} role="alert"><Icon size={11}>{ICON.alert}</Icon>{pasteError.text}</p>
                 )}
                 <div className={s.pasteFoot}>
-                  <button type="button" className={`${s.btn} ${s.btnPrimary}`} onClick={submit} disabled={disabled || !draft.body.trim() || bodyOver}>
+                  <button type="button" className={`${s.btn} ${s.btnPrimary}`} onClick={submit} disabled={disabled || !draft.body.trim() || bodyOver || receivedBad}>
                     <Icon size={12}>{ICON.wand}</Icon>Process email
                   </button>
                   <span>{replyTo ? `This will be linked as the reply to email ${replyTo}.` : 'Select an email waiting for an address to paste the client\'s reply to it.'}</span>

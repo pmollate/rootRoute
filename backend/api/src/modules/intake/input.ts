@@ -27,6 +27,14 @@ export function isLocalTime(s: string): boolean {
   return day.getUTCFullYear() === y && day.getUTCMonth() === mo - 1 && day.getUTCDate() === d && h < 24 && mi < 60;
 }
 
+/** Received-at carries no time zone, so it counts as in the future only when it is later than now everywhere on Earth
+ * (UTC+14). The paste form's picker blocks anything after the operator's own clock. */
+const LATEST_ZONE_MS = 14 * 3600_000;
+export function isFuture(s: string, now = Date.now()): boolean {
+  const [y, mo, d, h, mi] = LOCAL_TIME.exec(s)!.slice(1).map(Number);
+  return Date.UTC(y, mo - 1, d, h, mi) > now + LATEST_ZONE_MS;
+}
+
 /** A string field: `missing` when absent, `text` when not a string. */
 const text = (missing: string, wrongType: string) =>
   z.string({ error: (iss) => (iss.input === undefined ? missing : wrongType) });
@@ -46,7 +54,8 @@ export const EmailBody = z.object({
   body: text('The email body is missing.', 'The email body must be text.')
     .refine((s) => s.trim().length > 0, 'The email body is empty.')
     .refine((s) => s.length <= config.INTAKE_MAX_BODY_CHARS, `The email body is longer than ${n(config.INTAKE_MAX_BODY_CHARS)} characters.`),
-  receivedAt: text('Received at is missing.', RECEIVED_AT).refine(isLocalTime, RECEIVED_AT),
+  receivedAt: text('Received at is missing.', RECEIVED_AT).refine(isLocalTime, RECEIVED_AT)
+    .refine((s) => !isLocalTime(s) || !isFuture(s), 'Received at is in the future. Pick when the email arrived.'),
   inReplyTo: z.number({ error: 'In reply to must be an email number.' }).int('In reply to must be an email number.')
     .positive('In reply to must be an email number.').optional(),
 }, { error: NOT_OBJECT });

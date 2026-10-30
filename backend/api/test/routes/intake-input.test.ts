@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { config } from '../../src/core/config.js';
 import { pool, query } from '../../src/core/db/pool.js';
 import { setDeps } from '../../src/modules/intake/deps.js';
+import { isFuture } from '../../src/modules/intake/input.js';
 import { buildApp } from '../../src/server.js';
 import { hasDb } from '../db.js';
 
@@ -68,6 +69,23 @@ describe.skipIf(!hasDb)('POST /api/intake/email: bad input (needs test database)
       expect(r.statusCode, receivedAt).toBe(400);
       expect(r.json().fields.receivedAt, receivedAt).toBe('Received at must look like 2026-09-14 09:30 (a real date, 24-hour time).');
     }
+  });
+
+  it('AC-INT-17: a Received at in the future is 400 and nothing is stored', async () => {
+    const inTwoDays = new Date(Date.now() + 2 * 86400_000).toISOString().slice(0, 16).replace('T', ' ');
+    for (const receivedAt of ['2099-01-01 09:00', inTwoDays]) {
+      const r = await send({ ...good, receivedAt });
+      expect(r.statusCode, receivedAt).toBe(400);
+      expect(r.json().fields.receivedAt, receivedAt).toBe('Received at is in the future. Pick when the email arrived.');
+    }
+    expect(await stored()).toBe(0);
+  });
+
+  it('AC-INT-17: future means later than now in every time zone (UTC+14), so no real local time is refused', () => {
+    const now = Date.UTC(2026, 9, 30, 12, 0);
+    expect(isFuture('2026-10-31 01:59', now)).toBe(false); // 13 h 59 min ahead: already that late in Kiribati
+    expect(isFuture('2026-10-31 02:01', now)).toBe(true);
+    expect(isFuture('2026-10-21 08:05', now)).toBe(false);
   });
 
   it('AC-INT-17: inReplyTo must be an email number', async () => {

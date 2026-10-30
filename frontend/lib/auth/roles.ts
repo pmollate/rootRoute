@@ -46,12 +46,22 @@ export const PAGE_ROLES: Record<string, readonly Role[]> = {
   '/dashboard/warehouses': ['warehouse_supervisor', 'leadership', 'admin'],
   '/dashboard/carriers': ['carrier_manager', 'leadership', 'admin'],
   '/dashboard/journey': ROLES,
-  '/dashboard/replay': ['warehouse_supervisor', 'carrier_manager', 'leadership', 'admin'],
+  '/dashboard/labs': ['warehouse_supervisor', 'carrier_manager', 'leadership', 'admin'],
 };
 
-/** Where a signed-in user starts: the first screen in nav order (config/dashboard.ts) their roles may open. */
-export function homeFor(roles: readonly Role[]): string {
-  return SCREENS.find((s) => canOpen(roles, s.href))?.href ?? SCREENS[0].href;
+/** Each role's start page after sign-in: its own workspace; leadership and admin start on Overview. */
+export const HOME: Record<Role, string> = {
+  order_desk: '/dashboard/intake', warehouse_supervisor: '/dashboard/warehouses', carrier_manager: '/dashboard/carriers',
+  customer_support: '/dashboard/complaints', leadership: '/dashboard/overview', admin: '/dashboard/overview',
+};
+
+/**
+ * Where a signed-in user starts: the start page of their first role in ROLES order. With no roles (nobody signed in,
+ * AUTH_REQUIRED=off), the first screen in nav order.
+ */
+export function homeFor(roles: readonly Role[] | null | undefined): string {
+  const role = ROLES.find((r) => roles?.includes(r));
+  return role ? HOME[role] : SCREENS[0].href;
 }
 
 /** Whether a role may open `path`. Paths that are not a screen (`/`, `/dashboard`, the forbidden page) are open. */

@@ -45,7 +45,7 @@ async function allClear() {
 describe('order review (E18)', () => {
   it('REQ-INT-15: a blocked carrier is never offered', () => {
     expect(carrierChoices(NE).map((c) => c.carrier)).toEqual(['E', 'A', 'B']);
-    expect(carrierChoices({ ...NE, options: [] })).toEqual([{ carrier: 'E', status: 'recommended', onTime: null, reason: 'E: best on this lane' }]);
+    expect(carrierChoices({ ...NE, options: [] })).toEqual([{ carrier: 'E', status: 'recommended', onTime: null, meanRate: null, reason: 'E: best on this lane' }]);
   });
 
   it('REQ-INT-14: lists ALL_CLEAR orders awaiting approval with their lane choices', async () => {
@@ -54,6 +54,10 @@ describe('order review (E18)', () => {
     expect(o).toMatchObject({ id, clientId: 'C025', region: 'Northeast', warehouseId: 'W4', carrier: 'E', blocked: ['F'],
       items: [{ sku: 'HX-616', qty: 45 }] });
     expect(o.choices.map((c) => c.carrier)).toEqual(['E', 'A', 'B']);
+    expect(o.choices.map((c) => c.meanRate)).toEqual([2.1, 2.4, 2.0]);
+    // The checks behind the card, from the stored extraction; F is blocked and shown with its lane on-time share.
+    expect(o).toMatchObject({ commitment: 'next_day', warehouseReason: 'nearest', warnClient: false, addressStatus: 'complete',
+      blockedLanes: [{ carrier: 'F', onTime: 0.6 }] });
   });
 
   it('AC-INT-15, AC-AUTH-14: approving with carrier A logs one override with the approver; the order shows A', async () => {

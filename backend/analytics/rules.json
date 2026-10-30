@@ -1,0 +1,16 @@
+{
+  "_about": "Cause rules (SPEC §5.1) and adoption rates (SPEC §2.4, §12 assumptions) for the analytics pipeline. Point ANALYTICS_RULES at another file to run a different client's rules without a code change.",
+  "cutoff_hour": 8,
+  "second_pick_hour": 11,
+  "route_overrun": 1.2,
+  "friday_cap": { "carrier": "D", "day_of_week": 4 },
+  "bad_lanes": [
+    ["D", "Midwest"],
+    ["D", "Southeast"],
+    ["E", "West"],
+    ["F", "Northeast"],
+    ["F", "Southeast"]
+  ],
+  "adoption": { "f_addr": 0.85, "f_lane": 0.9, "f_cutoff": 0.85, "f_stock": 0.6, "f_route": 0.3 },
+  "as_built_adoption": { "f_addr_email": 0.85, "f_cutoff": 0.85, "f_skip_nearest": 0.6, "f_lane": 0.9 }
+}

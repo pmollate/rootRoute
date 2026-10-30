@@ -1,4 +1,0 @@
-{
-  "kind": "tool",
-  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"LateLens on-time rate: 71.0% vs benchmark 94.0%. Deliveries: 48340. Late: 14019. PenaltiesUsd: 872460. HandlingCostUsd: 476646. AtRiskAccounts: 9. AtRiskRevenueUsd: 14200000. PrePickupShare: 67.3%.\\\",\\\"refused\\\":false}\"}"
-}
