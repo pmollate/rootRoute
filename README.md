@@ -5,8 +5,14 @@ address, an order after the cut-off, a shipment from a farther warehouse, a weak
 gives each fix to the team that owns it. It shows what the data says and what each fix is worth; the business decides.
 
 On the reference dataset (48,340 deliveries, 5 warehouses, 6 carriers, 280 clients) it finds a cause for every late
-delivery, 67% of them before pickup, and a replay with every fix switched on lifts on-time from 71.0% to 88.5%.
-Figures and how they are computed: `docs/SPEC.md` §2 and §5.8.
+delivery, 67% of them before pickup. Replaying those deliveries with the fixes this build delivers lifts on-time from
+**71.0% to 85.9%** at expected adoption (88.5% if every fix worked every time) and avoids about **$708K** of penalties
+and handling in 6 months; the full programme reaches 92.0%. Before/after and method: [`docs/IMPACT.md`](docs/IMPACT.md).
+
+**Live app:** <https://rootroute01-web.azurewebsites.net> (landing page) and
+<https://rootroute01-web.azurewebsites.net/dashboard>. Sign in with a demo account `demo-<role>@rootroute.test`
+(roles below); the demo password is shared with the jury separately, never in the repo. API health:
+<https://rootroute01-api.azurewebsites.net/api/health>.
 
 ## What it does
 
@@ -214,6 +220,9 @@ Fastify), PostgreSQL Flexible Server and Key Vault for every secret.
 
 | Document | What |
 |---|---|
+| [`docs/DISCOVERY.md`](docs/DISCOVERY.md) | One page: problem, baseline, users and pain points, sponsor input, requirements and scope |
+| [`docs/IMPACT.md`](docs/IMPACT.md) | Before vs after on Halcyon's KPIs, and what is new, each with a before/after comparison |
+| [`docs/TRACEABILITY.md`](docs/TRACEABILITY.md) | Feature → requirement → acceptance criterion → test (generated: `python3 scripts/traceability.py`) |
 | [`docs/SPEC.md`](docs/SPEC.md) | Source of truth. Discovery: problem and recommendation §1, evidence §2, scope §3, assumptions and open questions §12, discovery log §14.1 |
 | [`docs/CONTRACTS.md`](docs/CONTRACTS.md) | Shared types, tables, API routes and settings |
 | [`docs/SPEC-auth.md`](docs/SPEC-auth.md) | Sign-in, roles and permissions |
@@ -221,6 +230,7 @@ Fastify), PostgreSQL Flexible Server and Key Vault for every secret.
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the parts fit together |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | What comes next |
 | [`docs/TEST-EVIDENCE.md`](docs/TEST-EVIDENCE.md) | Test results and evidence |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | Secrets scan result, where credentials live, roles and Azure least privilege |
 | [`Halcyon-Hackathon-Dataset/DATA_DICTIONARY.md`](Halcyon-Hackathon-Dataset/DATA_DICTIONARY.md) | Columns of the supplied dataset |
 | [`backend/synthetic-data/README.md`](backend/synthetic-data/README.md) | Synthetic data register |
 

@@ -22,3 +22,7 @@ frontend/bots/out/
 # secrets and OS
 .env
 .DS_Store
+
+# Local tool state (Playwright MCP snapshots, agent worktrees)
+.playwright-mcp/
+.claude/worktrees/
