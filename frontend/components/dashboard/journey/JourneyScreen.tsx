@@ -28,8 +28,8 @@ function deliveryRef(text: string): string | null {
 }
 /** "AWAITING_APPROVAL" -> "awaiting approval". */
 const words = (status: string) => status.replace(/_/g, ' ').toLowerCase();
-/** Shown for an order's stages that have no events yet. */
-const FUTURE = 'Stages 10 to 13 show once the simulated warehouse and carrier events are built.';
+/** Shown for an order's warehouse and carrier stages (REQ-JRN-08). */
+const FUTURE = 'Stages 9 to 13 come from the simulated WMS and carriers: synthetic data.';
 const COMMITMENT: Record<string, string> = { same_day: 'same day', next_day: 'next day', standard: 'standard' };
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];

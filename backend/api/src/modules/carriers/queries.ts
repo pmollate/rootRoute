@@ -113,6 +113,7 @@ export async function emailFacts(id: number): Promise<EmailFacts | null> {
   const overrides = await query<{ from: string; to: string; reason: string; user: string; at: string }>(
     `SELECT from_carrier AS "from", to_carrier AS "to", reason, user_name AS "user", ${ts('created_at')} AS at
        FROM override_log WHERE order_ref = ANY($1) ORDER BY id`, [refs]);
+  const events = await orderEventRows(refs);
   const a = x?.extraction?.address;
   return {
     id: e.id, clientId: e.client_id, tier: e.tier, status: e.status, receivedAt: e.received_at,
@@ -120,7 +121,7 @@ export async function emailFacts(id: number): Promise<EmailFacts | null> {
     // City, state and ZIP only: no street, names or contact details (SEC-JRN-01).
     destination: a ? { city: a.city, state: a.state, zip: a.zip } : null,
     commitment: x?.extraction?.requested_commitment ?? null,
-    decision: x?.decision ?? null, checks: x?.checks ?? null, approvals, outbound, overrides,
+    decision: x?.decision ?? null, checks: x?.checks ?? null, approvals, outbound, overrides, events,
   };
 }
 

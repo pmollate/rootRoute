@@ -1,6 +1,7 @@
 // Order journey (D9, docs/SPEC-order-workflow.md): one order as 14 stages, from the client's email to the door.
 // Pure builders: queries.ts loads the rows, routes.ts serves them. Read-only by design (REQ-JRN-02).
 import type { PromiseResult, WarehouseChoice } from '../../core/contracts.js';
+import { localNow, type OrderEvent, type OrderEventRow } from './orderEvents.js';
 
 export type StageStatus = 'done' | 'current' | 'waiting' | 'at_risk' | 'failed' | 'skipped' | 'not_reached';
 export type StageKey = 'received' | 'read' | 'address' | 'promise' | 'warehouse' | 'carrier' | 'approved' | 'told'
@@ -120,7 +121,7 @@ export function buildDeliveryJourney(d: DeliveryFacts, f: CauseFlags, events: Tr
   };
 }
 
-// ---- New orders (intake tables; stages 10-13 wait for the simulated tracking, REQ-JRN-05) ----
+// ---- New orders (intake tables; stages 9-13 from order_events, written by the simulated WMS and carriers) ----
 
 export interface EmailFacts {
   id: number; clientId: string | null; tier: string | null; status: string; receivedAt: string;
@@ -133,9 +134,15 @@ export interface EmailFacts {
   approvals: { action: string; actor: string; at: string; reason: string | null }[];
   outbound: { status: string; at: string }[];
   overrides: { from: string; to: string; reason: string; user: string; at: string }[];
+  events: OrderEventRow[];
 }
 
-export function buildEmailJourney(e: EmailFacts): Journey {
+const DAY_MS = 86_400_000;
+/** Whole days from one YYYY-MM-DD to another (positive when `to` is later). */
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);
+const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+
+export function buildEmailJourney(e: EmailFacts, now = localNow()): Journey {
   const did = (action: string) => e.approvals.find((a) => a.action === action);
   const approve = did('approve');
   const reject = did('reject');
@@ -148,6 +155,29 @@ export function buildEmailJourney(e: EmailFacts): Journey {
   const c = e.checks;
   const override = e.overrides.at(-1);
   const rounds = e.rounds.length > 1 ? ` (${e.rounds.length} rounds with the client)` : '';
+  const ev = (name: OrderEvent) => e.events.find((x) => x.event === name);
+  const entered = ev('wms_entered');
+  const carrierName = c?.carrier ? `Carrier ${c.carrier.carrier}` : 'Carrier';
+  const promised = c?.promise?.promiseDate ?? null;
+  const sim = (x: OrderEventRow | undefined, actor: string, detail: string): Part | null =>
+    x ? { status: 'done', at: x.ts, actor, source: 'synthetic', detail } : null;
+  const delivered = ev('delivered');
+  const late = delivered && promised ? daysBetween(promised, delivered.ts.slice(0, 10)) : 0;
+  const deliveredPart = (): Part => {
+    if (delivered) {
+      return late > 0
+        ? { status: 'failed', at: delivered.ts, actor: carrierName, source: 'synthetic', detail: `Delivered ${days(late)} late (promised ${promised}).` }
+        : { status: 'done', at: delivered.ts, actor: carrierName, source: 'synthetic',
+          detail: promised ? `Delivered on time (promised ${promised}).` : 'Delivered.' };
+    }
+    // REQ-JRN-06: no delivery by the end of the promise date.
+    if (entered && promised && now.slice(0, 10) > promised) {
+      return { status: 'at_risk', at: null, actor: carrierName, source: 'synthetic', detail: `Not delivered by the end of ${promised}.` };
+    }
+    return notReached('Carrier');
+  };
+  const out = ev('out_for_delivery');
+  const transit = ev('in_transit');
 
   const parts: Record<StageKey, Part> = {
     received: { status: 'done', at: e.receivedAt, actor: 'Client', source: 'real',
@@ -187,16 +217,27 @@ export function buildEmailJourney(e: EmailFacts): Journey {
         : refused ? { status: 'failed', at: refused.at, actor: 'Code', source: 'real', detail: 'Refused: the address is not on the allow-list.' }
           : approve ? { status: 'current', at: null, actor: 'Operator', source: 'real', detail: 'Reply drafted, not sent yet.' } : notReached(),
     wms: reject ? notReached()
-      : wms ? { status: 'done', at: wms.at, actor: wms.actor, source: 'synthetic', detail: `Entered in the simulated WMS as WMS-${e.id}.` }
-        : approve && clear ? { status: 'current', at: null, actor: 'Operator', source: 'real', detail: 'Approved, not entered yet.' } : notReached(),
-    picked: notReached('Warehouse'), handed: notReached('Carrier'), transit: notReached('Carrier'),
-    delivered: notReached('Carrier'), notice: notReached(),
+      : entered ? { status: 'done', at: entered.ts, actor: wms?.actor ?? 'Operator', source: 'synthetic',
+        detail: `Entered in the simulated WMS as ${String(entered.detail.wmsOrderId ?? `WMS-${e.id}`)}.` }
+        : wms ? { status: 'done', at: wms.at, actor: wms.actor, source: 'synthetic', detail: `Entered in the simulated WMS as WMS-${e.id}.` }
+          : approve && clear ? { status: 'current', at: null, actor: 'Operator', source: 'real', detail: 'Approved, not entered yet.' } : notReached(),
+    picked: sim(ev('picked'), 'Warehouse (simulated)', 'Picked in the simulated WMS.') ?? notReached('Warehouse'),
+    handed: sim(ev('picked_up'), `${carrierName} (simulated)`, `Collected by ${carrierName}.`) ?? notReached('Carrier'),
+    transit: sim(out ?? transit, `${carrierName} (simulated)`,
+      out ? `Out for delivery${transit ? ` (in transit since ${transit.ts})` : ''}.` : 'In transit.') ?? notReached('Carrier'),
+    delivered: deliveredPart(),
+    notice: notReached(),
   };
+  // Once the WMS has the order, the first step it has not reported yet is the one in progress.
+  if (entered) {
+    const next = (['picked', 'handed', 'transit', 'delivered'] as const).find((k) => parts[k].status === 'not_reached');
+    if (next) parts[next] = { ...parts[next], status: 'current', source: 'synthetic', detail: 'Waiting for the simulated warehouse or carrier.' };
+  }
   const dest = e.destination ? [e.destination.city, e.destination.state, e.destination.zip].filter(Boolean).join(', ') || null : null;
   return {
     ref: `email:${e.id}`, kind: 'order', synthetic: true, rounds: e.rounds,
     summary: { clientId: e.clientId, tier: e.tier, channel: 'Email', commitment: c?.promise?.commitment ?? e.commitment,
-      destination: dest, promisedDate: c?.promise?.promiseDate ?? null, outcome: reject ? 'Rejected' : e.status.replace('_', ' ').toLowerCase() },
+      destination: dest, promisedDate: c?.promise?.promiseDate ?? null, outcome: reject ? 'Rejected' : delivered ? (late > 0 ? `${days(late)} late` : 'delivered') : e.status.replace('_', ' ').toLowerCase() },
     stages: stages(parts),
   };
 }
