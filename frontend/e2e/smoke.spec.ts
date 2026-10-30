@@ -19,7 +19,7 @@ async function open(page: Page, path: string) {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(`page error: ${e.message}`));
   page.on('response', (r) => {
-    if (r.url().startsWith(API_URL) && r.status() >= 500) errors.push(`${r.status()} ${r.url()}`);
+    if (new URL(r.url()).pathname.startsWith('/api/') && r.status() >= 500) errors.push(`${r.status()} ${r.url()}`);
   });
   await page.goto(path);
   return errors;
