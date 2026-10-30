@@ -9,6 +9,7 @@
   font-size: 16px;
   line-height: 1.5;
   overflow-wrap: anywhere;
+  color-scheme: light; /* light only: form controls too */
 }
 .page *, .page *::before, .page *::after { box-sizing: border-box; }
 .brand { margin: 0 0 8px; color: var(--ink-2); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }

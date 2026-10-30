@@ -8,8 +8,11 @@ export const THEME_KEY = 'theme';
 /** browser chrome colour; matches --dark in styles/theme.css */
 export const THEME_COLOR = '#121211';
 
-/** Applies a saved choice before first paint; without one the page is light, whatever the system setting. */
-export const THEME_SCRIPT = `try{var t=localStorage.getItem('${THEME_KEY}')}catch(e){}document.documentElement.dataset.theme=t==='dark'?'dark':'light'`;
+/**
+ * Applies a saved choice before first paint; without one the page is light, whatever the system setting. The client's
+ * address page (/confirm/, E19) is always light: it has no toggle, and a staff member's saved choice is not the client's.
+ */
+export const THEME_SCRIPT = `try{var t=localStorage.getItem('${THEME_KEY}')}catch(e){}if(location.pathname.indexOf('/confirm/')===0)t='light';document.documentElement.dataset.theme=t==='dark'?'dark':'light'`;
 
 /** What the page is showing now: <html data-theme>, light until the viewer picks dark. */
 export const currentTheme = (): Theme => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');

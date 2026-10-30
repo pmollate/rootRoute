@@ -1,6 +1,7 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
 import { ConfirmScreen } from '@/components/confirm/ConfirmScreen';
+import { LightOnly } from '@/components/confirm/LightOnly';
 import { loadLink } from '@/lib/confirm/load';
 
 /**
@@ -16,10 +17,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/** Light only (lib/theme.ts): the browser bar matches the light background (--bg in styles/theme.css). */
+export const viewport: Viewport = { themeColor: '#f4f4f4', colorScheme: 'light' };
+
 export default async function ConfirmPage({ params }: { params: Promise<{ token: string }> }) {
   if (process.env.CONFIRM_LINK !== 'on') notFound();
   const { token } = await params;
   const view = await loadLink(token);
   if (!view) notFound();
-  return <ConfirmScreen token={token} view={view} />;
+  return <><LightOnly /><ConfirmScreen token={token} view={view} /></>;
 }
