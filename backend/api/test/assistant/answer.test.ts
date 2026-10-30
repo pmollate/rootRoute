@@ -35,6 +35,13 @@ describe('assistant answer loop (D10)', () => {
     expect(bad.sources[0].result).toEqual(RESULTS.overview);
   });
 
+  it('AC-ASK-04: a number only in the question is not checked: "Is our on-time rate 99.9%?" repeated back fails', async () => {
+    const { tools } = fakeTools();
+    const r = await answerQuestion(ask('Is our on-time rate 99.9%?'), null,
+      deps(scripted(call('overview'), final('Your on-time rate is 99.9%.')), tools));
+    expect(r).toMatchObject({ checked: false, answer: COULD_NOT_CHECK });
+  });
+
   it('AC-ASK-03, AC-SEC-ASK-06: send_reply and recommend_carrier with region Mars are skipped, not run, and the model is told', async () => {
     const { tools, runs } = fakeTools();
     const llm = scripted(call('send_reply', { to: 'x@y' }), call('recommend_carrier', { region: 'Mars', commitment: 'standard' }), final('No.'));

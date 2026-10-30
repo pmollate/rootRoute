@@ -13,8 +13,8 @@ describe('figure check (REQ-ASK-04)', () => {
     expect(uncheckedFigures('Our on-time rate is 80%.', [OVERVIEW])).toEqual(['80']);
   });
 
-  it('a figure from the question or the tool arguments counts as found', () => {
-    expect(uncheckedFigures('For orders received at 09:15 the promise is 30 Oct.', [{ promiseDate: '2026-10-30' }, 'received at 09:15']))
+  it('a figure from the tool arguments counts as found (the time the user typed, passed to check_promise)', () => {
+    expect(uncheckedFigures('For orders received at 09:15 the promise is 30 Oct.', [{ promiseDate: '2026-10-30' }, { receivedAt: '2026-10-29 09:15' }]))
       .toEqual([]);
   });
 

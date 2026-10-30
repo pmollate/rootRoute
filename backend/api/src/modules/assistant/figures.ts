@@ -1,6 +1,7 @@
-// REQ-ASK-04 figure check (SPEC §5.16): every number in the answer must be found in a tool result, the question or the
-// tool arguments: as written, as a percentage of a rate (× 100), or rounded to the decimals shown. `$`, `%` and
-// thousands separators are ignored; K, M and B scale a figure ("$738K", "$14.2M"). Code decides; the model's text is never trusted.
+// REQ-ASK-04 figure check (SPEC §5.16): every number in the answer must be found in a tool result or the arguments of a
+// tool that ran, never only in the question: as written, as a percentage of a rate (× 100), or rounded to the decimals
+// shown. `$`, `%` and thousands separators are ignored; K, M and B scale a figure ("$738K", "$14.2M"). Code decides; the
+// model's text is never trusted.
 
 export interface Figure { value: number; decimals: number; scale: number; raw: string }
 
