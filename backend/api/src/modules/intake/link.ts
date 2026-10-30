@@ -3,16 +3,18 @@
 // No AI model is used anywhere here. The token is never stored, logged or kept in outbound_messages (SEC-LINK-01).
 import { randomUUID } from 'node:crypto';
 import type { CarrierRecommendation, PromiseResult, WarehouseChoice } from '../../core/contracts.js';
+import type { GmailClient } from '../../core/gmail.js';
 import type { AddressValidator, GeocodeResponse } from '../../core/maps/types.js';
 import type { AddressCheck } from './address.js';
 import { decide } from './decide.js';
-import { addressDiffers, type AddressPart, ConfirmBody, type ConfirmInput, LookupBody, distanceM, hashPrefix, hashToken, LINK_PLACEHOLDER, linkExpiry, MAX_MAP_LOOKUPS,
-  needsSecondConfirm, newToken, TOKEN_SHAPE } from './linkRules.js';
-import { senderAddress } from './mailbox.js';
+import { addressDiffers, type AddressPart, CODE_GAP_S, CODE_MINUTES, CODE_PLACEHOLDER, CODE_SUBJECT, codeHash, codeText, ConfirmBody,
+  type ConfirmInput, LookupBody, distanceM, hashPrefix, hashToken, LINK_PLACEHOLDER, linkExpiry, maskAddress, MAX_CODE_TRIES, MAX_CODES,
+  MAX_MAP_LOOKUPS, needsSecondConfirm, newCode, newToken, sameHash, TOKEN_SHAPE, VerifyBody } from './linkRules.js';
+import { senderAddress, sendNew } from './mailbox.js';
 import type { Deps } from './pipeline.js';
 import { regionOfState } from './region.js';
 import { replyFactsOf, templateReply } from './reply.js';
-import type { EmailRow, ExtractionRow } from './repo.js';
+import type { EmailRow, ExtractionRow, Repo } from './repo.js';
 
 export { LINK_PLACEHOLDER } from './linkRules.js';
 /** The one answer for every invalid link, byte-identical whatever the reason (REQ-LINK-07). */
@@ -36,6 +38,8 @@ export type LinkState = 'sent' | 'confirmed' | 'expired' | 'revoked';
 export interface MapCredential { kind: 'sas'; token: string; expiresAt: string }
 /** `map` is null when no tile credential could be issued: the page then shows the address fields without a map. */
 export interface LinkView { address: Partial<LinkAddress>; pin: LinkPin | null; expiresAt: string; synthetic: boolean; map: MapCredential | null }
+/** REQ-LINK-17: the unverified view with CONFIRM_LINK_CODE on: the masked sender only, nothing about the address or order. */
+export interface VerifyView { verify: { sentTo: string }; expiresAt: string; synthetic: boolean }
 
 /**
  * The reading shown at a second Confirm, with what it was read for: the whole typed address and the pin, or none
@@ -48,6 +52,9 @@ export interface LinkRow {
   prefill: { address: Partial<LinkAddress>; pin: LinkPin | null };
   confirmed_address: LinkAddress | null; lat: number | null; lon: number | null;
   map_reading: (PendingCheck | MapReading) | null; map_lookups: number; synthetic: boolean;
+  // E19 verification code (migration 105, REQ-LINK-17 to -19): hashes only, never the code or the token (SEC-LINK-12).
+  code_hash: string | null; code_sent_at: Date | null; code_expires_at: Date | null; codes_sent: number; code_tries: number;
+  verify_hash: string | null; verified_at: Date | null;
 }
 export type NewLink = Pick<LinkRow, 'token_hash' | 'email_id' | 'issued_at' | 'expires_at' | 'issued_by' | 'prefill' | 'synthetic'>;
 
@@ -77,6 +84,15 @@ export interface LinkRepo {
    * `pin` null: confirmed without one (lat, lon null).
    */
   saveAddress(a: { clientId: string; address: LinkAddress; pin: LinkPin | null; emailId: number; confirmedAt: Date; synthetic: boolean }): Promise<boolean>;
+  /**
+   * REQ-LINK-18: stores a new code's hash (+1 code, tries back to 0) only while fewer than `max` codes were sent and the
+   * last one went at or before `notAfter` (the 60 s gap); false (nothing stored) otherwise.
+   */
+  storeCode(id: number, c: { hash: string; sentAt: Date; expiresAt: Date }, limits: { max: number; notAfter: Date }): Promise<boolean>;
+  /** REQ-LINK-19: +1 try on the current code, counted before the code is compared; returns the new count. */
+  codeTry(id: number): Promise<number>;
+  /** REQ-LINK-19: the verification token's hash; the code is spent (cleared). */
+  setVerified(id: number, verifyHash: string, at: Date): Promise<void>;
 }
 
 export interface ConfirmWrite {
@@ -102,6 +118,10 @@ export interface LinkDeps {
   credentials: MapCredentials;
   now: () => Date;
   log: (event: string, fields: Record<string, unknown>) => void; // SEC-LINK-11: email id + hash prefix, never the token
+  /** CONFIRM_LINK_CODE (REQ-LINK-17): the emailed code before the page shows the address. Missing = off. */
+  code?: boolean;
+  /** Where the code email goes out: the orders mailbox (null: Gmail not set up) and ALLOW_LIST (SEC-03). */
+  outbox?: { gmail: Pick<GmailClient, 'sendMessage'> | null; allow: Set<string> };
 }
 
 export function linkState(l: LinkRow, now: Date): LinkState {
@@ -171,10 +191,27 @@ async function find(d: LinkDeps, token: string): Promise<LinkRow | null> {
   return (await d.links.orderEmailIds(l.email_id)).some((id) => id > l.email_id) ? null : l;
 }
 
-/** GET /api/confirm/:token. Never uses up or changes the link (SEC-LINK-06). Null = the one invalid answer. */
-export async function viewLink(d: LinkDeps, token: string): Promise<LinkView | null> {
+/** REQ-LINK-19: with CONFIRM_LINK_CODE on, whether `verify` (the x-link-verify header) is this link's verification token. */
+function verified(d: LinkDeps, l: LinkRow, verify: string | null | undefined): boolean {
+  if (!d.code) return true;
+  return typeof verify === 'string' && TOKEN_SHAPE.test(verify) && sameHash(l.verify_hash, hashToken(verify));
+}
+const VERIFY_REQUIRED = { error: 'verify_required' } as const;
+
+/**
+ * GET /api/confirm/:token. Never uses up or changes the link (SEC-LINK-06). Null = the one invalid answer. With
+ * CONFIRM_LINK_CODE on and no valid `verify` token, only the masked sender (REQ-LINK-17): `repo` reads the order's email.
+ */
+export async function viewLink(d: LinkDeps, token: string, verify?: string | null, repo?: Pick<Repo, 'getEmail'>): Promise<LinkView | VerifyView | null> {
   const l = await find(d, token);
   if (!l) return null;
+  if (!verified(d, l, verify)) {
+    if (!repo) throw new Error('viewLink: CONFIRM_LINK_CODE on needs the intake repo');
+    const email = await repo.getEmail(l.email_id);
+    if (!email) return null;
+    d.log('link_opened', { ...fieldsOf(l), verified: false });
+    return { verify: { sentTo: maskAddress(senderAddress(email.from_addr)) }, expiresAt: l.expires_at.toISOString(), synthetic: l.synthetic };
+  }
   d.log('link_opened', fieldsOf(l));
   let map: MapCredential | null = null;
   try {
@@ -189,6 +226,7 @@ export type ConfirmResult =
   | { code: 200; body: { status: 'confirmed' } }
   | { code: 409; body: { error: 'needs_second_confirm'; reading: MapReading; checkId: string } }
   | { code: 400; body: { error: 'invalid' } }
+  | { code: 401; body: typeof VERIFY_REQUIRED }
   | { code: 404; body: typeof INVALID }
   | { code: 429; body: { error: 'rate_limited' } }
   | { code: 503; body: { error: 'map_unavailable' } };
@@ -230,9 +268,10 @@ class MapUnavailable extends Error {}
  * | yes      | match, REQ-LINK-03 does not apply| confirmed at once              | the client's pin    |
  * | yes      | differ / no point / REQ-LINK-03  | 409, the pin's reading         | the client's pin    |
  */
-export async function confirmLink(d: LinkDeps, intake: Deps, token: string, body: unknown): Promise<ConfirmResult> {
+export async function confirmLink(d: LinkDeps, intake: Deps, token: string, body: unknown, verify?: string | null): Promise<ConfirmResult> {
   const l = await find(d, token);
   if (!l) return { code: 404, body: INVALID };
+  if (!verified(d, l, verify)) return { code: 401, body: VERIFY_REQUIRED }; // REQ-LINK-19
   // Only an order waiting for the client (its reply SENT) is decided again; a closed or re-opened order is not (A17 review 5).
   if ((await intake.repo.getEmail(l.email_id))?.status !== 'SENT') return { code: 404, body: INVALID };
   const parsed = ConfirmBody.safeParse(body);
@@ -307,6 +346,7 @@ export async function confirmLink(d: LinkDeps, intake: Deps, token: string, body
 export type LookupResult =
   | { code: 200; body: { reading: { line1: string | null; city: string | null; state: string | null; zip: string | null; found: boolean }; checkId: string | null } }
   | { code: 400; body: { error: 'invalid' } }
+  | { code: 401; body: typeof VERIFY_REQUIRED }
   | { code: 404; body: typeof INVALID }
   | { code: 429; body: { error: 'rate_limited' } }
   | { code: 503; body: { error: 'map_unavailable' } };
@@ -317,9 +357,10 @@ export type LookupResult =
  * (SEC-LINK-06). With all four parts read, the reading is stored as a pending check for that pin and the filled address
  * (the client's line 2 kept): a Confirm of exactly that is the client's second Confirm of the map's reading.
  */
-export async function lookupPin(d: LinkDeps, intake: Deps, token: string, body: unknown): Promise<LookupResult> {
+export async function lookupPin(d: LinkDeps, intake: Deps, token: string, body: unknown, verify?: string | null): Promise<LookupResult> {
   const l = await find(d, token);
   if (!l) return { code: 404, body: INVALID };
+  if (!verified(d, l, verify)) return { code: 401, body: VERIFY_REQUIRED }; // REQ-LINK-19
   if ((await intake.repo.getEmail(l.email_id))?.status !== 'SENT') return { code: 404, body: INVALID };
   const parsed = LookupBody.safeParse(body);
   if (!parsed.success) {
@@ -350,6 +391,99 @@ export async function lookupPin(d: LinkDeps, intake: Deps, token: string, body: 
   }
   d.log('link_pin_read', { ...fieldsOf(l), found, complete: checkId !== null });
   return { code: 200, body: { reading: { ...read, found }, checkId } };
+}
+
+/** A live link of a SENT order with CONFIRM_LINK_CODE on: what the code routes act on (else the one invalid answer). */
+async function codeLink(d: LinkDeps, intake: Deps, token: string): Promise<{ l: LinkRow; email: EmailRow } | null> {
+  if (!d.code) return null;
+  const l = await find(d, token);
+  if (!l) return null;
+  const email = await intake.repo.getEmail(l.email_id);
+  return email?.status === 'SENT' ? { l, email } : null;
+}
+
+export type CodeResult =
+  | { code: 200; body: { sentTo: string; retryIn: number } }
+  | { code: 404; body: typeof INVALID }
+  | { code: 429; body: { error: 'code_wait'; retryIn: number | null } }
+  | { code: 503; body: { error: 'email_unavailable' } };
+
+/**
+ * POST /api/confirm/:token/code (REQ-LINK-18): emails a new 6-digit code to the order's sender, a new message from the
+ * orders mailbox, only to an ALLOW_LIST address (SEC-03). At most MAX_CODES per link, CODE_GAP_S apart: 429 `code_wait`
+ * with `retryIn` seconds (null: no more codes for this link). No Gmail, a refused address or a failed send: 503 and
+ * nothing counted or stored. Only the code's hash is stored; outbound_messages keeps [CODE] (SEC-LINK-12). Never uses the link.
+ */
+export async function sendCode(d: LinkDeps, intake: Deps, token: string): Promise<CodeResult> {
+  const found = await codeLink(d, intake, token);
+  if (!found) return { code: 404, body: INVALID };
+  const { l, email } = found;
+  const now = d.now();
+  if (l.codes_sent >= MAX_CODES) {
+    d.log('link_refused', { ...fieldsOf(l), why: 'max_codes' });
+    return { code: 429, body: { error: 'code_wait', retryIn: null } };
+  }
+  const wait = l.code_sent_at ? Math.ceil((l.code_sent_at.getTime() + CODE_GAP_S * 1000 - now.getTime()) / 1000) : 0;
+  if (wait > 0) return { code: 429, body: { error: 'code_wait', retryIn: wait } };
+  const to = senderAddress(email.from_addr);
+  const unavailable = (why: string): CodeResult => {
+    d.log('link_refused', { ...fieldsOf(l), why }); // never the Gmail error text, which may quote the message
+    return { code: 503, body: { error: 'email_unavailable' } };
+  };
+  const gmail = d.outbox?.gmail;
+  if (!gmail) return unavailable('gmail_not_set_up');
+  if (!d.outbox?.allow.has(to)) {
+    await intake.repo.logOutbound(email.id, to, codeText(CODE_PLACEHOLDER), 'refused');
+    return unavailable('not_allowed');
+  }
+  const n = l.codes_sent + 1;
+  const code = newCode();
+  let gmailId: string;
+  try {
+    gmailId = await sendNew(gmail, { to, subject: CODE_SUBJECT, body: codeText(code) }, d.outbox.allow);
+  } catch {
+    return unavailable('email_unavailable');
+  }
+  // Stored only after Gmail accepted it; the WHERE clause settles two sends at once (the later one gets 429).
+  const stored = await d.links.storeCode(l.id, { hash: codeHash(l.token_hash, code), sentAt: now,
+    expiresAt: new Date(now.getTime() + CODE_MINUTES * 60_000) }, { max: MAX_CODES, notAfter: new Date(now.getTime() - CODE_GAP_S * 1000) });
+  if (!stored) return { code: 429, body: { error: 'code_wait', retryIn: CODE_GAP_S } };
+  await intake.repo.logOutbound(email.id, to, codeText(CODE_PLACEHOLDER), 'sent', gmailId);
+  d.log('link_code_sent', { ...fieldsOf(l), n });
+  return { code: 200, body: { sentTo: maskAddress(to), retryIn: CODE_GAP_S } };
+}
+
+export type VerifyResult =
+  | { code: 200; body: { verifyToken: string } }
+  | { code: 400; body: { error: 'invalid' } }
+  | { code: 404; body: typeof INVALID }
+  | { code: 422; body: { error: 'code_wrong'; triesLeft: number } | { error: 'code_expired' } };
+
+/**
+ * POST /api/confirm/:token/verify (REQ-LINK-19). The current, unexpired code gives a verification token (32 random bytes,
+ * base64url; only its hash is stored) and is spent. Each entry counts as a try before it is compared, so parallel
+ * guesses cannot pass MAX_CODE_TRIES; past it, or for an expired or unsent code, 422 `code_expired`.
+ */
+export async function verifyCode(d: LinkDeps, intake: Deps, token: string, body: unknown): Promise<VerifyResult> {
+  const found = await codeLink(d, intake, token);
+  if (!found) return { code: 404, body: INVALID };
+  const { l } = found;
+  const parsed = VerifyBody.safeParse(body);
+  if (!parsed.success) return { code: 400, body: { error: 'invalid' } };
+  const now = d.now();
+  if (!l.code_hash || !l.code_expires_at || l.code_expires_at <= now || l.code_tries >= MAX_CODE_TRIES) {
+    return { code: 422, body: { error: 'code_expired' } };
+  }
+  const tries = await d.links.codeTry(l.id);
+  if (tries > MAX_CODE_TRIES) return { code: 422, body: { error: 'code_expired' } };
+  if (!sameHash(l.code_hash, codeHash(l.token_hash, parsed.data.code))) {
+    d.log('link_code_wrong', { ...fieldsOf(l), tries });
+    return { code: 422, body: { error: 'code_wrong', triesLeft: MAX_CODE_TRIES - tries } };
+  }
+  const verifyToken = newToken();
+  await d.links.setVerified(l.id, hashToken(verifyToken), now);
+  d.log('link_verified', fieldsOf(l));
+  return { code: 200, body: { verifyToken } };
 }
 
 /**

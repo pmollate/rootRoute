@@ -334,4 +334,31 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     expect(document.querySelector('img')).toBeNull();
     expect(screen.getByRole('region', { name: 'The map\'s reading of your pin' }).textContent).toContain('<img src=x onerror=alert(1)>');
   });
+  it('AC-LINK-19 (page): with a verifyToken the look-up and Confirm send x-link-verify; without one they send no such header', async () => {
+    const VT = 'V'.repeat(43);
+    const fn = stubFetch([200, { status: 'confirmed' }]);
+    render(<ConfirmScreen token={TOKEN} view={view} verifyToken={VT} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
+    await waitFor(() => expect(lookups(fn)).toHaveLength(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await screen.findByText('Thank you. Your delivery address is confirmed.');
+    expect(fn.mock.calls.map(([, init]) => new Headers(init.headers).get('x-link-verify'))).toEqual([VT, VT]);
+    cleanup();
+    const plain = stubFetch([200, { status: 'confirmed' }]);
+    render(<ConfirmScreen token={TOKEN} view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await screen.findByText('Thank you. Your delivery address is confirmed.');
+    expect(new Headers(plain.mock.calls[0][1].headers).has('x-link-verify')).toBe(false);
+  });
+
+  it('AC-LINK-19 (page): a 401 verify_required on the look-up or Confirm calls onVerifyRequired', async () => {
+    const back = vi.fn();
+    lookupAnswer = [401, { error: 'verify_required' }];
+    stubFetch([401, { error: 'verify_required' }]);
+    render(<ConfirmScreen token={TOKEN} view={view} verifyToken={'V'.repeat(43)} onVerifyRequired={back} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
+    await waitFor(() => expect(back).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await waitFor(() => expect(back).toHaveBeenCalledTimes(2));
+  });
 });

@@ -9,7 +9,7 @@ import { applyAction } from './actions.js';
 import { runAlerts } from './alerts.js';
 import { complaintQueue, deliveryStages, listComplaints, savedTriages, saveTriage, triage } from './complaints.js';
 import { getDeps } from './deps.js';
-import { confirmLink, INVALID, type LinkRow, linkState, lookupPin, viewLink } from './link.js';
+import { confirmLink, INVALID, type LinkRow, linkState, lookupPin, sendCode, verifyCode, viewLink } from './link.js';
 import { getLinkDeps } from './linkDeps.js';
 import { processEmail } from './pipeline.js';
 import { safeNames } from './reply.js';
@@ -28,6 +28,12 @@ export function preview(body: string): string {
 /** E19: the link service with this request's logger (SEC-LINK-11: email id and hash prefix, never the token). */
 const linkDeps = (req: FastifyRequest) => ({ ...getLinkDeps(),
   log: (event: string, f: Record<string, unknown>) => req.log.info({ event, ...f }, 'address link') });
+
+/** REQ-LINK-19: the verification token from the x-link-verify header (one string, else none). Never logged. */
+const verifyOf = (req: FastifyRequest): string | null => {
+  const h = req.headers['x-link-verify'];
+  return typeof h === 'string' ? h : null;
+};
 
 /**
  * REQ-LINK-06: each email's newest link state, computed when read (no timer). Undefined when CONFIRM_LINK is off, so the
@@ -98,16 +104,27 @@ const routes: FastifyPluginAsync = async (app) => {
   // E19 (SPEC §5.17): public and token-gated (permissions.ts); no order id in the route (SEC-LINK-03). The same 404 body
   // for every invalid link, and when CONFIRM_LINK is off (REQ-LINK-07, -09). GET never uses up the link (SEC-LINK-06).
   app.get<{ Params: { token: string } }>('/confirm/:token', async (req, reply) => {
-    const view = await viewLink(linkDeps(req), req.params.token);
+    // REQ-LINK-17: with CONFIRM_LINK_CODE on and no valid x-link-verify, only the masked sender.
+    const view = await viewLink(linkDeps(req), req.params.token, verifyOf(req), getDeps().repo);
     return view ?? reply.code(404).send(INVALID);
   });
   app.post<{ Params: { token: string } }>('/confirm/:token', async (req, reply) => {
-    const r = await confirmLink(linkDeps(req), getDeps(), req.params.token, req.body);
+    const r = await confirmLink(linkDeps(req), getDeps(), req.params.token, req.body, verifyOf(req));
     return reply.code(r.code).send(r.body);
   });
   // REQ-LINK-16: the map's reading of a pin the client placed, to fill the fields; counted, never uses the link.
   app.post<{ Params: { token: string } }>('/confirm/:token/lookup', async (req, reply) => {
-    const r = await lookupPin(linkDeps(req), getDeps(), req.params.token, req.body);
+    const r = await lookupPin(linkDeps(req), getDeps(), req.params.token, req.body, verifyOf(req));
+    return reply.code(r.code).send(r.body);
+  });
+  // REQ-LINK-18, -19: email a 6-digit code to the order's sender, and trade the right code for a verification token.
+  // The code is only in the body and the email: neither is logged (SEC-LINK-12).
+  app.post<{ Params: { token: string } }>('/confirm/:token/code', async (req, reply) => {
+    const r = await sendCode(linkDeps(req), getDeps(), req.params.token);
+    return reply.code(r.code).send(r.body);
+  });
+  app.post<{ Params: { token: string } }>('/confirm/:token/verify', async (req, reply) => {
+    const r = await verifyCode(linkDeps(req), getDeps(), req.params.token, req.body);
     return reply.code(r.code).send(r.body);
   });
 

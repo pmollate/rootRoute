@@ -22,6 +22,13 @@ describe('the page\'s server-side load (E19)', () => {
     expect([...new Headers(init?.headers).keys()]).toEqual(['accept']);
   });
 
+  it('AC-LINK-17: an unverified answer (masked sender only) passes through as the VerifyView; the server sends no x-link-verify', async () => {
+    const verify = { verify: { sentTo: 'o•••••@client130.example' }, expiresAt: '2026-10-31T10:22:00.000Z', synthetic: true };
+    const f = answer(200, verify);
+    expect(await loadLink(TOKEN, f as unknown as typeof fetch)).toEqual(verify);
+    expect(new Headers(f.mock.calls[0][1]?.headers).has('x-link-verify')).toBe(false);
+  });
+
   it('AC-LINK-07: the API\'s 404 becomes null (the page\'s one invalid-link 404); a path-breaking token stays one segment', async () => {
     const f = answer(404, { error: 'link_invalid' });
     expect(await loadLink('../overview', f as unknown as typeof fetch)).toBeNull();

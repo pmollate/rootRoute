@@ -31,7 +31,8 @@ export function memoryLinks(parents: () => { id: number; in_reply_to: number | n
     },
     insert: async (l) => {
       rows.push({ ...l, id: rows.length + 1, used_at: null, revoked_at: null, confirmed_address: null, lat: null, lon: null,
-        map_reading: null, map_lookups: 0 });
+        map_reading: null, map_lookups: 0, code_hash: null, code_sent_at: null, code_expires_at: null, codes_sent: 0, code_tries: 0,
+        verify_hash: null, verified_at: null });
       return rows.length;
     },
     byHash: async (h) => rows.find((r) => r.token_hash === h) ?? null,
@@ -52,6 +53,14 @@ export function memoryLinks(parents: () => { id: number; in_reply_to: number | n
       const r = rows.filter((x) => x.email_id === id).at(-1);
       return r ? [[id, r] as const] : [];
     })),
+    storeCode: async (id, c, limits) => {
+      const r = rows[id - 1];
+      if (r.codes_sent >= limits.max || (r.code_sent_at && r.code_sent_at > limits.notAfter)) return false;
+      Object.assign(r, { code_hash: c.hash, code_sent_at: c.sentAt, code_expires_at: c.expiresAt, codes_sent: r.codes_sent + 1, code_tries: 0 });
+      return true;
+    },
+    codeTry: async (id) => (rows[id - 1].code_tries += 1),
+    setVerified: async (id, verifyHash, at) => { Object.assign(rows[id - 1], { verify_hash: verifyHash, verified_at: at, code_hash: null }); },
     saveAddress: async (a) => {
       const same = saved.some((s) => s.clientId === a.clientId && key(s.address.line1) === key(a.address.line1)
         && key(s.address.line2) === key(a.address.line2) && key(s.address.city) === key(a.address.city)

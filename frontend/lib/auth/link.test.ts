@@ -51,6 +51,33 @@ describe('E19 address link at the web app (SEC-LINK-04, -05, -07)', () => {
       { session: null, settings: on, fetch: other })).status).toBe(401);
   });
 
+  it('AC-SEC-LINK-12, REQ-LINK-18, -19: /code and /verify are link routes; x-link-verify is forwarded on link routes only', async () => {
+    const VT = 'V'.repeat(43);
+    const headers = { origin: 'https://web.example', 'content-type': 'application/json', 'x-link-verify': VT };
+    for (const sub of ['code', 'verify', 'lookup', null]) {
+      const fetch = api();
+      const segs = sub ? ['confirm', TOKEN, sub] : ['confirm', TOKEN];
+      const url = `https://web.example/api/${segs.join('/')}`;
+      const r = await proxy(new Request(url, { method: 'POST', headers, body: '{}' }), segs, { session: null, settings: on, fetch });
+      expect(r.status, String(sub)).toBe(200);
+      const h = new Headers(fetch.mock.calls[0][1]!.headers);
+      expect([h.get('x-link-verify'), h.get('authorization'), h.get('x-api-key')]).toEqual([VT, null, null]);
+      expect(linkGate(new URL(url).pathname, '9.9.9.9', true, new RateLimiter(1, 60_000, () => 0)).kind).toBe('pass');
+    }
+    const get = api();
+    await proxy(new Request(`https://web.example/api/confirm/${TOKEN}`, { headers: { 'x-link-verify': VT } }), ['confirm', TOKEN], { session: null, settings: on, fetch: get });
+    expect(new Headers(get.mock.calls[0][1]!.headers).get('x-link-verify')).toBe(VT);
+    // on any other route the header is dropped
+    const other = api();
+    await proxy(new Request('https://web.example/api/overview', { headers: { 'x-link-verify': VT } }), ['overview'],
+      { session: { id: 'u1', name: 'U', roles: ['admin'], demo: true }, settings: on, fetch: other });
+    expect(new Headers(other.mock.calls[0][1]!.headers).get('x-link-verify')).toBeNull();
+    // a malformed header is not forwarded
+    const odd = api();
+    await proxy(new Request(`https://web.example/api/confirm/${TOKEN}`, { headers: { 'x-link-verify': 'not a token' } }), ['confirm', TOKEN], { session: null, settings: on, fetch: odd });
+    expect(new Headers(odd.mock.calls[0][1]!.headers).get('x-link-verify')).toBeNull();
+  });
+
   it('AC-SEC-LINK-07, SEC-LINK-01: a cross-origin confirm POST gets 403 bad_origin, never reaches the API, and the log holds no token', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     const fetch = api();

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CarrierRecommendation, CarriersApi, PromiseResult, WarehouseApi } from '../../src/core/contracts.js';
 import type { AddressValidator } from '../../src/core/maps/types.js';
 import { applyAction } from '../../src/modules/intake/actions.js';
-import { confirmLink, INVALID, type LinkDeps, linkState, lookupPin, mintLink, viewLink } from '../../src/modules/intake/link.js';
+import { confirmLink, INVALID, type LinkDeps, linkState, lookupPin, mintLink, sendCode, verifyCode, viewLink } from '../../src/modules/intake/link.js';
 import { hashToken } from '../../src/modules/intake/linkRules.js';
 import { type Deps, processEmail } from '../../src/modules/intake/pipeline.js';
 import { replyFactsOf, templateReply, withoutLinkPlaceholder } from '../../src/modules/intake/reply.js';
@@ -42,10 +42,10 @@ const warehouse: WarehouseApi = { checkPromise, nearestWarehouse: async () => 'W
 const carriers: CarriersApi = { recommendCarrier: async () => structuredClone(REC) };
 const TEMPLATE = 'Hello,\nPlease confirm: [CONFIRM_LINK]\nHalcyon Logistics';
 
-interface Setup { draft?: string; promise?: PromiseResult | null; enabled?: boolean; appUrl?: string; geocodeOk?: boolean; piiMap?: Record<string, string> }
+interface Setup { draft?: string; promise?: PromiseResult | null; enabled?: boolean; appUrl?: string; geocodeOk?: boolean; piiMap?: Record<string, string>; code?: boolean }
 
 /** A CONFIRM_ADDRESS order from C025, approved by the desk, ready for send_reply; the clock is 29 Oct 10:00 UTC. */
-async function setup({ draft = TEMPLATE, promise = null, enabled = true, appUrl = 'https://app.example', geocodeOk = true, piiMap = {} }: Setup = {}) {
+async function setup({ draft = TEMPLATE, promise = null, enabled = true, appUrl = 'https://app.example', geocodeOk = true, piiMap = {}, code }: Setup = {}) {
   const mode: MapMode = { forward: geocodeOk ? 'match' : 'down', reverseDown: false, forwardCalls: 0, reverseCalls: 0 };
   const maps = fakeMap(mode);
   const mem = memoryRepo({ 'client025.example': C025 }, []);
@@ -70,7 +70,14 @@ async function setup({ draft = TEMPLATE, promise = null, enabled = true, appUrl 
   const send = (edited?: string, emailId = id) =>
     applyAction(mem.repo, emailId, 'send_reply', 'u1', { gmail: gmail as never, allow }, { link, ...(edited ? { edited } : {}) });
   const tokenOf = () => /\/confirm\/([A-Za-z0-9_-]{43})/.exec(sentTexts.at(-1) ?? '')?.[1];
-  return { mem, id, store, link, intake, send, sentTexts, tokenOf, events, issued, gmail, allow, mode,
+  // E19 verification code (REQ-LINK-17 to -19): the code emails go through their own fake Gmail.
+  const codeMails: string[] = [];
+  const codeGmail = { sendMessage: async (raw: string, threadId: string | null = null) => {
+    if (threadId !== null) throw new Error('the code email is a new message, not a reply');
+    codeMails.push(raw); return `c${codeMails.length}`; } };
+  if (code !== undefined) { link.code = code; link.outbox = { gmail: codeGmail, allow }; }
+  const codeOf = () => /verification code is (\d{6})\./.exec(codeMails.at(-1) ?? '')?.[1];
+  return { mem, id, store, link, intake, send, sentTexts, tokenOf, events, issued, gmail, allow, mode, codeMails, codeGmail, codeOf,
     at: (iso: string) => { now = new Date(iso); } };
 }
 
@@ -741,5 +748,159 @@ describe('E19 the pin fills the address fields (REQ-LINK-16)', () => {
     t.link.maps = t.intake.maps;
     const r = await lookupPin(t.link, t.intake, t.tokenOf()!, { pin: START });
     expect(r).toEqual({ code: 200, body: { reading: { line1: null, city: 'Boston', state: 'MA', zip: '02210', found: true }, checkId: null } });
+  });
+});
+
+describe('E19 verification code (memory)', () => {
+  /** A sent link with CONFIRM_LINK_CODE on; `sendCode` and `verifyCode` with the token of the reply. */
+  async function coded() {
+    const t = await setup({ code: true });
+    await t.send();
+    const token = t.tokenOf()!;
+    return { ...t, token, sendC: () => sendCode(t.link, t.intake, token), verifyC: (code: unknown) => verifyCode(t.link, t.intake, token, { code }) };
+  }
+  /** The verified token for a coded link. */
+  async function verified() {
+    const t = await coded();
+    await t.sendC();
+    const r = await t.verifyC(t.codeOf());
+    expect(r.code).toBe(200);
+    return { ...t, verifyToken: (r.body as { verifyToken: string }).verifyToken };
+  }
+
+  it('AC-LINK-17: unverified GET holds only the masked sender, expiresAt and synthetic; no address, pin or map; opening changes nothing', async () => {
+    const t = await coded();
+    for (const header of [undefined, '', 'B'.repeat(43)]) {
+      const v = await viewLink(t.link, t.token, header, t.mem.repo);
+      expect(v).toEqual({ verify: { sentTo: 'o•••••@client025.example' }, expiresAt: '2026-10-30T06:00:00.000Z', synthetic: true });
+    }
+    expect(t.issued).toEqual([]); // no map credential before verification
+    expect(t.store.rows[0]).toMatchObject({ used_at: null, codes_sent: 0, code_hash: null, map_lookups: 0 });
+    expect(t.codeMails).toEqual([]); // opening never sends a code (mail scanners open links)
+  });
+
+  it('AC-LINK-17: with a verified token the GET body is the full LinkView; with the flag off the view opens as before', async () => {
+    const t = await verified();
+    const v = await viewLink(t.link, t.token, t.verifyToken, t.mem.repo);
+    expect(Object.keys(v!).sort()).toEqual(['address', 'expiresAt', 'map', 'pin', 'synthetic']);
+    const off = await setup({ code: false }); await off.send();
+    expect(Object.keys((await viewLink(off.link, off.tokenOf()!))!).sort()).toEqual(['address', 'expiresAt', 'map', 'pin', 'synthetic']);
+  });
+
+  it('AC-LINK-18: Send code emails one 6-digit code to the sender as a new message; outbound_messages keeps [CODE]; the row keeps only its hash', async () => {
+    const t = await coded();
+    expect(await t.sendC()).toEqual({ code: 200, body: { sentTo: 'o•••••@client025.example', retryIn: 60 } });
+    expect(t.codeMails).toHaveLength(1);
+    const raw = t.codeMails[0];
+    expect(raw).toMatch(/^To: orders@client025\.example$/m);
+    expect(raw).toMatch(/^Subject: Your Halcyon Logistics verification code$/m);
+    expect(raw).not.toMatch(/^In-Reply-To:/m);
+    const code = t.codeOf()!;
+    expect(code).toMatch(/^\d{6}$/);
+    expect(raw).toContain(`Your verification code is ${code}. It expires in 10 minutes. If you did not ask for it, you can ignore this email.\n\nHalcyon Logistics`);
+    const out = t.mem.outbound.at(-1)!;
+    expect(out).toMatchObject({ emailId: t.id, to: 'orders@client025.example', status: 'sent', gmailId: 'c1' });
+    expect(out.body).toContain('Your verification code is [CODE].');
+    const row = t.store.rows[0];
+    expect(row).toMatchObject({ codes_sent: 1, code_tries: 0, used_at: null });
+    expect(row.code_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(row.code_expires_at?.toISOString()).toBe('2026-10-29T10:10:00.000Z');
+    expect(JSON.stringify([t.store.rows, t.mem.outbound, t.mem.audit, t.events])).not.toContain(code);
+    expect(t.events.find((e) => e.event === 'link_code_sent')?.fields).toEqual({ emailId: t.id, hash: expect.stringMatching(/^[0-9a-f]{8}$/), n: 1 });
+  });
+
+  it('AC-LINK-18: a second send within 60 s gets 429 code_wait with retryIn; a 4th code gets 429; nothing more is sent', async () => {
+    const t = await coded();
+    expect((await t.sendC()).code).toBe(200);
+    t.at('2026-10-29T10:00:45Z');
+    expect(await t.sendC()).toEqual({ code: 429, body: { error: 'code_wait', retryIn: 15 } });
+    t.at('2026-10-29T10:01:00Z');
+    expect((await t.sendC()).code).toBe(200);
+    t.at('2026-10-29T10:02:00Z');
+    expect((await t.sendC()).code).toBe(200);
+    t.at('2026-10-29T10:05:00Z');
+    expect(await t.sendC()).toEqual({ code: 429, body: { error: 'code_wait', retryIn: null } });
+    expect(t.codeMails).toHaveLength(3);
+    expect(t.store.rows[0].codes_sent).toBe(3);
+    expect(t.store.rows[0].used_at).toBeNull();
+  });
+
+  it('AC-LINK-18: Gmail not set up, a failed send, or a sender off the allow-list gets 503 email_unavailable and no code is stored or counted', async () => {
+    const t = await coded();
+    t.link.outbox = { gmail: null, allow: t.allow };
+    expect(await t.sendC()).toEqual({ code: 503, body: { error: 'email_unavailable' } });
+    t.link.outbox = { gmail: { sendMessage: async () => { throw new Error('gmail down'); } }, allow: t.allow };
+    expect(await t.sendC()).toEqual({ code: 503, body: { error: 'email_unavailable' } });
+    t.link.outbox = { gmail: t.codeGmail, allow: new Set() };
+    expect(await t.sendC()).toEqual({ code: 503, body: { error: 'email_unavailable' } });
+    expect(t.codeMails).toEqual([]);
+    expect(t.store.rows[0]).toMatchObject({ codes_sent: 0, code_hash: null, code_sent_at: null });
+    expect(t.mem.outbound.filter((o) => o.status === 'sent' && o.body.includes('[CODE]'))).toEqual([]);
+    expect(JSON.stringify(t.events)).not.toContain('gmail down');
+  });
+
+  it('AC-LINK-19: a wrong code gets 422 triesLeft 4; after 5 wrong codes the right one gets code_expired; a new code gives a token', async () => {
+    const t = await coded();
+    await t.sendC();
+    const right = t.codeOf()!;
+    const wrong = right === '000000' ? '111111' : '000000';
+    expect(await t.verifyC(wrong)).toEqual({ code: 422, body: { error: 'code_wrong', triesLeft: 4 } });
+    for (const left of [3, 2, 1, 0]) expect(await t.verifyC(wrong)).toEqual({ code: 422, body: { error: 'code_wrong', triesLeft: left } });
+    expect(await t.verifyC(right)).toEqual({ code: 422, body: { error: 'code_expired' } });
+    t.at('2026-10-29T10:01:00Z');
+    await t.sendC();
+    const r = await t.verifyC(t.codeOf());
+    expect(r.code).toBe(200);
+    const verifyToken = (r.body as { verifyToken: string }).verifyToken;
+    expect(verifyToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(t.store.rows[0].verify_hash).toBe(hashToken(verifyToken));
+    expect(t.events.filter((e) => e.event === 'link_code_wrong')).toHaveLength(5);
+    expect(t.events.map((e) => e.event)).toContain('link_verified');
+    expect(JSON.stringify([t.store.rows, t.events, t.mem.outbound])).not.toContain(verifyToken);
+    // A code is good for one verification only.
+    expect(await t.verifyC(t.codeOf())).toEqual({ code: 422, body: { error: 'code_expired' } });
+  });
+
+  it('AC-LINK-19: 11 minutes after sending the right code gets code_expired; an unsent code gets code_expired; a malformed code 400; a bad link 404', async () => {
+    const t = await coded();
+    expect(await t.verifyC('123456')).toEqual({ code: 422, body: { error: 'code_expired' } });
+    await t.sendC();
+    for (const bad of ['12345', '1234567', 'abcdef', 123456, null]) expect(await t.verifyC(bad)).toEqual({ code: 400, body: { error: 'invalid' } });
+    t.at('2026-10-29T10:11:00Z');
+    expect(await t.verifyC(t.codeOf())).toEqual({ code: 422, body: { error: 'code_expired' } });
+    expect(await verifyCode(t.link, t.intake, 'A'.repeat(43), { code: '123456' })).toEqual({ code: 404, body: INVALID });
+    expect(await sendCode(t.link, t.intake, 'A'.repeat(43))).toEqual({ code: 404, body: INVALID });
+    expect(t.store.rows[0].used_at).toBeNull();
+  });
+
+  it('AC-LINK-19: /lookup and Confirm without the token get 401 verify_required; with it they work as before; a new code does not end the token', async () => {
+    const t = await verified();
+    const body = { address: ADDRESS, pin: START };
+    expect(await lookupPin(t.link, t.intake, t.token, { pin: START })).toEqual({ code: 401, body: { error: 'verify_required' } });
+    expect(await confirmLink(t.link, t.intake, t.token, body)).toEqual({ code: 401, body: { error: 'verify_required' } });
+    expect(await confirmLink(t.link, t.intake, t.token, body, 'B'.repeat(43))).toEqual({ code: 401, body: { error: 'verify_required' } });
+    expect(t.store.rows[0].map_lookups).toBe(0); // refused before any map look-up
+    t.at('2026-10-29T10:01:00Z');
+    await t.sendC(); // a new code does not end the verified token
+    expect((await lookupPin(t.link, t.intake, t.token, { pin: START }, t.verifyToken)).code).toBe(200);
+    expect(await confirmLink(t.link, t.intake, t.token, body, t.verifyToken)).toEqual({ code: 200, body: { status: 'confirmed' } });
+    expect(await viewLink(t.link, t.token, t.verifyToken, t.mem.repo)).toBeNull(); // used: the token goes with the link
+  });
+
+  it("AC-LINK-19: one link's verified token does not open another link", async () => {
+    const a = await verified();
+    const b = await coded();
+    expect(await viewLink(b.link, b.token, a.verifyToken, b.mem.repo)).toMatchObject({ verify: expect.any(Object) });
+    expect((await confirmLink(b.link, b.intake, b.token, { address: ADDRESS }, a.verifyToken)).code).toBe(401);
+  });
+
+  it('AC-SEC-LINK-12: after send, verify and confirm, no row, outbound body or log event holds the code or the verify token', async () => {
+    const t = await verified();
+    const code = /verification code is (\d{6})\./.exec(t.codeMails[0])![1];
+    expect((await confirmLink(t.link, t.intake, t.token, { address: ADDRESS, pin: START }, t.verifyToken)).code).toBe(200);
+    const all = JSON.stringify([t.store.rows, t.mem.outbound, t.mem.audit, t.mem.extractions, t.events]);
+    expect(all).not.toContain(code);
+    expect(all).not.toContain(t.verifyToken);
+    expect(t.mem.outbound.some((o) => o.body.includes('[CODE]'))).toBe(true);
   });
 });

@@ -270,6 +270,20 @@ export const linkRepo: LinkRepo = {
       'SELECT DISTINCT ON (email_id) * FROM address_confirm_tokens WHERE email_id = ANY($1::int[]) ORDER BY email_id, id DESC', [ids]);
     return new Map(rows.map((r) => [r.email_id, r]));
   },
+  // REQ-LINK-18: the WHERE clause, not a read-then-write, keeps the 3-code cap and the 60 s gap under concurrency.
+  async storeCode(id, c, limits) {
+    return (await query(
+      `UPDATE address_confirm_tokens SET code_hash = $2, code_sent_at = $3, code_expires_at = $4, codes_sent = codes_sent + 1, code_tries = 0
+        WHERE id = $1 AND codes_sent < $5 AND (code_sent_at IS NULL OR code_sent_at <= $6) RETURNING id`,
+      [id, c.hash, c.sentAt, c.expiresAt, limits.max, limits.notAfter])).length === 1;
+  },
+  async codeTry(id) {
+    return (await query<{ n: number }>(
+      'UPDATE address_confirm_tokens SET code_tries = code_tries + 1 WHERE id = $1 RETURNING code_tries AS n', [id]))[0].n;
+  },
+  async setVerified(id, verifyHash, at) {
+    await query('UPDATE address_confirm_tokens SET verify_hash = $2, verified_at = $3, code_hash = NULL WHERE id = $1', [id, verifyHash, at]);
+  },
   // REQ-LINK-05: not added when the client already has the same address (letters and digits only, case-blind, 5-digit ZIP).
   async saveAddress(a) {
     return (await query<{ id: number }>(

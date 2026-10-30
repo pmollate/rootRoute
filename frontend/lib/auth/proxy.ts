@@ -17,7 +17,10 @@ export interface ProxyDeps {
 }
 
 /** E19 (SEC-LINK-05): the address-link routes are public and token-gated; they get no session, key or internal token. */
-export const isLinkRoute = (path: string) => /^\/api\/confirm\/[^/]+(\/lookup)?$/.test(path); // REQ-LINK-16: and its pin look-up
+// REQ-LINK-16: and its pin look-up; REQ-LINK-18, -19: the verification code's send and verify
+export const isLinkRoute = (path: string) => /^\/api\/confirm\/[^/]+(\/(lookup|code|verify))?$/.test(path);
+/** REQ-LINK-19: the verification token's shape (32 bytes, base64url); anything else is not forwarded. */
+const VERIFY_SHAPE = /^[A-Za-z0-9_-]{43}$/;
 
 const json = (status: number, body: object) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -63,7 +66,10 @@ export async function proxy(req: Request, segments: string[], { session, setting
   const type = req.headers.get('content-type');
   if (type) headers.set('content-type', type);
   if (link) {
-    // nothing added: the token in the path is the only credential (SEC-LINK-03, -05)
+    // nothing added: the token in the path is the only credential (SEC-LINK-03, -05). SEC-LINK-12: the one browser
+    // header passed on is the verification token, and only here; it is never logged.
+    const verify = req.headers.get('x-link-verify');
+    if (verify && VERIFY_SHAPE.test(verify)) headers.set('x-link-verify', verify);
   } else if (session && settings.internalSecret) {
     headers.set('authorization', `Bearer ${await signInternalToken(session, settings.internalSecret)}`);
   } else if (!settings.required && settings.apiKey) {

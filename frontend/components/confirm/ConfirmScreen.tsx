@@ -62,9 +62,13 @@ const until = (iso: string) => new Date(iso).toLocaleString(undefined, { dateSty
  * when the link stops working, and nothing else about the order (REQ-LINK-02). Confirm posts through the web proxy (its
  * Origin check, SEC-LINK-07), with a pin only from a working map the client used (REQ-LINK-15); a 409 shows the map's
  * reading of the pin or of the typed address next to what was typed and asks for a second Confirm (REQ-LINK-03, -13,
- * -14); a 503 asks to try again (REQ-LINK-12). All text is React text (SEC-LINK-10).
+ * -14); a 503 asks to try again (REQ-LINK-12). All text is React text (SEC-LINK-10). With the emailed code on
+ * (REQ-LINK-19), `verifyToken` (held in memory only) goes as the x-link-verify header on the look-up and Confirm, and a
+ * 401 verify_required calls `onVerifyRequired` (back to the verify step).
  */
-export function ConfirmScreen({ token, view }: { token: string; view: LinkView }) {
+export function ConfirmScreen({ token, view, verifyToken, onVerifyRequired }:
+  { token: string; view: LinkView; verifyToken?: string; onVerifyRequired?: () => void }) {
+  const postHeaders: Record<string, string> = { 'content-type': 'application/json', ...(verifyToken ? { 'x-link-verify': verifyToken } : {}) };
   const a = view.address;
   const [fields, setFields] = useState<Fields>({ line1: a.line1 ?? '', line2: a.line2 ?? '', city: a.city ?? '', state: a.state ?? '', zip: a.zip ?? '' });
   // The client's pin: the map's start pin, or null until the client places one (the display default is not a pin).
@@ -108,10 +112,11 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
     const note = (text: string) => setPhase({ kind: 'form', note: text });
     try {
       const r = await fetch(`/api/confirm/${encodeURIComponent(token)}/lookup`, {
-        method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store', body: JSON.stringify({ pin: p, line2 }),
+        method: 'POST', headers: postHeaders, cache: 'no-store', body: JSON.stringify({ pin: p, line2 }),
       });
       if (seq !== lookupSeq.current) return;
       if (r.status === 404) { setPhase({ kind: 'invalid' }); return; }
+      if (r.status === 401 && onVerifyRequired) { onVerifyRequired(); return; }
       if (r.status === 429) { note('Too many tries from this connection. Please wait a minute and try again.'); return; }
       if (r.status !== 200) return; // the fields stay as typed; Confirm still checks them on the map
       const b = (await r.json()) as { reading: { line1: string | null; city: string | null; state: string | null; zip: string | null; found: boolean }; checkId: string | null };
@@ -132,11 +137,12 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
     setBusy(true);
     try {
       const r = await fetch(`/api/confirm/${encodeURIComponent(token)}`, {
-        method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store',
+        method: 'POST', headers: postHeaders, cache: 'no-store',
         body: JSON.stringify({ address, ...(pinToSend ? { pin: pinToSend } : {}), ...(checkId ? { checkId } : {}) }),
       });
       if (r.status === 200) setPhase({ kind: 'done', address });
       else if (r.status === 404) setPhase({ kind: 'invalid' });
+      else if (r.status === 401 && onVerifyRequired) onVerifyRequired();
       else if (r.status === 409) {
         const b = (await r.json()) as { reading: MapReading; checkId: string };
         setPhase({ kind: 'check', reading: b.reading, checkId: b.checkId, typed: address, note: null });

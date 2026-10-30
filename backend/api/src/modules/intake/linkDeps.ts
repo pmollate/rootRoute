@@ -1,6 +1,6 @@
 // E19 one-time address link (SPEC §5.17): what the confirm routes and send_reply need, from the settings. Tests override.
 import { DefaultAzureCredential } from '@azure/identity';
-import { config } from '../../core/config.js';
+import { allowList, config } from '../../core/config.js';
 import { azureMapsSas } from '../../core/maps/credentials.js';
 import { getDeps } from './deps.js';
 import type { LinkDeps, MapCredentials } from './link.js';
@@ -28,6 +28,8 @@ export function getLinkDeps(): LinkDeps {
     enabled: config.CONFIRM_LINK === 'on', hours: config.CONFIRM_LINK_HOURS, timeZone: MAILBOX_TIMEZONE,
     appUrl: config.AUTH_URL ?? 'http://localhost:3000', links: linkRepo, maps: getDeps().maps,
     credentials: createMapCredentials(), now: () => new Date(), log: () => {},
+    // REQ-LINK-17, -18: the emailed code, sent from the orders mailbox to ALLOW_LIST addresses only (as send_reply)
+    code: config.CONFIRM_LINK_CODE === 'on', outbox: { gmail: getDeps().gmail, allow: allowList },
     ...overrides,
   };
 }

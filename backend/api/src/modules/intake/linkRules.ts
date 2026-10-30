@@ -1,5 +1,5 @@
 // E19 one-time address link (SPEC §5.17, owner A): the pure rules. No AI model anywhere in this flow.
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { LocalTimestamp } from '../../core/contracts.js';
 import { MAILBOX_TIMEZONE } from './mailbox.js';
@@ -29,6 +29,35 @@ export const MARGIN_HOURS = 2;         // the link stops 2 h before the cut-off
 export const FLOOR_HOURS = 1;          // ...and lasts at least 1 h
 export const SECOND_CONFIRM_M = 500;   // REQ-LINK-03
 export const MAX_MAP_LOOKUPS = 20;     // SEC-LINK-04
+
+// E19 verification code (REQ-LINK-17 to -19, SEC-LINK-12; design settings, SPEC §5.17 "Verification code").
+export const CODE_MINUTES = 10;        // a code's life
+export const MAX_CODES = 3;            // codes per link
+export const CODE_GAP_S = 60;          // seconds between two codes
+export const MAX_CODE_TRIES = 5;       // wrong entries that lock the current code
+export const CODE_PLACEHOLDER = '[CODE]'; // what outbound_messages keeps instead of the code (SEC-LINK-12)
+export const CODE_SUBJECT = 'Your Halcyon Logistics verification code';
+/** The code email's text; `outbound_messages` keeps it with CODE_PLACEHOLDER (SEC-LINK-12). */
+export const codeText = (code: string): string =>
+  `Your verification code is ${code}. It expires in ${CODE_MINUTES} minutes. If you did not ask for it, you can ignore this email.\n\nHalcyon Logistics`;
+/** A 6-digit code from the OS's cryptographic source (REQ-LINK-18). */
+export const newCode = (): string => String(randomInt(0, 1_000_000)).padStart(6, '0');
+/** What the link row keeps of a code: SHA-256 of the link's token hash and the code, so equal codes differ per link. */
+export const codeHash = (tokenHash: string, code: string): string => createHash('sha256').update(`${tokenHash}:${code}`).digest('hex');
+/** Two SHA-256 hex strings, compared in constant time. */
+export function sameHash(a: string | null | undefined, b: string): boolean {
+  if (!a || a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+/** REQ-LINK-17: "orders@client025.example" → "o•••••@client025.example" (first letter, at most 8 dots, domain). */
+export function maskAddress(addr: string): string {
+  const at = addr.lastIndexOf('@');
+  if (at < 1) return '•'.repeat(8);
+  const local = addr.slice(0, at);
+  return `${local[0]}${'•'.repeat(Math.min(local.length - 1, 8))}${addr.slice(at)}`;
+}
+/** REQ-LINK-19: the verify body. Anything else is 400. */
+export const VerifyBody = z.object({ code: z.string().regex(/^\d{6}$/) }).strict();
 
 const HOUR_MS = 3_600_000;
 const LOCAL = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/;

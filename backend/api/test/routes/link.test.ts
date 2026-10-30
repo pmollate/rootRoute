@@ -23,6 +23,8 @@ describe('E19 confirm routes: the token never reaches a log line', () => {
     await app.inject({ method: 'GET', url: `/api/confirm/${token}?x=1` });
     await app.inject({ method: 'GET', url: `/api/confirm/${token}/more` }); // unmatched: the auth hook's route field
     await app.inject({ method: 'POST', url: `/api/confirm/${token}/lookup`, payload: { pin: { lat: 45.4, lon: -117.3 } } }); // REQ-LINK-16
+    await app.inject({ method: 'POST', url: `/api/confirm/${token}/code`, payload: {} }); // REQ-LINK-18
+    await app.inject({ method: 'POST', url: `/api/confirm/${token}/verify`, payload: { code: '123456' } }); // REQ-LINK-19
     await app.close();
     expect(lines.length).toBeGreaterThan(0);
     for (const l of lines) expect(l).not.toContain(token);
@@ -34,7 +36,9 @@ describe('E19 confirm routes: the token never reaches a log line', () => {
     const t = newToken();
     for (const res of [await app.inject({ method: 'GET', url: `/api/confirm/${t}` }),
       await app.inject({ method: 'POST', url: `/api/confirm/${t}`, payload: {} }),
-      await app.inject({ method: 'POST', url: `/api/confirm/${t}/lookup`, payload: { pin: { lat: 45.4, lon: -117.3 } } })]) { // REQ-LINK-16
+      await app.inject({ method: 'POST', url: `/api/confirm/${t}/lookup`, payload: { pin: { lat: 45.4, lon: -117.3 } } }), // REQ-LINK-16
+      await app.inject({ method: 'POST', url: `/api/confirm/${t}/code`, payload: {} }), // REQ-LINK-18
+      await app.inject({ method: 'POST', url: `/api/confirm/${t}/verify`, payload: { code: '123456' } })]) { // REQ-LINK-19
       expect([res.statusCode, res.body]).toEqual([404, '{"error":"link_invalid"}']);
     }
     expect((await app.inject({ method: 'GET', url: '/api/overview' })).statusCode).toBe(401);
@@ -93,7 +97,8 @@ describe.skipIf(!hasDb)('E19 confirm routes, link state and review fields (needs
         locality: 'Orlando', postalCode: '32801', adminDistricts: [{ shortName: 'FL' }] } } }] }) };
     setDeps({ maps, confirmLink: true, gmail: { listMessageIds: async () => [], getMessage: async () => { throw new Error('none'); },
       sendMessage: async (raw: string) => { sent.push(raw); return `g-${sent.length}`; } } as never });
-    setLinkDeps({ enabled: true, timeZone: 'UTC',
+    // The code step (REQ-LINK-17) is off here except in its own test below, so these tests read the address as before.
+    setLinkDeps({ enabled: true, timeZone: 'UTC', code: false,
       credentials: { issue: async (e) => { issued.push(e); return { kind: 'sas', token: 'recorded', expiresAt: e.toISOString() }; } } });
     app = await buildApp({ logStream: { write: (s: string) => { logs.push(s); } } });
     orders.A = await linked('21');
@@ -137,6 +142,48 @@ describe.skipIf(!hasDb)('E19 confirm routes, link state and review fields (needs
     const r = await row(orders.A.id);
     expect(r.used_at).toBeNull();
     expect(r.revoked_at).toBeNull();
+  });
+
+  // E19 verification code over HTTP on order A (REQ-LINK-17 to -19): the code is read from the email Gmail was given.
+  const secrets: { code?: string; verifyToken?: string } = {};
+  it('AC-LINK-17, AC-LINK-18, AC-LINK-19: with CONFIRM_LINK_CODE on: masked GET, Send code, 429 within 60 s, a wrong code, the right code, then the view and /lookup with x-link-verify', async () => {
+    setLinkDeps({ code: true });
+    try {
+      const { token, id } = orders.A;
+      const masked = await get(`/api/confirm/${token}`);
+      expect([masked.statusCode, masked.json()]).toEqual([200, { verify: { sentTo: 'o•••••@client130.example' },
+        expiresAt: (await row(id)).expires_at.toISOString(), synthetic: true }]);
+      for (const x of ['Newark', '920 Broad St', '"map"', '"pin"']) expect(masked.body).not.toContain(x);
+      const before = sent.length;
+      const sentCode = await post(`/api/confirm/${token}/code`, {});
+      expect([sentCode.statusCode, sentCode.json()]).toEqual([200, { sentTo: 'o•••••@client130.example', retryIn: 60 }]);
+      expect(sent).toHaveLength(before + 1);
+      secrets.code = /verification code is (\d{6})\./.exec(sent.at(-1)!)![1];
+      const again = await post(`/api/confirm/${token}/code`, {});
+      expect([again.statusCode, again.json().error]).toEqual([429, 'code_wait']);
+      const out = await query<{ body: string }>("SELECT body FROM outbound_messages WHERE email_id = $1 AND body LIKE '%verification code%'", [id]);
+      expect(out.map((o) => o.body)).toEqual([expect.stringContaining('Your verification code is [CODE].')]);
+      const wrong = secrets.code === '000000' ? '111111' : '000000';
+      const w = await post(`/api/confirm/${token}/verify`, { code: wrong });
+      expect([w.statusCode, w.json()]).toEqual([422, { error: 'code_wrong', triesLeft: 4 }]);
+      const ok = await post(`/api/confirm/${token}/verify`, { code: secrets.code });
+      expect(ok.statusCode).toBe(200);
+      secrets.verifyToken = ok.json().verifyToken as string;
+      const full = await app.inject({ method: 'GET', url: `/api/confirm/${token}`, headers: { 'x-link-verify': secrets.verifyToken } });
+      expect(Object.keys(full.json()).sort()).toEqual(['address', 'expiresAt', 'map', 'pin', 'synthetic']);
+      const pin = { pin: ORLANDO_PIN };
+      const refused = await app.inject({ method: 'POST', url: `/api/confirm/${token}/lookup`, payload: pin });
+      expect([refused.statusCode, refused.body]).toEqual([401, '{"error":"verify_required"}']);
+      const noConfirm = await confirm(token, { address: ORLANDO, pin: ORLANDO_PIN });
+      expect([noConfirm.statusCode, noConfirm.body]).toEqual([401, '{"error":"verify_required"}']);
+      const read = await app.inject({ method: 'POST', url: `/api/confirm/${token}/lookup`, payload: pin, headers: { 'x-link-verify': secrets.verifyToken } });
+      expect(read.statusCode).toBe(200);
+      const r = (await query<{ code_hash: string | null; codes_sent: number; verify_hash: string; used_at: Date | null }>(
+        'SELECT code_hash, codes_sent, verify_hash, used_at FROM address_confirm_tokens WHERE email_id = $1 ORDER BY id DESC LIMIT 1', [id]))[0];
+      expect(r).toEqual({ code_hash: null, codes_sent: 1, verify_hash: hashToken(secrets.verifyToken), used_at: null });
+    } finally {
+      setLinkDeps({ code: false });
+    }
   });
 
   it('AC-LINK-07, AC-SEC-LINK-02: random, expired, used and revoked links: GET and POST all 404 with byte-identical bodies', async () => {
@@ -243,7 +290,8 @@ describe.skipIf(!hasDb)('E19 confirm routes, link state and review fields (needs
       expect(rows[0].n).toBe(1);
     }
     const events = logs.map((l) => JSON.parse(l) as Record<string, unknown>).filter((l) => l.msg === 'address link');
-    expect(new Set(events.map((e) => e.event))).toEqual(new Set(['link_sent', 'link_opened', 'link_second_confirm', 'link_confirmed']));
+    expect(new Set(events.map((e) => e.event))).toEqual(new Set(['link_sent', 'link_opened', 'link_second_confirm', 'link_confirmed',
+      'link_code_sent', 'link_code_wrong', 'link_verified', 'link_pin_read']));
     for (const e of events) {
       expect(e.hash).toMatch(/^[0-9a-f]{8}$/);
       expect(typeof e.emailId).toBe('number');
@@ -263,8 +311,31 @@ describe.skipIf(!hasDb)('E19 confirm routes, link state and review fields (needs
       expect((await row(id)).token_hash).toBe(hashToken(token));
       const out = await query<{ body: string }>('SELECT body FROM outbound_messages WHERE email_id = $1', [id]);
       expect(out.length).toBeGreaterThan(0);
-      for (const o of out) expect(o.body).toContain('[CONFIRM_LINK]');
+      // the reply keeps [CONFIRM_LINK]; the verification code email (order A) keeps [CODE] (SEC-LINK-12)
+      for (const o of out) expect(o.body).toMatch(/\[CONFIRM_LINK\]|verification code is \[CODE\]\./);
+      expect(out.some((o) => o.body.includes('[CONFIRM_LINK]'))).toBe(true);
     }
     expect(logs.some((l) => l.includes('"url":"/api/confirm/[token]"'))).toBe(true);
+  });
+
+  it('AC-SEC-LINK-12: after a code was sent and verified and the address confirmed, no table but the hash columns, no log line and no outbound body holds the code or the verify token', async () => {
+    const { code, verifyToken } = secrets;
+    expect(code).toMatch(/^\d{6}$/);
+    expect(verifyToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect((await row(orders.A.id)).used_at).not.toBeNull(); // confirmed in the tests above
+    const tables = await query<{ table_name: string }>(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'");
+    for (const { table_name: t } of tables) {
+      for (const secret of [verifyToken!, `code is ${code}`]) {
+        const hit = await query<{ n: number }>(`SELECT count(*)::int AS n FROM "${t}" x WHERE x::text LIKE $1`, [`%${secret}%`]);
+        expect([t, hit[0].n]).toEqual([t, 0]);
+      }
+    }
+    for (const l of logs) {
+      expect(l).not.toContain(verifyToken!);
+      expect(l).not.toContain(`"${code}"`);
+    }
+    const out = await query<{ body: string }>('SELECT body FROM outbound_messages WHERE email_id = $1', [orders.A.id]);
+    for (const o of out) expect(o.body).not.toContain(code!);
   });
 });
