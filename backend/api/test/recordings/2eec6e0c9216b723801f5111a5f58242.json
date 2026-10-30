@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"Data shows these carrier lanes are blocked because each is far above the 15% late limit: D → Midwest (“48% late on fair data (limit 15%)”), D → Southeast (“38% late on fair data (limit 15%)”), E → West (“47% late on fair data (limit 15%)”), F → Northeast (“43% late on fair data (limit 15%)”), F → Southeast (“47% late on fair data (limit 15%)”).\\\\n\\\\nWhat the delivery data shows: Today’s on-time rate is 71.0%. If we fix carrier lanes only the on-time rate would be 77.4%. Combining carrier lanes with route fixes gives an on-time rate of 80.4%.\\\\n\\\\nThe decision stays with Halcyon.\\\",\\\"refused\\\":false}\"}"
+}
