@@ -60,6 +60,8 @@ export const PERMISSIONS: Record<string, Permission> = {
   'POST /api/overrides': { roles: CARRIERS, legacyKey: true },
   'POST /api/complaints/:id/triage': { roles: SUPPORT, legacyKey: true },
   'POST /api/alerts/run': { roles: SUPPORT, legacyKey: true },
+  // D10 (SEC-ASK-05): every role; the shared key while AUTH_REQUIRED=off, as for every model route (NS-02). Never public.
+  'POST /api/assistant': { roles: ALL, legacyKey: true },
 };
 
 export function permissionFor(method: string, url: string | undefined): Permission | null {

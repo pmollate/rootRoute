@@ -2018,7 +2018,7 @@ SPEC default "tools by role").
   `assistant_answer` log line per question with no question or answer text.
 - Stores nothing (SEC-ASK-03): no migration, no table, no `audit_log` row (a question is not an action).
 
-- [ ] **Step 1: Write the failing figure-check tests** `backend/api/test/assistant/figures.test.ts`:
+- [x] **Step 1: Write the failing figure-check tests** `backend/api/test/assistant/figures.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -2049,7 +2049,7 @@ describe('figure check (REQ-ASK-04)', () => {
 
   Run `npm --prefix backend/api test -- test/assistant/figures.test.ts`. Expected: FAIL, module not found.
 
-- [ ] **Step 2: Implement** `backend/api/src/modules/assistant/figures.ts`:
+- [x] **Step 2: Implement** `backend/api/src/modules/assistant/figures.ts`:
 
 ```ts
 // REQ-ASK-04 figure check (SPEC §5.16): every number in the answer must be found in a tool result, the question or the
@@ -2094,7 +2094,7 @@ export function uncheckedFigures(answer: string, sources: unknown[]): string[] {
   invented numbers, not a real number quoted for the wrong thing. That limit is stated in SPEC §5.16 by omission and
   is listed for `spec-writer` in the run record.
 
-- [ ] **Step 3: Write the failing answer-loop tests** `backend/api/test/assistant/answer.test.ts` (scripted model,
+- [x] **Step 3: Write the failing answer-loop tests** `backend/api/test/assistant/answer.test.ts` (scripted model,
   stand-in tools with the registry's names and schemas; no database, no network):
 
 ```ts
@@ -2177,7 +2177,7 @@ describe('assistant answer loop (D10)', () => {
 
   Run. Expected: FAIL, `Cannot find module '../../src/modules/assistant/answer.js'`.
 
-- [ ] **Step 4: Write the system prompt** `backend/api/src/modules/assistant/prompts/system.md` (changing it later
+- [x] **Step 4: Write the system prompt** `backend/api/src/modules/assistant/prompts/system.md` (changing it later
   invalidates every recording: AC-ASK-10 expects a 503 until `RECORD=1` is run again):
 
 ```md
@@ -2193,7 +2193,7 @@ Rules:
 - Reply as JSON: {"answer": "<plain text, no links, no Markdown>", "refused": <true|false>}.
 ```
 
-- [ ] **Step 5: Implement the loop** `backend/api/src/modules/assistant/answer.ts`. The model routes and words; code
+- [x] **Step 5: Implement the loop** `backend/api/src/modules/assistant/answer.ts`. The model routes and words; code
   checks every request against the user's tool list and the tool's zod schema (REQ-ASK-03), builds `sources` from the
   calls it ran (REQ-ASK-05), bounds tool calls and model turns (SEC-ASK-01), refuses an answer that called no tool
   (REQ-ASK-06) and runs the figure check (REQ-ASK-04). Tools by role: SPEC §5.16 default (Q-ASK-03 open).
@@ -2307,7 +2307,7 @@ export async function answerQuestion(input: z.output<typeof AssistantRequestSche
   Run `npm --prefix backend/api test -- test/assistant`. Expected: PASS (answer 6, figures 4, and C14's files). In
   `test/assistant/llm-tools.test.ts` switch the inlined `FinalAnswer` to the import from `answer.js`.
 
-- [ ] **Step 6: Write the failing route tests** `backend/api/test/assistant/route.test.ts` (`buildApp` with the auth
+- [x] **Step 6: Write the failing route tests** `backend/api/test/assistant/route.test.ts` (`buildApp` with the auth
   settings from `test/token.ts`; no database is touched because the tools are stand-ins):
 
 ```ts
@@ -2390,7 +2390,7 @@ describe('POST /api/assistant (D10)', () => {
 
   Run. Expected: FAIL, `Cannot find module '../../src/modules/assistant/limit.js'` (then 404s until the route exists).
 
-- [ ] **Step 7: Implement the route.**
+- [x] **Step 7: Implement the route.**
   1. `backend/api/src/modules/assistant/limit.ts`:
 
 ```ts
@@ -2516,10 +2516,10 @@ export default routes;
   7. `.env.example`, in the API block: `ASK_ASSISTANT=off`, `ASK_MAX_TOOL_CALLS=5`, `ASK_RATE_PER_MINUTE=10`, each with a
      one-line comment "design setting, SPEC §5.16". No `NEXT_PUBLIC_` variable.
 
-- [ ] **Step 8: Run.** `npm --prefix backend/api test -- test/assistant test/routes/permissions.test.ts test/auth.test.ts test/mcp.test.ts test/llm.test.ts && npm run typecheck`
+- [x] **Step 8: Run.** `npm --prefix backend/api test -- test/assistant test/routes/permissions.test.ts test/auth.test.ts test/mcp.test.ts test/llm.test.ts && npm run typecheck`
   Expected: PASS (route 6; `auth.test.ts` unchanged: AC-AUTH-04 lists its routes explicitly).
 
-- [ ] **Step 9: Fixtures.** `backend/api/test/fixtures/assistant/out-of-scope.json` (AC-ASK-06; one per refusal class
+- [x] **Step 9: Fixtures.** `backend/api/test/fixtures/assistant/out-of-scope.json` (AC-ASK-06; one per refusal class
   in SPEC §5.16, the four named in the AC first):
 
 ```json
@@ -2544,7 +2544,7 @@ export default routes;
 ]
 ```
 
-- [ ] **Step 10: Write the recorded end-to-end test** `backend/api/test/routes/assistant.test.ts` (test database; real
+- [x] **Step 10: Write the recorded end-to-end test** `backend/api/test/routes/assistant.test.ts` (test database; real
   registry tools; `LLM_PROVIDER=recorded`, as CI). It fails until Step 11 has committed the recordings: that is the
   expected state of this step.
 
@@ -2617,7 +2617,7 @@ describe.skipIf(!hasDb)('Ask LateLens, recorded (needs test database)', () => {
   If the model fails one, change `prompts/system.md`, record again (all recordings change with the prompt). Commit
   only `test/recordings/*.json` files whose `kind` is `tool`.
 
-- [ ] **Step 12: Run everything.** `npm --prefix backend/api test && npm run typecheck`. Expected: PASS, with the test
+- [x] **Step 12: Run everything.** `npm --prefix backend/api test && npm run typecheck`. Expected: PASS, with the test
   database up (AC-NFR-ASK-03: no model key in CI; `LLM_PROVIDER=recorded` is set by `test/setup.ts`).
 
 - [ ] **Step 13: Contract and commit.** CONTRACTS §6 already has the route. Add to CONTRACTS §1.1 (via `spec-writer`,
