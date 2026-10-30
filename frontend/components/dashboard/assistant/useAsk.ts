@@ -24,12 +24,12 @@ function message(err: unknown, path: string): AskError {
   if (err instanceof SessionExpired) return { text: ASK_SESSION_ENDED, link: signInAgain(path) };
   if (err instanceof Error && err.message === 'rate_limited') return { text: 'Too many questions in a minute. Try again shortly.' };
   if (err instanceof Error && err.message === 'too_long') return { text: `Questions can be at most ${MAX_QUESTION} characters.` };
-  return { text: 'Ask Root Route is not available right now.' };
+  return { text: 'Router is not available right now.' };
 }
 
 /**
- * D10 (SPEC §5.16, owner C): one conversation with POST /api/assistant, used by the Ask LateLens panel and Overview's
- * Router. It lives only in component state: nothing in localStorage or sessionStorage, gone on reload (SEC-ASK-03).
+ * D10 (SPEC §5.16, owner C): one conversation with POST /api/assistant, used by Router on every dashboard screen
+ * (`RouterDock`, and Overview's own Router). It lives only in component state: nothing in localStorage or sessionStorage, gone on reload (SEC-ASK-03).
  * Only answered exchanges stay, so the history alternates user/assistant; the last 6 turns go with each question.
  * `ask` resolves to false when there was no answer: the caller puts the question back in its box.
  */

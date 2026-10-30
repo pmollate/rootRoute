@@ -1,16 +1,5 @@
-/* D10 "Ask LateLens": fixed bottom-right dock; fits 375 px (AC-UI-03). */
-.dock { position: fixed; right: 16px; bottom: 16px; z-index: 40; max-width: calc(100vw - 32px); display: flex;
-  flex-direction: column; align-items: flex-end; }
-.toggle { border-radius: 999px; padding: 10px 16px; }
-.panel { order: -1; margin-bottom: 8px; width: min(420px, calc(100vw - 32px)); max-height: 70vh; overflow-y: auto; padding: 12px;
-  border-radius: 12px; background: var(--surface, #fff); box-shadow: 0 8px 32px rgb(0 0 0 / 0.2); box-sizing: border-box; }
-.hint, .count, .label { font-size: 12px; opacity: 0.75; }
-.turns { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.user { justify-self: end; }
-.answer { justify-self: start; }
+/* D10: one assistant answer (AskAnswer) inside Router's reply bubble. */
 .text { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
 .sources { font-size: 12px; }
 .result { max-height: 160px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .error { color: var(--bad, #b00020); }
-.form { display: grid; gap: 4px; margin-top: 8px; }
-.form textarea { width: 100%; box-sizing: border-box; }

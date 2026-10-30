@@ -14,7 +14,7 @@ import { MORE, ORDERS, SCREENS } from '@/config/dashboard';
 import { useApi } from '@/hooks/useApi';
 import { canOpen, type SessionUser } from '@/lib/auth/roles';
 import { dataLine, type DataWindow } from '@/lib/dataWindow';
-import { AskPanel } from './assistant/AskPanel';
+import { RouterDock } from './assistant/Router';
 import { AssistantFlag } from './assistant/AssistantFlag';
 import { ReportsMenu } from './ReportsMenu';
 import { Pill } from './ui';
@@ -39,9 +39,9 @@ const Icon = ({ children }: { children: ReactNode }) => (
  * Chrome for every /dashboard screen: the landing page's floating pill bar (brand, the master navigation, theme toggle,
  * and the signed-in user: REQ-AUTH-08, -09); pages run full width. `user` is null when nobody is signed in
  * (AUTH_REQUIRED=off). Navigation: a Dashboard menu of the screens, Orders, Labs, Settings (config/dashboard.ts).
- * `assistant` (ASK_ASSISTANT=on, read on the server by app/dashboard/layout.tsx) adds the Ask LateLens panel to every
- * screen but Overview, whose Router answers follow-ups with the same assistant (one assistant per screen); off, there is
- * no button (REQ-ASK-08). The flag reaches the screens through `AssistantFlag`, never a NEXT_PUBLIC_ variable.
+ * `assistant` (ASK_ASSISTANT=on, read on the server by app/dashboard/layout.tsx) adds Router to every screen but
+ * Overview, which has its own Router with the fix plan (one assistant per screen); off, only Overview's Router shows,
+ * answering from the page's figures (REQ-ASK-08). The flag reaches the screens through `AssistantFlag`, never a NEXT_PUBLIC_ variable.
  * The data line (deliveries, months, sites, carriers) in the drawer and footer is read from `GET /api/overview`
  * (REQ-DATA-12, AC-DATA-21); until it arrives, or if it fails, the line names the dataset without figures.
  */
@@ -101,7 +101,7 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
         </div>
       </header>
       <main className={s.main}>
-        <UserProvider user={user}><AssistantFlag on={assistant}>{children}</AssistantFlag></UserProvider>{dock && <AskPanel />}
+        <UserProvider user={user}><AssistantFlag on={assistant}>{children}</AssistantFlag></UserProvider>{dock && <RouterDock />}
       </main>
       <footer className={s.foot}>
         <p>{line ? `Computed from the supplied Halcyon dataset · ${line.count} · ${line.detail}.` : 'Computed from the supplied Halcyon dataset.'}</p>
