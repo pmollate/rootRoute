@@ -348,6 +348,8 @@ that defaults to off (`ASK_ASSISTANT`, `CONFIRM_LINK`), so turning it off restor
 
 ## 4. Architecture
 
+Diagrams of the runtime and data flow, the stack as built, hosting and the decision log: `docs/ARCHITECTURE.md`.
+
 ### 4.1 Stack and hosting
 
 | Layer | Technology | Hosting |
