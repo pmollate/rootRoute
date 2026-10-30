@@ -163,6 +163,9 @@ jobs:
       - run: npm run setup
       - run: npm run migrate
       - if: env.REFRESH_DATA == 'true'
+        env:
+          # Test senders on a shared domain (E16), "email:client_id,..."; the seed empties client_emails, so they live here
+          CLIENT_EMAILS: ${{ secrets.CLIENT_EMAILS || vars.CLIENT_EMAILS }}
         run: npm run seed
       - name: Close the Postgres firewall (database work is done)
         run: |
