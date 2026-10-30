@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfirmScreen, LINK_INVALID_TEXT, type LinkView } from './ConfirmScreen';
 
@@ -83,6 +84,12 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     expect(await screen.findByText('Thank you. Your delivery address is confirmed.')).toBeTruthy();
     expect(screen.getByText('920 Broad St, Dock 5, Newark, NJ 07102')).toBeTruthy();
+  });
+
+  it('page: the server render holds no locale- or zone-formatted time, so it hydrates the same in any browser', () => {
+    const html = renderToString(<ConfirmScreen token={TOKEN} view={view} />);
+    expect(html).not.toContain(new Date(view.expiresAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }));
+    expect(html).not.toMatch(/\d{1,2}:\d{2}/);
   });
 
   it('AC-LINK-10: a synthetic order shows the "Synthetic data" badge; a real one does not', () => {

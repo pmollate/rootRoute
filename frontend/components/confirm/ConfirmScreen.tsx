@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SyntheticBadge } from '@/components/dashboard/ui';
 import { ConfirmMap } from './ConfirmMap';
 import s from './confirm.module.css';
@@ -57,6 +57,10 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
   // No credential, or the map refused it: the page is the form alone. The pin stays where it started (REQ-LINK-03 still
   // checks it), but its reading is not shown: the client never saw or placed it.
   const [mapShown, setMapShown] = useState(view.map !== null);
+  // The expiry in the reader's own locale and time zone, which only the browser knows: formatted after hydration, so
+  // the server's text (en-US, the server's zone) never has to match the browser's.
+  const [expires, setExpires] = useState<string | null>(null);
+  useEffect(() => { setExpires(until(view.expiresAt)); }, [view.expiresAt]);
 
   /** A reading only counts for the pin and ZIP it was read for: moving either drops it (and its checkId). */
   const back = () => setPhase((p) => (p.kind === 'check' ? { kind: 'form', note: null } : p));
@@ -119,7 +123,7 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
         <h1>Confirm your delivery address</h1>
         {view.synthetic && <SyntheticBadge />}
       </header>
-      <p className={s.muted}>This link works until {until(view.expiresAt)}.</p>
+      <p className={s.muted}>{expires ? `This link works until ${expires}.` : 'This link works for a limited time.'}</p>
 
       <form className={s.form} onSubmit={(e) => { e.preventDefault(); void confirm(); }}>
         {FIELDS.slice(0, 3).map(input)}
