@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mockApi } from '../test-utils';
 import { RouterDock } from './Router';
-import { ASK_SESSION_ENDED } from './useAsk';
+import { ASK_SESSION_ENDED, AskProvider, type Exchange, historyFor } from './useAsk';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/carriers' }));
 
@@ -137,5 +137,33 @@ describe('Router on every dashboard screen (D10)', () => {
     expect(icon.getAttribute('aria-expanded')).toBe('false');
     expect(router().getAttribute('data-open')).toBe('false');
     expect(document.activeElement).toBe(icon);
+  });
+
+  it('AC-ASK-14: the conversation is kept for the window: Router closed on one screen and opened on the next still has it', async () => {
+    const fetch = mockApi({ '/api/assistant': answer('On-time is 71.0%.') });
+    // The shell keeps AskProvider while screens change; the dock itself unmounts and mounts again (Overview hides it).
+    const { rerender } = render(<AskProvider><RouterDock /></AskProvider>);
+    askIt('What is our on-time rate?');
+    await within(router()).findByText('On-time is 71.0%.');
+    rerender(<AskProvider><p>Overview</p></AskProvider>);
+    rerender(<AskProvider><RouterDock /></AskProvider>);
+    expect(within(router()).getByText('What is our on-time rate?')).toBeTruthy();
+    askIt('And how many were late?');
+    await within(router()).findAllByText('On-time is 71.0%.');
+    const body = JSON.parse(String((fetch.mock.calls.at(-1) as unknown as [string, RequestInit])[1].body));
+    expect(body).toEqual({ question: 'And how many were late?', history: [
+      { role: 'user', text: 'What is our on-time rate?' }, { role: 'assistant', text: 'On-time is 71.0%.' }] });
+  });
+
+  it('AC-ASK-14: the last 12 turns are sent; a primer (Overview\'s plan) goes first and shares the limit', () => {
+    const xs: Exchange[] = Array.from({ length: 8 }, (_, i) => ({ question: `q${i}`, answer: answer(`a${i}`) }));
+    const plain = historyFor(xs);
+    expect(plain).toHaveLength(12);
+    expect(plain[0]).toEqual({ role: 'user', text: 'q2' });
+    const primer = [{ role: 'user' as const, text: 'How do we close the gap?' }, { role: 'assistant' as const, text: 'The plan.' }];
+    const primed = historyFor(xs, primer);
+    expect(primed).toHaveLength(12);
+    expect(primed.slice(0, 3)).toEqual([...primer, { role: 'user', text: 'q3' }]);
+    expect(historyFor([{ question: 'still asking' }], primer)).toEqual(primer);
   });
 });

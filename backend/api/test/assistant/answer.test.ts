@@ -30,7 +30,8 @@ describe('assistant answer loop (D10)', () => {
     const ok = await answerQuestion(ask('What is our on-time rate?'), null, deps(scripted(call('overview'), final('On-time is 71.0%.')), tools));
     expect(ok).toMatchObject({ checked: true, refused: false, answer: 'On-time is 71.0%.', toolCalls: 1 });
     expect(ok.sources).toEqual([{ tool: 'overview', args: {}, result: RESULTS.overview }]);
-    const bad = await answerQuestion(ask('What is our on-time rate?'), null, deps(scripted(call('overview'), final('On-time is 80%.')), tools));
+    const bad = await answerQuestion(ask('What is our on-time rate?'), null,
+      deps(scripted(call('overview'), final('On-time is 80%.'), final('On-time is still 80%.')), tools));
     expect(bad).toMatchObject({ checked: false, answer: COULD_NOT_CHECK });
     expect(bad.sources[0].result).toEqual(RESULTS.overview);
   });
@@ -38,7 +39,7 @@ describe('assistant answer loop (D10)', () => {
   it('AC-ASK-04: a number only in the question is not checked: "Is our on-time rate 99.9%?" repeated back fails', async () => {
     const { tools } = fakeTools();
     const r = await answerQuestion(ask('Is our on-time rate 99.9%?'), null,
-      deps(scripted(call('overview'), final('Your on-time rate is 99.9%.')), tools));
+      deps(scripted(call('overview'), final('Your on-time rate is 99.9%.'), final('It is 99.9%.')), tools));
     expect(r).toMatchObject({ checked: false, answer: COULD_NOT_CHECK });
   });
 
@@ -55,7 +56,7 @@ describe('assistant answer loop (D10)', () => {
 
   it('AC-ASK-06: a refusal, or a final answer with no tool called, gets the fixed refusal text', async () => {
     const { tools } = fakeTools();
-    expect((await answerQuestion(ask('Should we sign the routing contract?'), null, deps(scripted(final('You should not sign.', true)), tools))).answer).toBe(REFUSAL);
+    expect((await answerQuestion(ask("How fast is the vendor's routing engine?"), null, deps(scripted(final('It is fast.', true)), tools))).answer).toBe(REFUSAL);
     expect((await answerQuestion(ask('What is the weather in Chicago?'), null, deps(scripted(final('Sunny, 20 degrees.')), tools))).answer).toBe(REFUSAL);
   });
 
@@ -67,6 +68,95 @@ describe('assistant answer loop (D10)', () => {
     expect(r).toMatchObject({ answer: COULD_NOT_CHECK, checked: false, toolCalls: 5 });
     // At the bound the last model turn is offered no tools, and no further turn follows.
     expect(llm.seen.map((s) => s.tools.length)).toEqual([6, 6, 6, 6, 6, 0]);
+  });
+
+  it('AC-SEC-ASK-01: asking for more tools in one turn than are left runs only those left, then the last turn words the answer', async () => {
+    const { tools, runs } = fakeTools();
+    const seven = { kind: 'tool_calls' as const, calls: Array.from({ length: 7 }, (_, i) => ({ id: `c${i}`, name: 'overview', arguments: '{}' })) };
+    const llm = scripted(seven, final('On-time is 71.0%.'));
+    const r = await answerQuestion(ask('Tell leadership what is happening'), null, deps(llm, tools));
+    expect(runs).toHaveLength(5);
+    expect(r).toMatchObject({ answer: 'On-time is 71.0%.', checked: true, refused: false, toolCalls: 5, skipped: ['overview', 'overview'] });
+    expect(llm.seen.map((s) => s.tools.length)).toEqual([6, 0]);
+    expect(llm.seen[1].messages.at(-1)).toMatchObject({ role: 'tool', content: 'Tool limit reached: not run. Answer from the results you have.' });
+  });
+
+  it('AC-ASK-04: a failed check gets one rewrite turn, offered no tools and told the figures; a checked rewrite is returned', async () => {
+    const { tools, runs } = fakeTools();
+    const llm = scripted(call('overview'), final('On-time is 71.0%, 23 points under the benchmark.'), final('On-time is 71.0%.'));
+    const r = await answerQuestion(ask('How far are we from the benchmark?'), null, deps(llm, tools));
+    expect(r).toMatchObject({ answer: 'On-time is 71.0%.', checked: true, refused: false });
+    expect(runs).toEqual(['overview']);
+    expect(llm.seen.map((s) => s.tools.length)).toEqual([6, 6, 0]);
+    expect(llm.seen[2].messages.at(-1)).toMatchObject({ role: 'user' });
+    expect(String(llm.seen[2].messages.at(-1)?.content)).toContain('These figures are not in any tool result: 23.');
+  });
+
+  it('AC-ASK-04: an answer over the length limit is rewritten once; a rewrite that still fails gives the could-not-check text', async () => {
+    const { tools } = fakeTools();
+    const long = 'On-time is 71.0%. '.repeat(150);
+    const llm = scripted(call('overview'), final(long), final('On-time is 75%.'));
+    const r = await answerQuestion(ask('On-time?'), null, deps(llm, tools));
+    expect(String(llm.seen[2].messages.at(-1)?.content)).toContain('shorten it to under 1,500');
+    expect(r).toMatchObject({ answer: COULD_NOT_CHECK, checked: false });
+  });
+
+  it('AC-ASK-11: a raw fraction is written as a percentage by code; a tool field name gets one rewrite', async () => {
+    const { tools } = fakeTools();
+    const plain = await answerQuestion(ask('On-time?'), null, deps(scripted(call('overview'), final('On-time is 0.7099.')), tools));
+    expect(plain).toMatchObject({ answer: 'On-time is 71.0%.', checked: true });
+    const llm = scripted(call('overview'), final('onTimeRate is 71.0%.'), final('On-time is 71.0%.'));
+    const r = await answerQuestion(ask('On-time?'), null, deps(llm, tools));
+    expect(String(llm.seen[2].messages.at(-1)?.content)).toContain('Replace these tool field names with plain words and keep everything else: onTimeRate.');
+    expect(r).toMatchObject({ answer: 'On-time is 71.0%.', checked: true });
+  });
+
+  it('AC-ASK-11: a style-only rewrite that refuses or fails the check falls back to the first, checked answer', async () => {
+    for (const second of [final('I cannot.', true), final('On-time is 80%.'), final('That is outside what I can answer.'), final('71.0%')]) {
+      const { tools } = fakeTools();
+      const r = await answerQuestion(ask('On-time?'), null, deps(scripted(call('overview'), final('onTimeRate is 71.0% across 14019 late deliveries.'), second), tools));
+      expect(r).toMatchObject({ answer: 'onTimeRate is 71.0% across 14019 late deliveries.', checked: true, refused: false });
+    }
+  });
+
+  it('AC-ASK-11, AC-ASK-13: advice outside the labelled suggestion gets one rewrite, and is never returned', async () => {
+    const { tools } = fakeTools();
+    const fixed = scripted(call('lane_scores'), final('Stop using D → Midwest.'), final('Root Route blocks D → Midwest.'));
+    expect(await answerQuestion(ask('Which lanes should we stop using?'), null, deps(fixed, tools)))
+      .toMatchObject({ answer: 'Root Route blocks D → Midwest.', checked: true });
+    expect(String(fixed.seen[2].messages.at(-1)?.content)).toContain('State the evidence without telling Halcyon what to do');
+    const stubborn = scripted(call('lane_scores'), final('Stop using D → Midwest.'), final('You should drop D → Midwest.'));
+    expect(await answerQuestion(ask('Which lanes should we stop using?'), null, deps(stubborn, tools)))
+      .toMatchObject({ answer: COULD_NOT_CHECK, checked: false });
+    const labelled = scripted(call('lane_scores'), final('Root Route blocks D → Midwest. Suggestion (from the data, not a decision): stop using it.'));
+    expect(await answerQuestion(ask('Which lanes should we stop using?'), null, deps(labelled, tools))).toMatchObject({ checked: true });
+  });
+
+  it('AC-ASK-14: earlier turns reach the model before the question, oldest first', async () => {
+    const { tools } = fakeTools();
+    const llm = scripted(call('overview'), final('On-time is 71.0%.'));
+    const history = [{ role: 'user' as const, text: 'What is our on-time rate?' }, { role: 'assistant' as const, text: 'On-time is 71.0%.' }];
+    await answerQuestion(AssistantRequestSchema.parse({ question: 'And how many were late?', history }), null, deps(llm, tools));
+    expect(llm.seen[0].messages).toEqual([{ role: 'user', content: 'What is our on-time rate?' },
+      { role: 'assistant', content: 'On-time is 71.0%.' }, { role: 'user', content: 'And how many were late?' }]);
+  });
+
+  it('AC-ASK-06 (v0.17): in scope but not in the tools: the fixed opening with no figures is shown; anything else is refused', async () => {
+    const { tools } = fakeTools();
+    const held = "Root Route's tools don't hold that: complaints are not in them. They can show causes, the replay and carrier lanes.";
+    expect(await answerQuestion(ask('Which client complained most?'), null, deps(scripted(final(held)), tools)))
+      .toMatchObject({ answer: held, refused: false, checked: true, toolCalls: 0 });
+    for (const text of ["Root Route's tools don't hold that, but 12 clients complained.", 'It is sunny in Chicago.']) {
+      expect((await answerQuestion(ask('q'), null, deps(scripted(final(text)), tools))).answer, text).toBe(REFUSAL);
+    }
+  });
+
+  it('AC-ASK-13: a question about what to do gets the evidence and a labelled suggestion, checked like any answer', async () => {
+    const { tools } = fakeTools();
+    const text = 'On-time is 71.0% with 14019 late deliveries. Suggestion (from the data, not a decision): fix the causes before '
+      + 'pickup first. The decision stays with Halcyon.';
+    const r = await answerQuestion(ask('Should we sign the routing contract?'), null, deps(scripted(call('overview'), final(text)), tools));
+    expect(r).toMatchObject({ answer: text, checked: true, refused: false });
   });
 
   it('AC-SEC-ASK-06: an answer with HTML, a Markdown link or a URL is not returned, even when its figures check', async () => {
@@ -81,6 +171,10 @@ describe('assistant answer loop (D10)', () => {
     expect(AssistantRequestSchema.safeParse({ question: 'q', history: [{ role: 'user', text: 'x'.repeat(501) }] }).success).toBe(false);
     expect(AssistantRequestSchema.safeParse({ question: 'q', history: [{ role: 'assistant', text: 'x'.repeat(2001) }] }).success).toBe(false);
     expect(AssistantRequestSchema.safeParse({ question: 'q', history: [{ role: 'user', text: 'x'.repeat(500) }] }).success).toBe(true);
+    // v0.17: up to 12 earlier turns (six exchanges of the window's conversation); a 13th is refused.
+    const turns = (n: number) => Array.from({ length: n }, (_, i) => ({ role: i % 2 ? 'assistant' as const : 'user' as const, text: `t${i}` }));
+    expect(AssistantRequestSchema.safeParse({ question: 'q', history: turns(12) }).success).toBe(true);
+    expect(AssistantRequestSchema.safeParse({ question: 'q', history: turns(13) }).success).toBe(false);
   });
 
   it('AC-ASK-09: with AUTH_REQUIRED=on order_desk gets four tools, carrier_manager all six; off offers all six', () => {

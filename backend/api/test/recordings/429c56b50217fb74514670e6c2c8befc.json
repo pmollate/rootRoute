@@ -1,4 +1,0 @@
-{
-  "kind": "tool",
-  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"Root Route blocks D -> Midwest: 48.0% late on fair data (limit 15%)\\\\nRoot Route blocks D -> Southeast: 38.0% late on fair data (limit 15%)\\\\nRoot Route blocks E -> West: 47.0% late on fair data (limit 15%)\\\\nRoot Route blocks F -> Northeast: 43.0% late on fair data (limit 15%)\\\\nRoot Route blocks F -> Southeast: 47.0% late on fair data (limit 15%)\\\\nNote: Carrier D is also capped on Fridays at its normal daily level (a capacity limit, not a block).\\\",\\\"refused\\\":false}\"}"
-}

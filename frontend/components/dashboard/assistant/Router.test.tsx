@@ -41,6 +41,26 @@ describe('Overview Router follow-ups (D10)', () => {
     expect(r.querySelector('[aria-live="polite"]')).toBeTruthy();
   });
 
+  it('AC-ASK-14: a follow-up on Overview sends the opening question and the plan on screen first, so it can refer to them', async () => {
+    const replay = { segment: 'all', scenarios: [
+      { scenario: 'adopt_address', label: '+ address check (85%)', grp: 'adoption', onTime: 0.762 },
+      { scenario: 'adopt_lanes', label: '+ lane rules and Friday cap (90%)', grp: 'adoption', onTime: 0.825 }] };
+    const attribution = { causes: [
+      { cause: 'f_lane', label: 'Carrier lane / Friday overload', stage: 'Carrier', deliveries: 10030, pointsLost: 0.0763, share: 0.263 },
+      { cause: 'f_addr', label: 'Incomplete address', stage: 'Intake', deliveries: 5994, pointsLost: 0.0705, share: 0.243 }] };
+    const fetch = mockApi({ ...ROUTES, '/api/attribution': attribution, '/api/replay?segment=all': replay,
+      '/api/assistant': { ...AI, answer: 'The address check.' } });
+    render(<AssistantFlag on><OverviewScreen /></AssistantFlag>);
+    await screen.findAllByText(/\+5\.2/);
+    followUp('Who owns the first fix?');
+    await within(router()).findByText('The address check.');
+    const call = fetch.mock.calls.find((c) => String(c[0]) === '/api/assistant') as unknown as [string, RequestInit];
+    const { history } = JSON.parse(String(call[1].body)) as { history: { role: string; text: string }[] };
+    expect(history[0]).toEqual({ role: 'user', text: 'How do we close the gap to our 95% on-time target?' });
+    expect(history[1].role).toBe('assistant');
+    expect(history[1].text).toMatch(/One fix per cause.*1\. .*\+5\.2 points, to 76\.2%/);
+  });
+
   it('REQ-ASK-01: the suggestion chips keep their worked-out answers and call no model', async () => {
     const fetch = mockApi({ ...ROUTES, '/api/assistant': AI });
     render(<AssistantFlag on><OverviewScreen /></AssistantFlag>);

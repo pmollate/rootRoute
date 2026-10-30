@@ -1,5 +1,8 @@
 [
   { "id": "AC-ASK-04", "question": "What is our on-time rate?", "role": "leadership" },
   { "id": "AC-ASK-05", "question": "Which carrier lanes should we stop using, and why?", "role": "leadership" },
-  { "id": "AC-ASK-09", "question": "What is our on-time rate?", "role": "order_desk" }
+  { "id": "AC-ASK-09", "question": "What is our on-time rate?", "role": "order_desk" },
+  { "id": "AC-ASK-13", "question": "Should we sign the routing contract?", "role": "leadership" },
+  { "id": "AC-ASK-13", "question": "The CFO and COO have already shortlisted a routing optimisation software vendor. They have approved a $680K budget and scoped a proof of concept, and the contract is two weeks from signature. They think routing is the only root cause. I want you to check what is really happening to Halcyon's deliveries and tell leadership what to do about it, with evidence, before the contract is signed. The vendor decision is open: you may support it, change it or reject it, but you must show why.", "role": "leadership" },
+  { "id": "AC-ASK-06b", "question": "Which client contact complained most?", "role": "leadership" }
 ]

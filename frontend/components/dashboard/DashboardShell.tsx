@@ -15,6 +15,7 @@ import { useApi } from '@/hooks/useApi';
 import { canOpen, type SessionUser } from '@/lib/auth/roles';
 import { dataLine, type DataWindow } from '@/lib/dataWindow';
 import { RouterDock } from './assistant/Router';
+import { AskProvider } from './assistant/useAsk';
 import { AssistantFlag } from './assistant/AssistantFlag';
 import { ReportsMenu } from './ReportsMenu';
 import { Pill } from './ui';
@@ -101,7 +102,10 @@ export function DashboardShell({ children, user = null, assistant = false }: { c
         </div>
       </header>
       <main className={s.main}>
-        <UserProvider user={user}><AssistantFlag on={assistant}>{children}</AssistantFlag></UserProvider>{dock && <RouterDock />}
+        {/* REQ-ASK-14: one conversation for the window, so the dock and Overview's Router keep it across screens. */}
+        <AskProvider>
+          <UserProvider user={user}><AssistantFlag on={assistant}>{children}</AssistantFlag></UserProvider>{dock && <RouterDock />}
+        </AskProvider>
       </main>
       <footer className={s.foot}>
         <p>{line ? `Computed from the supplied Halcyon dataset · ${line.count} · ${line.detail}.` : 'Computed from the supplied Halcyon dataset.'}</p>

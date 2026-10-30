@@ -45,8 +45,9 @@ describe.skipIf(!hasDb || !hasRecordings)('Ask LateLens, recorded (needs test da
       expect(a.answer, b.lane).toMatch(new RegExp(`\\b${/(\d+)% late/.exec(b.reason)![1]}(\\.0)?%`)); // 48% or 48.0%
     }
     expect(a.checked).toBe(true);
-    // The product shows what the data says and never decides for Halcyon (CLAUDE.md).
-    expect(a.answer).not.toMatch(/\bstop using\b|\bshould\b|\bwe recommend\b/i);
+    // The evidence never decides for Halcyon; advice, if any, sits only in the labelled suggestion (REQ-ASK-13, v0.16).
+    const evidence = a.answer.split('Suggestion (from the data, not a decision):')[0];
+    expect(evidence).not.toMatch(/\bstop using\b|\bshould\b|\bwe recommend\b/i);
     expect({ ...(await ask(q)).json(), questionId: a.questionId }).toEqual(a);
   });
 
@@ -55,6 +56,25 @@ describe.skipIf(!hasDb || !hasRecordings)('Ask LateLens, recorded (needs test da
     expect(a).toMatchObject({ checked: true, refused: false });
     expect(a.answer).toContain('71.0%');
     expect(a.answer).not.toMatch(/\b0\.\d{3,}/);
+  });
+
+  it('AC-ASK-13: "should we sign" and the leadership brief get the evidence and a labelled suggestion, every figure checked', async () => {
+    const qs = fixture<{ id: string; question: string }[]>('questions.json').filter((q) => q.id === 'AC-ASK-13');
+    expect(qs).toHaveLength(2);
+    for (const { question } of qs) {
+      const a = (await ask(question)).json();
+      expect(a, question).toMatchObject({ checked: true, refused: false });
+      expect(a.answer, question).toContain('Suggestion (from the data, not a decision):');
+      expect(a.answer, question).toContain('The decision stays with Halcyon.');
+      expect(a.sources.length, question).toBeGreaterThan(0);
+    }
+  });
+
+  it('AC-ASK-06 (v0.17): a question about the client\'s data that no tool holds is answered as such, not refused', async () => {
+    const [{ question }] = fixture<{ id: string; question: string }[]>('questions.json').filter((q) => q.id === 'AC-ASK-06b');
+    const a = (await ask(question)).json();
+    expect(a, question).toMatchObject({ refused: false });
+    expect(a.answer).not.toBe(REFUSAL);
   });
 
   it('AC-ASK-06: every out-of-scope question gets the fixed refusal', async () => {
