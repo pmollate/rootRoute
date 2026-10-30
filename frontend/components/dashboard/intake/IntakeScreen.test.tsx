@@ -111,6 +111,16 @@ describe('Order emails', () => {
   const actions = (fetch: ReturnType<typeof mockApi>, id: number) => calls(fetch)
     .filter(([url]) => url.endsWith(`/api/intake/${id}/action`)).map(([, init]) => JSON.parse(String(init.body)).action);
 
+  it('design §5: a warning from the approval (auto-advance did not run) is shown to the person who approved', async () => {
+    const warning = 'Auto-advance did not run (x): send it to the WMS by hand.';
+    mockApi({ '/api/intake': { emails: [item(34)] }, '/api/intake/34': detail(34),
+      '/api/intake/34/action': { status: 'APPROVED', warning } });
+    renderScreen(<IntakeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Request address' }));
+    expect(await screen.findByText(new RegExp(warning.replace(/[()]/g, '\\$&')))).toBeTruthy();
+  });
+
   it('AC-SEC-04 (UI): an incomplete order is not approved, only its request is sent, and it cannot go to the WMS', async () => {
     const fetch = mockApi({ '/api/intake': { emails: [item(34)] }, '/api/intake/34': detail(34),
       '/api/intake/34/action': { status: 'APPROVED' } });

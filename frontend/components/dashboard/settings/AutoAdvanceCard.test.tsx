@@ -43,4 +43,11 @@ describe('Auto-advance setting', () => {
     expect((await screen.findByRole('alert')).textContent).toMatch(/^Not saved/);
     expect(sw.checked).toBe(false);
   });
+
+  it('a failed load disables the switch and says so', async () => {
+    mockApi({}); // GET not mapped: 404
+    renderScreen(<AutoAdvanceCard />, asRole('admin'));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/^Could not load the setting/);
+    expect((await toggle()).disabled).toBe(true);
+  });
 });

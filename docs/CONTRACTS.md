@@ -240,7 +240,7 @@ module exposes `build(ctx) -> dict[str, DataFrame]`; later modules may read earl
 D10 (assistant) adds **no table**: questions and answers are not stored (SEC-ASK-03).
 
 **Migration `301_order_events.sql`** (C; order journey simulator). Writer: `recordOrderEvent` in
-`modules/carriers/index.ts`; intake calls it for `wms_entered`.
+`modules/carriers/index.ts`; intake calls it for `wms_entered`; `autoAdvanceOrder` (auto-advance) calls it for steps 9–13.
 
 | Column | Type | Note |
 |---|---|---|
@@ -248,7 +248,7 @@ D10 (assistant) adds **no table**: questions and answers are not stored (SEC-ASK
 | `order_ref` | text NOT NULL | `email:<id>` |
 | `event` | text NOT NULL | `wms_entered` \| `picked` \| `picked_up` \| `in_transit` \| `out_for_delivery` \| `delivered`; unique per `order_ref` |
 | `ts` | timestamp NOT NULL | local, no zone; `YYYY-MM-DD HH:mm` in the API |
-| `detail` | jsonb NOT NULL | `wms_entered`: `{ wmsOrderId }` |
+| `detail` | jsonb NOT NULL | `wms_entered`: `{ wmsOrderId }`; auto-advanced events also carry `{ auto: true }` |
 | `synthetic` | boolean NOT NULL DEFAULT true | always true: the WMS and carriers are simulated |
 | `visible_at` | timestamptz NOT NULL DEFAULT now() | when the journey shows the event (303; auto-advance) |
 

@@ -477,7 +477,7 @@ export function IntakeScreen() {
   const back = () => { setView('list'); setMenu(false); };
 
   // No `user`: the API takes the actor from the signed-in session (REQ-AUTH-07).
-  const post = (id: number, action: 'approve' | 'send_reply' | 'send_to_wms') => postJSON<{ status: string }>(`/api/intake/${id}/action`,
+  const post = (id: number, action: 'approve' | 'send_reply' | 'send_to_wms') => postJSON<{ status: string; warning?: string }>(`/api/intake/${id}/action`,
     { action, ...(action === 'send_reply' ? { reply: reply.trim() } : {}) });
 
   /** Runs the actions in order; a refusal stops the rest, and the screen then shows the step that is left. */
@@ -485,9 +485,13 @@ export function IntakeScreen() {
     if (selected === null) return;
     const id = selected;
     run('act', async () => {
-      for (const a of actions) await post(id, a);
+      const warnings: string[] = [];
+      for (const a of actions) {
+        const r = await post(id, a);
+        if (r.warning) warnings.push(r.warning); // e.g. auto-advance did not run (design §5)
+      }
       if (actions.includes('send_reply')) writeDraft(id, null);
-      return `Email ${id}: ${actions.map((a) => ACTION_DONE[a]).join(', ')}.`;
+      return [`Email ${id}: ${actions.map((a) => ACTION_DONE[a]).join(', ')}.`, ...warnings].join(' ');
     });
   };
 

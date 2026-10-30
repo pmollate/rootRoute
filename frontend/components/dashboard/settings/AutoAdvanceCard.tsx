@@ -41,10 +41,11 @@ export function AutoAdvanceCard() {
         Synthetic: the API stands in for the WMS and carriers. Approval and the reply to the client stay manual.
       </p>
       <label className={ui.row}>
-        <input type="checkbox" role="switch" checked={on} disabled={!canChange || saving || settings.loading}
+        <input type="checkbox" role="switch" checked={on} disabled={!canChange || saving || settings.loading || !!settings.error}
           onChange={(e) => change(e.target.checked)} />
         Auto-advance approved orders through the WMS and carriers
       </label>
+      {settings.error && <p className={ui.lede} role="alert">Could not load the setting: {settings.error}</p>}
       {!canChange && <p className={ui.lede}>Only an admin can change this.</p>}
       {error && <p className={ui.lede} role="alert">Not saved: {error}</p>}
     </section>

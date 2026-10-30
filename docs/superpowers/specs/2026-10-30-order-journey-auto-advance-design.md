@@ -103,7 +103,7 @@ bent to look on time. `out_for_delivery` is written because the shared order rul
   after a `wms_entered` that is not visible yet, and a simulator repeat could slip past a hidden row.
 - The comment on `FEED_EVENTS` changes to "`wms_entered` is written only by send_to_wms and by auto-advance".
 - The journey page already refetches when an order is reselected. It also refetches every 5 seconds while the shown
-  order is a new order with status `ENTERED` and no `delivered` step, and stops when delivered or after 60 seconds.
+  order is a new order whose WMS step is done and whose delivery step is not done or failed, and stops when delivered or after 60 seconds.
 
 ## 8. Journey wording
 
@@ -125,7 +125,7 @@ A new "Order journey" card on `/dashboard/settings`, a small client component (t
 | ID | Requirement |
 |---|---|
 | REQ-JRN-14 | An admin **MAY** switch on auto-advance. While it is on, approving an ALL_CLEAR order **MUST** enter it in the WMS (step 9) and record steps 10–13 as synthetic events, so steps 9–13 run automatically; approval and the reply **MUST** stay manual. |
-| REQ-JRN-15 | Auto-advanced steps **MUST** become visible a few seconds apart and **MUST NOT** carry a timestamp earlier than the step before. Delivery **SHOULD** be on the promise date; when it cannot be, the order **MUST** show as late. |
+| REQ-JRN-15 | Auto-advanced steps **MUST** become visible 5 seconds apart and **MUST NOT** carry a timestamp earlier than the step before. Delivery **SHOULD** be on the promise date; when it cannot be, the order **MUST** show as late. |
 | SEC-SET-01 | Only an admin **MUST** be able to change the auto-advance setting, and every change **MUST** be written to the audit log with its actor. |
 
 ## 11. Testing (acceptance criteria)

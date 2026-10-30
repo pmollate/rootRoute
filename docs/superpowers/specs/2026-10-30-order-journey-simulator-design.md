@@ -202,4 +202,4 @@ journey page shows stages 9–13 with the "Synthetic data" badge.
 ## 13. Out of scope
 
 Stage 14 delay notice (REQ-JRN-12), deploying the simulator to Azure, a real WMS or carrier API, background retries
-of a failed handoff, and `POST /api/orders` / `POST /api/orders/edi` (E11, still not built).
+of a failed handoff, and `POST /api/orders` / `POST /api/orders/edi` (E11, still not built). Automatic steps are now available behind the auto-advance switch: 2026-10-30-order-journey-auto-advance-design.md.
