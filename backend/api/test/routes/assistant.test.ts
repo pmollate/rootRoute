@@ -35,9 +35,16 @@ describe.skipIf(!hasDb || !hasRecordings)('Ask LateLens, recorded (needs test da
   it('AC-ASK-05, AC-ASK-10: the five blocked lanes with reasons, from lane_scores; the same answer twice', async () => {
     const q = 'Which carrier lanes should we stop using, and why?';
     const a = (await ask(q)).json();
-    for (const lane of ['D', 'E', 'F']) expect(a.answer).toContain(lane);
-    for (const region of ['Midwest', 'Southeast', 'West', 'Northeast']) expect(a.answer).toContain(region);
-    expect(a.sources.map((s: { tool: string }) => s.tool)).toContain('lane_scores');
+    const src = a.sources.find((s: { tool: string }) => s.tool === 'lane_scores');
+    expect(src?.args).toEqual({});
+    const blocked = (src.result as { blocked: { lane: string; reason: string }[] }).blocked;
+    expect(blocked.map((b) => b.lane)).toEqual(['D → Midwest', 'D → Southeast', 'E → West', 'F → Northeast', 'F → Southeast']);
+    // Each blocked lane is named with the late rate behind its block (the reason lane_scores gives).
+    for (const b of blocked) {
+      const [carrier, region] = b.lane.split(' → ');
+      expect(a.answer, b.lane).toMatch(new RegExp(`\\b${carrier}\\b[^.;\\n]*${region}|${region}[^.;\\n]*\\b${carrier}\\b`));
+      expect(a.answer, b.lane).toContain(`${/(\d+)% late/.exec(b.reason)![1]}%`);
+    }
     expect(a.checked).toBe(true);
     expect({ ...(await ask(q)).json(), questionId: a.questionId }).toEqual(a);
   });

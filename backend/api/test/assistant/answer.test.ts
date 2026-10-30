@@ -42,6 +42,7 @@ describe('assistant answer loop (D10)', () => {
     expect(runs).toEqual([]);
     expect(r.skipped).toEqual(['send_reply', 'recommend_carrier']);
     expect(llm.seen[1].messages.at(-1)).toMatchObject({ role: 'tool', content: 'Tool send_reply is not available.' });
+    expect(llm.seen[2].messages.at(-1)).toMatchObject({ role: 'tool', content: 'Invalid arguments for recommend_carrier.' });
     expect(r).toMatchObject({ answer: REFUSAL, refused: true }); // no tool ran: REQ-ASK-06
   });
 
@@ -57,6 +58,22 @@ describe('assistant answer loop (D10)', () => {
     const r = await answerQuestion(ask('loop'), null, deps(llm, tools));
     expect(runs).toHaveLength(5);
     expect(r).toMatchObject({ answer: COULD_NOT_CHECK, checked: false, toolCalls: 5 });
+    // At the bound the last model turn is offered no tools, and no further turn follows.
+    expect(llm.seen.map((s) => s.tools.length)).toEqual([6, 6, 6, 6, 6, 0]);
+  });
+
+  it('AC-SEC-ASK-06: an answer with HTML, a Markdown link or a URL is not returned, even when its figures check', async () => {
+    for (const text of ['On-time is 71.0% <img src="https://evil.example/x">', 'On-time is 71.0%, [click](https://evil.example)', 'See www.evil.example']) {
+      const { tools } = fakeTools();
+      const r = await answerQuestion(ask('On-time?'), null, deps(scripted(call('overview'), final(text)), tools));
+      expect(r, text).toMatchObject({ answer: COULD_NOT_CHECK, checked: false });
+    }
+  });
+
+  it('AC-SEC-ASK-01: history turns from the client keep the question limit (user) and the answer limit (assistant)', () => {
+    expect(AssistantRequestSchema.safeParse({ question: 'q', history: [{ role: 'user', text: 'x'.repeat(501) }] }).success).toBe(false);
+    expect(AssistantRequestSchema.safeParse({ question: 'q', history: [{ role: 'assistant', text: 'x'.repeat(2001) }] }).success).toBe(false);
+    expect(AssistantRequestSchema.safeParse({ question: 'q', history: [{ role: 'user', text: 'x'.repeat(500) }] }).success).toBe(true);
   });
 
   it('AC-ASK-09: with AUTH_REQUIRED=on order_desk gets four tools, carrier_manager all six; off offers all six', () => {

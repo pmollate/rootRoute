@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 loadEnv({ path: fileURLToPath(new URL('../../../../.env', import.meta.url)), quiet: true });
 
-const Env = z.object({
+export const Env = z.object({
   NODE_ENV: z.string().default('development'),
   DATABASE_URL: z.string().min(1),
   PORT: z.coerce.number().default(3001),
@@ -31,7 +31,7 @@ const Env = z.object({
   MCP_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(16).optional()),
   ALLOW_LIST: z.string().default(''),
   // D10 in-app assistant (SPEC §5.16; design settings, not data). Off by default (REQ-ASK-08).
-  ASK_ASSISTANT: z.enum(['on', 'off']).default('off'),
+  ASK_ASSISTANT: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['on', 'off']).default('off')),
   ASK_MAX_TOOL_CALLS: z.coerce.number().int().min(1).max(10).default(5),
   ASK_RATE_PER_MINUTE: z.coerce.number().int().min(1).max(100).default(10),
 });

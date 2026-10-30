@@ -15,10 +15,17 @@ export const REFUSAL = "I can only answer questions about Halcyon's delivery dat
 export const COULD_NOT_CHECK = 'I could not check every figure in this answer against LateLens data. Here is what the tools returned.';
 export const MAX_QUESTION = 500;
 export const MAX_HISTORY = 6;
+export const MAX_ANSWER = 2000;
 
+// The history comes from the client, so it is as untrusted as the question: user turns keep the question limit
+// (SEC-ASK-01) and assistant turns the length of an answer.
+const Turn = z.discriminatedUnion('role', [
+  z.object({ role: z.literal('user'), text: z.string().max(MAX_QUESTION) }),
+  z.object({ role: z.literal('assistant'), text: z.string().max(MAX_ANSWER) }),
+]);
 export const AssistantRequestSchema = z.object({
   question: z.string().trim().min(1),
-  history: z.array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().max(4000) })).max(MAX_HISTORY).default([]),
+  history: z.array(Turn).max(MAX_HISTORY).default([]),
 });
 export type AssistantRequest = z.input<typeof AssistantRequestSchema>;
 export const FinalAnswer = z.object({ answer: z.string(), refused: z.boolean() });
@@ -66,7 +73,9 @@ export async function answerQuestion(input: z.output<typeof AssistantRequestSche
   for (let turn = 0; turn <= deps.maxToolCalls; turn += 1) {
     let next;
     try {
-      next = await deps.llm.toolChat({ system: deps.system, messages, tools: offered, tag: 'assistant', store: false,
+      // SEC-ASK-01: once the bound is reached, one last turn may word the answer but is offered no tools.
+      const tools = sources.length >= deps.maxToolCalls ? [] : offered;
+      next = await deps.llm.toolChat({ system: deps.system, messages, tools, tag: 'assistant', store: false,
         answerSchema: FinalAnswer });
     } catch (err) {
       if (err instanceof LLMError && err.kind === 'refusal') return done(REFUSAL, true, false); // content filter
@@ -80,7 +89,10 @@ export async function answerQuestion(input: z.output<typeof AssistantRequestSche
         return parsed.success || sources.length === 0 ? done(REFUSAL, true, false) : done(COULD_NOT_CHECK, false, false);
       }
       const unchecked = uncheckedFigures(parsed.data.answer, [input.question, ...sources.map((s) => s.args), ...sources.map((s) => s.result)]);
-      return unchecked.length ? done(COULD_NOT_CHECK, false, false) : done(parsed.data.answer, false, true);
+      // SEC-ASK-06: an answer carrying HTML, a Markdown link or a URL is not returned, checked or not.
+      const markup = /<|\]\(|https?:|www\./i.test(parsed.data.answer);
+      return unchecked.length || markup || parsed.data.answer.length > MAX_ANSWER
+        ? done(COULD_NOT_CHECK, false, false) : done(parsed.data.answer, false, true);
     }
     messages.push({ role: 'assistant', content: '', toolCalls: next.calls });
     for (const call of next.calls) {

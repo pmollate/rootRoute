@@ -18,6 +18,16 @@ describe('figure check (REQ-ASK-04)', () => {
       .toEqual([]);
   });
 
+  it('a rate is rounded only as a percentage: 0.7099 does not make "1" or "0" pass', () => {
+    expect(uncheckedFigures('1 carrier is blocked; 0 lanes are fine.', [OVERVIEW])).toEqual(['1', '0']);
+    expect(uncheckedFigures('A rate of 0.7099.', [OVERVIEW])).toEqual([]);
+  });
+
+  it('K, M and B scale a figure: $872K and $0.9M pass for 872,460; $14.2M does not', () => {
+    expect(uncheckedFigures('Penalties were $872K, about $0.9M.', [OVERVIEW])).toEqual([]);
+    expect(uncheckedFigures('Penalties were $14.2M.', [OVERVIEW])).toEqual(['14.2M']);
+  });
+
   it('a number the tools never returned is caught even when it is close', () => {
     expect(uncheckedFigures('14,020 deliveries were late.', [OVERVIEW])).toEqual(['14,020']);
   });
