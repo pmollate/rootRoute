@@ -44,6 +44,8 @@ describe.skipIf(!hasDb)('intake routes (needs test database)', () => {
     expect((await act('send_to_wms')).statusCode).toBe(409);
     expect((await act('approve')).json()).toEqual({ status: 'APPROVED' });
     expect((await act('send_to_wms')).json()).toEqual({ status: 'ENTERED' });
+    // In the WMS before any reply went out: the screen still offers the reply.
+    expect((await app.inject({ method: 'GET', url: `/api/intake/${r.id}` })).json().replySent).toBe(false);
   });
 
   it('lists priority clients first, and dedupes a pasted email', async () => {

@@ -23,6 +23,8 @@ interface Address { line1: string; line2: string | null; city: string; state: st
 export interface Detail {
   email: { id: number; from: string; subject: string; body: string; redactedBody: string | null; receivedAt: string; status: string; inReplyTo: number | null; clientId?: string | null };
   decision: Decision | null; replyDraft: string | null; replySource: 'model' | 'template' | null;
+  /** Whether a reply has gone out: an order can reach the WMS before its reply does. */
+  replySent?: boolean;
   extraction: { items: Item[] } | null;
   checks: {
     address: { status: string; missing: string[]; address: Address | null;
@@ -522,6 +524,9 @@ export function IntakeScreen() {
   const status = d?.email.status;
   const disabled = busy !== null;
   const allClear = d?.decision === 'ALL_CLEAR';
+  // An API without replySent: an order in the WMS counts as replied to, as before.
+  const replied = d?.replySent ?? (status === 'SENT' || status === 'ENTERED');
+  const closed = status === 'SENT' || (status === 'ENTERED' && replied);
 
   // The one next step for this email, as the composer's main button.
   // An incomplete order is never approved: its button sends the request (the API still logs the operator's OK on the reply first).
@@ -532,7 +537,10 @@ export function IntakeScreen() {
     : canReply && status === 'AWAITING_APPROVAL' ? { label: request ?? 'Approve & send', run: () => act(['approve', 'send_reply', ...(wmsAfter ? ['send_to_wms' as const] : [])]) }
       : canReply && status === 'APPROVED' ? { label: request ?? 'Send reply', run: () => act(['send_reply', ...(wmsAfter ? ['send_to_wms' as const] : [])]) }
         : canWms && allClear && (status === 'SENT' || status === 'APPROVED') ? { label: 'Send to WMS', run: () => act(['send_to_wms']) }
-          : null;
+          : canReply && status === 'ENTERED' && !replied ? { label: 'Send reply', run: () => act(['send_reply']) }
+            : null;
+  // The WMS hand-off does not wait for the reply: if the reply cannot go out yet, the order can still enter the WMS.
+  const wmsOnly = canWms && allClear && status === 'APPROVED' && primary?.label !== 'Send to WMS';
   const onDraftKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && primary && !disabled && reply.trim()) { e.preventDefault(); primary.run(); }
   };
@@ -750,21 +758,25 @@ export function IntakeScreen() {
                             )}
                           </div>
                           <textarea className={s.draft} aria-label="Reply" value={reply} onChange={(e) => setReply(e.target.value)} onKeyDown={onDraftKey}
-                            readOnly={!canReply || status === 'SENT' || status === 'ENTERED'} rows={Math.min(12, Math.max(5, reply.split('\n').length + 1))} />
+                            readOnly={!canReply || closed} rows={Math.min(12, Math.max(5, reply.split('\n').length + 1))} />
                           <div className={s.composerFoot}>
                             {allClear && canReply && canWms && (status === 'AWAITING_APPROVAL' || status === 'APPROVED') && (
                               <label className={s.check}>
                                 <input type="checkbox" checked={push} onChange={(e) => setPush(e.target.checked)} />Push to WMS after sending
                               </label>
                             )}
-                            {status === 'ENTERED' && <span className={s.doneNote}><Icon size={12}>{ICON.checkCircle}</Icon>Reply sent and order in the WMS</span>}
+                            {status === 'ENTERED' && replied && <span className={s.doneNote}><Icon size={12}>{ICON.checkCircle}</Icon>Reply sent and order in the WMS</span>}
                             <div className={s.buttons}>
-                              {canReply && status !== 'SENT' && status !== 'ENTERED' && (
+                              {canReply && !closed && (
                                 <button type="button" className={s.btn} onClick={() => { writeDraft(d.email.id, reply); say('Draft saved in this browser.', 'info'); }}>
                                   Save draft</button>
                               )}
                               {canPaste && status === 'SENT' && !allClear && (
                                 <button type="button" className={s.btn} onClick={() => pasteFor(d.email.id)}><Icon size={12}>{ICON.clipboard}</Icon>Paste client&apos;s reply</button>
+                              )}
+                              {wmsOnly && (
+                                <button type="button" className={s.btn} onClick={() => act(['send_to_wms'])} disabled={disabled}>
+                                  <Icon size={12}>{ICON.warehouse}</Icon>Send to WMS</button>
                               )}
                               {primary && (
                                 <button type="button" className={`${s.btn} ${s.btnPrimary}`} onClick={primary.run}

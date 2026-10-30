@@ -68,6 +68,7 @@ const routes: FastifyPluginAsync = async (app) => {
       extraction: x?.extraction ?? null, decision: x?.decision ?? null, checks: x?.checks ?? null,
       // The operator approves exactly what will be sent: names put back, as in the outgoing email.
       replyDraft: x ? restore(x.reply_draft, safeNames(email.pii_map)) : null, replySource: x?.reply_source ?? null,
+      replySent: await repo.replySent(id),
     };
   });
 
