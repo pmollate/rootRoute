@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDeliveryJourney, buildEmailJourney, type CauseFlags, type DeliveryFacts, type EmailFacts,
 } from '../../src/modules/carriers/journey.js';
+import { autoAdvancePlan } from '../../src/modules/carriers/autoAdvance.js';
 
 /** D000213 as it is in deliveries.csv: C190, email, incomplete address, carrier F to the Northeast, 4 days late. */
 const D000213: DeliveryFacts = {
@@ -97,6 +98,18 @@ describe('new order journey', () => {
       { action: 'send_to_wms', actor: 'sup', at: '2026-10-28 07:55', reason: null }],
     events: [{ event: 'wms_entered', ts: '2026-10-28 07:55', detail: { wmsOrderId: 'WMS-000008' } }] };
   const ev = (event: EmailFacts['events'][number]['event'], ts: string) => ({ event, ts, detail: {} });
+
+  it('AC-JRN-18: an auto-advanced order says so at step 9, and a delivery after the promise date shows late', () => {
+    const auto: EmailFacts = { ...EMAIL, status: 'ENTERED',
+      approvals: [{ action: 'approve', actor: 'desk', at: '2026-10-30 09:00', reason: null },
+        { action: 'send_to_wms', actor: 'system:auto-advance', at: '2026-10-30 09:00', reason: null }],
+      events: autoAdvancePlan({ receivedAt: EMAIL.receivedAt, promiseDate: '2026-10-29', approvedAt: '2026-10-30 09:00',
+        wmsOrderId: 'WMS-000008' }).map(({ event, ts, detail }) => ({ event, ts, detail })) };
+    const j = buildEmailJourney(auto, '2026-10-30 18:00');
+    expect(byKey(j, 'wms')).toMatchObject({ status: 'done', actor: 'Auto-advance (simulated)', source: 'synthetic',
+      detail: 'Entered in the simulated WMS as WMS-000008 automatically.' });
+    expect(byKey(j, 'delivered')).toMatchObject({ status: 'failed', detail: 'Delivered 1 day late (promised 2026-10-29).' });
+  });
 
   it('AC-JRN-14: entered in the simulated WMS: stage 9 synthetic with the WMS number, picking is current', () => {
     const j = buildEmailJourney(ENTERED_EMAIL, '2026-10-28 08:00');
