@@ -1,5 +1,5 @@
 // E19 one-time address link (SPEC §5.17, owner A): the pure rules. No AI model anywhere in this flow.
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { LocalTimestamp } from '../../core/contracts.js';
 import { MAILBOX_TIMEZONE } from './mailbox.js';
@@ -29,6 +29,35 @@ export const MARGIN_HOURS = 2;         // the link stops 2 h before the cut-off
 export const FLOOR_HOURS = 1;          // ...and lasts at least 1 h
 export const SECOND_CONFIRM_M = 500;   // REQ-LINK-03
 export const MAX_MAP_LOOKUPS = 20;     // SEC-LINK-04
+
+// E19 verification code (REQ-LINK-17 to -19, SEC-LINK-12; design settings, SPEC §5.17 "Verification code").
+export const CODE_MINUTES = 10;        // a code's life
+export const MAX_CODES = 3;            // codes per link
+export const CODE_GAP_S = 60;          // seconds between two codes
+export const MAX_CODE_TRIES = 5;       // wrong entries that lock the current code
+export const CODE_PLACEHOLDER = '[CODE]'; // what outbound_messages keeps instead of the code (SEC-LINK-12)
+export const CODE_SUBJECT = 'Your Halcyon Logistics verification code';
+/** The code email's text; `outbound_messages` keeps it with CODE_PLACEHOLDER (SEC-LINK-12). */
+export const codeText = (code: string): string =>
+  `Your verification code is ${code}. It expires in ${CODE_MINUTES} minutes. If you did not ask for it, you can ignore this email.\n\nHalcyon Logistics`;
+/** A 6-digit code from the OS's cryptographic source (REQ-LINK-18). */
+export const newCode = (): string => String(randomInt(0, 1_000_000)).padStart(6, '0');
+/** What the link row keeps of a code: SHA-256 of the link's token hash and the code, so equal codes differ per link. */
+export const codeHash = (tokenHash: string, code: string): string => createHash('sha256').update(`${tokenHash}:${code}`).digest('hex');
+/** Two SHA-256 hex strings, compared in constant time. */
+export function sameHash(a: string | null | undefined, b: string): boolean {
+  if (!a || a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+/** REQ-LINK-17: "orders@client025.example" → "o•••••@client025.example" (first letter, at most 8 dots, domain). */
+export function maskAddress(addr: string): string {
+  const at = addr.lastIndexOf('@');
+  if (at < 1) return '•'.repeat(8);
+  const local = addr.slice(0, at);
+  return `${local[0]}${'•'.repeat(Math.min(local.length - 1, 8))}${addr.slice(at)}`;
+}
+/** REQ-LINK-19: the verify body. Anything else is 400. */
+export const VerifyBody = z.object({ code: z.string().regex(/^\d{6}$/) }).strict();
 
 const HOUR_MS = 3_600_000;
 const LOCAL = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/;
@@ -93,14 +122,43 @@ export const ConfirmBody = z.object({
     line1: text(100), line2: z.string().trim().max(100).refine(NO_CONTROL, 'no control characters').nullish().transform((v) => v || null), city: text(100),
     state: z.string().trim().toUpperCase().refine(isUsState, 'US state code'), zip: z.string().trim().regex(/^\d{5}(-\d{4})?$/),
   }).strict(),
-  pin: z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }).strict(),
+  // Optional (v0.18, REQ-LINK-15): the page sends a pin only from a working map the client used.
+  pin: z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }).strict().optional(),
   checkId: z.string().max(100).optional(),
 }).strict();
 export type ConfirmInput = z.infer<typeof ConfirmBody>;
 
-/** REQ-LINK-03: a second Confirm is needed when the pin moved > 500 m, the ZIP changed, or there was no start pin. */
+/** REQ-LINK-16: the pin to read, and the client's line 2 (kept, and bound into the pending check with the reading). */
+export const LookupBody = z.object({
+  pin: ConfirmBody.shape.pin.unwrap(),
+  line2: ConfirmBody.shape.address.shape.line2,
+}).strict();
+
+/**
+ * REQ-LINK-03: when a pin is sent, a second Confirm is needed when it moved > 500 m, the ZIP changed, or there was no
+ * start pin. With no pin sent this rule does not apply: the typed address is checked on the map instead (REQ-LINK-12).
+ */
 export function needsSecondConfirm(start: { pin: { lat: number; lon: number } | null; zip?: string | null }, input: ConfirmInput): boolean {
+  if (!input.pin) return false;
   if (!start.pin) return true;
   if ((start.zip ?? '') !== input.address.zip) return true;
   return distanceM(start.pin, input.pin) > SECOND_CONFIRM_M;
+}
+
+export type AddressPart = 'city' | 'state' | 'zip';
+const cityKey = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+const zip5 = (s: string) => s.trim().slice(0, 5);
+
+/**
+ * REQ-LINK-12, -13, -14: the typed parts the map's reading of the typed address does not match. City ignoring case and
+ * spaces, state code ignoring case, 5-digit ZIP; a part the reading lacks counts as different, and no reading (the map
+ * found no point) differs in all three.
+ */
+export function addressDiffers(typed: { city: string; state: string; zip: string },
+  read: { city: string | null; state: string | null; zip: string | null } | null): AddressPart[] {
+  const out: AddressPart[] = [];
+  if (!read?.city || cityKey(read.city) !== cityKey(typed.city)) out.push('city');
+  if (!read?.state || read.state.trim().toUpperCase() !== typed.state.trim().toUpperCase()) out.push('state');
+  if (!read?.zip || zip5(read.zip) !== zip5(typed.zip)) out.push('zip');
+  return out;
 }

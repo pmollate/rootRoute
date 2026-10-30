@@ -1,7 +1,7 @@
 import type { AddressQuery, AddressValidator, GeocodeResponse } from '../../core/maps/types.js';
 
 export type AddressConfidence = 'high' | 'medium' | 'low' | 'unavailable';
-export type AddressIssue = 'street_not_found' | 'state_mismatch' | 'zip_mismatch';
+export type AddressIssue = 'street_not_found' | 'city_mismatch' | 'state_mismatch' | 'zip_mismatch';
 
 export interface AddressValidation {
   confidence: AddressConfidence;
@@ -30,10 +30,17 @@ export function sameStreet(said: string, mapped: string): boolean {
   return a.name === b.name && (!a.dirs || !b.dirs || a.dirs === b.dirs);
 }
 
+const CITY_WORDS: Record<string, string> = { SAINT: 'ST', FORT: 'FT', MOUNT: 'MT' };
+/** A city name for comparing: letters and digits only, upper case, Saint/Fort/Mount shortened. */
+const cityKey = (city: string) =>
+  city.toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(Boolean).map((t) => CITY_WORDS[t] ?? t).join('');
+
 /**
  * Reads the map's best match against what the email said.
  * - no street-level match (other type, or UpHierarchy), or a different street (the map tolerates typos and will
  *   swap a made-up street for a similar real one) -> street_not_found
+ * - another city -> city_mismatch (the address is looked up as one line of text, so the map puts the street in its
+ *   real city rather than failing: "Powers Rd, Madhapur, OR 97828" comes back as Enterprise, OR)
  * - another state -> state_mismatch
  * - a ZIP in another area (first 3 digits differ) -> zip_mismatch; a neighbouring ZIP only lowers confidence to medium
  */
@@ -45,6 +52,7 @@ export function assessGeocode(q: AddressQuery, res: GeocodeResponse): AddressVal
   if (top.type !== 'Address' || top.matchCodes?.includes('UpHierarchy') || (a.addressLine && !sameStreet(q.line1, a.addressLine))) {
     issues.push('street_not_found');
   }
+  if (a.locality && cityKey(a.locality) !== cityKey(q.city)) issues.push('city_mismatch');
   const state = a.adminDistricts?.[0]?.shortName?.toUpperCase();
   if (state && state !== q.state.toUpperCase()) issues.push('state_mismatch');
   const zip = a.postalCode?.slice(0, 5);

@@ -4,6 +4,7 @@ import { type AuthSettings, authSettings, checkAuthSettings, requireUser } from 
 import { config } from './core/config.js';
 import { dbOk } from './core/db/pool.js';
 import { registerModules } from './core/modules.js';
+import { redactLink } from './core/redactLink.js';
 
 export interface BuildOptions {
   /** Defaults to AUTH_REQUIRED, INTERNAL_AUTH_SECRET and API_KEY from the environment; tests pass their own. */
@@ -35,10 +36,18 @@ export function bodyErrors(bodyLimit: number) {
   };
 }
 
+export { redactLink };
+
+/** Fastify's request log line, with the URL redacted (SEC-LINK-01). */
+const serializers = {
+  req: (r: { method: string; url: string }) => ({ method: r.method, url: redactLink(r.url) }),
+};
+
 export async function buildApp(opts: BuildOptions = {}): Promise<FastifyInstance> {
   const auth = { ...authSettings(), ...opts.auth };
   checkAuthSettings(auth); // SEC-AUTH-09: fail closed before anything listens
-  const app = Fastify({ logger: opts.logStream ? { stream: opts.logStream } : config.NODE_ENV !== 'test' });
+  const logger = opts.logStream ? { stream: opts.logStream, serializers } : config.NODE_ENV !== 'test' ? { serializers } : false;
+  const app = Fastify({ logger });
   if (opts.onRoute) {
     const seen = opts.onRoute;
     app.addHook('onRoute', (r) => {
@@ -48,6 +57,9 @@ export async function buildApp(opts: BuildOptions = {}): Promise<FastifyInstance
   // Before P7 the browser called the API directly. Once enforced, only the web app's proxy does (SEC-AUTH-13).
   if (!auth.required) await app.register(cors, { origin: true });
   app.setErrorHandler(bodyErrors(app.initialConfig.bodyLimit ?? 1048576));
+  // Fastify's default 404 logs and echoes the raw URL; this one has the same body with a confirm token redacted (SEC-LINK-01).
+  app.setNotFoundHandler((req, reply) => reply.code(404).send({
+    message: `Route ${req.method}:${redactLink(req.url)} not found`, error: 'Not Found', statusCode: 404 }));
   app.decorate('authRequired', auth.required);
   app.decorateRequest('user', null);
   app.addHook('preHandler', requireUser(auth)); // every route, including ones added later: default deny (REQ-AUTH-06)

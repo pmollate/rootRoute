@@ -61,7 +61,8 @@ describe('intake pipeline', () => {
     const first = await processEmail({ from: 'orders@client190.example', subject: '[SYNTHETIC] Order',
       body: 'Ship to Dock 2, Atlanta, GA. 45 x HX-616', receivedAt: '2026-10-21 16:51' }, d);
     expect(first.decision).toBe('CONFIRM_ADDRESS');
-    expect(mem.extractions[0].reply_draft).toContain('Main DC: 4411 Mill Rd');
+    expect(mem.extractions[0].reply_draft).toContain('full, correct delivery address');
+    expect(mem.extractions[0].reply_draft).not.toContain('Main DC'); // saved addresses are never listed (31 Oct)
 
     const second = await processEmail({ from: 'orders@client190.example', subject: 'Re: Order',
       body: 'Street is 4411 Mill Rd, ZIP 30303', receivedAt: '2026-10-21 17:30', inReplyTo: first.id }, d);
@@ -117,6 +118,21 @@ describe('intake pipeline', () => {
     const g = await processEmail({ ...e, body: `${FULL_BODY}\n`, source: 'gmail', gmailId: 'g7' }, d);
     expect((await processEmail({ ...e, body: 'changed', source: 'gmail', gmailId: 'g7' }, d)).id).toBe(g.id);
     expect(mem.emails).toHaveLength(2);
+  });
+
+  // SPEC §5.3 step 2: dedupe by Gmail id, else (pasted) by the hash. Live on 30 Oct four new Gmail messages with the
+  // body of an earlier one were matched to it by the hash and never stored; a client repeating an order would be lost.
+  it('AC-INT-08: two Gmail messages with the same sender and body are two emails; a paste of the same text still dedupes', async () => {
+    const mem = memoryRepo({ 'client190.example': C190 }, SAVED);
+    const d = deps(mem, fakeLLM(FULL, FULL, FULL));
+    const e = { from: 'orders@client190.example', subject: 's', body: FULL_BODY, receivedAt: '2026-10-21 09:00', source: 'gmail' as const };
+    const first = await processEmail({ ...e, gmailId: 'g1' }, d);
+    const again = await processEmail({ ...e, subject: 'same order again', gmailId: 'g2' }, d);
+    expect(again.id).not.toBe(first.id);
+    expect(mem.emails).toHaveLength(2);
+    const pasted = await processEmail({ from: e.from, subject: 's', body: FULL_BODY, receivedAt: e.receivedAt }, d);
+    expect((await processEmail({ from: e.from, subject: 's', body: FULL_BODY, receivedAt: e.receivedAt }, d)).id).toBe(pasted.id);
+    expect(mem.emails).toHaveLength(3);
   });
 
   it('AC-INT-10: a sender registered by full address is a known client; another sender on the same domain stays unknown', async () => {

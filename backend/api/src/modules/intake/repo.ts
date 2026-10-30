@@ -243,7 +243,7 @@ export const linkRepo: LinkRepo = {
       const used = await db.query(
         `UPDATE address_confirm_tokens SET used_at = $5, confirmed_address = $2, lat = $3, lon = $4, map_reading = $6
           WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > $5 RETURNING id`,
-        [c.linkId, JSON.stringify(c.address), c.pin.lat, c.pin.lon, c.at, c.reading && JSON.stringify(c.reading)]);
+        [c.linkId, JSON.stringify(c.address), c.pin?.lat ?? null, c.pin?.lon ?? null, c.at, c.reading && JSON.stringify(c.reading)]);
       const moved = used.rowCount === 1 ? await db.query(
         "UPDATE intake_emails SET status = 'AWAITING_APPROVAL' WHERE id = $1 AND status = 'SENT' RETURNING id", [c.emailId]) : null;
       if (moved?.rowCount !== 1) {
@@ -270,6 +270,20 @@ export const linkRepo: LinkRepo = {
       'SELECT DISTINCT ON (email_id) * FROM address_confirm_tokens WHERE email_id = ANY($1::int[]) ORDER BY email_id, id DESC', [ids]);
     return new Map(rows.map((r) => [r.email_id, r]));
   },
+  // REQ-LINK-18: the WHERE clause, not a read-then-write, keeps the 3-code cap and the 60 s gap under concurrency.
+  async storeCode(id, c, limits) {
+    return (await query(
+      `UPDATE address_confirm_tokens SET code_hash = $2, code_sent_at = $3, code_expires_at = $4, codes_sent = codes_sent + 1, code_tries = 0
+        WHERE id = $1 AND codes_sent < $5 AND (code_sent_at IS NULL OR code_sent_at <= $6) RETURNING id`,
+      [id, c.hash, c.sentAt, c.expiresAt, limits.max, limits.notAfter])).length === 1;
+  },
+  async codeTry(id) {
+    return (await query<{ n: number }>(
+      'UPDATE address_confirm_tokens SET code_tries = code_tries + 1 WHERE id = $1 RETURNING code_tries AS n', [id]))[0].n;
+  },
+  async setVerified(id, verifyHash, at) {
+    await query('UPDATE address_confirm_tokens SET verify_hash = $2, verified_at = $3, code_hash = NULL WHERE id = $1', [id, verifyHash, at]);
+  },
   // REQ-LINK-05: not added when the client already has the same address (letters and digits only, case-blind, 5-digit ZIP).
   async saveAddress(a) {
     return (await query<{ id: number }>(
@@ -280,6 +294,6 @@ export const linkRepo: LinkRepo = {
           AND ${ADDRESS_KEY('s.city')} = ${ADDRESS_KEY('$4::text')} AND upper(s.state) = upper($5::text) AND left(s.zip, 5) = left($6::text, 5))
        RETURNING id`,
       [a.clientId, a.address.line1, a.address.line2, a.address.city, a.address.state, a.address.zip, a.synthetic,
-        a.pin.lat, a.pin.lon, a.emailId, a.confirmedAt])).length === 1;
+        a.pin?.lat ?? null, a.pin?.lon ?? null, a.emailId, a.confirmedAt])).length === 1;
   },
 };

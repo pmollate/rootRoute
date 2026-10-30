@@ -5154,14 +5154,14 @@ credential, A20; here the recorded issuer).
 - `PERMISSIONS`: `'GET /api/confirm/:token': 'public'` and `'POST /api/confirm/:token': 'public'`, each commented
   "token-gated: a valid one-time token in the path, no session, no key (SEC-LINK-05)".
 
-- [ ] **Step 1: Never log the token.** Write the failing test first in `test/routes/link.test.ts` (no database needed
+- [x] **Step 1: Never log the token.** Write the failing test first in `test/routes/link.test.ts` (no database needed
   for this one): build the app with `logStream` from `test/token.ts`, `GET /api/confirm/<43 chars>`, and assert no log
   line contains the 43 characters. Then in `server.ts` pass the logger
   `{ stream?, serializers: { req: (r) => ({ method: r.method, url: redactLink(r.url) }) } }` with
   `export const redactLink = (url: string) => url.replace(/\/confirm\/[^/?#]+/, '/confirm/[token]');`
   (keep `logger: false` in tests without a stream, as today). Run: PASS.
 
-- [ ] **Step 2: Deps.** `linkDeps.ts`: `getLinkDeps()` builds `{ enabled: config.CONFIRM_LINK === 'on', hours:
+- [x] **Step 2: Deps.** `linkDeps.ts`: `getLinkDeps()` builds `{ enabled: config.CONFIRM_LINK === 'on', hours:
   config.CONFIRM_LINK_HOURS, timeZone: MAILBOX_TIMEZONE, appUrl: config.AUTH_URL ?? 'http://localhost:3000', links:
   linkRepo, maps: getDeps().maps, credentials: createMapCredentials(), now: () => new Date(), log: () => {} }`;
   `setLinkDeps(over)` for tests; routes call `{ ...getLinkDeps(), log: (event, f) => req.log.info({ event, ...f }, 'address link') }`.
@@ -5169,7 +5169,7 @@ credential, A20; here the recorded issuer).
   `{ issue: async (e) => ({ kind: 'sas', token: 'recorded', expiresAt: e.toISOString() }) }`; with `azure-maps`
   return an issuer that throws `Error('Map tile credential not set up (Q-LINK-02, Task A20)')` until A20.
 
-- [ ] **Step 3: Write the failing route tests** in `test/routes/link.test.ts`, `describe.skipIf(!hasDb)`, after
+- [x] **Step 3: Write the failing route tests** in `test/routes/link.test.ts`, `describe.skipIf(!hasDb)`, after
   `setLinkDeps({ enabled: true, timeZone: 'UTC' })` and a seeded `CONFIRM_ADDRESS` email made through
   `POST /api/intake/email` with fixture 47 (`backend/tests/fixtures/emails/47.*`, recorded map `medium`), approved and
   sent with `send_reply` through `setDeps({ gmail: fake })` and `ALLOW_LIST` from `test/setup.ts`:
@@ -5192,7 +5192,7 @@ credential, A20; here the recorded issuer).
     `hash` (8 characters) and never the token.
   Run `npm --prefix backend/api test -- test/routes/link.test.ts`. Expected: FAIL (404 on every route).
 
-- [ ] **Step 4: Routes** in `intake/routes.ts`:
+- [x] **Step 4: Routes** in `intake/routes.ts`:
 
 ```ts
   // E19 (SPEC §5.17): public and token-gated (permissions.ts). The same 404 body for every invalid link (REQ-LINK-07).
@@ -5213,16 +5213,16 @@ credential, A20; here the recorded issuer).
   for `GET /intake/:id`. In `permissions.ts` add the two public entries; in `permissions.test.ts` add
   `expect(who('GET', '/api/confirm/:token')).toBe('public')` and the POST twin (AC-SEC-LINK-05).
 
-- [ ] **Step 5: Review fields** (REQ-LINK-11). `reviewQueue(repo, links?: LinkRepo)`: for each order,
+- [x] **Step 5: Review fields** (REQ-LINK-11). `reviewQueue(repo, links?: LinkRepo)`: for each order,
   `addressSource = x.checks.address?.status === 'confirmed' ? 'link' : x.checks.address?.status === 'matched' ? 'saved' : 'email'`;
   for `link`, from `links.newestFor([e.id])`: `emailAddress = l.prefill.address`, `confirmedAddress = l.confirmed_address`,
   `mapReading = l.map_reading && !('checkId' in l.map_reading) ? l.map_reading : null`. Add the fields to `ReviewOrder`
   as optional. Add a case to `test/intake/review.test.ts` using `memoryLinks`. The route passes `linkRepo` only when
   `getLinkDeps().enabled`.
 
-- [ ] **Step 6: Run.** `npm --prefix backend/api test && npm run typecheck` with the test database up. Expected: PASS.
+- [x] **Step 6: Run.** `npm --prefix backend/api test && npm run typecheck` with the test database up. Expected: PASS.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
 
 ```bash
 git add backend/api/src backend/api/test
@@ -5257,7 +5257,7 @@ a real credential only after A20; tests mock the map).
   `isLinkPage`, `isLinkRoute`, `linkGate(path, ip, enabled, limiter)`, `LINK_HEADERS`; `CONFIRM_LINK` and
   `CONFIRM_LINK_RATE_PER_MINUTE` read on the server only. No `NEXT_PUBLIC_` variable (SEC-LINK-08).
 
-- [ ] **Step 1: Write the failing web tests** `frontend/lib/auth/link.test.ts`:
+- [x] **Step 1: Write the failing web tests** `frontend/lib/auth/link.test.ts`:
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -5318,7 +5318,7 @@ describe('E19 address link at the web app (SEC-LINK-04, -05, -07)', () => {
 
   Run `npm --prefix frontend test -- lib/auth/link.test.ts`. Expected: FAIL, cannot find `./linkGate`.
 
-- [ ] **Step 2: Implement.**
+- [x] **Step 2: Implement.**
   1. `frontend/lib/auth/open.ts`:
 
 ```ts
@@ -5380,7 +5380,7 @@ export const isLinkRoute = (path: string) => /^\/api\/confirm\/[^/]+$/.test(path
 
   Run again. Expected: PASS (5), and `lib/auth/auth.test.ts` unchanged.
 
-- [ ] **Step 3: Middleware.** In `frontend/middleware.ts`: delete the local `OPEN`/`isOpen` and
+- [x] **Step 3: Middleware.** In `frontend/middleware.ts`: delete the local `OPEN`/`isOpen` and
   `import { isOpen } from '@/lib/auth/open'`; `import { clientIp } from '@/auth'` (export it there);
   `const linkLimiter = new RateLimiter(Number(process.env.CONFIRM_LINK_RATE_PER_MINUTE) || 10);`. In `middleware()`,
   after the maintenance block and before the `AUTH_REQUIRED !== 'on'` early return:
@@ -5407,7 +5407,7 @@ export const isLinkRoute = (path: string) => /^\/api\/confirm\/[^/]+$/.test(path
   and in `requireSession` call `isOpen(path, process.env.CONFIRM_LINK === 'on')`. The log line names the route
   pattern, never the path with its token (SEC-LINK-11). Run `npm run typecheck`.
 
-- [ ] **Step 4: Write the failing page tests** `frontend/components/confirm/ConfirmScreen.test.tsx` (mock
+- [x] **Step 4: Write the failing page tests** `frontend/components/confirm/ConfirmScreen.test.tsx` (mock
   `./ConfirmMap` with a stub that renders a "Move pin" button calling `onMove({ lat, lon })`; `mockApi` cannot return
   409, so stub `fetch` with `vi.fn` returning `{ status, json }` per call):
   - AC-LINK-02: given a `LinkView` with fixture 47's address, the five inputs hold its values, the expiry time shows,
@@ -5419,7 +5419,7 @@ export const isLinkRoute = (path: string) => /^\/api\/confirm\/[^/]+$/.test(path
   - SEC-LINK-10 (page): 400 → "Please check the address fields" and the form stays.
   Run `npm --prefix frontend test -- components/confirm`. Expected: FAIL, cannot find `./ConfirmScreen`.
 
-- [ ] **Step 5: Page and components.**
+- [x] **Step 5: Page and components.**
   1. `frontend/lib/confirm/load.ts` (server only): `loadLink(token)` → `fetch(`${API_URL}/api/confirm/${encodeURIComponent(token)}`, { cache: 'no-store' })`;
      200 → `LinkView`, anything else → `null`. `API_URL` as in `app/api/[...path]/route.ts`. No header is added.
   2. `frontend/app/confirm/[token]/page.tsx`: `export const dynamic = 'force-dynamic'`;
@@ -5447,7 +5447,7 @@ export const isLinkRoute = (path: string) => /^\/api\/confirm\/[^/]+$/.test(path
      scrolling (NFR-LINK-01).
   Run the tests. Expected: PASS.
 
-- [ ] **Step 6: Link states on the Order emails desk** (REQ-LINK-06, -11). `IntakeScreen.tsx`: add
+- [x] **Step 6: Link states on the Order emails desk** (REQ-LINK-06, -11). `IntakeScreen.tsx`: add
   `link?: { state: 'sent' | 'confirmed' | 'expired' | 'revoked'; expiresAt: string } | null` to `EmailItem` and the
   detail; in `chip(e)`, before the `CONFIRM_ADDRESS` line:
   `if (e.link?.state === 'expired' && e.status === 'SENT') return { text: 'Address not confirmed', tone: s.tBad };`
@@ -5457,19 +5457,19 @@ export const isLinkRoute = (path: string) => /^\/api\/confirm\/[^/]+$/.test(path
   client link", the email's address, the confirmed address and the map's reading as text. Tests: one case each in
   `IntakeScreen.test.tsx` (AC-LINK-06 chip) and `OrderReview.test.tsx` (AC-LINK-11).
 
-- [ ] **Step 7: Build checks.** AC-SEC-LINK-08: `npm --prefix frontend run build`, then
+- [x] **Step 7: Build checks.** AC-SEC-LINK-08: `npm --prefix frontend run build`, then
   `grep -rl "$AZURE_MAPS_KEY" frontend/.next/static frontend/.next/server/app/confirm || echo none` prints `none`;
   `grep -rn "NEXT_PUBLIC_[A-Z_]*MAPS" frontend .env.example --include=*.ts --include=*.tsx --include=.env.example` finds
   nothing. Add the second as a unit test in `lib/auth/link.test.ts` reading `.env.example`.
 
-- [ ] **Step 8: Playwright** `frontend/e2e/confirm.spec.ts`, skipped unless `CONFIRM_TOKEN` (a fresh link minted on a
+- [x] **Step 8: Playwright** `frontend/e2e/confirm.spec.ts`, skipped unless `CONFIRM_TOKEN` (a fresh link minted on a
   test environment with `CONFIRM_LINK=on`) is set: at 375 × 812 the page width equals the viewport and the pin moves
   by touch (`page.touchscreen`) (AC-NFR-LINK-01); the response has `content-security-policy: frame-ancestors 'none'` and
   `referrer-policy: no-referrer` (AC-SEC-LINK-07); with `AUTH_REQUIRED=on` and no session the page loads without a
   redirect while `/dashboard` and `/confirmx` redirect (AC-SEC-LINK-05); a random token shows the invalid text with
   status 404 (AC-LINK-07). It never posts Confirm (that would use the link).
 
-- [ ] **Step 9: Run and commit.** `npm --prefix frontend test && npm run typecheck`. Expected: PASS.
+- [x] **Step 9: Run and commit.** `npm --prefix frontend test && npm run typecheck`. Expected: PASS.
 
 ```bash
 git add frontend/lib/auth frontend/lib/confirm frontend/app/confirm frontend/components/confirm frontend/middleware.ts frontend/auth.ts \

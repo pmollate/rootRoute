@@ -31,10 +31,11 @@ D's Fridays; they account for 7.6 of the 29.0 points of on-time lost.
 
 | User (role in the app) | Pain point today (from the data and the sponsor's answers) | What Root Route gives them |
 |---|---|---|
-| Order desk (`order_desk`) | Email orders are keyed by hand; 27.8% arrive with an incomplete address, found only when a delivery fails | AI reads each email into checked JSON; code flags the gap and drafts the question to the client; a person approves before the WMS |
+| Order desk (`order_desk`) | Email orders are keyed by hand; 27.8% arrive with an incomplete address, found only when a delivery fails | AI reads each email into checked JSON; code flags the gap and drafts the question to the client; the client can fix the address through a one-time link; a person approves before the WMS |
 | Warehouse supervisor (`warehouse_supervisor`) | 4,826 same-day orders after the 08:00 cut-off are promised same day anyway (61% late); 691 orders skip a nearest warehouse that had stock | Cut-off-aware promise, nearest-warehouse rule, weekly stock moves, penalty reconciliation (2,002 unpaid) |
 | Carrier manager (`carrier_manager`) | Carriers are picked from a preference spreadsheet that "reflects habit, not performance" (Q-003); preferred carrier F is 54–57% on time in two regions | Lane scorecards on fair data, a recommended carrier with override, a Friday cap on D |
 | Customer support (`customer_support`) | 64% of hours on complaints; clients learn of delays from their own customers (Q-004) | Each complaint linked to its delivery and cause, with a drafted response; at-risk and Tier 1 first |
+| Client contact (no account; a one-time link) | Asked by email to retype an address, with no way to show where the entrance is; a wrong city or ZIP goes unnoticed until delivery | A link in the reply: a 6-digit code emailed to the order's sender, then the address with a map pin that fills the fields and is checked on the map (SPEC §5.17). Nothing reaches the WMS until the order desk approves |
 | Leadership (`leadership`, read-only) | A $680K decision with no stage-level cause data | Causes ranked by points lost, each fix's replayed effect, and "Ask LateLens" answers from read-only tools. The decision stays with Halcyon |
 
 ## 4. Business reason
@@ -47,7 +48,7 @@ routing engine's best case on the same data is **80.4%** (lanes + routes, full f
 
 ## 5. Sponsor and user input
 
-29 questions are logged with who answered and what each changed ([SPEC §14.1](SPEC.md)), including six answered by
+38 questions are logged with who answered and what each changed ([SPEC §14.1](SPEC.md)), including six answered by
 Halcyon's business through the organisers' question log:
 
 | Question | Halcyon's answer | What it changed |
@@ -58,16 +59,22 @@ Halcyon's business through the organisers' question log:
 | How do clients hear about delays? (Q-004) | Only by chasing; no proactive updates | Client alerts, at-risk accounts first (E14) |
 | Is email `order_received_ts` arrival or keying time? (Q-005) | Keying time | Cut-off analysis treats it as when the order entered the process |
 
+User testing of the address link (30–31 Oct, by the team's email owner, nvarada) changed it six times; each is in
+SPEC §14.1: the server looks up the typed address on Confirm and checks the city (a wrong city was passing); moving
+the pin fills the fields; a 6-digit code emailed to the order's sender comes before the address; replies ask for the
+updated address and no longer list saved addresses; a client's confirmation does not skip the supervisor's approval
+(SEC-04); the per-IP limit rose to 30 a minute because every pin move is a look-up.
+
 Open questions still waiting for an answer (carrier capacity, the vendor's proof of concept, unpaid penalties) are in
 SPEC §12 and §14; each is a visible `[PLACEHOLDER]` wherever it would change a number.
 
 ## 6. Requirements
 
-| Kind | Where | Count |
+| Kind | Where | Count (31 Oct, unique ids in the SPEC files) |
 |---|---|---|
-| Functional (`REQ-*`), each with an acceptance criterion (`AC-*`) | SPEC §5 (per module), SPEC-auth §7.1, SPEC-order-workflow, SPEC-data-upload | 147 |
+| Functional (`REQ-*`), each with an acceptance criterion (`AC-*`) | SPEC §5 (per module), SPEC-auth §7.1, SPEC-order-workflow, SPEC-data-upload | 170 |
 | Non-functional (`NFR-*`) | SPEC §8, SPEC-auth §7.2 and the module specs | 19 |
-| Security (`SEC-*`) | SPEC §8, SPEC-auth §7.3, §5.17 | 45 |
+| Security (`SEC-*`) | SPEC §8, SPEC-auth §7.3, §5.17 | 47 |
 | Assumptions and open questions | SPEC §12 (with the synthetic data register §12.1) | |
 | Constraints | SPEC §3.2 | |
 | Out of scope | SPEC §3.1 (OS-01 … OS-13) | |
@@ -81,6 +88,9 @@ test files (`python3 scripts/traceability.py`).
 - **Core (must work at submission):** diagnostic engine and cause attribution, replay, carrier lane scores and
   recommendation, email intake with address check and approval, cut-off and nearest-warehouse rules, complaint triage,
   Ask LateLens over MCP, the dashboard screens, CI/CD to Azure (SPEC §3).
+- **After submission, behind flags (off in Azure until set up):** the client address link E19: emailed code, map pin
+  that fills the fields, the typed address checked on the map (SPEC §5.17, flags `CONFIRM_LINK`, `CONFIRM_LINK_CODE`).
+  Specified, not built: the SKU catalogue with "did you mean" suggestions E20 (SPEC §5.3, synthetic SD-10).
 - **Synthetic (built on generated data, badged in the UI):** API/EDI address checks, stock placement, carrier
   tracking, mailbox simulator (SPEC §3, §12.1).
 - **Out of scope (SPEC §3.1, OS-01 … OS-13):** making Halcyon's business decisions (no sign/don't-sign verdicts),

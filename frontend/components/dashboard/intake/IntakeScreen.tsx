@@ -7,6 +7,7 @@ import { useApi } from '@/hooks/useApi';
 import { InputRefused, SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
 import s from './intake.module.css';
 import { OrderReview } from './OrderReview';
+import { toMailbox, toViewer } from '@/lib/mailTime';
 
 export type Decision = 'ALL_CLEAR' | 'CONFIRM_ADDRESS' | 'MISSING_INFO';
 interface Item { sku: string; qty: number }
@@ -15,11 +16,15 @@ export interface EmailItem {
   decision: Decision | null; inReplyTo: number | null; priority: boolean;
   /** Client facts from clients.csv, the parsed items and the first lines of the body (older APIs leave them out). */
   clientName?: string | null; tier?: string | null; items?: Item[] | null; preview?: string;
+  /** E19, with CONFIRM_LINK=on: the newest address link of this email (`expired` is worked out when read, REQ-LINK-06). */
+  link?: LinkInfo | null;
 }
+export interface LinkInfo { state: 'sent' | 'confirmed' | 'expired' | 'revoked'; expiresAt: string }
 /** lastPoll: the API's last Gmail check, scheduled or by hand. */
 /** limits: the longest email the API accepts (REQ-INT-16); older APIs leave it out and the form shows no counter. */
+/** timeZone: the mailbox zone receivedAt is stored in; times are shown in the viewer's own zone (older APIs: as stored). */
 interface Inbox { emails: EmailItem[]; lastPoll?: { startedAt: string; finishedAt: string | null; ok: boolean | null } | null;
-  limits?: { bodyChars: number; subjectChars: number; fromChars: number } }
+  limits?: { bodyChars: number; subjectChars: number; fromChars: number }; timeZone?: string }
 interface PollResult { processed: number; retried: number; ok: boolean }
 interface Address { line1: string; line2: string | null; city: string; state: string; zip: string }
 export interface Detail {
@@ -27,6 +32,8 @@ export interface Detail {
   decision: Decision | null; replyDraft: string | null; replySource: 'model' | 'template' | null;
   /** Whether a reply has gone out: an order can reach the WMS before its reply does. */
   replySent?: boolean;
+  /** E19, with CONFIRM_LINK=on (REQ-LINK-06). */
+  link?: LinkInfo | null;
   extraction: { items: Item[] } | null;
   checks: {
     address: { status: string; missing: string[]; address: Address | null;
@@ -80,13 +87,13 @@ const TEMPLATE: Record<Decision, string> = { ALL_CLEAR: 'Order confirmed', CONFI
 const REQUEST: Record<Exclude<Decision, 'ALL_CLEAR'>, string> = { CONFIRM_ADDRESS: 'Request address', MISSING_INFO: 'Request details' };
 const FIELD: Record<string, string> = { 'address.line1': 'street address', 'address.city': 'city', 'address.state': 'state', 'address.zip': 'ZIP code' };
 const ISSUE: Record<string, string> = {
-  street_not_found: 'street not found on the map', zip_mismatch: 'ZIP code does not match the city', state_mismatch: 'state does not match the city',
+  street_not_found: 'street not found on the map', city_mismatch: 'the map puts this street in another city', zip_mismatch: 'ZIP code does not match the city', state_mismatch: 'state does not match the city',
 };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const day = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return `${d} ${MONTHS[m - 1]} ${y}`; };
-/** "2026-10-21 07:42" -> "21 Oct 2026, 07:42". */
-const stamp = (at: string) => { const [date, time] = at.split(' '); return time ? `${day(date)}, ${time}` : at; };
-const timeOf = (at: string) => at.split(' ')[1] ?? at;
+/** "2026-10-21 07:42" (mailbox zone) -> "21 Oct 2026, 07:42" in the viewer's zone. */
+const stamp = (at: string, zone?: string) => { const [date, time] = toViewer(at, zone).split(' '); return time ? `${day(date)}, ${time}` : at; };
+const timeOf = (at: string, zone?: string) => toViewer(at, zone).split(' ')[1] ?? at;
 const ACTION_DONE: Record<string, string> = { approve: 'Approved', send_reply: 'Reply sent', send_to_wms: 'Sent to WMS' };
 /** A time of day as "09:14 am". */
 const clock = (t: Date) => `${String(t.getHours() % 12 || 12).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')} ${t.getHours() < 12 ? 'am' : 'pm'}`;
@@ -164,8 +171,25 @@ function toThreads(emails: EmailItem[]): Thread[] {
   });
 }
 
+/** The address counts as done: complete, a saved address, or confirmed by the client through the link (E19). */
+const addressDone = (a: string | undefined) => a === 'complete' || a === 'matched' || a === 'confirmed';
+
+/**
+ * E19 (REQ-LINK-06, SPEC §5.17): the address link's state, while the order waits on the client (SENT) or once the client
+ * confirmed. "Address not confirmed" is a link that expired unused: the order desk follows up as before.
+ */
+function linkChip(e: EmailItem): { text: string; tone: string } | null {
+  if (e.link?.state === 'confirmed') return { text: 'Confirmed by client link', tone: s.tGood };
+  if (e.status !== 'SENT') return null;
+  if (e.link?.state === 'expired') return { text: 'Address not confirmed', tone: s.tBad };
+  if (e.link?.state === 'sent') return { text: 'Link sent', tone: s.tWarn };
+  return null;
+}
+
 /** The thread's state in a few words, for its chip in the list. */
 function chip(e: EmailItem): { text: string; tone: string } {
+  const l = linkChip(e);
+  if (l && e.status === 'SENT') return l;
   if (e.status === 'WAITING') return { text: 'Waiting for AI', tone: s.tNeutral };
   if (e.clientId === null && e.decision === 'MISSING_INFO' && e.status === 'AWAITING_APPROVAL') return { text: 'Unknown sender', tone: s.tBad };
   if (e.status === 'ENTERED') return { text: 'In WMS', tone: s.tGood };
@@ -211,7 +235,7 @@ function Stepper({ d }: { d: Detail }) {
   const steps: [string, Step][] = [
     ['Received', 'done'],
     ['Parsed', d.extraction?.items.length ? 'done' : st === 'WAITING' ? 'current' : 'warn'],
-    ['Address complete', a === 'complete' || a === 'matched' ? 'done' : a ? 'warn' : 'todo'],
+    ['Address complete', addressDone(a) ? 'done' : a ? 'warn' : 'todo'],
     approval(d, st),
     // Highlighted only once an all-clear order is approved and its reply is the next thing to go.
     ['Reply sent', after('SENT', 'ENTERED') ? 'done' : st === 'APPROVED' && d.decision === 'ALL_CLEAR' ? 'current' : 'todo'],
@@ -229,7 +253,7 @@ function Stepper({ d }: { d: Detail }) {
 }
 
 /** An earlier email in the thread: folded to one line, so only the latest email is open; its header opens it (text fetched on open). */
-function Earlier({ e }: { e: EmailItem }) {
+function Earlier({ e, zone }: { e: EmailItem; zone?: string }) {
   const [open, setOpen] = useState(false);
   const fetched = useApi<Detail>(open ? `/api/intake/${e.id}` : null);
   const d = fetched.data;
@@ -240,7 +264,7 @@ function Earlier({ e }: { e: EmailItem }) {
         <span className={s.avatar}>{initials(name)}</span>
         <b>{name}</b>
         <span className={s.earlierSum}>Email {e.id} · {e.preview ?? bare(e.subject)}</span>
-        <time>{timeOf(e.receivedAt)}</time>
+        <time>{timeOf(e.receivedAt, zone)}</time>
         <span className={s.chev}><Icon size={12}>{ICON.down}</Icon></span>
       </button>
       {open && (
@@ -275,7 +299,7 @@ function ShipTo({ d }: { d: Detail }) {
       )}
       <p className={s.source}>
         From email {d.email.id}{d.email.inReplyTo ? `, completes the address missing in ${d.email.inReplyTo}` : ''}
-        {a.status === 'matched' ? ' · saved address' : v && v.confidence !== 'unavailable' ? ` · map: ${v.confidence} confidence` : ''}
+        {a.status === 'confirmed' ? ' · confirmed by client link' : a.status === 'matched' ? ' · saved address' : v && v.confidence !== 'unavailable' ? ` · map: ${v.confidence} confidence` : ''}
       </p>
     </>
   );
@@ -328,8 +352,8 @@ function Readiness({ d }: { d: Detail }) {
   const approved = ['APPROVED', 'SENT', 'ENTERED'].includes(st);
   const rows: { label: string; state: 'ok' | 'pending' | 'bad' | 'todo'; value: string }[] = [
     { label: 'Items and quantities parsed', state: d.extraction?.items.length ? 'ok' : 'bad', value: d.extraction?.items.length ? 'Done' : 'Not read' },
-    { label: 'Ship-to address complete', state: a === 'complete' || a === 'matched' ? 'ok' : a === 'unverified' ? 'pending' : 'bad',
-      value: a === 'complete' || a === 'matched' ? 'Done' : a === 'unverified' ? 'Check' : a ? 'Missing' : 'Not read' },
+    { label: 'Ship-to address complete', state: addressDone(a) ? 'ok' : a === 'unverified' ? 'pending' : 'bad',
+      value: addressDone(a) ? 'Done' : a === 'unverified' ? 'Check' : a ? 'Missing' : 'Not read' },
     d.decision === 'ALL_CLEAR'
       ? { label: 'Approval', state: approved ? 'ok' : st === 'AWAITING_APPROVAL' ? 'pending' : 'todo', value: approved ? 'Done' : st === 'AWAITING_APPROVAL' ? 'Pending' : '—' }
       : { label: 'Approval', state: 'todo', value: 'Needs full details' },
@@ -365,6 +389,11 @@ const writeDraft = (id: number, text: string | null) => {
 const READ_KEY = 'rr.intake.read';
 const loadRead = (): number[] => { try { return JSON.parse(localStorage.getItem(READ_KEY) ?? '[]'); } catch { return []; } };
 const saveRead = (ids: Set<number>) => { try { localStorage.setItem(READ_KEY, JSON.stringify([...ids])); } catch { /* storage blocked */ } };
+/** The Tier 1 section at the top of the list: collapsed or not, per viewer (a convenience kept in this browser). */
+const TIER1_KEY = 'rr.intake.tier1Collapsed';
+const loadTier1Collapsed = () => { try { return localStorage.getItem(TIER1_KEY) === '1'; } catch { return false; } };
+const saveTier1Collapsed = (v: boolean) => { try { localStorage.setItem(TIER1_KEY, v ? '1' : '0'); } catch { /* storage blocked */ } };
+const isTier1 = (t: Thread) => t.latest.tier === 'Tier 1';
 
 export function IntakeScreen() {
   const list = useApi<Inbox>('/api/intake');
@@ -395,7 +424,25 @@ export function IntakeScreen() {
   const searchRef = useRef<HTMLInputElement>(null);
   const seen = useRef<Set<number> | null>(null);
   const d = detail.data && detail.data.email.id === selected ? detail.data : undefined;
+  // An email opened while the API is still reading it (RECEIVED, no decision yet; a Gmail check or the scheduled poll
+  // may be working on it) is fetched again every 3 s for up to 2 minutes, so it does not stay "Not read yet".
+  // WAITING (the model or PII service was down) is left alone: the next check retries it.
+  const reading = d !== undefined && d.decision === null && d.email.status === 'RECEIVED';
+  const reloadDetail = useRef(detail.reload);
+  reloadDetail.current = detail.reload;
+  useEffect(() => {
+    if (!reading) return;
+    let tries = 0;
+    const t = setInterval(() => {
+      tries += 1;
+      if (tries > 40) clearInterval(t);
+      else { reloadDetail.current(); list.reload(); }
+    }, 3000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reading, selected]);
   const emails = list.data?.emails ?? [];
+  const zone = list.data?.timeZone;
   const threads = toThreads(emails);
   // The reply the operator edits in place: a saved draft or the AI's draft until they type, kept per email.
   const [edit, setEdit] = useState<{ id: number; text: string } | null>(null);
@@ -421,6 +468,9 @@ export function IntakeScreen() {
 
   // Read marks live in this browser; loaded after mount so the server render matches.
   useEffect(() => { const saved = loadRead(); if (saved.length) setRead((r) => new Set([...r, ...saved])); }, []);
+  const [tier1Collapsed, setTier1Collapsed] = useState(false);
+  useEffect(() => { setTier1Collapsed(loadTier1Collapsed()); }, []);
+  const toggleTier1 = () => setTier1Collapsed((c) => { saveTier1Collapsed(!c); return !c; });
   const markRead = (ids: number[], value: boolean) => setRead((r) => {
     const next = new Set(r);
     for (const id of ids) if (value) next.add(id); else next.delete(id);
@@ -518,7 +568,8 @@ export function IntakeScreen() {
   const invalid = (field: Field) => (pasteError?.fields[field] ? true : undefined);
   const bodyLimit = list.data?.limits?.bodyChars;
   const bodyOver = bodyLimit !== undefined && draft.body.length > bodyLimit;
-  // Received at is picked on a calendar (datetime-local, "YYYY-MM-DDTHH:mm") and sent as "YYYY-MM-DD HH:mm".
+  // Received at is picked on a calendar (datetime-local, "YYYY-MM-DDTHH:mm") in the operator's own zone and sent as
+  // "YYYY-MM-DD HH:mm" in the mailbox's zone, as the API stores it.
   // Nothing after the operator's own clock: the picker greys it out, and a typed future time blocks sending.
   const latestAt = localMinute(new Date());
   const receivedFuture = draft.receivedAt.replace(' ', 'T') > latestAt;
@@ -529,7 +580,7 @@ export function IntakeScreen() {
     let r: { id: number; decision: Decision | null };
     try {
       r = await postJSON<{ id: number; decision: Decision | null }>('/api/intake/email',
-        { ...draft, ...(replyTo ? { inReplyTo: replyTo } : {}) });
+        { ...draft, receivedAt: toMailbox(draft.receivedAt, zone), ...(replyTo ? { inReplyTo: replyTo } : {}) });
     } catch (e) {
       if (e instanceof InputRefused) setPasteError({ text: e.message, fields: e.fields });
       throw e;
@@ -553,8 +604,35 @@ export function IntakeScreen() {
   const inFolder = threads.filter((t) => folderDef.match(t.latest));
   const searched = inFolder.filter((t) => terms.every((q) => t.emails.some((e) => haystack(e).includes(q))));
   const shown = searched;
+  // Tier 1 clients' threads in their own section at the top, which the viewer can collapse; the rest below, as sorted.
+  const tier1 = shown.filter(isTier1);
+  const rest = shown.filter((t) => !isTier1(t));
   const thread = threads.find((t) => t.emails.some((e) => e.id === selected));
   const current = thread?.emails.find((e) => e.id === selected);
+  const row = (t: Thread) => {
+    const e = t.latest;
+    const unread = t.emails.some((x) => !read.has(x.id));
+    return (
+      <button key={t.id} type="button" aria-label={`Open email ${e.id}`} aria-pressed={pane === 'email' && t === thread}
+        data-unread={unread || undefined} className={`${s.row} ${unread ? s.unread : ''} ${t.emails.some((x) => fresh.has(x.id)) ? s.fresh : ''}`}
+        onClick={() => open(e.id)}>
+        {unread && <span className={s.srOnly}>Unread</span>}
+        <span className={s.avatar}>{initials(clientOf(e))}</span>
+        <span className={s.rowMain}>
+          <span className={s.rowTop}>
+            <b className={s.client}>{clientOf(e)}</b>
+            {(e.tier || e.priority) && (
+              <span className={s.tier} title={e.priority ? 'Tier 1 or at-risk client: handled first' : undefined}>{e.tier ?? 'Priority'}</span>
+            )}
+            {(() => { const l = linkChip(e); return l && <span className={`${s.chip} ${l.tone}`}>{l.text}</span>; })()}
+            <time>{timeOf(e.receivedAt, zone)}</time>
+          </span>
+          <span className={s.rowSubject}><span>{bare(e.subject)}</span>{t.emails.length > 1 && <i>{t.emails.length}</i>}</span>
+          {e.preview && <span className={s.preview}>{e.preview}</span>}
+        </span>
+      </button>
+    );
+  };
   // Opening a thread marks all its emails read; "Mark as unread" undoes it until the thread is opened again.
   const threadIds = thread?.emails.map((e) => e.id).join(',');
   useEffect(() => {
@@ -650,29 +728,15 @@ export function IntakeScreen() {
             {emails.length > 0 && shown.length === 0 && (
               <p className={s.empty}>{terms.length ? `No emails match "${query.trim()}" in ${folderDef.label}.` : 'No threads here.'}</p>
             )}
-            {shown.map((t) => {
-              const e = t.latest;
-              const unread = t.emails.some((x) => !read.has(x.id));
-              return (
-                <button key={t.id} type="button" aria-label={`Open email ${e.id}`} aria-pressed={pane === 'email' && t === thread}
-                  data-unread={unread || undefined} className={`${s.row} ${unread ? s.unread : ''} ${t.emails.some((x) => fresh.has(x.id)) ? s.fresh : ''}`}
-                  onClick={() => open(e.id)}>
-                  {unread && <span className={s.srOnly}>Unread</span>}
-                  <span className={s.avatar}>{initials(clientOf(e))}</span>
-                  <span className={s.rowMain}>
-                    <span className={s.rowTop}>
-                      <b className={s.client}>{clientOf(e)}</b>
-                      {(e.tier || e.priority) && (
-                        <span className={s.tier} title={e.priority ? 'Tier 1 or at-risk client: handled first' : undefined}>{e.tier ?? 'Priority'}</span>
-                      )}
-                      <time>{timeOf(e.receivedAt)}</time>
-                    </span>
-                    <span className={s.rowSubject}><span>{bare(e.subject)}</span>{t.emails.length > 1 && <i>{t.emails.length}</i>}</span>
-                    {e.preview && <span className={s.preview}>{e.preview}</span>}
-                  </span>
+            {tier1.length > 0 && (
+              <section className={s.group} aria-label="Tier 1 clients">
+                <button type="button" className={s.groupHead} aria-expanded={!tier1Collapsed} onClick={toggleTier1}>
+                  <Icon size={13}>{ICON.down}</Icon>Tier 1<span className={s.groupCount}>{tier1.length}</span>
                 </button>
-              );
-            })}
+                {!tier1Collapsed && tier1.map(row)}
+              </section>
+            )}
+            {rest.map(row)}
             {shown.length > 0 && others === 0 && (
               <p className={s.done}><Icon size={17}>{ICON.check}</Icon>No other threads need you</p>
             )}
@@ -775,7 +839,7 @@ export function IntakeScreen() {
 
                   <div className={s.threadBody}>
                     <div className={s.conversation}>
-                      {thread.emails.filter((e) => e.id !== d.email.id).map((e) => <Earlier key={e.id} e={e} />)}
+                      {thread.emails.filter((e) => e.id !== d.email.id).map((e) => <Earlier key={e.id} e={e} zone={zone} />)}
                       <article className={`${s.card} ${s.message}`}>
                         {(() => {
                           const name = signer(d.email.body, d.email.from);
@@ -790,7 +854,7 @@ export function IntakeScreen() {
                                   <span>{d.email.from} · to Orders desk</span>
                                 </div>
                                 <div className={s.when}>
-                                  <time>{stamp(d.email.receivedAt)}</time>
+                                  <time>{stamp(d.email.receivedAt, zone)}</time>
                                 </div>
                               </div>
                               {status === 'WAITING' && (

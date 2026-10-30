@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LLM } from '../../src/core/llm/types.js';
 import { restore } from '../../src/core/pii/redact.js';
-import { draftReply, formatDate, type ReplyFacts, templateReply } from '../../src/modules/intake/reply.js';
+import { draftReply, formatDate, type ReplyFacts, requiredPhrases, templateReply } from '../../src/modules/intake/reply.js';
 import { checkPromise } from '../../src/modules/warehouse/domain.js';
 
 const C190_SAVED = [
@@ -10,7 +10,7 @@ const C190_SAVED = [
 ];
 const base: ReplyFacts = {
   decision: 'ALL_CLEAR', clientName: 'Client 190', contact: null, items: [{ sku: 'HX-616', qty: 45 }],
-  promise: checkPromise('standard', '2026-10-21 16:51'), missing: [], candidates: [],
+  promise: checkPromise('standard', '2026-10-21 16:51'), missing: [],
   address: null, addressIssues: [], suggestion: null,
 };
 const llmSaying = (text: string): LLM => ({ name: 'fake', json: async () => { throw new Error('unused'); }, text: async () => text });
@@ -26,21 +26,31 @@ describe('reply drafting', () => {
     expect(text).toContain('after the 08:00 pick-list cut-off');
   });
 
-  it('AC-INT-06: CONFIRM_ADDRESS offers both saved addresses and names the missing fields', () => {
-    const text = templateReply({ ...base, decision: 'CONFIRM_ADDRESS', missing: ['address.line1', 'address.zip'], candidates: C190_SAVED });
+  // 31 Oct (the user): a reply asks for the updated address and never lists saved addresses.
+  it('AC-INT-06: CONFIRM_ADDRESS names the missing fields, asks for the full address and lists no saved address', () => {
+    const text = templateReply({ ...base, decision: 'CONFIRM_ADDRESS', missing: ['address.line1', 'address.zip'] });
     expect(text).toContain('street address, ZIP code');
-    expect(text).toContain('Main DC: 4411 Mill Rd');
-    expect(text).toContain('Riverside store: 87 Depot Ave');
+    expect(text).toContain('Please reply with the full, correct delivery address.');
+    for (const saved of C190_SAVED) expect(text).not.toContain(saved.line1);
+    expect(text).not.toMatch(/saved address/i);
   });
 
   it('says what the map found wrong with a complete address, and the map ZIP', () => {
-    const text = templateReply({ ...base, decision: 'CONFIRM_ADDRESS', candidates: C190_SAVED,
+    const text = templateReply({ ...base, decision: 'CONFIRM_ADDRESS',
       address: '9800 International Dr, Dock 3, Orlando, FL 19107', addressIssues: ['zip_mismatch'],
       suggestion: { line1: '9800 International Dr', city: 'Orlando', state: 'FL', zip: '32819' } });
     expect(text).toContain('9800 International Dr, Dock 3, Orlando, FL 19107');
     expect(text).toContain('ZIP code 19107 does not match Orlando, FL');
     expect(text).toContain('32819');
-    expect(text).toContain('Main DC: 4411 Mill Rd');
+    expect(text).not.toContain('Main DC');
+  });
+
+  it('says which city the map puts the street in, and that city is required text', () => {
+    const facts = { ...base, decision: 'CONFIRM_ADDRESS' as const, address: '65156 Powers Rd, Madhapur, OR 97828',
+      addressIssues: ['city_mismatch' as const], suggestion: { line1: '65156 Powers Rd', city: 'Enterprise', state: 'OR', zip: '97828' } };
+    const text = templateReply(facts);
+    expect(text).toContain('The map places 65156 Powers Rd, OR 97828 in Enterprise, not Madhapur.');
+    expect(requiredPhrases(facts)).toEqual(expect.arrayContaining(['city', 'Enterprise']));
   });
 
   it('asks for the street when the map cannot find it, without guessing one', () => {

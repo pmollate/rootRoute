@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { asRole, mockApi, renderScreen } from '../test-utils';
 import { IntakeScreen, localMinute } from './IntakeScreen';
@@ -22,12 +22,58 @@ const detail = (id: number, over: object = {}) => ({
 describe('Order emails', () => {
   afterEach(() => { cleanup(); localStorage.clear(); });
 
+  it('shows when each email arrived in the viewer\'s own time zone', async () => {
+    const zone = Intl.DateTimeFormat.prototype.resolvedOptions;
+    const spy = vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
+      .mockImplementation(function (this: Intl.DateTimeFormat) { return { ...zone.call(this), timeZone: 'Asia/Kolkata' }; });
+    try {
+      mockApi({ '/api/intake': { emails: [item(34)], timeZone: 'America/New_York' }, '/api/intake/34': detail(34) });
+      renderScreen(<IntakeScreen />);
+      expect(await screen.findByText('16:57')).toBeTruthy();   // 07:27 in New York (EDT) is 16:57 in India
+      expect(screen.queryByText('07:27')).toBeNull();
+    } finally { spy.mockRestore(); }
+  });
+
   it('E18: "Order review" in the rail opens the review in the reading pane', async () => {
     mockApi({ '/api/intake': { emails: [item(34)] }, '/api/intake/34': detail(34), '/api/intake/review': { orders: [] } });
     renderScreen(<IntakeScreen />);
     fireEvent.click(await screen.findByRole('button', { name: 'Order review' }));
     expect(await screen.findByText('No all-clear orders are waiting for approval.')).toBeTruthy();
   });
+
+  it('lists Tier 1 threads first in a section that collapses, and remembers it', async () => {
+    mockApi({ '/api/intake': { emails: [
+      item(70, { tier: 'Tier 1', clientName: 'Client 070' }), item(71, { tier: 'Tier 3', clientName: 'Client 071', priority: false }),
+      item(72, { tier: 'Tier 1', clientName: 'Client 072' })] } });
+    const view = renderScreen(<IntakeScreen />);
+    const toggle = await screen.findByRole('button', { name: /Tier 1/, expanded: true });
+    expect(toggle.textContent).toContain('2');
+    const section = screen.getByRole('region', { name: 'Tier 1 clients' });
+    expect(within(section).getByRole('button', { name: 'Open email 70' })).toBeTruthy();
+    expect(within(section).getByRole('button', { name: 'Open email 72' })).toBeTruthy();
+    expect(within(section).queryByRole('button', { name: 'Open email 71' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open email 71' })).toBeTruthy(); // the others stay below
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { name: /Tier 1/, expanded: false })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Open email 70' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open email 71' })).toBeTruthy();
+    view.unmount();
+    renderScreen(<IntakeScreen />); // the choice is kept for this viewer
+    expect(await screen.findByRole('button', { name: /Tier 1/, expanded: false })).toBeTruthy();
+  });
+
+  // Live on 31 Oct: an email opened while the API was still reading it stayed "Not read yet" until the page was reloaded.
+  it('an open email that is still being read is fetched again until it is decided', async () => {
+    const reading = detail(60, { email: { ...detail(60).email, status: 'RECEIVED' }, decision: null, extraction: null, replyDraft: null,
+      checks: { address: null, promise: null, warehouse: null, carrier: null } });
+    const routes: Record<string, unknown> = { '/api/intake': { emails: [item(60, { status: 'RECEIVED', decision: null })] }, '/api/intake/60': reading };
+    mockApi(routes);
+    renderScreen(<IntakeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open email 60' }));
+    await screen.findAllByText(/Not read yet|No items read/);
+    routes['/api/intake/60'] = detail(60); // the API has finished reading it
+    expect(await screen.findByText('HX-447', {}, { timeout: 5000 })).toBeTruthy();
+  }, 10000);
 
   it('AC-INT-10 (UI): an email from an unknown sender says in the order summary that it was not read', async () => {
     const unknown = detail(50, {
@@ -325,6 +371,24 @@ describe('Order emails', () => {
       expect(JSON.parse(String(init?.body)).receivedAt).toBe('2026-09-14 09:30');
     });
 
+    it('the picked time is the operator\'s own clock, sent in the mailbox\'s zone', async () => {
+      const zone = Intl.DateTimeFormat.prototype.resolvedOptions;
+      const spy = vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
+        .mockImplementation(function (this: Intl.DateTimeFormat) { return { ...zone.call(this), timeZone: 'Asia/Kolkata' }; });
+      try {
+        const fetch = mockApi({ '/api/intake': { emails: [], timeZone: 'America/New_York' }, '/api/intake/email': { id: 7, decision: 'ALL_CLEAR' } });
+        renderScreen(<IntakeScreen />);
+        await waitFor(() => expect(calls(fetch).some(([url]) => url.endsWith('/api/intake'))).toBe(true));
+        await openPaste();
+        type('Received at', '2026-09-14T19:00');
+        type('Body', 'Please send 10 x HX-220.');
+        fireEvent.click(process());
+        await waitFor(() => expect(calls(fetch).some(([url]) => url.endsWith('/api/intake/email'))).toBe(true));
+        const [, init] = calls(fetch).find(([url]) => url.endsWith('/api/intake/email'))!;
+        expect(JSON.parse(String(init?.body)).receivedAt).toBe('2026-09-14 09:30');
+      } finally { spy.mockRestore(); }
+    });
+
     it('AC-INT-19: the body shows its length against the limit; over it, the form says so and does not send', async () => {
       const fetch = mockApi({ '/api/intake': { emails: [], limits: { bodyChars: 1000, subjectChars: 300, fromChars: 320 } } });
       renderScreen(<IntakeScreen />);
@@ -428,5 +492,41 @@ describe('Order emails', () => {
       window.history.replaceState(null, '', '/');
       vi.unstubAllGlobals();
     });
+  });
+});
+
+describe('Order emails: address link states (E19, SPEC §5.17)', () => {
+  afterEach(() => { cleanup(); localStorage.clear(); });
+  const link = (state: string) => ({ state, expiresAt: '2026-10-22T07:27:00.000Z' });
+
+  it('AC-LINK-06 (UI): an expired unused link shows "Address not confirmed"; a live one "Link sent"; a used one "Confirmed by client link"', async () => {
+    mockApi({ '/api/intake': { emails: [
+      item(21, { status: 'SENT', link: link('expired') }),
+      item(22, { status: 'SENT', link: link('sent'), priority: false }),
+      item(23, { status: 'AWAITING_APPROVAL', decision: 'ALL_CLEAR', link: link('confirmed'), priority: false }),
+      item(24, { status: 'SENT', link: null, priority: false }),
+    ] } });
+    renderScreen(<IntakeScreen />);
+    const row = (id: number) => screen.getByRole('button', { name: `Open email ${id}` }).textContent;
+    await screen.findByRole('button', { name: 'Open email 21' });
+    expect(row(21)).toContain('Address not confirmed');
+    expect(row(22)).toContain('Link sent');
+    expect(row(23)).toContain('Confirmed by client link');
+    for (const t of ['Address not confirmed', 'Link sent', 'Confirmed by client link']) expect(row(24)).not.toContain(t);
+  });
+
+  it('REQ-LINK-11 (UI): an order re-decided from the client link counts its address as done and says where it came from', async () => {
+    const confirmed = detail(23, { decision: 'ALL_CLEAR',
+      checks: { address: { status: 'confirmed', missing: [], validation: null,
+        address: { line1: '400 S Orange Ave', line2: null, city: 'Orlando', state: 'FL', zip: '32801' } },
+      promise: { promiseDate: '2026-10-25', reason: null }, warehouse: null, carrier: null } });
+    mockApi({ '/api/intake': { emails: [item(23, { decision: 'ALL_CLEAR', link: link('confirmed') })] }, '/api/intake/23': confirmed });
+    renderScreen(<IntakeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open email 23' }));
+    expect(await screen.findByText(/confirmed by client link/)).toBeTruthy();
+    expect(screen.getByText('400 S Orange Ave', { exact: false })).toBeTruthy();
+    const ready = screen.getByRole('region', { name: 'Readiness' });
+    expect(ready.textContent).toContain('Ship-to address completeDone');
+    expect(screen.getByRole('list', { name: 'Order progress' }).querySelector('li:nth-child(3)')!.className).toMatch(/step_done/);
   });
 });

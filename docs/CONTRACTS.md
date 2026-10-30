@@ -156,9 +156,16 @@ export interface LinkView {
   pin: LinkPin | null;                     // the map's best match, null when there is none
   expiresAt: string;                       // ISO 8601 with offset
   synthetic: boolean;
-  map: { kind: 'sas'; token: string; expiresAt: string };   // Azure Maps SAS token, rate-capped, expiresAt ≤ the link's (SEC-LINK-08)
+  map: { kind: 'sas'; token: string; expiresAt: string } | null;   // Azure Maps SAS token, rate-capped, expiresAt ≤ the link's (SEC-LINK-08); null when none can be issued (the page then has no map, REQ-LINK-02)
 }
-export interface MapReading { line1: string | null; city: string | null; state: string | null; zip: string | null; distanceM: number }
+// v0.18 (SPEC §5.17, REQ-LINK-12 to -14): a reading of the pin (reverse geocode) or of the typed address (forward geocode).
+export interface MapReading {
+  of: 'pin' | 'address';
+  found: boolean;                          // false: the map found no point; the four parts are then null (REQ-LINK-14)
+  line1: string | null; city: string | null; state: string | null; zip: string | null;
+  distanceM: number | null;                // the pin's distance from its start; null for a reading of the address
+  differs: ('city' | 'state' | 'zip')[];   // typed parts the map's reading of the typed address does not match; [] when all match (REQ-LINK-13)
+}
 export type LinkState = 'sent' | 'confirmed' | 'expired' | 'revoked';
 ```
 
@@ -233,7 +240,7 @@ module exposes `build(ctx) -> dict[str, DataFrame]`; later modules may read earl
 | Range | Owner | Tables |
 |---|---|---|
 | `001–099` | B | `audit_log` |
-| `100–199` | A | `client_domains`, `saved_addresses`, `intake_emails`, `intake_extractions`, `outbound_messages`, `inbound_orders`, `alerts`, `complaint_triage`, `intake_polls` (101: one row per Gmail check — trigger `schedule` \| `button`, query, started_at, finished_at, fetched, processed, retried, failed, ok, error); `address_confirm_tokens` and new `saved_addresses` columns (103, E19, after submission; below) |
+| `100–199` | A | `client_domains`, `saved_addresses`, `intake_emails`, `intake_extractions`, `outbound_messages`, `inbound_orders`, `alerts`, `complaint_triage`, `intake_polls` (101: one row per Gmail check — trigger `schedule` \| `button`, query, started_at, finished_at, fetched, processed, retried, failed, ok, error); `address_confirm_tokens` and new `saved_addresses` columns (103, E19, after submission; below); `sku_catalog` (104, E20, after submission; below) |
 | `200–299` | B | (none planned) |
 | `300–399` | C | `recommendations`, `override_log`, `order_events`, `app_settings` |
 
@@ -269,17 +276,29 @@ D10 (assistant) adds **no table**: questions and answers are not stored (SEC-ASK
 | | `used_at`, `revoked_at` | timestamptz | set once; a link with either set, or past `expires_at`, is invalid |
 | | `prefill` | jsonb NOT NULL | the address and start pin shown on the page |
 | | `confirmed_address` | jsonb | `LinkAddress`, set on confirmation |
-| | `lat`, `lon` | double precision | the confirmed pin |
-| | `map_reading` | jsonb | the reverse-geocoded reading shown at the second Confirm |
-| | `map_lookups` | int NOT NULL DEFAULT 0 | capped at 20 (SEC-LINK-04) |
+| | `lat`, `lon` | double precision | the confirmed pin: the client's, or the geocoded point of a matching typed address; null when confirmed without one (REQ-LINK-13, -14) |
+| | `map_reading` | jsonb | the pending check (`checkId`, pin or none, typed address, reading) until confirmation, then the `MapReading` stored with it (of the pin or of the address) |
+| | `map_lookups` | int NOT NULL DEFAULT 0 | capped at 20, forward and reverse geocodes together (SEC-LINK-04) |
 | | `synthetic` | boolean NOT NULL | true for every demo order |
 | `saved_addresses` (new columns) | `source` | text NOT NULL DEFAULT `'seed'` | `seed` \| `link`. The seed (`npm run seed`) owns only `seed` rows: it deletes and rewrites those and never touches `link` rows (REQ-LINK-05) |
-| | `lat`, `lon` | double precision | from the confirmed pin |
+| | `lat`, `lon` | double precision | from the confirmed pin; null for an address confirmed without one (REQ-LINK-05) |
 | | `email_id` | int (no foreign key) | the order whose approval saved it; no FK so that `TRUNCATE intake_emails … CASCADE` (a demo or test reset) cannot empty `saved_addresses`. Provenance only: after a reset with `RESTART IDENTITY` the id can match a newer email, so never join on it |
 | | `confirmed_at` | timestamptz | when the client confirmed it |
 
 Index: `address_confirm_tokens (email_id) WHERE used_at IS NULL AND revoked_at IS NULL`. A `source = 'link'` row is
 written only when the order is approved (REQ-LINK-05).
+
+**Migration `104_sku_catalog.sql`** (A; E20, SPEC §5.3 "SKU catalogue check", v0.18). Writer: `npm run seed` only,
+which deletes and rewrites every row from the SD-10 generator's output (REQ-SKU-01). Read by the intake's SKU check,
+always filtered by the email's `client_id` (REQ-SKU-03).
+
+| Column | Type | Note |
+|---|---|---|
+| `client_id` | text NOT NULL | a client in `clients.csv` |
+| `sku` | text NOT NULL | the code as the catalogue writes it (`HX-989`, `SKU-001-1`); UNIQUE (`client_id`, `sku`) |
+| `name` | text NOT NULL | product name; UNIQUE (`client_id`, `name`) |
+| `unit` | text NOT NULL | pack or unit shown in the "did you mean" question |
+| `synthetic` | boolean NOT NULL DEFAULT true | always true (SD-10) |
 
 ## 6. API JSON shapes
 
@@ -312,10 +331,10 @@ Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 
 | `POST /api/overrides` | C | body `{ orderRef, from, to, reason, user }` → `{ id }` (needs `x-api-key`) |
 | `POST /api/orders/:ref/events` | C | Called by the simulated WMS and carriers. `Authorization: Bearer <WMS_EVENTS_TOKEN>` (401; 503 when unset). `:ref` = `email:<id>`. body `{ event: "picked" \| "picked_up" \| "in_transit" \| "out_for_delivery" \| "delivered", ts?: "YYYY-MM-DD HH:mm" }` → `201 { event, ts }`; `200` for a repeat with the same `ts`; `409 { error }` out of order, earlier than the previous event, a changed repeat, or not in the WMS; `404` unknown email; `400 { error: "invalid" }` (also for a `ts` that matches the format but is not a real date and time, e.g. `2026-02-31 10:00`) |
 | `GET /api/intake` | A | `{ emails: [{ id, source, from, subject, receivedAt, clientId, status, decision, inReplyTo, priority }], pollMinutes, lastPoll: { trigger, startedAt, finishedAt, processed, retried, failed, ok } \| null, limits: { bodyChars, subjectChars, fromChars } }` — priority clients first; `limits` are the longest body, subject and `from` the paste endpoint accepts (REQ-INT-18); `pollMinutes` is 0 when the automatic check is off or Gmail is not set up; `status` RECEIVED \| WAITING \| AWAITING_APPROVAL \| APPROVED \| SENT \| ENTERED \| REJECTED. With `CONFIRM_LINK=on` each email also has `link: { state: LinkState, expiresAt } \| null` (newest link; `expired` is computed when read and shown as "Address not confirmed", REQ-LINK-06) |
-| `GET /api/intake/:id` | A | `{ email: { id, source, from, subject, body, redactedBody, receivedAt, clientId, status, inReplyTo }, extraction, decision, checks: { address, promise, warehouse, carrier }, replyDraft, replySource }` — `redactedBody` is what the AI model saw; `replyDraft` has names put back (what would be sent). With `CONFIRM_LINK=on`: a `CONFIRM_ADDRESS` draft holds `[CONFIRM_LINK]`, and the response adds `link` as in `GET /api/intake` |
+| `GET /api/intake/:id` | A | `{ email: { id, source, from, subject, body, redactedBody, receivedAt, clientId, status, inReplyTo }, extraction, decision, checks: { address, promise, warehouse, carrier }, replyDraft, replySource }` — `redactedBody` is what the AI model saw; `replyDraft` has names put back (what would be sent). With E20 (v0.18), `checks.items` is `{ catalogue: "checked" \| "none", synthetic: true, items: [{ text, sku: string \| null, known: boolean, suggestions: [{ sku, name, unit, score }] }] }` (at most 3 suggestions, from the email's client only; `null` with no client, REQ-SKU-05, -07). With `CONFIRM_LINK=on`: a `CONFIRM_ADDRESS` draft holds `[CONFIRM_LINK]`, and the response adds `link` as in `GET /api/intake` |
 | `POST /api/intake/email` | A | body `{ from, subject, body, receivedAt, inReplyTo? }` → `{ id, status, decision, reason? }` (needs `x-api-key`); `status: WAITING`, `decision: null` when PII redaction or the model is unreachable (posting again retries); an unknown sender domain → status AWAITING_APPROVAL, decision MISSING_INFO, reason "unknown sender", with no PII or model call (E16). Bad input (REQ-INT-16 to -18) → 400 `{ error, fields }`: `fields` maps each refused field to a readable sentence, `error` joins them (or says what to send when the body is not a JSON object); 413 over the 1 MB request limit, 400 for broken or empty JSON, 415 for a non-JSON type, all with `fields: {}`. Nothing is stored. `subject` may be left out (empty) |
 | `POST /api/intake/fetch` | A | body `{ query?, max? }` → `{ pollId, query, fetched, processed, retried, failed, ok, error, results: [{ id, status, decision }] }` — runs the same Gmail check as the timer (E15): waiting emails again, then new mail since the last successful check less 2 minutes; a message in a thread we hold is the client's answer (needs `x-api-key`; 503 without `GMAIL_*`; 409 while another check runs). The log line `intake fetched from Gmail` (and the timer's `gmail poll done`) carries `emailIds` (NFR-03) |
-| `GET /api/intake/review` | A | `{ orders: [{ id, from, clientId, clientName, tier, priority, receivedAt, items, region, promiseDate, warehouseId, carrier, carrierReason, choices: [{ carrier, status, onTime, meanRate, reason }], blocked, commitment, promiseReason, warehouseReason, warnClient, addressStatus, blockedLanes: [{ carrier, onTime }] }] }` — ALL_CLEAR orders awaiting approval, priority first; `choices` never holds a blocked carrier (E18). `meanRate` is the lane's mean freight per shipment (USD) for the card's "cost vs recommended"; the other added fields are copied from the stored checks (promise, warehouse, address, carrier) for the review card; `blockedLanes` are shown, never offered. With `CONFIRM_LINK=on` each order adds `addressSource: "email" \| "saved" \| "link"` and, for `link`, `emailAddress`, `confirmedAddress` and `mapReading` (REQ-LINK-11) |
+| `GET /api/intake/review` | A | `{ orders: [{ id, from, clientId, clientName, tier, priority, receivedAt, items, region, promiseDate, warehouseId, carrier, carrierReason, choices: [{ carrier, status, onTime, meanRate, reason }], blocked, commitment, promiseReason, warehouseReason, warnClient, addressStatus, blockedLanes: [{ carrier, onTime }] }] }` — ALL_CLEAR orders awaiting approval, priority first; `choices` never holds a blocked carrier (E18). `meanRate` is the lane's mean freight per shipment (USD) for the card's "cost vs recommended"; the other added fields are copied from the stored checks (promise, warehouse, address, carrier) for the review card; `blockedLanes` are shown, never offered. With `CONFIRM_LINK=on` each order adds `addressSource: "email" \| "saved" \| "link"` and, for `link`, `emailAddress`, `confirmedAddress`, `confirmedPin: LinkPin \| null` (null: "no map point") and `mapReading: MapReading \| null` (`of` picks "Map reads the pin as …" or "Map reads the address as …", REQ-LINK-11) |
 | `POST /api/intake/:id/action` | A | body `{ action: "approve" \| "reject" \| "send_reply" \| "send_to_wms", reply?, reason?, carrier? }` → `{ status }` (needs `x-api-key` while `AUTH_REQUIRED=off`); `send_reply` 403 off the allow-list, 503 without Gmail; `reject` needs `reason` (400) and only for an ALL_CLEAR order awaiting approval (status REJECTED); `approve` with a different `carrier` needs `reason` (400), refuses a blocked carrier (409) and logs `override_log` (via C's `logOverride`) with the signed-in user; the actor comes from the token, never the body. `send_to_wms` with `WMS_URL` set first hands the order to the WMS (below) and records `wms_entered`; 503 `{ error: "WMS not reachable" }` leaves the status unchanged; the audit row's payload holds `wmsOrderId`. With `CONFIRM_LINK=on`: `send_reply` on a `CONFIRM_ADDRESS` email mints the link (the sent text holds it, `outbound_messages.body` keeps `[CONFIRM_LINK]`); `approve` of a link-confirmed order also writes the `saved_addresses` row (`source = 'link'`) |
 | `POST /api/orders` | A | API order JSON `{ order_ref, client_id, ship_to, items }` → `201 { id, status, address }` or `422 { id, missing }` (needs `x-api-key`) |
 | `POST /api/orders/edi` | A | text/plain body (simplified EDI 850) → `{ id, status: "accepted" \| "held", missing }` (needs `x-api-key`) |
@@ -325,7 +344,10 @@ Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 
 | `POST /api/mcp` | C | MCP Streamable HTTP (stateless, JSON responses). Tools, all read-only: `overview`, `delivery_causes`, `scenario`, `lane_scores`, `recommend_carrier`, `check_promise`. Needs `Authorization: Bearer <MCP_TOKEN>`; 401 without it, 503 when `MCP_TOKEN` is unset. From D10 the tools come from `modules/mcp/tools.ts` (§1.1); nothing else changes |
 | `POST /api/assistant` | C | *After submission (D10, SPEC §5.16; built 30 Oct, flag off).* body `AssistantRequest` → `AssistantAnswer`. Called by the Ask LateLens panel and by Overview's Router. Every role (SPEC-auth §4.2); `x-api-key` while `AUTH_REQUIRED=off`. 404 when `ASK_ASSISTANT` is off; 400 `{ error: "too_long" }` for a question over 500 characters, 400 `{ error: "invalid" }` for any other bad body (history limits in §1.1); 429 `{ error: "rate_limited" }`; 503 `{ error: "assistant_unavailable" }` when the model is unreachable, a recording is missing or a tool's read fails (no server text). Writes no table |
 | `GET /api/confirm/:token` | A | *After submission (E19, SPEC §5.17).* Public, token-gated; the request log shows the path as `/api/confirm/[token]` (SEC-LINK-01). → `LinkView` (with the SAS map credential); 404 `{ error: "link_invalid" }` for an unknown, expired, used or revoked link, byte-identical in every case; 404 also when `CONFIRM_LINK` is off. Never uses up the link |
-| `POST /api/confirm/:token` | A | *After submission (E19).* Public, token-gated; through the web proxy's `Origin` check. body `{ address: LinkAddress, pin: LinkPin, checkId? }` → `{ status: "confirmed" }`; 409 `{ error: "needs_second_confirm", reading: MapReading, checkId }` (REQ-LINK-03); 400 `{ error: "invalid" }` (SEC-LINK-10, link stays unused); 404 `link_invalid`; 429 `rate_limited` |
+| `POST /api/confirm/:token` | A | *After submission (E19).* Public, token-gated; through the web proxy's `Origin` check. body `{ address: LinkAddress, pin?: LinkPin, checkId? }` (v0.18: `pin` only from a working map the client used, REQ-LINK-15) → `{ status: "confirmed" }`; 409 `{ error: "needs_second_confirm", reading: MapReading, checkId }` (REQ-LINK-03, -13, -14; the `checkId` counts only for the same typed address and the same pin or no pin); 400 `{ error: "invalid" }` (SEC-LINK-10, link stays unused); 404 `link_invalid`; 429 `rate_limited` (also after 20 map look-ups, forward and reverse together, SEC-LINK-04); 503 `{ error: "map_unavailable" }` when the map cannot be reached (link stays unused, REQ-LINK-12) |
+| `POST /api/confirm/:token/lookup` | A | *E19, REQ-LINK-16 (31 Oct).* Public, token-gated, same proxy and rate limit as the confirm routes; the log shows `/api/confirm/[token]/lookup`. body `{ pin: LinkPin, line2?: string | null }` → `{ reading: { line1, city, state, zip, found }, checkId: string | null }` (`checkId` only when all four parts were read); 400 `invalid`; 404 `link_invalid`; 429 `rate_limited` (counted in the 20 look-ups); 503 `map_unavailable`. Never uses up the link |
+| `POST /api/confirm/:token/code` | A | *E19, REQ-LINK-18 (31 Oct).* Public, token-gated. → `{ sentTo, retryIn: 60 }`; 429 `{ error: "code_wait", retryIn }`; 503 `email_unavailable`; 404 `link_invalid` |
+| `POST /api/confirm/:token/verify` | A | *E19, REQ-LINK-19.* body `{ code: "123456" }` → `{ verifyToken }`; 422 `{ error: "code_wrong", triesLeft }` or `{ error: "code_expired" }`; 400 `invalid`; 404 `link_invalid`. The address view (GET), `/lookup` and Confirm take the token as the `x-link-verify` header and answer 401 `{ error: "verify_required" }` without it (`CONFIRM_LINK_CODE` on); unverified GET → `{ verify: { sentTo }, expiresAt, synthetic }` |
 
 **WMS interface (assumed, `[WMS_CONTRACT]`; served by `tools/wms-simulator`).** `POST {WMS_URL}/orders`,
 `Authorization: Bearer <WMS_TOKEN>`, body `{ orderRef, clientId, warehouseId, carrier, commitment, promiseDate,
@@ -346,7 +368,7 @@ waits 5 s; anything else is a failure.
 `INTAKE_MAX_BODY_CHARS` (default 20000) and `INTAKE_MAX_SUBJECT_CHARS` (default 300) (longest pasted body and subject, REQ-INT-18),
 After submission (SPEC §5.16, §5.17; values are design settings, not data): `ASK_ASSISTANT` (`on` \| `off`, default off;
 read by API and web), `ASK_MAX_TOOL_CALLS` (default 5), `ASK_RATE_PER_MINUTE` (default 10); `CONFIRM_LINK` (`on` \| `off`,
-default off; API and web), `CONFIRM_LINK_HOURS` (default 24), `CONFIRM_LINK_RATE_PER_MINUTE` (default 10, web),
+default off; API and web), `CONFIRM_LINK_HOURS` (default 24), `CONFIRM_LINK_CODE` (on/off, default on: the emailed verification code, REQ-LINK-17), `CONFIRM_LINK_RATE_PER_MINUTE` (default 10, web),
 `AUTH_URL` (also read by the API with `CONFIRM_LINK=on`: the link is `<AUTH_URL>/confirm/<token>`; the API refuses to start
 without it, REQ-LINK-09), `AZURE_MAPS_ACCOUNT_ID` (API only: the Maps account's Azure Resource Manager id, for `listSas`),
 `AZURE_MAPS_SAS_PRINCIPAL_ID` (API only: principal id of the user-assigned identity the SAS token is issued for; it holds
@@ -363,4 +385,4 @@ the Maps data-reader role). Both are for the SAS tile credential (SEC-LINK-08, Q
 - Every test names the acceptance criteria it covers, e.g. `it('AC-PRO-01: …')` / `def test_ac_diag_01_…`.
 - Commit messages: `feat(a): …`, `fix(b): …`, `test(c): …`, `docs: …`.
 - Never edit `Halcyon-Hackathon-Dataset/`. Never commit `.env` or anything under `backend/synthetic-data/out/`.
-- Folders per resource: A owns `backend/analytics/intake`, `backend/api/src/modules/intake`, `frontend/components/dashboard/intake`, `frontend/app/dashboard/intake`; B owns `core` and `warehouse` in the same places plus `overview` and `replay` screens; C owns `carriers` (and `mcp`, and after submission `backend/api/src/modules/assistant` and `frontend/components/dashboard/assistant`). E19 sits in A's folders (`modules/intake/link.ts`, migration 103, `frontend/app/confirm/`), built by C only if A agrees (SPEC Q-LINK-01). Shared: `frontend/config/dashboard.ts` (screen list), `frontend/components/dashboard/ui.tsx`.
+- Folders per resource: A owns `backend/analytics/intake`, `backend/api/src/modules/intake`, `frontend/components/dashboard/intake`, `frontend/app/dashboard/intake`; B owns `core` and `warehouse` in the same places plus `overview` and `replay` screens; C owns `carriers` (and `mcp`, and after submission `backend/api/src/modules/assistant` and `frontend/components/dashboard/assistant`). E19 sits in A's folders (`modules/intake/link.ts`, migration 103, `frontend/app/confirm/`), built by C only if A agrees (SPEC Q-LINK-01). E20 is A's: `modules/intake/sku.ts`, migration 104, `backend/synthetic-data/generators/sd10_catalog.py`. Shared: `frontend/config/dashboard.ts` (screen list), `frontend/components/dashboard/ui.tsx`.

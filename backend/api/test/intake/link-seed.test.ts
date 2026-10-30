@@ -17,6 +17,9 @@ describe.skipIf(!hasDb)('E19 migration 103 and re-seeding (needs test database)'
       used_at: 'timestamp with time zone', revoked_at: 'timestamp with time zone', prefill: 'jsonb not null',
       confirmed_address: 'jsonb', lat: 'double precision', lon: 'double precision', map_reading: 'jsonb',
       map_lookups: 'integer not null', synthetic: 'boolean not null',
+      // migration 105 (REQ-LINK-17 to -19, SEC-LINK-12): hashes of the code and the verification token, never the values
+      code_hash: 'character', code_sent_at: 'timestamp with time zone', code_expires_at: 'timestamp with time zone',
+      codes_sent: 'integer not null', code_tries: 'integer not null', verify_hash: 'character', verified_at: 'timestamp with time zone',
     });
     expect(await columns('saved_addresses')).toMatchObject({
       source: 'text not null', lat: 'double precision', lon: 'double precision', email_id: 'integer', confirmed_at: 'timestamp with time zone',

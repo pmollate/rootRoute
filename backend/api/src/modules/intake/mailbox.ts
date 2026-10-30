@@ -104,3 +104,15 @@ export async function sendReply(gmail: Pick<GmailClient, 'sendMessage'>, r: Outb
   if (!allow.has(to)) throw new Error(`${to} is not on the allow-list (ALLOW_LIST): reply not sent`);
   return gmail.sendMessage(replyMessage(r), r.threadId);
 }
+
+/** A new plain-text message (not a reply) from the orders mailbox, e.g. the E19 verification code (REQ-LINK-18). */
+export function newMessage(m: { to: string; subject: string; body: string }): string {
+  return `${[`To: ${m.to}`, `Subject: ${m.subject}`, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=utf-8'].join('\n')}\n\n${m.body}`;
+}
+
+/** SEC-03: as sendReply, only to an address on ALLOW_LIST; a new thread. */
+export async function sendNew(gmail: Pick<GmailClient, 'sendMessage'>, m: { to: string; subject: string; body: string }, allow: Set<string>): Promise<string> {
+  const to = senderAddress(m.to);
+  if (!allow.has(to)) throw new Error(`${to} is not on the allow-list (ALLOW_LIST): message not sent`);
+  return gmail.sendMessage(newMessage({ ...m, to }), null);
+}

@@ -1,0 +1,193 @@
+/* E19 /confirm/{token}: one column, nothing wider than the screen, so 375 px has no sideways scrolling (NFR-LINK-01). */
+.page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  color-scheme: light; /* light only: form controls too */
+}
+.page *, .page *::before, .page *::after { box-sizing: border-box; }
+.brand { margin: 0 0 8px; color: var(--ink-2); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+/* State and ZIP side by side; both stay at least 120 px, so they wrap at very narrow widths */
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 14px; }
+.head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.head h1 { margin: 0; font-size: 1.4rem; line-height: 1.25; }
+.muted { margin: 6px 0; color: var(--ink-2); font-size: 0.95rem; }
+.message { margin: 24px 0 16px; font-size: 1.1rem; }
+.form { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
+/* required fields: a red asterisk after the label */
+.req { margin-left: 2px; color: var(--bad); }
+.field { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 0.95rem; }
+/* 16 px inputs: phones do not zoom in on focus */
+.field input, .field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 400;
+}
+.field input:focus-visible, .field select:focus-visible { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+.mapBlock { display: flex; flex-direction: column; gap: 6px; }
+.mapBlock[hidden] { display: none; } /* a refused map stays mounted, out of sight */
+.mapWrap { width: 100%; }
+.map { width: 100%; height: 280px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; touch-action: none; }
+.check { display: grid; gap: 10px; }
+.box { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.box h2 { margin: 0 0 4px; font-size: 0.95rem; }
+.box p { margin: 0; }
+.note { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
+.button {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* "Check your inbox" (E19 verification code): a stepper, one card, a trust row. Wider than the address form. */
+.verifyPage { max-width: 680px; }
+.stepper { display: flex; align-items: center; gap: 10px; margin: 8px 0 20px; padding: 0; list-style: none; font-size: 0.9rem; color: var(--ink-2); }
+.stepper li { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; }
+.stepper li:not(:last-child)::after { content: ''; flex: 1; height: 2px; margin-left: 4px; border-radius: 2px; background: var(--line); }
+.step, .stepNow { font-weight: 500; }
+.stepNow { color: var(--ink); font-weight: 600; }
+.stepNow::after { background: var(--navy) !important; }
+.stepDot { display: grid; flex: none; place-items: center; width: 28px; height: 28px; border: 1.5px solid var(--line-strong);
+  border-radius: 50%; font-size: 0.8rem; background: var(--surface); }
+.stepNow .stepDot { border-color: var(--navy); color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+.card { overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04); }
+.cardHead { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center; padding: 22px; border-bottom: 1px solid var(--line); }
+.cardHead h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.02em; }
+.lead { margin: 6px 0 0; color: var(--ink-2); }
+.lead b { color: var(--ink); }
+.ring { position: relative; display: grid; place-items: center; width: 84px; height: 84px; }
+.ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.ringTrack, .ringLeft { fill: none; stroke-width: 5; }
+.ringTrack { stroke: var(--line); }
+.ringLeft { stroke: var(--navy); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+.ring span { font: 600 0.95rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--navy); font-variant-numeric: tabular-nums; }
+.cardBody { display: flex; flex-direction: column; gap: 14px; padding: 22px; }
+.label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.emailRow { display: flex; flex-wrap: wrap; gap: 10px; margin-top: -6px; }
+.emailBox { display: flex; flex: 1 1 240px; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--bg); color: var(--ink); overflow-wrap: anywhere; }
+.emailBox svg, .sendBtn svg, .sent svg, .button svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round; }
+.emailBox svg { color: var(--ink-2); }
+.sendBtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 18px;
+  border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.sendBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+.sent { display: flex; align-items: center; gap: 6px; margin: -4px 0 0; color: var(--gain-ink); font-size: 0.95rem; }
+.digits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 18px repeat(3, minmax(0, 1fr)); gap: 10px; align-items: center; }
+.digit { width: 100%; min-width: 0; height: 64px; padding: 0; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface);
+  color: var(--ink); font-family: inherit; font-size: 1.6rem; font-weight: 600; text-align: center; }
+.digit:focus-visible { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px var(--navy-soft); }
+.dash { height: 2px; border-radius: 2px; background: var(--line-strong); }
+.digitsMeta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: -4px;
+  color: var(--ink-2); font-size: 0.9rem; }
+.linkBtn { padding: 0; border: 0; background: none; color: var(--navy); font: inherit; font-weight: 600; cursor: pointer; }
+.linkBtn:disabled { color: var(--ink-2); font-weight: 500; cursor: not-allowed; }
+.cardBody .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--navy); color: #fff; }
+.cardFoot { margin: 0; padding: 14px 22px; border-top: 1px solid var(--line); background: var(--bg); color: var(--ink-2); font-size: 0.9rem; text-align: right; }
+@media (max-width: 480px) {
+  .cardHead { grid-template-columns: 1fr; justify-items: start; }
+  .stepper span:not(.stepDot) { display: none; }
+  .stepNow span:not(.stepDot) { display: inline; }
+  .digits { gap: 6px; grid-template-columns: repeat(3, minmax(0, 1fr)) 10px repeat(3, minmax(0, 1fr)); }
+  .digit { height: 54px; font-size: 1.35rem; }
+}
+
+/* "Confirm the delivery address": a card with the form on the left and the map on the right (one column without a
+   map, and on phones the map below the form). */
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.addrPage { max-width: 1040px; }
+.stepDone { color: var(--ink); font-weight: 500; }
+.stepDone::after { background: var(--navy) !important; }
+.stepDone .stepDot { border-color: var(--navy); background: var(--navy); color: #fff; }
+.addrCard { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.formPane { display: flex; flex-direction: column; gap: 16px; padding: 28px; }
+.formPane h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.02em; }
+.formPane .lead { margin-top: -8px; }
+.formPane .muted { margin: -8px 0 0; font-size: 0.85rem; }
+.formPane .field { gap: 6px; }
+.optional { margin-left: auto; font-weight: 500; letter-spacing: normal; text-transform: none; color: var(--ink-2); }
+.formPane .field > .label { display: flex; align-items: baseline; }
+.field select { appearance: auto; }
+.iconInput { position: relative; display: block; }
+.iconInput svg { position: absolute; top: 50%; left: 12px; width: 16px; height: 16px; transform: translateY(-50%); fill: none; stroke: var(--ink-2);
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.iconInput input { padding-left: 36px; }
+.cityRow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.filledNote { margin: -4px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--navy-soft); color: var(--navy); font-size: 0.9rem; }
+.formPane .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--navy); color: #fff; }
+.formPane .button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mapPane { position: relative; min-height: 560px; border-left: 1px solid var(--line); background: var(--bg); }
+.mapPane[hidden] { display: none; }
+.mapPane .mapWrap, .mapPane .map { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 0; }
+.mapChip { position: absolute; top: 16px; left: 16px; margin: 0; padding: 6px 12px 6px 10px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); box-shadow: 0 1px 3px rgb(0 0 0 / 0.08); font-size: 0.85rem; font-weight: 600; pointer-events: none; }
+.mapChip::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--navy); }
+.mapCard { position: absolute; right: 16px; bottom: 16px; left: 16px; display: grid; gap: 2px; padding: 14px 16px; border: 1px solid var(--line);
+  border-radius: 12px; background: var(--surface); box-shadow: 0 4px 16px rgb(0 0 0 / 0.08); pointer-events: none; }
+.mapCard span { color: var(--ink-2); font-size: 0.9rem; }
+@media (max-width: 760px) {
+  .addrCard { grid-template-columns: 1fr; }
+  .formPane { padding: 20px; }
+  .mapPane { min-height: 340px; border-top: 1px solid var(--line); border-left: 0; }
+  .cityRow { grid-template-columns: 1fr 1fr; }
+  .cityRow > :first-child { grid-column: 1 / -1; }
+}
+
+/* Narrow screens: step labels shrink with an ellipsis instead of running into the next step; at 360 px and below the
+   card's padding and the code boxes' gaps shrink so each box stays at least 36 px wide (tappable). */
+.stepper li > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mapChip { max-width: calc(100% - 32px); }
+@media (max-width: 360px) {
+  .cardHead, .cardBody { padding: 16px; }
+  .cardFoot { padding: 12px 16px; }
+  .digits { gap: 5px; grid-template-columns: repeat(3, minmax(0, 1fr)) 8px repeat(3, minmax(0, 1fr)); }
+  .formPane { padding: 16px; }
+}
+@media (max-width: 480px) {
+  /* Only the current step shows its label: it keeps its full width; the other step is its dot (and its line). */
+  .stepper li { flex: 0 0 auto; }
+  .stepper li:not(:last-child) { flex: 1 1 0; }
+  .stepper li.stepNow { flex: 1 0 auto; }
+}
+
+/* The steps sit in the middle: each step is as wide as its dot and label, with a fixed-length line between them. */
+.stepper { justify-content: center; }
+.stepper li, .stepper li:not(:last-child), .stepper li.stepNow { flex: 0 1 auto; }
+.stepper li:not(:last-child)::after { flex: 0 0 clamp(32px, 14vw, 180px); margin: 0 4px 0 6px; }
+@media (max-width: 480px) {
+  .stepper li.stepNow { flex: 0 0 auto; }
+}
+
+/* Map controls (top right): zoom in and out as one pair, then recenter on the pin. */
+.mapWrap { position: relative; }
+.mapCtrls { position: absolute; top: 16px; right: 16px; z-index: 2; display: flex; flex-direction: column; gap: 8px; }
+.zoomPair { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08); }
+.zoomPair button + button { border-top: 1px solid var(--line); }
+.mapCtrls button { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; background: var(--surface); color: var(--ink);
+  cursor: pointer; }
+.mapCtrls > button { border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.08); }
+.mapCtrls button:hover { background: var(--bg); }
+.mapCtrls button:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.mapCtrls svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.mapChip { max-width: calc(100% - 96px); }

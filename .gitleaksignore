@@ -5,3 +5,5 @@
 # against a simulator on 127.0.0.1; not secrets (checked 30 Oct).
 7d9a37df7f751d4ba77810975b991f32a4f2adf6:docs/superpowers/plans/2026-10-30-order-journey-simulator.md:generic-api-key:1369
 7d9a37df7f751d4ba77810975b991f32a4f2adf6:docs/superpowers/plans/2026-10-30-order-journey-simulator.md:curl-auth-header:1369
+# localStorage key name ('rr.intake.tier1Collapsed') for the inbox's collapsed Tier 1 section, not a secret (checked 31 Oct).
+b91e2b5f6b3f95729514fd361b0348c93ab8ad86:frontend/components/dashboard/intake/IntakeScreen.tsx:generic-api-key:391

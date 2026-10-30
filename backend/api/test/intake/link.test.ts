@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CarrierRecommendation, CarriersApi, PromiseResult, WarehouseApi } from '../../src/core/contracts.js';
 import type { AddressValidator } from '../../src/core/maps/types.js';
 import { applyAction } from '../../src/modules/intake/actions.js';
-import { confirmLink, INVALID, type LinkDeps, linkState, mintLink, viewLink } from '../../src/modules/intake/link.js';
+import { confirmLink, INVALID, type LinkDeps, linkState, lookupPin, mintLink, sendCode, verifyCode, viewLink } from '../../src/modules/intake/link.js';
 import { hashToken } from '../../src/modules/intake/linkRules.js';
 import { type Deps, processEmail } from '../../src/modules/intake/pipeline.js';
 import { replyFactsOf, templateReply, withoutLinkPlaceholder } from '../../src/modules/intake/reply.js';
@@ -17,21 +17,37 @@ const START = { lat: 42.3523, lon: -71.0466 };
 const north = (m: number) => ({ lat: START.lat + m / 111_195, lon: START.lon });
 const ADDRESS = { line1: '415 Summer St', line2: 'Dock 1', city: 'Boston', state: 'MA', zip: '02210' };
 const PROMISE: PromiseResult = { promiseDate: '2026-10-30', commitment: 'next_day', downgraded: false, reason: null };
-const fakeMap = (geocodeOk = true): AddressValidator => ({ name: 'fake-map',
-  geocode: async () => {
-    if (!geocodeOk) throw new Error('map down');
-    return { features: [{ geometry: { type: 'Point', coordinates: [START.lon, START.lat] }, properties: { type: 'Address', confidence: 'Medium' } }] };
+/**
+ * The map's answers. Forward look-ups of a typed address: `match` reads the typed city, state and ZIP back at START;
+ * `differ` reads another city (the 30 Oct local test's answer, Enterprise); `none` finds no point; `down` cannot be
+ * reached. The reverse look-up of any pin reads 1 Other St, Boston, MA 02210 (or throws when `reverseDown`).
+ */
+type Forward = 'match' | 'differ' | 'none' | 'down';
+interface MapMode { forward: Forward; reverseDown: boolean; forwardCalls: number; reverseCalls: number }
+const fakeMap = (mode: MapMode): AddressValidator => ({ name: 'fake-map',
+  geocode: async (q) => {
+    mode.forwardCalls += 1;
+    if (mode.forward === 'down') throw new Error('map down');
+    if (mode.forward === 'none') return { features: [] };
+    const city = mode.forward === 'differ' ? 'Enterprise' : q.city;
+    return { features: [{ geometry: { type: 'Point', coordinates: [START.lon, START.lat] }, properties: { type: 'Address', confidence: 'Medium',
+      address: { addressLine: mode.forward === 'differ' ? '65156 Powers Rd' : q.line1, locality: city, postalCode: q.zip, adminDistricts: [{ shortName: q.state }] } } }] };
   },
-  reverse: async () => ({ features: [{ properties: { type: 'Address', confidence: 'High', address: { addressLine: '1 Other St', locality: 'Boston', postalCode: '02210', adminDistricts: [{ shortName: 'MA' }] } } }] }) });
+  reverse: async () => {
+    mode.reverseCalls += 1;
+    if (mode.reverseDown) throw new Error('map down');
+    return { features: [{ properties: { type: 'Address', confidence: 'High', address: { addressLine: '1 Other St', locality: 'Boston', postalCode: '02210', adminDistricts: [{ shortName: 'MA' }] } } }] };
+  } });
 const warehouse: WarehouseApi = { checkPromise, nearestWarehouse: async () => 'W4', pickWarehouse: async (i) => ({ warehouseId: i.nearestWarehouseId, reason: 'nearest', warnClient: false }) };
 const carriers: CarriersApi = { recommendCarrier: async () => structuredClone(REC) };
 const TEMPLATE = 'Hello,\nPlease confirm: [CONFIRM_LINK]\nHalcyon Logistics';
 
-interface Setup { draft?: string; promise?: PromiseResult | null; enabled?: boolean; appUrl?: string; geocodeOk?: boolean; piiMap?: Record<string, string> }
+interface Setup { draft?: string; promise?: PromiseResult | null; enabled?: boolean; appUrl?: string; geocodeOk?: boolean; piiMap?: Record<string, string>; code?: boolean }
 
 /** A CONFIRM_ADDRESS order from C025, approved by the desk, ready for send_reply; the clock is 29 Oct 10:00 UTC. */
-async function setup({ draft = TEMPLATE, promise = null, enabled = true, appUrl = 'https://app.example', geocodeOk = true, piiMap = {} }: Setup = {}) {
-  const maps = fakeMap(geocodeOk);
+async function setup({ draft = TEMPLATE, promise = null, enabled = true, appUrl = 'https://app.example', geocodeOk = true, piiMap = {}, code }: Setup = {}) {
+  const mode: MapMode = { forward: geocodeOk ? 'match' : 'down', reverseDown: false, forwardCalls: 0, reverseCalls: 0 };
+  const maps = fakeMap(mode);
   const mem = memoryRepo({ 'client025.example': C025 }, []);
   const id = await mem.repo.insertEmail({ source: 'paste', gmail_id: null, thread_id: null, message_id: null, from_addr: 'orders@client025.example',
     subject: '[SYNTHETIC] Order', body: '[SYNTHETIC] 45 x HX-616 to 415 Summer St Dock 1, Boston, MA 02210', redacted_body: null, pii_map: piiMap,
@@ -54,7 +70,14 @@ async function setup({ draft = TEMPLATE, promise = null, enabled = true, appUrl 
   const send = (edited?: string, emailId = id) =>
     applyAction(mem.repo, emailId, 'send_reply', 'u1', { gmail: gmail as never, allow }, { link, ...(edited ? { edited } : {}) });
   const tokenOf = () => /\/confirm\/([A-Za-z0-9_-]{43})/.exec(sentTexts.at(-1) ?? '')?.[1];
-  return { mem, id, store, link, intake, send, sentTexts, tokenOf, events, issued, gmail, allow,
+  // E19 verification code (REQ-LINK-17 to -19): the code emails go through their own fake Gmail.
+  const codeMails: string[] = [];
+  const codeGmail = { sendMessage: async (raw: string, threadId: string | null = null) => {
+    if (threadId !== null) throw new Error('the code email is a new message, not a reply');
+    codeMails.push(raw); return `c${codeMails.length}`; } };
+  if (code !== undefined) { link.code = code; link.outbox = { gmail: codeGmail, allow }; }
+  const codeOf = () => /verification code is (\d{6})\./.exec(codeMails.at(-1) ?? '')?.[1];
+  return { mem, id, store, link, intake, send, sentTexts, tokenOf, events, issued, gmail, allow, mode, codeMails, codeGmail, codeOf,
     at: (iso: string) => { now = new Date(iso); } };
 }
 
@@ -130,16 +153,27 @@ describe('E19 address link (memory)', () => {
     expect(t.issued).toHaveLength(1);
   });
 
+  it('REQ-LINK-02, SEC-LINK-08: a map credential that cannot be issued leaves map null; the address still opens and confirms', async () => {
+    const t = await setup(); await t.send();
+    t.link.credentials = { issue: async () => { throw new Error('Azure Maps listSas failed: 403'); } };
+    const view = (await viewLink(t.link, t.tokenOf()!))!;
+    expect(view.map).toBeNull();
+    expect(view.address).toMatchObject({ city: expect.any(String) });
+    expect(t.events.map((e) => e.event)).toContain('link_map_unavailable');
+    expect(JSON.stringify(t.events)).not.toContain('403'); // the issuer's error stays out of the link log
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: START })).code).toBe(200);
+  });
+
   it('AC-LINK-03: 600 m → 409 with the reading and an unused link; again with the checkId → confirmed', async () => {
     const t = await setup(); await t.send();
     const first = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(600) });
     expect(first.code).toBe(409);
-    expect(first.body).toMatchObject({ error: 'needs_second_confirm', reading: { line1: '1 Other St', city: 'Boston', state: 'MA', zip: '02210', distanceM: 600 } });
+    expect(first.body).toMatchObject({ error: 'needs_second_confirm', reading: { of: 'pin', found: true, line1: '1 Other St', city: 'Boston', state: 'MA', zip: '02210', distanceM: 600, differs: [] } });
     expect(t.store.rows[0].used_at).toBeNull();
     const checkId = (first.body as { checkId: string }).checkId;
     expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(600), checkId })).code).toBe(200);
     expect(t.store.rows[0]).toMatchObject({ confirmed_address: ADDRESS, lat: north(600).lat, lon: north(600).lon,
-      map_reading: { line1: '1 Other St', distanceM: 600 } });
+      map_reading: { of: 'pin', line1: '1 Other St', distanceM: 600 } });
   });
 
   it('AC-LINK-03: a ZIP change is 409 at any distance; a made-up checkId, or the pin moved after the reading, is 409 again', async () => {
@@ -170,9 +204,10 @@ describe('E19 address link (memory)', () => {
   it('AC-LINK-04: no start pin (the map had no match) → a second Confirm is asked for whatever the distance', async () => {
     const t = await setup({ geocodeOk: false }); await t.send();
     expect(t.store.rows[0].prefill.pin).toBeNull();
+    t.mode.forward = 'match'; // the typed address matches: only the pin rule (no start pin) asks
     const first = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: START });
     expect(first.code).toBe(409);
-    expect((first.body as { reading: { distanceM: number } }).reading.distanceM).toBe(0);
+    expect((first.body as { reading: object }).reading).toMatchObject({ of: 'pin', distanceM: null, differs: [] });
     const checkId = (first.body as { checkId: string }).checkId;
     expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: START, checkId })).code).toBe(200);
     expect(t.mem.extractions.at(-1)?.decision).toBe('ALL_CLEAR');
@@ -246,11 +281,20 @@ describe('E19 address link (memory)', () => {
     expect(t.store.rows[0].map_lookups).toBe(0);
   });
 
-  it('AC-SEC-LINK-04: the 21st map look-up for one link is refused', async () => {
+  it('AC-SEC-LINK-04: the 21st map look-up for one link is refused, forward and reverse together; the link stays unused', async () => {
     const t = await setup(); await t.send();
-    for (let i = 0; i < 20; i += 1) expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(600 + i) })).code).toBe(409);
+    // A moved pin costs two look-ups: the typed address (REQ-LINK-12) and the pin (REQ-LINK-03).
+    for (let i = 0; i < 10; i += 1) expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(600 + i) })).code).toBe(409);
+    expect([t.store.rows[0].map_lookups, t.mode.forwardCalls - 1, t.mode.reverseCalls]).toEqual([20, 10, 10]); // -1: the start pin at send
     expect(await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(700) })).toEqual({ code: 429, body: { error: 'rate_limited' } });
+    expect(await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS })).toEqual({ code: 429, body: { error: 'rate_limited' } });
     expect(t.store.rows[0].used_at).toBeNull();
+
+    const f = await setup(); await f.send();
+    f.mode.forward = 'none'; // forward look-ups alone count too
+    for (let i = 0; i < 20; i += 1) expect((await confirmLink(f.link, f.intake, f.tokenOf()!, { address: { ...ADDRESS, line1: `${i} Summer St` } })).code).toBe(409);
+    expect(await confirmLink(f.link, f.intake, f.tokenOf()!, { address: ADDRESS })).toEqual({ code: 429, body: { error: 'rate_limited' } });
+    expect(f.store.rows[0].used_at).toBeNull();
   });
 
   it('AC-SEC-LINK-11: every link event carries the email id and an 8-character hash prefix, never the token', async () => {
@@ -517,5 +561,361 @@ describe('E19 save on approval, re-send failure, link URL (A17 review findings 6
     const t = await setup({ appUrl: 'https://a$&b.example' });
     await t.send();
     expect(t.sentTexts[0]).toContain(`https://a$&b.example/confirm/${t.tokenOf()}`);
+  });
+});
+
+// ---- v0.18 (30 Oct): the server looks up the typed address on every Confirm (REQ-LINK-12 to -15) ----
+
+/** The address of the 30 Oct local test (AC-LINK-13): line 1 holds a whole US address, the city an Indian locality. */
+const MADHAPUR = { line1: '65156 Powers Rd, Enterprise, OR 97828, United States', line2: null, city: 'Madhapur', state: 'OR', zip: '97828' };
+const ADDRESS_READING = { of: 'address', found: true, line1: '415 Summer St', city: 'Boston', state: 'MA', zip: '02210', distanceM: null, differs: [] };
+type Asked = { error: string; reading: Record<string, unknown>; checkId: string };
+
+describe('E19 address look-up on Confirm (REQ-LINK-12 to -15)', () => {
+  it('AC-LINK-12: no pin and a map answer matching the typed city, state and ZIP → 200 at once; the pin is the geocoded point', async () => {
+    const t = await setup(); await t.send();
+    const before = t.store.rows[0].map_lookups;
+    expect(await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS })).toEqual({ code: 200, body: { status: 'confirmed' } });
+    expect(t.store.rows[0]).toMatchObject({ confirmed_address: ADDRESS, lat: START.lat, lon: START.lon, map_reading: ADDRESS_READING });
+    expect(t.store.rows[0].used_at).not.toBeNull();
+    expect(t.store.rows[0].map_lookups).toBe(before + 1);
+    expect(t.mode.reverseCalls).toBe(0);
+    expect(t.mem.extractions.at(-1)?.decision).toBe('ALL_CLEAR');
+  });
+
+  it('AC-LINK-12: the city is compared ignoring case and spaces; the ZIP on its first 5 digits', async () => {
+    const t = await setup(); await t.send();
+    t.link.maps = { ...t.link.maps, geocode: async () => ({ features: [{ geometry: { type: 'Point', coordinates: [START.lon, START.lat] },
+      properties: { type: 'Address', confidence: 'High', address: { addressLine: '415 Summer St', locality: 'BOSTON', postalCode: '02210-1004', adminDistricts: [{ shortName: 'MA' }] } } }] }) };
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: { ...ADDRESS, city: ' bos ton ', zip: '02210' } })).code).toBe(200);
+  });
+
+  it('AC-LINK-12: the map unreachable → 503 map_unavailable and the link unused; a retry once it is back confirms', async () => {
+    const t = await setup(); await t.send();
+    t.mode.forward = 'down';
+    expect(await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS })).toEqual({ code: 503, body: { error: 'map_unavailable' } });
+    expect(await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(100) })).toEqual({ code: 503, body: { error: 'map_unavailable' } });
+    expect(t.store.rows[0].used_at).toBeNull();
+    expect(t.mem.emails[0].status).toBe('SENT');
+    expect(t.events.filter((e) => e.event === 'link_refused').map((e) => e.fields.why)).toEqual(['map_unavailable', 'map_unavailable']);
+    t.mode.forward = 'match';
+    t.mode.reverseDown = true; // the pin's reading is a map look-up too
+    expect(await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(600) })).toEqual({ code: 503, body: { error: 'map_unavailable' } });
+    t.mode.reverseDown = false;
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS })).code).toBe(200);
+  });
+
+  it('AC-LINK-13: the 30 Oct address with no pin → 409 naming city; again with the checkId → 200 with no pin; another city voids the checkId', async () => {
+    const t = await setup(); await t.send();
+    t.mode.forward = 'differ';
+    const first = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: MADHAPUR });
+    expect(first.code).toBe(409);
+    const asked = first.body as Asked;
+    expect(asked).toMatchObject({ error: 'needs_second_confirm', reading: { of: 'address', found: true, line1: '65156 Powers Rd', city: 'Enterprise',
+      state: 'OR', zip: '97828', distanceM: null, differs: ['city'] } });
+    expect(t.store.rows[0].used_at).toBeNull();
+
+    // Another city with the same checkId: the checkId does not count and the address is checked anew.
+    const lookups = t.store.rows[0].map_lookups;
+    const again = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: { ...MADHAPUR, city: 'Hyderabad' }, checkId: asked.checkId });
+    expect(again.code).toBe(409);
+    expect(t.store.rows[0].map_lookups).toBe(lookups + 1);
+    const latest = (again.body as Asked).checkId;
+    expect(latest).not.toBe(asked.checkId);
+
+    // The first checkId was replaced; the newest one, with the same fields, confirms with no pin.
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: MADHAPUR, checkId: asked.checkId })).code).toBe(409);
+    const third = t.store.rows[0].map_reading as { checkId: string };
+    expect(await confirmLink(t.link, t.intake, t.tokenOf()!, { address: MADHAPUR, checkId: third.checkId })).toEqual({ code: 200, body: { status: 'confirmed' } });
+    expect(t.store.rows[0]).toMatchObject({ confirmed_address: MADHAPUR, lat: null, lon: null,
+      map_reading: { of: 'address', city: 'Enterprise', differs: ['city'] } });
+  });
+
+  it('AC-LINK-13: a pin 400 m from its start, the ZIP unchanged and a city the map reads differently → 409, a reading of the pin naming city; the pin is stored', async () => {
+    const t = await setup(); await t.send();
+    t.mode.forward = 'differ';
+    const first = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(400) });
+    expect(first.code).toBe(409);
+    expect((first.body as Asked).reading).toMatchObject({ of: 'pin', found: true, line1: '1 Other St', distanceM: 400, differs: ['city'] });
+    expect(await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(400), checkId: (first.body as Asked).checkId }))
+      .toEqual({ code: 200, body: { status: 'confirmed' } });
+    expect(t.store.rows[0]).toMatchObject({ lat: north(400).lat, lon: north(400).lon, map_reading: { of: 'pin', differs: ['city'] } });
+  });
+
+  it('AC-LINK-14: no pin and no map point → 409 marked not found; again with the checkId → 200, lat and lon null', async () => {
+    const t = await setup(); await t.send();
+    t.mode.forward = 'none';
+    const first = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS });
+    expect(first.code).toBe(409);
+    expect((first.body as Asked).reading).toEqual({ of: 'address', found: false, line1: null, city: null, state: null, zip: null, distanceM: null,
+      differs: ['city', 'state', 'zip'] });
+    expect(t.store.rows[0].used_at).toBeNull();
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, checkId: (first.body as Asked).checkId })).code).toBe(200);
+    expect(t.store.rows[0]).toMatchObject({ lat: null, lon: null, map_reading: { of: 'address', found: false } });
+    expect(t.mem.extractions.at(-1)?.decision).toBe('ALL_CLEAR');
+  });
+
+  it('REQ-LINK-14: with a pin sent and no map point for the typed address, the case is a difference: 409 with the pin\'s reading', async () => {
+    const t = await setup(); await t.send();
+    t.mode.forward = 'none';
+    const first = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(100) });
+    expect(first.code).toBe(409);
+    expect((first.body as Asked).reading).toMatchObject({ of: 'pin', found: true, distanceM: 100, differs: ['city', 'state', 'zip'] });
+  });
+
+  it('REQ-LINK-13: a checkId counts only for the same five fields and the same pin or no pin', async () => {
+    const t = await setup(); await t.send();
+    t.mode.forward = 'differ';
+    const noPin = (await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS })).body as Asked;
+    for (const changed of [{ address: { ...ADDRESS, line2: 'Dock 2' } }, { address: { ...ADDRESS, line1: '416 Summer St' } }, { address: ADDRESS, pin: START }]) {
+      const pending = t.store.rows[0].map_reading as { checkId: string };
+      const r = await confirmLink(t.link, t.intake, t.tokenOf()!, { ...changed, checkId: pending.checkId });
+      expect(r.code, JSON.stringify(changed)).toBe(409);
+    }
+    expect(noPin.checkId).toBeTruthy();
+    // A checkId issued for a pin does not count once the pin is left out.
+    const withPin = (await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(100) })).body as Asked;
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, checkId: withPin.checkId })).code).toBe(409);
+    expect(t.store.rows[0].used_at).toBeNull();
+  });
+
+  it('REQ-LINK-04: a pin within 500 m and a matching address confirms at once with the client\'s pin and the address reading', async () => {
+    const t = await setup(); await t.send();
+    expect((await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, pin: north(400) })).code).toBe(200);
+    expect(t.store.rows[0]).toMatchObject({ lat: north(400).lat, lon: north(400).lon, map_reading: ADDRESS_READING });
+    expect(t.mode.reverseCalls).toBe(0);
+  });
+
+  it('AC-LINK-05: an order confirmed with no pin is saved on approval with lat and lon null', async () => {
+    const t = await setup(); await t.send();
+    t.mode.forward = 'none';
+    const asked = (await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS })).body as Asked;
+    await confirmLink(t.link, t.intake, t.tokenOf()!, { address: ADDRESS, checkId: asked.checkId });
+    expect(t.store.saved).toEqual([]);
+    expect((await applyAction(t.mem.repo, t.id, 'approve', 'u1', undefined, { link: t.link })).code).toBe(200);
+    expect(t.store.saved).toEqual([{ clientId: 'C025', address: ADDRESS, emailId: t.id, pin: null, confirmedAt: new Date('2026-10-29T10:00:00Z'), synthetic: true }]);
+    expect(t.mem.audit.at(-1)).toMatchObject({ action: 'approve', payload: { savedAddress: 'link' } });
+  });
+});
+
+describe('E19 the pin fills the address fields (REQ-LINK-16)', () => {
+  const READ = { line1: '1 Other St', city: 'Boston', state: 'MA', zip: '02210' }; // the fake map's reading of any pin
+
+  it('AC-LINK-16: a pin look-up returns the map\'s reading and a checkId, never uses the link; a Confirm of the filled address is confirmed at once', async () => {
+    const t = await setup(); await t.send();
+    const pin = north(600);
+    const r = await lookupPin(t.link, t.intake, t.tokenOf()!, { pin, line2: 'Dock 1' });
+    expect(r.code).toBe(200);
+    const body = r.body as { reading: typeof READ & { found: boolean }; checkId: string | null };
+    expect(body.reading).toEqual({ ...READ, found: true });
+    expect(body.checkId).toEqual(expect.any(String));
+    expect(t.store.rows[0]).toMatchObject({ used_at: null, map_lookups: 1 });
+    expect(t.events.map((e) => e.event)).toContain('link_pin_read');
+
+    const forwardBefore = t.mode.forwardCalls;
+    const ok = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: { ...READ, line2: 'Dock 1' }, pin, checkId: body.checkId });
+    expect(ok.code).toBe(200); // 600 m from the start would otherwise ask a second Confirm (REQ-LINK-03)
+    expect(t.mode.forwardCalls).toBe(forwardBefore); // the client confirmed the map's own reading: no further look-up
+    expect(t.store.rows[0]).toMatchObject({ confirmed_address: { ...READ, line2: 'Dock 1' }, lat: pin.lat, lon: pin.lon });
+  });
+
+  it('AC-LINK-16: an edited field after the fill drops the checkId: the usual checks run', async () => {
+    const t = await setup(); await t.send();
+    const pin = north(600);
+    const r = await lookupPin(t.link, t.intake, t.tokenOf()!, { pin, line2: 'Dock 1' });
+    const checkId = (r.body as { checkId: string }).checkId;
+    const edited = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: { ...READ, line2: 'Dock 1', city: 'Cambridge' }, pin, checkId });
+    expect(edited.code).toBe(409);
+    expect(t.store.rows[0].used_at).toBeNull();
+  });
+
+  it('AC-LINK-16: invalid body 400; unknown link 404; the 21st map look-up 429; map down 503; the link stays unused', async () => {
+    const t = await setup(); await t.send();
+    expect((await lookupPin(t.link, t.intake, t.tokenOf()!, { pin: { lat: 91, lon: 0 } })).code).toBe(400);
+    expect(await lookupPin(t.link, t.intake, 'A'.repeat(43), { pin: START })).toEqual({ code: 404, body: INVALID });
+    t.mode.reverseDown = true;
+    expect(await lookupPin(t.link, t.intake, t.tokenOf()!, { pin: START })).toEqual({ code: 503, body: { error: 'map_unavailable' } });
+    t.mode.reverseDown = false;
+    t.store.rows[0].map_lookups = 20;
+    expect(await lookupPin(t.link, t.intake, t.tokenOf()!, { pin: START })).toEqual({ code: 429, body: { error: 'rate_limited' } });
+    expect(t.store.rows[0].used_at).toBeNull();
+  });
+
+  it('AC-LINK-16: a reading without all four parts fills what it has and gives no checkId', async () => {
+    const t = await setup(); await t.send();
+    t.intake.maps.reverse = async () => ({ features: [{ properties: { type: 'Address', confidence: 'Low',
+      address: { locality: 'Boston', postalCode: '02210', adminDistricts: [{ shortName: 'MA' }] } } }] });
+    t.link.maps = t.intake.maps;
+    const r = await lookupPin(t.link, t.intake, t.tokenOf()!, { pin: START });
+    expect(r).toEqual({ code: 200, body: { reading: { line1: null, city: 'Boston', state: 'MA', zip: '02210', found: true }, checkId: null } });
+  });
+});
+
+describe('E19 verification code (memory)', () => {
+  /** A sent link with CONFIRM_LINK_CODE on; `sendCode` and `verifyCode` with the token of the reply. */
+  async function coded() {
+    const t = await setup({ code: true });
+    await t.send();
+    const token = t.tokenOf()!;
+    return { ...t, token, sendC: () => sendCode(t.link, t.intake, token), verifyC: (code: unknown) => verifyCode(t.link, t.intake, token, { code }) };
+  }
+  /** The verified token for a coded link. */
+  async function verified() {
+    const t = await coded();
+    await t.sendC();
+    const r = await t.verifyC(t.codeOf());
+    expect(r.code).toBe(200);
+    return { ...t, verifyToken: (r.body as { verifyToken: string }).verifyToken };
+  }
+
+  it('AC-LINK-17: unverified GET holds only the masked sender, expiresAt and synthetic; no address, pin or map; opening changes nothing', async () => {
+    const t = await coded();
+    for (const header of [undefined, '', 'B'.repeat(43)]) {
+      const v = await viewLink(t.link, t.token, header, t.mem.repo);
+      expect(v).toEqual({ verify: { sentTo: 'o•••••@client025.example' }, expiresAt: '2026-10-30T06:00:00.000Z', synthetic: true });
+    }
+    expect(t.issued).toEqual([]); // no map credential before verification
+    expect(t.store.rows[0]).toMatchObject({ used_at: null, codes_sent: 0, code_hash: null, map_lookups: 0 });
+    expect(t.codeMails).toEqual([]); // opening never sends a code (mail scanners open links)
+  });
+
+  it('AC-LINK-17: with a verified token the GET body is the full LinkView; with the flag off the view opens as before', async () => {
+    const t = await verified();
+    const v = await viewLink(t.link, t.token, t.verifyToken, t.mem.repo);
+    expect(Object.keys(v!).sort()).toEqual(['address', 'expiresAt', 'map', 'pin', 'synthetic']);
+    const off = await setup({ code: false }); await off.send();
+    expect(Object.keys((await viewLink(off.link, off.tokenOf()!))!).sort()).toEqual(['address', 'expiresAt', 'map', 'pin', 'synthetic']);
+  });
+
+  it('AC-LINK-18: Send code emails one 6-digit code to the sender as a new message; outbound_messages keeps [CODE]; the row keeps only its hash', async () => {
+    const t = await coded();
+    expect(await t.sendC()).toEqual({ code: 200, body: { sentTo: 'o•••••@client025.example', retryIn: 60 } });
+    expect(t.codeMails).toHaveLength(1);
+    const raw = t.codeMails[0];
+    expect(raw).toMatch(/^To: orders@client025\.example$/m);
+    expect(raw).toMatch(/^Subject: Your Halcyon Logistics verification code$/m);
+    expect(raw).not.toMatch(/^In-Reply-To:/m);
+    const code = t.codeOf()!;
+    expect(code).toMatch(/^\d{6}$/);
+    expect(raw).toContain(`Your verification code is ${code}. It expires in 10 minutes. If you did not ask for it, you can ignore this email.\n\nHalcyon Logistics`);
+    const out = t.mem.outbound.at(-1)!;
+    expect(out).toMatchObject({ emailId: t.id, to: 'orders@client025.example', status: 'sent', gmailId: 'c1' });
+    expect(out.body).toContain('Your verification code is [CODE].');
+    const row = t.store.rows[0];
+    expect(row).toMatchObject({ codes_sent: 1, code_tries: 0, used_at: null });
+    expect(row.code_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(row.code_expires_at?.toISOString()).toBe('2026-10-29T10:10:00.000Z');
+    expect(JSON.stringify([t.store.rows, t.mem.outbound, t.mem.audit, t.events])).not.toContain(code);
+    expect(t.events.find((e) => e.event === 'link_code_sent')?.fields).toEqual({ emailId: t.id, hash: expect.stringMatching(/^[0-9a-f]{8}$/), n: 1 });
+  });
+
+  it('AC-LINK-18: a second send within 60 s gets 429 code_wait with retryIn; a 4th code gets 429; nothing more is sent', async () => {
+    const t = await coded();
+    expect((await t.sendC()).code).toBe(200);
+    t.at('2026-10-29T10:00:45Z');
+    expect(await t.sendC()).toEqual({ code: 429, body: { error: 'code_wait', retryIn: 15 } });
+    t.at('2026-10-29T10:01:00Z');
+    expect((await t.sendC()).code).toBe(200);
+    t.at('2026-10-29T10:02:00Z');
+    expect((await t.sendC()).code).toBe(200);
+    t.at('2026-10-29T10:05:00Z');
+    expect(await t.sendC()).toEqual({ code: 429, body: { error: 'code_wait', retryIn: null } });
+    expect(t.codeMails).toHaveLength(3);
+    expect(t.store.rows[0].codes_sent).toBe(3);
+    expect(t.store.rows[0].used_at).toBeNull();
+  });
+
+  it('AC-LINK-18: Gmail not set up, a failed send, or a sender off the allow-list gets 503 email_unavailable and no code is stored or counted', async () => {
+    const t = await coded();
+    t.link.outbox = { gmail: null, allow: t.allow };
+    expect(await t.sendC()).toEqual({ code: 503, body: { error: 'email_unavailable' } });
+    t.link.outbox = { gmail: { sendMessage: async () => { throw new Error('gmail down'); } }, allow: t.allow };
+    expect(await t.sendC()).toEqual({ code: 503, body: { error: 'email_unavailable' } });
+    t.link.outbox = { gmail: t.codeGmail, allow: new Set() };
+    expect(await t.sendC()).toEqual({ code: 503, body: { error: 'email_unavailable' } });
+    expect(t.codeMails).toEqual([]);
+    expect(t.store.rows[0]).toMatchObject({ codes_sent: 0, code_hash: null, code_sent_at: null });
+    expect(t.mem.outbound.filter((o) => o.status === 'sent' && o.body.includes('[CODE]'))).toEqual([]);
+    expect(JSON.stringify(t.events)).not.toContain('gmail down');
+  });
+
+  it('AC-LINK-19: a wrong code gets 422 triesLeft 4; after 5 wrong codes the right one gets code_expired; a new code gives a token', async () => {
+    const t = await coded();
+    await t.sendC();
+    const right = t.codeOf()!;
+    const wrong = right === '000000' ? '111111' : '000000';
+    expect(await t.verifyC(wrong)).toEqual({ code: 422, body: { error: 'code_wrong', triesLeft: 4 } });
+    for (const left of [3, 2, 1, 0]) expect(await t.verifyC(wrong)).toEqual({ code: 422, body: { error: 'code_wrong', triesLeft: left } });
+    expect(await t.verifyC(right)).toEqual({ code: 422, body: { error: 'code_expired' } });
+    t.at('2026-10-29T10:01:00Z');
+    await t.sendC();
+    const r = await t.verifyC(t.codeOf());
+    expect(r.code).toBe(200);
+    const verifyToken = (r.body as { verifyToken: string }).verifyToken;
+    expect(verifyToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(t.store.rows[0].verify_hash).toBe(hashToken(verifyToken));
+    expect(t.events.filter((e) => e.event === 'link_code_wrong')).toHaveLength(5);
+    expect(t.events.map((e) => e.event)).toContain('link_verified');
+    expect(JSON.stringify([t.store.rows, t.events, t.mem.outbound])).not.toContain(verifyToken);
+    // A code is good for one verification only.
+    expect(await t.verifyC(t.codeOf())).toEqual({ code: 422, body: { error: 'code_expired' } });
+  });
+
+  it('AC-LINK-19: 11 minutes after sending the right code gets code_expired; an unsent code gets code_expired; a malformed code 400; a bad link 404', async () => {
+    const t = await coded();
+    expect(await t.verifyC('123456')).toEqual({ code: 422, body: { error: 'code_expired' } });
+    await t.sendC();
+    for (const bad of ['12345', '1234567', 'abcdef', 123456, null]) expect(await t.verifyC(bad)).toEqual({ code: 400, body: { error: 'invalid' } });
+    t.at('2026-10-29T10:11:00Z');
+    expect(await t.verifyC(t.codeOf())).toEqual({ code: 422, body: { error: 'code_expired' } });
+    expect(await verifyCode(t.link, t.intake, 'A'.repeat(43), { code: '123456' })).toEqual({ code: 404, body: INVALID });
+    expect(await sendCode(t.link, t.intake, 'A'.repeat(43))).toEqual({ code: 404, body: INVALID });
+    expect(t.store.rows[0].used_at).toBeNull();
+  });
+
+  it('AC-LINK-19: /lookup and Confirm without the token get 401 verify_required; with it they work as before; a new code does not end the token', async () => {
+    const t = await verified();
+    const body = { address: ADDRESS, pin: START };
+    expect(await lookupPin(t.link, t.intake, t.token, { pin: START })).toEqual({ code: 401, body: { error: 'verify_required' } });
+    expect(await confirmLink(t.link, t.intake, t.token, body)).toEqual({ code: 401, body: { error: 'verify_required' } });
+    expect(await confirmLink(t.link, t.intake, t.token, body, 'B'.repeat(43))).toEqual({ code: 401, body: { error: 'verify_required' } });
+    expect(t.store.rows[0].map_lookups).toBe(0); // refused before any map look-up
+    t.at('2026-10-29T10:01:00Z');
+    await t.sendC(); // a new code does not end the verified token
+    expect((await lookupPin(t.link, t.intake, t.token, { pin: START }, t.verifyToken)).code).toBe(200);
+    expect(await confirmLink(t.link, t.intake, t.token, body, t.verifyToken)).toEqual({ code: 200, body: { status: 'confirmed' } });
+    expect(await viewLink(t.link, t.token, t.verifyToken, t.mem.repo)).toBeNull(); // used: the token goes with the link
+  });
+
+  it("AC-LINK-19: one link's verified token does not open another link", async () => {
+    const a = await verified();
+    const b = await coded();
+    expect(await viewLink(b.link, b.token, a.verifyToken, b.mem.repo)).toMatchObject({ verify: expect.any(Object) });
+    expect((await confirmLink(b.link, b.intake, b.token, { address: ADDRESS }, a.verifyToken)).code).toBe(401);
+  });
+
+  it('AC-SEC-LINK-12: after send, verify and confirm, no row, outbound body or log event holds the code or the verify token', async () => {
+    const t = await verified();
+    const code = /verification code is (\d{6})\./.exec(t.codeMails[0])![1];
+    expect((await confirmLink(t.link, t.intake, t.token, { address: ADDRESS, pin: START }, t.verifyToken)).code).toBe(200);
+    const all = JSON.stringify([t.store.rows, t.mem.outbound, t.mem.audit, t.mem.extractions, t.events]);
+    expect(all).not.toContain(code);
+    expect(all).not.toContain(t.verifyToken);
+    expect(t.mem.outbound.some((o) => o.body.includes('[CODE]'))).toBe(true);
+  });
+});
+
+describe('E19 a link for an order that no longer waits for the client (31 Oct live finding)', () => {
+  // The Gmail link of an order already confirmed through another of its links opened on "Verify it's you", and only the
+  // code step answered "no longer valid". Opening it must give the invalid page at once, like every later step.
+  it('REQ-LINK-07: a link whose order is no longer SENT opens as invalid, verified or not', async () => {
+    const t = await setup(); await t.send();
+    const token = t.tokenOf()!;
+    t.link.code = true;
+    expect(await viewLink(t.link, token, null, t.mem.repo)).toMatchObject({ verify: expect.any(Object) });
+    await t.mem.repo.setStatus(t.id, 'AWAITING_APPROVAL'); // e.g. confirmed through another link of the order
+    expect(await viewLink(t.link, token, null, t.mem.repo)).toBeNull();
+    t.link.code = false;
+    expect(await viewLink(t.link, token, null, t.mem.repo)).toBeNull();
   });
 });

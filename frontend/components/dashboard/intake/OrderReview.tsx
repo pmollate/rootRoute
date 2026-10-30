@@ -5,6 +5,7 @@ import { useCan } from '@/components/auth/UserContext';
 import { Pill, Status, SyntheticBadge } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
 import { SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
+import { toViewer } from '@/lib/mailTime';
 import s from './intake.module.css';
 
 export interface CarrierChoice {
@@ -16,7 +17,17 @@ export interface ReviewOrder {
   warehouseId: string | null; carrier: string; carrierReason: string; choices: CarrierChoice[]; blocked: string[];
   commitment?: string | null; promiseReason?: string | null; warehouseReason?: string | null; warnClient?: boolean;
   addressStatus?: string | null; blockedLanes?: { carrier: string; onTime: number | null }[];
+  /** E19 (REQ-LINK-11), with CONFIRM_LINK=on: where the address came from and, for `link`, the three addresses. */
+  addressSource?: 'email' | 'saved' | 'link';
+  emailAddress?: Partial<LinkAddress>; confirmedAddress?: LinkAddress | null; mapReading?: MapReading | null;
 }
+interface LinkAddress { line1: string; line2: string | null; city: string; state: string; zip: string }
+interface MapReading { line1: string | null; city: string | null; state: string | null; zip: string | null; distanceM: number }
+
+/** An address on one line, as text; missing parts left out. */
+const oneLine = (a: { line1?: string | null; line2?: string | null; city?: string | null; state?: string | null; zip?: string | null }) =>
+  [a.line1, a.line2, a.city, [a.state, a.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+const addressChecked = (st: string) => st === 'complete' || st === 'matched' || st === 'confirmed';
 
 const pct = (x: number | null | undefined) => (x == null ? '—' : `${(x * 100).toFixed(1)}%`);
 const MIN_REASON = 3;
@@ -26,8 +37,12 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 /** "2026-10-31" as a calendar day (no time zone shift), e.g. "Sat 31 Oct". */
 const ymd = (d: string) => { const [y, m, dd] = d.slice(0, 10).split('-').map(Number); return new Date(Date.UTC(y, m - 1, dd)); };
 const longDay = (d: string) => { const t = ymd(d); return `${DAYS[t.getUTCDay()]} ${t.getUTCDate()} ${MONTHS[t.getUTCMonth()]}`; };
-/** "2026-10-27 16:21" as "27 Oct 16:21". */
-const keyed = (at: string) => { const t = ymd(at); return `${t.getUTCDate()} ${MONTHS[t.getUTCMonth()]} ${at.slice(11, 16)}`; };
+/** "2026-10-27 16:21" (mailbox zone) as "27 Oct 16:21" in the viewer's zone. */
+const keyed = (stored: string, zone?: string) => {
+  const at = toViewer(stored, zone);
+  const t = ymd(at);
+  return `${t.getUTCDate()} ${MONTHS[t.getUTCMonth()]} ${at.slice(11, 16)}`;
+};
 /** Whole days from the day the order was keyed to the promise date. */
 const slack = (at: string, promise: string) => {
   const n = Math.round((ymd(promise).getTime() - ymd(at).getTime()) / 86400_000);
@@ -46,7 +61,7 @@ const costDelta = (rate: number | null | undefined, base: number | null | undefi
  * signed-in roles (SPEC-auth §4.3); the API refuses anyway.
  */
 export function OrderReview({ onChange }: { onChange?: () => void }) {
-  const q = useApi<{ orders: ReviewOrder[] }>('/api/intake/review');
+  const q = useApi<{ orders: ReviewOrder[]; timeZone?: string }>('/api/intake/review');
   const canApprove = useCan('approve');
   const canReject = useCan('reject');
   const [pick, setPick] = useState<Record<number, string>>({});
@@ -102,17 +117,28 @@ export function OrderReview({ onChange }: { onChange?: () => void }) {
               <div className={s.rvPromise}>
                 <span>Promise</span>
                 <b>{o.promiseDate ? longDay(o.promiseDate) : '—'}</b>
-                <small>{o.promiseDate && <>{slack(o.receivedAt, o.promiseDate)} · </>}email {o.id} · keyed {keyed(o.receivedAt)}</small>
+                <small>{o.promiseDate && <>{slack(o.receivedAt, o.promiseDate)} · </>}email {o.id} · keyed {keyed(o.receivedAt, q.data?.timeZone)}</small>
               </div>
             </header>
 
             <div className={s.rvSection}>
               <p className={s.rvLabel}>Fulfil from warehouse</p>
               <p className={s.rvWarehouse}><b>{o.warehouseId ?? 'Not chosen'}</b>{o.warehouseReason && <span>{o.warehouseReason}</span>}</p>
+              {o.addressSource === 'link' && (o.emailAddress || o.confirmedAddress) && (
+                // REQ-LINK-11 (L3): the supervisor sees what the email gave next to what the client confirmed, as text.
+                <dl className={s.rvAddr} role="group" aria-label={`Address for order ${o.id}`}>
+                  <div><dt>Email gave</dt><dd>{o.emailAddress && oneLine(o.emailAddress) || 'No address'}</dd></div>
+                  <div><dt>Client confirmed</dt><dd>{o.confirmedAddress ? oneLine(o.confirmedAddress) : '—'}</dd></div>
+                  <div><dt>Map reads the pin as</dt><dd>{o.mapReading ? oneLine(o.mapReading) || 'No address at the pin'
+                    : 'Not read: the pin stayed within 500 m of the map\'s match and the ZIP was unchanged'}</dd></div>
+                </dl>
+              )}
               <div className={s.rvChips}>
-                {o.addressStatus && (
-                  <span className={`${s.rvChip} ${o.addressStatus === 'complete' || o.addressStatus === 'matched' ? s.tGood : s.tWarn}`}>
-                    {o.addressStatus === 'complete' || o.addressStatus === 'matched' ? 'Address checked' : 'Address to check'}
+                {o.addressSource === 'link' ? (
+                  <span className={`${s.rvChip} ${s.tGood}`}>Address confirmed by client link</span>
+                ) : o.addressStatus && (
+                  <span className={`${s.rvChip} ${addressChecked(o.addressStatus) ? s.tGood : s.tWarn}`}>
+                    {addressChecked(o.addressStatus) ? 'Address checked' : 'Address to check'}
                   </span>
                 )}
                 {o.commitment && (

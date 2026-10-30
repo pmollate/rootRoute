@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ConfirmBody, distanceM, hashPrefix, hashToken, linkExpiry, localToInstant, needsSecondConfirm, newToken, TOKEN_SHAPE,
+  addressDiffers, ConfirmBody, distanceM, hashPrefix, hashToken, linkExpiry, localToInstant, needsSecondConfirm, newToken, TOKEN_SHAPE,
 } from '../../src/modules/intake/linkRules.js';
 
 const ADDRESS = { line1: '400 S Orange Ave', line2: null, city: 'Orlando', state: 'FL', zip: '32801' };
@@ -86,6 +86,31 @@ describe('E19 link rules', () => {
     expect(needsSecondConfirm({ pin: START, zip: '32801' }, body(north(400)))).toBe(false);
     expect(needsSecondConfirm({ pin: START, zip: '32801' }, body(START, '32803'))).toBe(true);
     expect(needsSecondConfirm({ pin: null, zip: null }, body(START))).toBe(true);
+  });
+
+  it('REQ-LINK-03, REQ-LINK-15: with no pin sent the pin rule does not apply (the typed address is checked instead, REQ-LINK-12)', () => {
+    const noPin = ConfirmBody.parse({ address: { ...ADDRESS, zip: '32803' } });
+    expect(noPin.pin).toBeUndefined();
+    expect(needsSecondConfirm({ pin: START, zip: '32801' }, noPin)).toBe(false);
+    expect(needsSecondConfirm({ pin: null, zip: null }, noPin)).toBe(false);
+  });
+
+  it('AC-LINK-12, AC-LINK-13, AC-LINK-14: city (case and spaces ignored), state and 5-digit ZIP compared; a missing part or no point differs', () => {
+    const typed = { city: 'Orlando', state: 'FL', zip: '32801' };
+    expect(addressDiffers(typed, { city: 'ORLANDO ', state: 'fl', zip: '32801-1234' })).toEqual([]);
+    expect(addressDiffers({ ...typed, city: 'Winter  Park', zip: '32789-0001' }, { city: 'winterpark', state: 'FL', zip: '32789' })).toEqual([]);
+    // AC-LINK-13: the 30 Oct local test: city "Madhapur" typed, the map reads Enterprise, OR 97828.
+    expect(addressDiffers({ city: 'Madhapur', state: 'OR', zip: '97828' }, { city: 'Enterprise', state: 'OR', zip: '97828' })).toEqual(['city']);
+    expect(addressDiffers(typed, { city: 'Orlando', state: 'GA', zip: '30303' })).toEqual(['state', 'zip']);
+    expect(addressDiffers(typed, { city: null, state: 'FL', zip: null })).toEqual(['city', 'zip']);
+    expect(addressDiffers(typed, null)).toEqual(['city', 'state', 'zip']);
+  });
+
+  it('AC-SEC-LINK-10: a body with no pin is valid; a null or partial pin is not', () => {
+    expect(ConfirmBody.safeParse({ address: ADDRESS }).success).toBe(true);
+    expect(ConfirmBody.safeParse({ address: ADDRESS, checkId: 'c1' }).success).toBe(true);
+    expect(ConfirmBody.safeParse({ address: ADDRESS, pin: null }).success).toBe(false);
+    expect(ConfirmBody.safeParse({ address: ADDRESS, pin: { lat: 1 } }).success).toBe(false);
   });
 
   it('AC-SEC-LINK-10: state XX, ZIP 1234, a 101-character city, latitude 91 and unknown keys are refused', () => {

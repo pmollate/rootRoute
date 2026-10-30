@@ -44,8 +44,12 @@ export interface Processed {
 /** E16 / REQ-INT-10: the reason returned for an email whose sender domain is not a client's. */
 export const UNKNOWN_SENDER = 'unknown sender';
 
+/**
+ * The stored, unique hash. A pasted email: sender + body, its dedupe key. A Gmail message also hashes its Gmail id, so a
+ * client sending the same text again (a repeat order) is a new email, not a clash with the first (SPEC §5.3 step 2).
+ */
 export function emailHash(e: IncomingEmail): string {
-  return createHash('sha256').update(`${senderAddress(e.from)}\n${e.body}`).digest('hex');
+  return createHash('sha256').update(`${senderAddress(e.from)}\n${e.body}${e.gmailId ? `\n${e.gmailId}` : ''}`).digest('hex');
 }
 
 /** The redacted text of the email this one answers, and of the emails before it, for grounding the merged address. */
@@ -68,7 +72,8 @@ async function earlierEmail(repo: Repo, email: EmailRow | null): Promise<Earlier
 export async function processEmail(input: IncomingEmail, deps: Deps): Promise<Processed> {
   const { repo, warehouse, carriers } = deps;
   const hash = emailHash(input);
-  const existing = (input.gmailId ? await repo.findByGmailId(input.gmailId) : null) ?? await repo.findByHash(hash);
+  // Dedupe by Gmail id, else (pasted) by the hash of sender + body (SPEC §5.3 step 2, REQ-INT-08).
+  const existing = input.gmailId ? await repo.findByGmailId(input.gmailId) : await repo.findByHash(hash);
   if (existing && existing.status !== 'WAITING') {
     return { id: existing.id, status: existing.status, decision: (await repo.latestExtraction(existing.id))?.decision ?? null };
   }
@@ -98,7 +103,7 @@ export async function processEmail(input: IncomingEmail, deps: Deps): Promise<Pr
       email_id: id, extraction: null, decision,
       checks: { address: null, promise: null, warehouse: null, carrier: null },
       reply_draft: templateReply({ decision, clientName: null, contact: null, items: [], promise: null, missing: [],
-        candidates: [], address: null, addressIssues: [], suggestion: null }),
+        address: null, addressIssues: [], suggestion: null }),
       reply_source: 'template',
     });
     await repo.setStatus(id, 'AWAITING_APPROVAL');

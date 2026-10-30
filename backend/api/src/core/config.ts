@@ -29,6 +29,9 @@ export const Env = z.object({
   AZURE_LANGUAGE_KEY: z.string().optional(),
   ADDRESS_PROVIDER: z.enum(['azure-maps', 'recorded']).default('recorded'),
   AZURE_MAPS_KEY: z.string().optional(), // Azure Maps account shared key (Authentication tab)
+  // E19 map tile SAS (SPEC §5.17, A20): the Maps account's ARM id and the user-assigned identity the SAS is issued for
+  AZURE_MAPS_ACCOUNT_ID: z.string().optional(),
+  AZURE_MAPS_SAS_PRINCIPAL_ID: z.string().optional(),
   RECORD: z.string().optional(),
   GMAIL_ACCOUNT: z.string().optional(), // the demo inbox; scripts refuse to touch any other account
   GMAIL_CLIENT_ID: z.string().optional(),
@@ -53,6 +56,8 @@ export const Env = z.object({
   // E19 one-time address link (SPEC §5.17; design settings, not data). Off by default (REQ-LINK-09).
   CONFIRM_LINK: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['on', 'off']).default('off')),
   CONFIRM_LINK_HOURS: z.coerce.number().int().min(1).max(72).default(24),
+  // REQ-LINK-17: the emailed 6-digit code before the address page shows anything; off only for tests and local demos without Gmail
+  CONFIRM_LINK_CODE: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['on', 'off']).default('on')),
   // The web app's public address (same value as the web's AUTH_URL): the link is <AUTH_URL>/confirm/<token>
   AUTH_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
   // D10 in-app assistant (SPEC §5.16; design settings, not data). Off by default (REQ-ASK-08).
