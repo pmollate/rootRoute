@@ -12,7 +12,7 @@
 
 - Every figure shown comes from the supplied dataset via Python; synthetic data never changes a headline figure (REQ-REP-04).
 - Golden numbers (SPEC §2.2, §2.4) are tests: on-time 71.0%; programme waterfall 76.2 → 82.5 → 87.3 → 91.0 → 92.0% vs routing vendor 78.3%; as built 85.9% (expected) / 88.5% (full fix); points lost 7.6 / 7.0 / 5.6 / 5.6 / 3.2.
-- Five causes (SPEC §5.1): `f_addr`, `f_stock`, `f_cutoff`, `f_lane` (D→MW/SE, E→West, F→NE/SE, or D on a Friday), `f_route` (>20% over plan). Aligned with the team's diagnostic deck (`docs/Halcyon_Delivery_Diagnostic.pdf`).
+- Five causes (SPEC §5.1): `f_addr`, `f_stock`, `f_cutoff`, `f_lane` (D→MW/SE, E→West, F→NE/SE, or D on a Friday), `f_route` (>20% over plan). Aligned with the team's diagnostic deck (development only; not in the repo).
 - The AI model extracts and drafts only; code decides; humans approve anything that leaves the system.
 - One writer per table (CONTRACTS §4–5). Cross-area calls only through `warehouse/index.ts` and `carriers/index.ts`.
 - Feature freeze Thursday 12:00. Never drop a Core feature to make room for a stretch one.
@@ -101,7 +101,7 @@ All code in the resource plans was run before the plans were written, in a scrat
 
 | Area | Checked | Not checked (no Postgres / cloud on the planning machine) |
 |---|---|---|
-| Python (`backend/analytics/`, generators) | 69 tests pass; all 23 replay scenarios match SPEC §2.4; the expected-adoption waterfall reproduces the diagnostic deck exactly (71.0 → 76.2 → 82.5 → 87.3 → 91.0 → 92.0%, vendor 78.3%), and so does the cause attribution; block rule gives exactly the 5 bad lanes; generators reproducible byte for byte; ruff clean | Writing tables to Postgres |
+| Python (`backend/analytics/`, generators) | 69 tests pass; all 23 replay scenarios match SPEC §2.4; the expected-adoption waterfall reproduces the diagnostic deck exactly (71.0 → 76.2 → 82.5 → 87.3 → 91.0 → 92.0%), and so does the cause attribution; block rule gives exactly the 5 bad lanes; generators reproducible byte for byte; ruff clean | Writing tables to Postgres |
 | Node (`backend/api/`) | Typechecks (TypeScript 7, Fastify 5, zod 4, Anthropic SDK 1.3, MCP SDK 1.32); 99 unit tests pass, including all 50 fixtures through the address + decision rules, the full C190 flow on an in-memory repo, the Friday cap and Tier 1 priority | 19 route tests that need the test database (they skip locally and run in CI); live Claude calls; Azure OpenAI provider |
 | Dashboard (`frontend/`) | Typechecks; 7 screen tests pass; `next build` succeeds with the landing page and `/dashboard/{overview,intake,warehouses,carriers,replay}`; root `npm run` scripts work | Playwright smoke test; the mock WMS bot |
 | Infra | `setup.sh` passes `bash -n`; workflows parse as YAML | Running against a real Azure subscription |

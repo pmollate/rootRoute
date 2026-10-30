@@ -22,7 +22,7 @@ never models other companies' products or internal data (no routing-vendor scena
 - `Halcyon-Hackathon-Dataset/` — the supplied synthetic dataset: CSVs, README, DATA_DICTIONARY (read-only; never edit)
 - `docs/` — `SPEC.md` (product + technical spec, source of truth), `CONTRACTS.md` (shared types, tables, API),
   `superpowers/plans/` (task plans for resources A, B, C), `prototype/` (clickable UX prototype),
-  `Halcyon_Delivery_Diagnostic.pdf` (team diagnostic deck), `SPEC-carrier-optimizer.md`,
+  `SPEC-carrier-optimizer.md`,
   `SPEC-email-address-resolution.md`, `Halcyon.docx` (the participant problem statement)
 - `backend/` — `analytics/` (Python pipeline: loader, five cause flags, replay; run `npm run pipeline`), `api/` (Node +
   Fastify API and agents), `db/migrations/`, `synthetic-data/` (generators, reference data), `tests/fixtures/`,

@@ -134,7 +134,8 @@ curl -s localhost:3001/api/intake/email -H 'content-type: application/json' -H '
 With `LLM_PROVIDER=recorded` (the default) the model answers come from `backend/api/test/recordings/`, which hold the
 50 fixtures. Any other text has no recording and the email waits (`WAITING`) until a model is set
 (`LLM_PROVIDER=azure-openai`). To run all 50 fixtures against their expected answers:
-`npm --prefix backend/api run eval:intake` (add ids to run a few, e.g. `-- 01 09`).
+`npm --prefix backend/api run eval:intake` (add ids to run a few, e.g. `-- 01 09`). It prints the exact score; with the
+recorded answers: fields 245/245, incomplete addresses caught 10/10, decisions 49/50.
 
 To send the fixtures to a running API, as the paste form does, and see each decision and how long it took:
 `npm run send:fixtures` (all 50) or `npm run send:fixtures -- 01 09 34`. It reads `API_URL` and `API_KEY` from the shell
@@ -180,6 +181,19 @@ npm test            # API, frontend and Python tests (API route tests need the t
 npm run typecheck   # frontend types and API lint
 npm run check       # what the pre-push hook runs: lint, types and tests for the areas changed
 ```
+
+`npm test` runs the Python suite with `python`, so activate the venv first (`source .venv/bin/activate`); without it,
+the run stops at `test:py` with `python: command not found`. The API route tests need Postgres up and the test
+database migrated, piped and seeded (the `:test` commands in [Run locally](#run-locally)).
+
+## Change the cause rules
+
+The five cause rules (08:00 cut-off, 20% route overrun, carrier D's Friday cap, the bad carrier × region lanes) and the
+adoption rates behind the replay live in [`backend/analytics/rules.json`](backend/analytics/rules.json), not in code.
+Edit it, or point `ANALYTICS_RULES` at another client's file, and rerun `npm run pipeline`. The golden tests in
+`backend/analytics/tests/test_scenarios.py` hold the supplied data's figures, so they fail on purpose when the default
+rules change. The API's order-time cut-off (`CUTOFF_HOUR` in `backend/api/src/modules/warehouse/domain.ts`) is checked
+against the same file by `backend/api/test/warehouse/domain.test.ts`.
 
 `npm run setup` turns on the pre-push hook (`.githooks/pre-push`). With the app running it also runs the Playwright
 smoke test; install its browser once with `npx --prefix frontend playwright install chromium`. Skip the hook once with
@@ -227,7 +241,8 @@ Fastify), PostgreSQL Flexible Server and Key Vault for every secret.
 | [`docs/CONTRACTS.md`](docs/CONTRACTS.md) | Shared types, tables, API routes and settings |
 | [`docs/SPEC-auth.md`](docs/SPEC-auth.md) | Sign-in, roles and permissions |
 | [`docs/SPEC-data-upload.md`](docs/SPEC-data-upload.md) | Data store, source connection and analysis by date window |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the parts fit together |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the parts fit together; [decision log](docs/ARCHITECTURE.md#5-decision-log) (§5: each choice, the alternative and the trade-off) |
+| [`docs/SCALE-RUN.md`](docs/SCALE-RUN.md) | Timed pipeline run at 1×, 10× and on a second client (`npm run bench`) |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | What comes next |
 | [`docs/TEST-EVIDENCE.md`](docs/TEST-EVIDENCE.md) | Test results and evidence |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Secrets scan result, where credentials live, roles and Azure least privilege |

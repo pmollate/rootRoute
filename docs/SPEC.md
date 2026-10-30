@@ -1513,7 +1513,7 @@ screens using synthetic data show a badge (REQ-UI-04).
 - Team intake workflow canvas: https://claude.ai/artifact/L3zPwz8rNzmKRxNPzRGeDC
 - Team carrier optimization canvas: https://claude.ai/artifact/BMxbTQyniHbkBYuX3zkHN2
 - Carrier risk model and capacity-limited replay: `backend/carrier-optimization-engine/model_report.md`
-- Team diagnostic deck: `docs/Halcyon_Delivery_Diagnostic.pdf` (source of the five-cause definitions, adoption rates, per-cause KPIs and open questions in v0.4)
+- Team diagnostic deck (development only; removed from the repo 30 Oct): source of the five-cause definitions, adoption rates, per-cause KPIs and open questions in v0.4. The cause rules and adoption rates now live in `backend/analytics/rules.json`
 - Clickable prototype: https://claude.ai/artifact/3e3anPMEBFDUEsbz89rYc5
 - Order to delivery workflow ("Order journey", D9, draft for team review): `docs/SPEC-order-workflow.md`
 - Sign-in and roles ("Login", P7, v0.4 for team review, build after submission): `docs/SPEC-auth.md` (replaces SEC-JRN-02 with REQ-AUTH-04; v0.3 adds D10 and E19 routes; v0.4 the e2e password from Key Vault)
