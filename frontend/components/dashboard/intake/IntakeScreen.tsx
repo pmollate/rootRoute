@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
 import { useCan } from '@/components/auth/UserContext';
 import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
-import { SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
+import { InputRefused, SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
 import s from './intake.module.css';
 import { OrderReview } from './OrderReview';
 
@@ -17,7 +17,9 @@ export interface EmailItem {
   clientName?: string | null; tier?: string | null; items?: Item[] | null; preview?: string;
 }
 /** lastPoll: the API's last Gmail check, scheduled or by hand. */
-interface Inbox { emails: EmailItem[]; lastPoll?: { startedAt: string; finishedAt: string | null; ok: boolean | null } | null }
+/** limits: the longest email the API accepts (REQ-INT-16); older APIs leave it out and the form shows no counter. */
+interface Inbox { emails: EmailItem[]; lastPoll?: { startedAt: string; finishedAt: string | null; ok: boolean | null } | null;
+  limits?: { bodyChars: number; subjectChars: number; fromChars: number } }
 interface PollResult { processed: number; retried: number; ok: boolean }
 interface Address { line1: string; line2: string | null; city: string; state: string; zip: string }
 export interface Detail {
@@ -87,6 +89,7 @@ const ACTION_DONE: Record<string, string> = { approve: 'Approved', send_reply: '
 /** A time of day as "09:14 am". */
 const clock = (t: Date) => `${String(t.getHours() % 12 || 12).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')} ${t.getHours() < 12 ? 'am' : 'pm'}`;
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const count = (n: number) => n.toLocaleString('en-US');
 /** "[SYNTHETIC] Re: Demo order" -> "Re: Demo order"; the Synthetic badge says the rest. */
 const bare = (subject: string) => subject.replace(/^\s*\[SYNTHETIC\]\s*/i, '');
 const synthetic = (e: { subject: string }) => /\[SYNTHETIC\]/i.test(e.subject);
@@ -176,6 +179,7 @@ function chip(e: EmailItem): { text: string; tone: string } {
 
 /** A fixed message per known refusal: the server's text can carry config names or internals. */
 function refusal(e: unknown): string {
+  if (e instanceof InputRefused) return e.message; // written for the user by the API (REQ-INT-16)
   const m = e instanceof Error ? e.message : '';
   if (m.includes('allow-list')) return 'Not sent: this address is not on the test allow-list.';
   if (m.includes('Gmail is not set up')) return 'Not sent: Gmail is not connected yet.';
@@ -367,6 +371,8 @@ export function IntakeScreen() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [busy, setBusy] = useState<'fetch' | 'act' | null>(null);
   const [draft, setDraft] = useState({ from: 'orders@client190.example', subject: '[SYNTHETIC] Order', receivedAt: '2026-10-21 08:05', body: '' });
+  // REQ-INT-16: the API's readable refusal of the pasted email, shown by the form; a field's mark goes when it is edited.
+  const [pasteError, setPasteError] = useState<{ text: string; fields: Record<string, string> } | null>(null);
   // Phones show one screen at a time, as the Gmail app does: the list, or the open thread slid in over it.
   const [phone, setPhone] = useState(false);
   const [view, setView] = useState<'list' | 'thread'>('list');
@@ -489,9 +495,27 @@ export function IntakeScreen() {
     return `Checked Gmail: ${plural(r.processed, 'new email')}${r.retried ? `, ${r.retried} retried` : ''}.`;
   });
 
+  type Field = keyof typeof draft;
+  const editDraft = (field: Field, value: string) => {
+    setDraft({ ...draft, [field]: value });
+    if (pasteError?.fields[field]) {
+      setPasteError({ ...pasteError, fields: Object.fromEntries(Object.entries(pasteError.fields).filter(([k]) => k !== field)) });
+    }
+  };
+  const invalid = (field: Field) => (pasteError?.fields[field] ? true : undefined);
+  const bodyLimit = list.data?.limits?.bodyChars;
+  const bodyOver = bodyLimit !== undefined && draft.body.length > bodyLimit;
+
   const submit = () => run('act', async () => {
-    const r = await postJSON<{ id: number; decision: Decision | null }>('/api/intake/email',
-      { ...draft, ...(replyTo ? { inReplyTo: replyTo } : {}) });
+    setPasteError(null);
+    let r: { id: number; decision: Decision | null };
+    try {
+      r = await postJSON<{ id: number; decision: Decision | null }>('/api/intake/email',
+        { ...draft, ...(replyTo ? { inReplyTo: replyTo } : {}) });
+    } catch (e) {
+      if (e instanceof InputRefused) setPasteError({ text: e.message, fields: e.fields });
+      throw e;
+    }
     setSelected(r.id);
     setPane('email');
     setReplyTo(null);
@@ -652,27 +676,39 @@ export function IntakeScreen() {
             </div>
           ) : pane === 'paste' ? (
             <div className={s.pasteWrap} key="paste">
-              <div className={s.pasteForm}>
+              <form className={s.pasteForm} aria-label="Paste an email" noValidate onSubmit={(e) => e.preventDefault()}>
                 <div className={s.pasteTop}>
                   <button type="button" className={`${s.iconBtn} ${s.back}`} aria-label="Back to inbox" onClick={back}><Icon size={16}>{ICON.back}</Icon></button>
                   <h3>{replyTo ? `Paste the client's reply to email ${replyTo}` : 'Paste an email'} <span>(synthetic only)</span></h3>
                   <button type="button" className={s.iconBtn} aria-label="Close" onClick={() => { setPane('email'); if (phone) setView('list'); }}><Icon>{ICON.x}</Icon></button>
                 </div>
                 <label className={s.field}><span>From</span>
-                  <input value={draft.from} onChange={(e) => setDraft({ ...draft, from: e.target.value })} /></label>
+                  <input value={draft.from} aria-invalid={invalid('from')} onChange={(e) => editDraft('from', e.target.value)} /></label>
                 <label className={s.field}><span>Subject</span>
-                  <input value={draft.subject} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} /></label>
+                  <input value={draft.subject} aria-invalid={invalid('subject')} onChange={(e) => editDraft('subject', e.target.value)} /></label>
                 <label className={`${s.field} ${s.fieldShort}`}><span>Received at</span>
-                  <input value={draft.receivedAt} onChange={(e) => setDraft({ ...draft, receivedAt: e.target.value })} /></label>
+                  <input value={draft.receivedAt} aria-invalid={invalid('receivedAt')} placeholder="2026-09-14 09:30"
+                    onChange={(e) => editDraft('receivedAt', e.target.value)} /></label>
                 <textarea className={s.textarea} aria-label="Body" placeholder="Paste the email body here" value={draft.body}
-                  onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
+                  aria-invalid={invalid('body') ?? (bodyOver || undefined)} aria-describedby={bodyLimit !== undefined ? 'paste-body-count' : undefined}
+                  onChange={(e) => editDraft('body', e.target.value)} />
+                {bodyLimit !== undefined && (
+                  <p id="paste-body-count" className={bodyOver ? `${s.pasteCount} ${s.pasteCountOver}` : s.pasteCount}>
+                    {bodyOver
+                      ? `The email body is longer than ${count(bodyLimit)} characters (${count(draft.body.length)} now).`
+                      : `${count(draft.body.length)} / ${count(bodyLimit)} characters`}
+                  </p>
+                )}
+                {pasteError && (
+                  <p className={s.pasteError} role="alert"><Icon size={11}>{ICON.alert}</Icon>{pasteError.text}</p>
+                )}
                 <div className={s.pasteFoot}>
-                  <button type="button" className={`${s.btn} ${s.btnPrimary}`} onClick={submit} disabled={disabled || !draft.body.trim()}>
+                  <button type="button" className={`${s.btn} ${s.btnPrimary}`} onClick={submit} disabled={disabled || !draft.body.trim() || bodyOver}>
                     <Icon size={12}>{ICON.wand}</Icon>Process email
                   </button>
                   <span>{replyTo ? `This will be linked as the reply to email ${replyTo}.` : 'Select an email waiting for an address to paste the client\'s reply to it.'}</span>
                 </div>
-              </div>
+              </form>
             </div>
           ) : (
             <>

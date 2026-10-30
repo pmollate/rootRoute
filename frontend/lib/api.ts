@@ -14,9 +14,24 @@ export const SESSION_ENDED = 'Your session has ended. Sign in again; your change
 /** Sign in again, then come back to `next` (a dashboard path; /login keeps only same-origin paths, SEC-AUTH-12). */
 export const signInAgain = (next: string) => `/login?expired=1&next=${encodeURIComponent(next)}`;
 
+/**
+ * REQ-INT-16: the API refused the input and said why in words meant for the user: `{ error, fields }`, where `fields`
+ * maps a form field to its message. Only these messages are shown as they are; any other refusal stays generic.
+ */
+export class InputRefused extends Error {
+  constructor(message: string, readonly status: number, readonly fields: Record<string, string>) {
+    super(message);
+    this.name = 'InputRefused';
+  }
+}
+
 async function check<T>(res: Response, path: string): Promise<T> {
-  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
+  const data = (await res.json().catch(() => ({}))) as T & { error?: string; fields?: unknown };
   if (res.status === 401 && data.error === 'session_expired') throw new SessionExpired();
+  if (!res.ok && (res.status === 400 || res.status === 413 || res.status === 415) && typeof data.error === 'string'
+    && data.fields && typeof data.fields === 'object') {
+    throw new InputRefused(data.error, res.status, data.fields as Record<string, string>);
+  }
   if (!res.ok) throw new Error(data.error ?? `${res.status} ${path}`);
   return data;
 }

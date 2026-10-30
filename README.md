@@ -129,6 +129,43 @@ With `LLM_PROVIDER=recorded` (the default) the model answers come from `backend/
 (`LLM_PROVIDER=azure-openai`). To run all 50 fixtures against their expected answers:
 `npm --prefix backend/api run eval:intake` (add ids to run a few, e.g. `-- 01 09`).
 
+To send the fixtures to a running API, as the paste form does, and see each decision and how long it took:
+`npm run send:fixtures` (all 50) or `npm run send:fixtures -- 01 09 34`. It reads `API_URL` and `API_KEY` from the shell
+or `.env` and needs `AUTH_REQUIRED=off`. It prints one row per email (id, expected decision, decision, status, seconds;
+`*` marks a decision that differs from the fixture's) and a p50 / p95 / max line. With recorded answers 49 of 50 match:
+fixture 03, the prompt-injection email, is refused by the model's content filter and becomes `MISSING_INFO` (still
+never `ALL_CLEAR`).
+
+### Try your own email
+
+Paste any order into the form, or change the `curl` body above. The sender's domain must belong to a client
+(`client001.example` … `client280.example`, loaded by `npm run seed`); anything else is "Unknown sender",
+`MISSING_INFO`, with no AI call. Text that is not one of the 50 fixtures has no recording, so with
+`LLM_PROVIDER=recorded` it waits (`WAITING`); set `LLM_PROVIDER=azure-openai` (and the PII and Maps providers) to have
+it read. Keep it synthetic: no real names or addresses of real people.
+
+### Bad inputs to try
+
+Each is refused before anything is stored or any AI service is called, with one readable sentence in `error` and the
+message per field in `fields` (REQ-INT-16, AC-INT-16 to -18). The paste form shows the sentence next to the form.
+
+| Input | Answer |
+|---|---|
+| Body empty or only spaces / newlines | 400 `The email body is empty.` (the form keeps **Process email** disabled) |
+| `from` left out; `body` left out | 400 `From is missing.` / `The email body is missing.` (every missing field is named) |
+| `"from": "orders"` | 400 `From must be an email address, like orders@client190.example.` |
+| `"receivedAt": "20/10/2026 9:30"` or `"2026-02-30 08:05"` | 400 `Received at must look like 2026-09-14 09:30 (a real date, 24-hour time).` |
+| Body over `INTAKE_MAX_BODY_CHARS` (20,000), subject over `INTAKE_MAX_SUBJECT_CHARS` (300) | 400 `The email body is longer than 20,000 characters.` (the form shows the count and the limit) |
+| Request over 1 MB | 413 `The request is larger than 1 MB. Paste only the text of one email.` |
+| Broken JSON (`{"from":`), or an empty request | 400 `The request is not valid JSON.` |
+| `Content-Type: application/x-www-form-urlencoded` | 415 `Send the request as JSON (Content-Type: application/json).` |
+| A JSON array or plain text | 400 `Send the email as a JSON object with from, subject, body and receivedAt.` |
+
+```bash
+curl -s localhost:3001/api/intake/email -H 'content-type: application/json' -H 'x-api-key: dev-key' \
+  -d '{"from": "orders", "receivedAt": "20/10/2026 9:30", "body": "   "}'
+```
+
 ## Test
 
 ```bash

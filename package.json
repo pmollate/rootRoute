@@ -25,6 +25,7 @@
     "migrate:test": "npm --prefix backend/api run migrate:test",
     "seed": "npm --prefix backend/api run seed",
     "seed:test": "npm --prefix backend/api run seed -- --test",
-    "media": "npm --prefix frontend run media"
+    "media": "npm --prefix frontend run media",
+    "send:fixtures": "node scripts/send-fixture-emails.mjs"
   }
 }
