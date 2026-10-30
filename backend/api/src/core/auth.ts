@@ -3,6 +3,7 @@ import { jwtVerify } from 'jose';
 import { config } from './config.js';
 import { ROLES, type AuthUser, type Role } from './contracts.js';
 import { permissionFor, rolesFor } from './permissions.js';
+import { redactLink } from './redactLink.js';
 
 /** SPEC-auth §5.2: the web app signs a 60 s HS256 token per request; the API allows 5 s of clock difference. */
 export const TOKEN = { issuer: 'latelens-web', audience: 'latelens-api', maxLifeSeconds: 60, clockToleranceSeconds: 5 } as const;
@@ -81,7 +82,7 @@ export function requireUser(s: AuthSettings) {
     const url = req.routeOptions.url;
     const roles = rolesFor(req.method, url, req.body);
     if (roles === 'public') return;
-    const route = `${req.method} ${url ?? req.url.split('?')[0]}`;
+    const route = `${req.method} ${url ?? redactLink(req.url.split('?')[0])}`; // SEC-LINK-01: no token in a log line
     const token = bearer(req);
     const user = token && s.secret ? await verifyToken(token, s.secret) : null;
     const outcome = decide(user, roles);

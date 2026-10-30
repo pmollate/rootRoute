@@ -5154,14 +5154,14 @@ credential, A20; here the recorded issuer).
 - `PERMISSIONS`: `'GET /api/confirm/:token': 'public'` and `'POST /api/confirm/:token': 'public'`, each commented
   "token-gated: a valid one-time token in the path, no session, no key (SEC-LINK-05)".
 
-- [ ] **Step 1: Never log the token.** Write the failing test first in `test/routes/link.test.ts` (no database needed
+- [x] **Step 1: Never log the token.** Write the failing test first in `test/routes/link.test.ts` (no database needed
   for this one): build the app with `logStream` from `test/token.ts`, `GET /api/confirm/<43 chars>`, and assert no log
   line contains the 43 characters. Then in `server.ts` pass the logger
   `{ stream?, serializers: { req: (r) => ({ method: r.method, url: redactLink(r.url) }) } }` with
   `export const redactLink = (url: string) => url.replace(/\/confirm\/[^/?#]+/, '/confirm/[token]');`
   (keep `logger: false` in tests without a stream, as today). Run: PASS.
 
-- [ ] **Step 2: Deps.** `linkDeps.ts`: `getLinkDeps()` builds `{ enabled: config.CONFIRM_LINK === 'on', hours:
+- [x] **Step 2: Deps.** `linkDeps.ts`: `getLinkDeps()` builds `{ enabled: config.CONFIRM_LINK === 'on', hours:
   config.CONFIRM_LINK_HOURS, timeZone: MAILBOX_TIMEZONE, appUrl: config.AUTH_URL ?? 'http://localhost:3000', links:
   linkRepo, maps: getDeps().maps, credentials: createMapCredentials(), now: () => new Date(), log: () => {} }`;
   `setLinkDeps(over)` for tests; routes call `{ ...getLinkDeps(), log: (event, f) => req.log.info({ event, ...f }, 'address link') }`.
@@ -5169,7 +5169,7 @@ credential, A20; here the recorded issuer).
   `{ issue: async (e) => ({ kind: 'sas', token: 'recorded', expiresAt: e.toISOString() }) }`; with `azure-maps`
   return an issuer that throws `Error('Map tile credential not set up (Q-LINK-02, Task A20)')` until A20.
 
-- [ ] **Step 3: Write the failing route tests** in `test/routes/link.test.ts`, `describe.skipIf(!hasDb)`, after
+- [x] **Step 3: Write the failing route tests** in `test/routes/link.test.ts`, `describe.skipIf(!hasDb)`, after
   `setLinkDeps({ enabled: true, timeZone: 'UTC' })` and a seeded `CONFIRM_ADDRESS` email made through
   `POST /api/intake/email` with fixture 47 (`backend/tests/fixtures/emails/47.*`, recorded map `medium`), approved and
   sent with `send_reply` through `setDeps({ gmail: fake })` and `ALLOW_LIST` from `test/setup.ts`:
@@ -5192,7 +5192,7 @@ credential, A20; here the recorded issuer).
     `hash` (8 characters) and never the token.
   Run `npm --prefix backend/api test -- test/routes/link.test.ts`. Expected: FAIL (404 on every route).
 
-- [ ] **Step 4: Routes** in `intake/routes.ts`:
+- [x] **Step 4: Routes** in `intake/routes.ts`:
 
 ```ts
   // E19 (SPEC §5.17): public and token-gated (permissions.ts). The same 404 body for every invalid link (REQ-LINK-07).
@@ -5213,16 +5213,16 @@ credential, A20; here the recorded issuer).
   for `GET /intake/:id`. In `permissions.ts` add the two public entries; in `permissions.test.ts` add
   `expect(who('GET', '/api/confirm/:token')).toBe('public')` and the POST twin (AC-SEC-LINK-05).
 
-- [ ] **Step 5: Review fields** (REQ-LINK-11). `reviewQueue(repo, links?: LinkRepo)`: for each order,
+- [x] **Step 5: Review fields** (REQ-LINK-11). `reviewQueue(repo, links?: LinkRepo)`: for each order,
   `addressSource = x.checks.address?.status === 'confirmed' ? 'link' : x.checks.address?.status === 'matched' ? 'saved' : 'email'`;
   for `link`, from `links.newestFor([e.id])`: `emailAddress = l.prefill.address`, `confirmedAddress = l.confirmed_address`,
   `mapReading = l.map_reading && !('checkId' in l.map_reading) ? l.map_reading : null`. Add the fields to `ReviewOrder`
   as optional. Add a case to `test/intake/review.test.ts` using `memoryLinks`. The route passes `linkRepo` only when
   `getLinkDeps().enabled`.
 
-- [ ] **Step 6: Run.** `npm --prefix backend/api test && npm run typecheck` with the test database up. Expected: PASS.
+- [x] **Step 6: Run.** `npm --prefix backend/api test && npm run typecheck` with the test database up. Expected: PASS.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
 
 ```bash
 git add backend/api/src backend/api/test

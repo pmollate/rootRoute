@@ -8,6 +8,7 @@ import { processEmail } from '../../src/modules/intake/pipeline.js';
 import { carrierChoices, reviewQueue } from '../../src/modules/intake/review.js';
 import type { Extraction } from '../../src/modules/intake/schema.js';
 import { checkPromise } from '../../src/modules/warehouse/domain.js';
+import { memoryLinks } from './memoryLinks.js';
 import { memoryRepo } from './memoryRepo.js';
 
 // A Northeast lane as C's recommender returns it: E recommended, F blocked (F -> Northeast is a bad lane).
@@ -58,6 +59,34 @@ describe('order review (E18)', () => {
     // The checks behind the card, from the stored extraction; F is blocked and shown with its lane on-time share.
     expect(o).toMatchObject({ commitment: 'next_day', warehouseReason: 'nearest', warnClient: false, addressStatus: 'complete',
       blockedLanes: [{ carrier: 'F', onTime: 0.6 }] });
+  });
+
+  it('REQ-LINK-11, AC-LINK-11 (API): addressSource is link, saved or email; a link-confirmed order carries the email address, the confirmed one and the map reading', async () => {
+    const { mem, id } = await allClear();
+    const [plain] = await reviewQueue(mem.repo);
+    expect(plain.addressSource).toBe('email');
+    expect('confirmedAddress' in plain).toBe(false);
+
+    const x = (await mem.repo.latestExtraction(id))!;
+    const confirmed = { line1: '415 Summer St', line2: null, city: 'Boston', state: 'MA', zip: '02210' };
+    await mem.repo.saveExtraction({ ...x, checks: { ...x.checks, address: { ...x.checks.address!, status: 'confirmed', address: confirmed } } });
+    const store = memoryLinks(() => [{ id, in_reply_to: null }]);
+    await store.links.insert({ token_hash: 'a'.repeat(64), email_id: id, issued_at: new Date('2026-10-29T10:00Z'),
+      expires_at: new Date('2026-10-30T06:00Z'), issued_by: 'u1', synthetic: true,
+      prefill: { address: { line1: '12 Main St', city: 'Boston', state: 'MA', zip: '02110' }, pin: { lat: 42.35, lon: -71.05 } } });
+    const reading = { line1: '415 Summer St', city: 'Boston', state: 'MA', zip: '02210', distanceM: 1200 };
+    Object.assign(store.rows[0], { used_at: new Date('2026-10-29T11:00Z'), confirmed_address: confirmed, lat: 42.35, lon: -71.04, map_reading: reading });
+    const [o] = await reviewQueue(mem.repo, store.links);
+    expect(o).toMatchObject({ addressSource: 'link', emailAddress: { line1: '12 Main St', city: 'Boston', state: 'MA', zip: '02110' },
+      confirmedAddress: confirmed, mapReading: reading });
+    // A pending second-Confirm check is not a reading the client confirmed; confirmed at once (no reading) is null too.
+    store.rows[0].map_reading = { checkId: 'c1', pin: { lat: 42.35, lon: -71.04 }, zip: '02210', reading };
+    expect((await reviewQueue(mem.repo, store.links))[0].mapReading).toBeNull();
+
+    await mem.repo.saveExtraction({ ...x, checks: { ...x.checks, address: { ...x.checks.address!, status: 'matched' } } });
+    const [saved] = await reviewQueue(mem.repo, store.links);
+    expect(saved.addressSource).toBe('saved');
+    expect('confirmedAddress' in saved).toBe(false);
   });
 
   it('AC-INT-15, AC-AUTH-14: approving with carrier A logs one override with the approver; the order shows A', async () => {
