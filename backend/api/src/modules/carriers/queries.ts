@@ -3,6 +3,7 @@ import type { CarrierId, Commitment, Region } from '../../core/contracts.js';
 import { query } from '../../core/db/pool.js';
 import type { LaneRow } from './domain.js';
 import type { CauseFlags, DeliveryFacts, EmailFacts, TrackEvent } from './journey.js';
+import type { OrderEventRow } from './orderEvents.js';
 
 export const laneRows = (region: Region, commitment: Commitment) => cached(`lane:${region}:${commitment}`, () =>
   query<LaneRow>('SELECT * FROM lane_scores WHERE region = $1 AND commitment = $2', [region, commitment]));
@@ -121,4 +122,21 @@ export async function emailFacts(id: number): Promise<EmailFacts | null> {
     commitment: x?.extraction?.requested_commitment ?? null,
     decision: x?.decision ?? null, checks: x?.checks ?? null, approvals, outbound, overrides,
   };
+}
+
+// ---- Order events (design §7): the one table this module writes for new orders ----
+
+export const orderEventRows = (orderRefs: string[]) => query<OrderEventRow>(
+  `SELECT event, ${ts('ts')} AS ts, detail FROM order_events WHERE order_ref = ANY($1) ORDER BY ts, id`, [orderRefs]);
+
+/** False when the (order_ref, event) row already exists: two racing requests write one row. */
+export async function insertOrderEvent(orderRef: string, e: OrderEventRow): Promise<boolean> {
+  const rows = await query<{ id: number }>(
+    `INSERT INTO order_events (order_ref, event, ts, detail) VALUES ($1, $2, $3::timestamp, $4)
+     ON CONFLICT (order_ref, event) DO NOTHING RETURNING id`, [orderRef, e.event, e.ts, JSON.stringify(e.detail)]);
+  return rows.length === 1;
+}
+
+export async function emailExists(id: number): Promise<boolean> {
+  return (await query('SELECT 1 FROM intake_emails WHERE id = $1', [id])).length === 1;
 }
