@@ -1147,7 +1147,7 @@ blocks below are the original plan. Changes, each forced by the code or the netw
 ```bash
 #!/usr/bin/env bash
 # Create the LateLens demo environment once (owner C). Requires: az login, and PG_PASSWORD + ANTHROPIC_API_KEY exported.
-# Usage: RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=saiprasad-37/root-route ./infra/setup.sh
+# Usage: RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=Evoke-Hackathon-2026/UnhandledRejections ./infra/setup.sh
 set -euo pipefail
 : "${RG:=rg-unhandled-rejections}" "${LOC:=centralindia}" "${NAME:?set NAME, e.g. rootroute01}" "${GITHUB_REPO:?set GITHUB_REPO owner/name}"
 : "${PG_PASSWORD:?export PG_PASSWORD}" "${ANTHROPIC_API_KEY:?export ANTHROPIC_API_KEY}"
@@ -1210,7 +1210,7 @@ Run it once:
 
 ```bash
 export PG_PASSWORD='<strong password>' ANTHROPIC_API_KEY='<key>'
-RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=saiprasad-37/root-route ./infra/setup.sh
+RG=rg-unhandled-rejections LOC=centralindia NAME=rootroute01 GITHUB_REPO=Evoke-Hackathon-2026/UnhandledRejections ./infra/setup.sh
 ```
 
 Expected: the closing message lists the GitHub secrets and variables to add. The repo owner adds them under Settings → Environments → `demo`.

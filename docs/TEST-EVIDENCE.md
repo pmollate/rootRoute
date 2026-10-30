@@ -157,11 +157,11 @@ repeat on any machine. CI checks the generators give byte-identical files on a s
 - [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), every PR and push to `main`: ruff and pytest, the
   synthetic data generators (with a reproducibility check), pipeline, migrations and seed into Postgres 16, API tests,
   dashboard tests; typecheck and production builds in a parallel job; **gitleaks** secret scan (AC-SEC-01) in a third
-  job. Runs: <https://github.com/saiprasad-37/root-route/actions/workflows/ci.yml>
+  job. Runs: <https://github.com/Evoke-Hackathon-2026/UnhandledRejections/actions/workflows/ci.yml>
 - [`.github/workflows/cd.yml`](../.github/workflows/cd.yml), after CI passes on `main`: deploys to Azure, smoke-checks
   that the API and web builds are live and the database answers, then runs the Playwright e2e suite
   (`frontend/e2e/`: `smoke`, `roles`, `journey`; covers AC-UI-01, AC-UI-03, AC-ASK-01, AC-AUTH-15, AC-AUTH-16,
-  AC-NFR-AUTH-04) against the deployed app. Runs: <https://github.com/saiprasad-37/root-route/actions/workflows/cd.yml>
+  AC-NFR-AUTH-04) against the deployed app. Runs: <https://github.com/Evoke-Hackathon-2026/UnhandledRejections/actions/workflows/cd.yml>
 
 Not covered by this run: individual CI run links (the agent had no GitHub Actions access from this machine; use the
 workflow pages above), the deployed smoke check and Playwright (the deployed URL is computed in `cd.yml` from Azure and

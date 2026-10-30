@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Create the LateLens demo environment (owner C). Safe to re-run: each step skips what already exists.
 # Requires: az login with Owner on the resource group, and permission to create app registrations.
-# Usage: NAME=rootroute01 GITHUB_REPO=saiprasad-37/root-route ./infra/setup.sh
-# Optional: GITHUB_OIDC_SUBJECT='repo:saiprasad-37@347358253/root-route@1432108396:environment:demo' (see the OIDC step).
+# Usage: NAME=rootroute01 GITHUB_REPO=Evoke-Hackathon-2026/UnhandledRejections ./infra/setup.sh
+# Optional: GITHUB_OIDC_SUBJECT='repo:Evoke-Hackathon-2026@<org-id>/UnhandledRejections@<repo-id>:environment:demo' (see the OIDC step).
 # Optional: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, AZURE_OPENAI_DEPLOYMENT (stored in Key Vault; without them the
 # API replays recorded AI answers, LLM_PROVIDER=recorded).
 set -euo pipefail
@@ -100,8 +100,11 @@ fed() {
     || az ad app federated-credential create --id "$APP_ID" -o none --parameters \
       "{\"name\":\"$1\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"$2\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
 }
-fed demo "repo:${GITHUB_REPO}:environment:demo"
-if [ -n "${GITHUB_OIDC_SUBJECT:-}" ]; then fed demo-ids "$GITHUB_OIDC_SUBJECT"; fi
+# Credential names include the repo, so a moved repo (30 Oct: saiprasad-37/root-route to
+# Evoke-Hackathon-2026/UnhandledRejections) gets its own credentials instead of skipping the old "demo" ones.
+FED="demo-${GITHUB_REPO//\//-}"
+fed "$FED" "repo:${GITHUB_REPO}:environment:demo"
+if [ -n "${GITHUB_OIDC_SUBJECT:-}" ]; then fed "$FED-ids" "$GITHUB_OIDC_SUBJECT"; fi
 SP=$(az ad sp show --id "$APP_ID" --query id -o tsv)
 az role assignment create --assignee-object-id "$SP" --assignee-principal-type ServicePrincipal --role Contributor \
   --scope "$(az group show -n "$RG" --query id -o tsv)" -o none
