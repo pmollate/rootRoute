@@ -18,6 +18,13 @@ on:
 permissions:
   contents: read
 
+# One run at a time, e2e included: a newer run's deploy (pipeline table locks, app restart) must not start while the
+# previous run's e2e is still checking the app (30 Oct: journey e2e timed out exactly while the next deploy ran).
+# A newer run waits rather than cancelling one mid-migration; a queued older run is replaced, which gate would skip.
+concurrency:
+  group: cd-demo
+  cancel-in-progress: false
+
 env:
   NODE_VERSION: "24"
   PYTHON_VERSION: "3.12"
@@ -64,10 +71,6 @@ jobs:
     environment:
       name: copilot   # GitHub environment holding the deploy secrets and variables (30 Oct)
       url: ${{ steps.config.outputs.web_url }}
-    # One deployment at a time; a newer run waits rather than cancelling one mid-migration.
-    concurrency:
-      group: cd-demo
-      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write   # OIDC sign-in to Azure, no stored password
