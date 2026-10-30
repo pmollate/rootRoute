@@ -28,8 +28,8 @@ function deliveryRef(text: string): string | null {
 }
 /** "AWAITING_APPROVAL" -> "awaiting approval". */
 const words = (status: string) => status.replace(/_/g, ' ').toLowerCase();
-/** Shown for an order's stages that have no events yet. */
-const FUTURE = 'Stages 10 to 13 show once the simulated warehouse and carrier events are built.';
+/** Shown for an order's warehouse and carrier stages (REQ-JRN-08). */
+const SIMULATED_NOTE = 'Stages 9 to 13 come from the simulated WMS and carriers: synthetic data.';
 const COMMITMENT: Record<string, string> = { same_day: 'same day', next_day: 'next day', standard: 'standard' };
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
@@ -116,10 +116,11 @@ type Tone = 'bad' | 'good' | '';
 const STATUS: Record<StageStatus, string> = { done: 'Done', current: 'In progress', waiting: 'Waiting', at_risk: 'At risk',
   failed: 'Went wrong here', skipped: 'Not done today', not_reached: 'Not reached' };
 
-/** A stage's status as the steps panel and the timeline list show it; a done synthetic stage says so instead. */
+/** A stage's status as the steps panel and the timeline list show it; a synthetic stage says so (a done one instead of "Done"). */
 function statusOf(st: Stage): { text: string; cls: string } {
   const synthetic = st.source === 'synthetic' && st.status === 'done';
-  return { text: synthetic ? 'Synthetic data' : STATUS[st.status],
+  const text = synthetic ? 'Synthetic data' : st.source === 'synthetic' ? `${STATUS[st.status]} · synthetic data` : STATUS[st.status];
+  return { text,
     cls: st.status === 'failed' ? s.bad : st.status === 'done' && !synthetic ? s.stDone : isPending(st) ? s.stWait : '' };
 }
 /** The colour of a stage's dot in the timeline list. */
@@ -216,7 +217,7 @@ function headline(f: Facts, rr: boolean): { title: string; text: string } {
     const done = j.stages.filter(isReached).length;
     const next = j.stages.find((x) => isPending(x) || x.status === 'not_reached');
     return { title: `${cap(j.summary.outcome)}: ${done} of ${j.stages.length} steps done.`,
-      text: `${next ? `Next: ${next.label.toLowerCase()}. ` : ''}${FUTURE}` };
+      text: `${next ? `Next: ${next.label.toLowerCase()}. ` : ''}${SIMULATED_NOTE}` };
   }
   if (rr) {
     return { title: `The same order, with Root Route’s ${plural(f.fixes.length, 'decision')}.`,
@@ -428,7 +429,7 @@ function JourneyView({ journey, picker }: { journey: Journey; picker: ReactNode 
                 <ol className={s.tl}>
                   {shown.stages.map(f.st).map((st) => <StageRow key={st.n} st={st} changed={rr && f.fixes.includes(st)} />)}
                 </ol>
-                {journey.kind === 'order' && shown.stages.some((n) => n >= 10 && n <= 13) && <p className={s.popNote}>{FUTURE}</p>}
+                {journey.kind === 'order' && shown.stages.some((n) => n >= 10 && n <= 13) && <p className={s.popNote}>{SIMULATED_NOTE}</p>}
               </div>
             )}
           </div>

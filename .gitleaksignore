@@ -1,3 +1,7 @@
 # Checked false positives for the ci / secrets gitleaks scan. One fingerprint per line: commit:file:rule:line.
 # Placeholder "<strong password>" / "<key>" in a setup example, not a secret (checked 30 Oct).
 6b14bca33e57c694dc74f2baaaecee58de464a0f:docs/superpowers/plans/2026-10-26-latelens-C-carriers.md:generic-api-key:1194
+# Throwaway local tokens in the order-journey-simulator plan's smoke-test command (sim-test-token-..., x-0123...), used only
+# against a simulator on 127.0.0.1; not secrets (checked 30 Oct).
+7d9a37df7f751d4ba77810975b991f32a4f2adf6:docs/superpowers/plans/2026-10-30-order-journey-simulator.md:generic-api-key:1369
+7d9a37df7f751d4ba77810975b991f32a4f2adf6:docs/superpowers/plans/2026-10-30-order-journey-simulator.md:curl-auth-header:1369

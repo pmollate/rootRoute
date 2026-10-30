@@ -88,10 +88,56 @@ const EMAIL: EmailFacts = {
     warehouse: { warehouseId: 'W1', reason: 'Nearest warehouse W1 has stock.', warnClient: false },
     carrier: { carrier: 'A', backup: 'B', reason: 'Carrier A for Midwest same-day' },
   },
-  approvals: [], outbound: [], overrides: [],
+  approvals: [], outbound: [], overrides: [], events: [],
 };
 
 describe('new order journey', () => {
+  const ENTERED_EMAIL: EmailFacts = { ...EMAIL, status: 'ENTERED',
+    approvals: [{ action: 'approve', actor: 'sup', at: '2026-10-28 07:50', reason: null },
+      { action: 'send_to_wms', actor: 'sup', at: '2026-10-28 07:55', reason: null }],
+    events: [{ event: 'wms_entered', ts: '2026-10-28 07:55', detail: { wmsOrderId: 'WMS-000008' } }] };
+  const ev = (event: EmailFacts['events'][number]['event'], ts: string) => ({ event, ts, detail: {} });
+
+  it('AC-JRN-14: entered in the simulated WMS: stage 9 synthetic with the WMS number, picking is current', () => {
+    const j = buildEmailJourney(ENTERED_EMAIL, '2026-10-28 08:00');
+    expect(byKey(j, 'wms')).toMatchObject({ status: 'done', at: '2026-10-28 07:55', source: 'synthetic' });
+    expect(byKey(j, 'wms').detail).toMatch(/WMS-000008/);
+    expect(byKey(j, 'picked').status).toBe('current');
+    expect(['handed', 'transit', 'delivered'].map((k) => byKey(j, k).status)).toEqual(['not_reached', 'not_reached', 'not_reached']);
+  });
+
+  it('AC-JRN-14: events up to in_transit: stages 9-12 done and synthetic, delivery current', () => {
+    const j = buildEmailJourney({ ...ENTERED_EMAIL, events: [...ENTERED_EMAIL.events, ev('picked', '2026-10-28 09:00'),
+      ev('picked_up', '2026-10-28 14:00'), ev('in_transit', '2026-10-28 18:00')] }, '2026-10-28 19:00');
+    expect(j.stages.slice(8, 12).map((s) => [s.status, s.source])).toEqual([['done', 'synthetic'], ['done', 'synthetic'],
+      ['done', 'synthetic'], ['done', 'synthetic']]);
+    expect(byKey(j, 'handed').actor).toMatch(/Carrier A/);
+    expect(byKey(j, 'transit').at).toBe('2026-10-28 18:00');
+    expect(byKey(j, 'delivered').status).toBe('current');
+  });
+
+  it('AC-JRN-14: delivered two days after the promise date fails stage 13 with "2 days late"; on time is done', () => {
+    const all = [...ENTERED_EMAIL.events, ev('picked', '2026-10-28 09:00'), ev('picked_up', '2026-10-28 14:00'),
+      ev('in_transit', '2026-10-28 18:00'), ev('out_for_delivery', '2026-10-29 08:00')];
+    const late = buildEmailJourney({ ...ENTERED_EMAIL, events: [...all, ev('delivered', '2026-10-31 14:00')] }, '2026-11-01 09:00');
+    expect(byKey(late, 'delivered')).toMatchObject({ status: 'failed', at: '2026-10-31 14:00', source: 'synthetic' });
+    expect(byKey(late, 'delivered').detail).toMatch(/2 days late/);
+    expect(late.summary.outcome).toBe('2 days late');
+    const onTime = buildEmailJourney({ ...ENTERED_EMAIL, events: [...all, ev('delivered', '2026-10-29 12:00')] }, '2026-10-29 13:00');
+    expect(byKey(onTime, 'delivered').status).toBe('done');
+    expect(onTime.summary.outcome).toBe('delivered');
+    expect(byKey(onTime, 'notice').status).toBe('not_reached');
+  });
+
+  it('AC-JRN-14: not delivered by the end of the promise date is at risk', () => {
+    const j = buildEmailJourney({ ...ENTERED_EMAIL, events: [...ENTERED_EMAIL.events, ev('picked', '2026-10-28 09:00')] },
+      '2026-10-30 08:00');
+    expect(byKey(j, 'delivered').status).toBe('at_risk');
+    expect(byKey(j, 'handed').status).toBe('current');
+    expect(buildEmailJourney(ENTERED_EMAIL, '2026-10-29 23:59').stages.find((s) => s.key === 'delivered')!.status)
+      .toBe('not_reached');
+  });
+
   it('AC-JRN-01: an ALL_CLEAR email awaiting approval has stages 1-6 done and approval current', () => {
     const j = buildEmailJourney(EMAIL);
     expect(j.ref).toBe('email:8');

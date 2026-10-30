@@ -1,19 +1,31 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { actorOf } from '../../core/auth.js';
+import { bearerAuth } from '../../core/bearer.js';
+import { config } from '../../core/config.js';
 import { query } from '../../core/db/pool.js';
-import { carriersApi } from './index.js';
+import { carriersApi, recordOrderEvent } from './index.js';
+import { FEED_EVENTS, TS } from './orderEvents.js';
 import { warehouseApi } from '../warehouse/index.js';
 import type { Commitment as CommitmentId, Region as RegionId, WarehouseId } from '../../core/contracts.js';
 import { recommendFromLane } from './domain.js';
 import { buildDeliveryJourney, buildEmailJourney } from './journey.js';
-import { backtestRows, deliveryFacts, emailFacts, insertOverride, laneRows, tracking } from './queries.js';
+import { backtestRows, deliveryFacts, emailExists, emailFacts, insertOverride, laneRows, tracking } from './queries.js';
 
 const Region = z.enum(['Midwest', 'Northeast', 'Southeast', 'West']);
 const Commitment = z.enum(['same_day', 'next_day', 'standard']);
 const RecommendBody = z.object({ region: Region, commitment: Commitment, slaClause: z.boolean(), date: z.string().optional() });
 // No `user`: the actor is the signed-in person from the verified token (REQ-AUTH-07); a `user` sent anyway is ignored.
 const OverrideBody = z.object({ orderRef: z.string().min(1), from: z.string().min(1), to: z.string().min(1), reason: z.string().min(3) });
+
+/** A ts that has the right shape must also be a real date and time (no 2026-02-31, no 99:99). */
+const realTs = (s: string) => {
+  const [y, mo, d, h, mi] = s.split(/[- :]/).map(Number);
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return mo >= 1 && mo <= 12 && dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d
+    && h >= 0 && h <= 23 && mi >= 0 && mi <= 59;
+};
+const EventBody = z.object({ event: z.enum(FEED_EVENTS), ts: z.string().regex(TS).refine(realTs).optional() });
 
 // Roles for every route: core/permissions.ts, checked in server.ts before the handler runs (SPEC-auth §4.2).
 const routes: FastifyPluginAsync = async (app) => {
@@ -47,6 +59,20 @@ const routes: FastifyPluginAsync = async (app) => {
     const body = OverrideBody.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: body.error.message });
     return { id: await insertOverride({ ...body.data, user: actorOf(req).id }) };
+  });
+
+  /** Design §6: the simulated WMS and carriers report an order's next step. Its own Bearer token, not a user's. */
+  app.post<{ Params: { ref: string } }>('/orders/:ref/events', async (req, reply) => {
+    const auth = bearerAuth(req.headers.authorization, config.WMS_EVENTS_TOKEN);
+    if (auth !== 200) return reply.code(auth).send({ error: auth === 503 ? 'order events are not set up (WMS_EVENTS_TOKEN)' : 'unauthorized' });
+    const m = /^email:(\d+)$/.exec(req.params.ref);
+    const body = EventBody.safeParse(req.body);
+    if (!m || !body.success) return reply.code(400).send({ error: 'invalid' });
+    const emailId = Number(m[1]);
+    if (!(await emailExists(emailId))) return reply.code(404).send({ error: 'not found' });
+    const r = await recordOrderEvent({ orderRef: `email:${emailId}`, event: body.data.event, ts: body.data.ts });
+    req.log.info({ emailId, event: body.data.event, code: r.code }, 'order event');
+    return reply.code(r.code).send(r.error ? { error: r.error } : { event: body.data.event, ts: r.ts });
   });
 
   /** D9 Order journey: `email:<id>` (an intake order) or `delivery:<id>` (a past delivery). Read-only. */

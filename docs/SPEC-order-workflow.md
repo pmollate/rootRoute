@@ -78,22 +78,20 @@ Branches shown on the timeline, not as extra stages:
 - Unknown sender (E16) → stage 2 is `skipped`, and the journey ends at stage 1.
 - WAITING (map or model not reachable) → the stage is `waiting`, with the next poll time.
 
-### 4.2 Simulating stages 9–13 for new orders (synthetic)
+### 4.2 Stages 9–13 for new orders: the simulated WMS and carriers (synthetic)
 
-Halcyon's WMS and carriers aren't connected (Q-002; carrier APIs are pitch only, SPEC §3), so after approval and
-`send_to_wms` the API writes simulated events to `order_events`, all `synthetic = true`. Every timing comes from a
-lookup Python computes from `deliveries.csv` (SPEC §4.2: Python computes, Node looks up):
+Halcyon's WMS and carriers aren't connected (Q-002; carrier APIs are pitch only, SPEC §3), so a separate app plays
+them: `tools/wms-simulator` (`npm run dev:sim`, local only). Design:
+`docs/superpowers/specs/2026-10-30-order-journey-simulator-design.md`.
 
-| Event | Rule |
-|---|---|
-| `wms_entered` | At `send_to_wms`; WMS order number `WMS-<email id>` (assumed interface, SPEC §12) |
-| `picked` | On the promise rule's pick date (W1): the same day for same-day orders before the cut-off, otherwise the next working day |
-| `picked_up` | The pick date plus the median order-to-shipped hours for that warehouse and commitment (`journey_timing`) |
-| `in_transit`, `out_for_delivery` | As in SD-07 (C6): the same offsets from `picked_up` and `delivered` |
-| `delivered` | On time with probability = the lane's fair on-time rate (`lane_scores.on_time`). Late by the lane's median days late (`lane_scores.lane_median_late`). Seeded by email id, so a rerun gives the same journey |
+1. `send_to_wms` POSTs the approved order to `WMS_URL` (CONTRACTS §6, WMS interface) and records `wms_entered` with the
+   WMS order number. Without `WMS_URL` it only sets the status, as before.
+2. A person moves the order on in the simulator: `picked` → `picked_up` → `in_transit` → `out_for_delivery` →
+   `delivered`. Each step reaches `POST /api/orders/:ref/events` and is stored in `order_events`, `synthetic = true`.
+3. The journey shows stages 9–13 from those events. A delivery after the promise date fails stage 13 with the days
+   late; none by the end of the promise date is `at_risk`.
 
-Events carry future timestamps. The page shows them according to an **"as of" time** (default: now; the demo can move
-it forward), as `/api/tracking?asOf=` already does. This avoids a background clock and keeps the demo repeatable.
+Timings are whatever the person driving the simulator chooses; no headline figure reads `order_events`.
 
 ### 4.3 Past deliveries
 
@@ -121,14 +119,15 @@ The "With LateLens" note shows the rule's output, never a promise that the deliv
 | REQ-JRN-02 | For an intake email, stages 1–8 **MUST** be built only from existing intake, carriers and audit tables (`intake_emails`, `intake_extractions`, `outbound_messages`, `audit_log`, `recommendations`, `override_log`); the journey **MUST NOT** write to them. |
 | REQ-JRN-03 | Each client round of a `CONFIRM_ADDRESS` or `MISSING_INFO` email **MUST** appear on the timeline, with the question sent and the client's answer. |
 | REQ-JRN-04 | A rejected order **MUST** show the rejection reason and user at stage 7, and stages 8–14 as `not_reached`. |
-| REQ-JRN-05 | When `send_to_wms` succeeds, the API **MUST** write the simulated events of §4.2 to `order_events` once per order (a repeated call writes nothing), with `synthetic = true`, using only timings from `journey_timing` and `lane_scores`. |
-| REQ-JRN-06 | With an `asOf` time, the journey **MUST** show only events at or before it. An order with no `delivered` event by the end of its promise date **MUST** show stage 13 as `at_risk`, using the same rule as REQ-TRK-02. |
+| REQ-JRN-05 | When `send_to_wms` runs with `WMS_URL` set, the API **MUST** hand the order to the WMS (CONTRACTS §6) and record one `wms_entered` event with its WMS order number; when the WMS does not accept it, the API **MUST** answer 503 and leave the status unchanged. Without `WMS_URL` it **MUST** behave as before (status only). |
+| REQ-JRN-06 | An order with no `delivered` event by the end of its promise date **MUST** show stage 13 as `at_risk`, judged against the server's current local time, using the same rule as REQ-TRK-02. An `asOf` parameter is not built yet. |
 | REQ-JRN-07 | For a past delivery, the journey **MUST** mark as `failed` each stage named by its cause flags (§4.3), and **MUST** show the output of the existing rule for that stage (`checkPromise`, `pickWarehouse`, `recommendCarrier`, address decision). |
 | REQ-JRN-08 | Every stage with source `synthetic` **MUST** show the "Synthetic data" badge, and the page **MUST** say that stages 9–13 of new orders are simulated. |
 | REQ-JRN-09 | `/dashboard/journey/<ref>` **MUST** show the timeline, and the Intake detail **MUST** link to it. The Carriers tracking at-risk list **SHOULD** link to it. |
-| REQ-JRN-10 | `journey_timing` (warehouse, commitment, median order-to-shipped hours, n) **MUST** be computed by Python from `deliveries.csv` and written by the pipeline; Node only reads it. |
+| REQ-JRN-10 | *(Dropped 30 Oct: timings come from the simulator, not `journey_timing`.)* |
 | REQ-JRN-11 | The journey **SHOULD** show, for a new order, the time from email arrival to approval and to WMS entry. |
 | REQ-JRN-12 | (Stretch, with E10.) An `at_risk` order **MAY** get a drafted delay notice addressed to the client only, sent only after an operator approves it and only to the allow-list. |
+| REQ-JRN-13 | `POST /api/orders/:ref/events` **MUST** accept `picked`, `picked_up`, `in_transit`, `out_for_delivery`, `delivered` for an order in the WMS, each only after the one before it and never earlier than it; a repeat with the same time **MUST** change nothing (200) and one with another time **MUST** be refused (409). |
 
 ### 5.2 Non-functional and security
 
@@ -138,6 +137,7 @@ The "With LateLens" note shows the rule's output, never a promise that the deliv
 | SEC-JRN-01 | The journey **MUST NOT** return names, phone numbers or email addresses of people. It shows client id, items, and city, state and ZIP; the full email stays on the Intake screen. |
 | SEC-JRN-02 | *(Replaced by REQ-AUTH-04 in `docs/SPEC-auth.md` once P7 ships: reads then need a signed-in user.)* The journey endpoint **MUST** be read-only. Like the other dashboard reads (`GET /api/intake`, `/api/carriers`) it needs no API key, which is why SEC-JRN-01 keeps people's details out of it. |
 | SEC-JRN-03 | Journey requests **MUST** log the ref (`emailId` or `deliveryId`), so an order's journey views are traceable in Application Insights (NFR-03). |
+| SEC-JRN-04 | `POST /api/orders/:ref/events` **MUST** need `Authorization: Bearer <WMS_EVENTS_TOKEN>` (401 without it, 503 when unset). The order sent to the WMS **MUST NOT** carry names, phone numbers, email addresses or a street line. |
 
 ## 6. Acceptance criteria
 
@@ -147,13 +147,16 @@ The "With LateLens" note shows the rule's output, never a promise that the deliv
 | AC-JRN-02 | Given any intake email, when its journey is built, then the row counts of the six intake and carriers tables are unchanged. |
 | AC-JRN-03 | Given C190's `CONFIRM_ADDRESS` email followed by the client's answer (AC-INT-07), when requested, then the timeline shows two rounds of stages 2–6: the first ends in `CONFIRM_ADDRESS`, the second in `ALL_CLEAR`. |
 | AC-JRN-04 | Given an order rejected with reason "wrong SKU", when requested, then stage 7 is `failed` with that reason and user, and stages 8–14 are `not_reached`. |
-| AC-JRN-05 | Given an approved ALL_CLEAR order, when `send_to_wms` runs twice, then `order_events` holds exactly one set of events for it, all `synthetic = true`. When rerun on a fresh database, the same timestamps come back. |
-| AC-JRN-06 | Given a simulated order promised for D whose `delivered` event is after D: with `asOf` before `picked_up`, stages 11–13 are `not_reached`; with `asOf` at the end of D, stage 13 is `at_risk`. |
+| AC-JRN-05 | Given an approved ALL_CLEAR order and a fake WMS answering 201, when `send_to_wms` runs, then status is `ENTERED` and `order_events` has one `wms_entered` row with the `wmsOrderId`. Run twice: still one row. Given the fake WMS times out or answers 500, then 503, status unchanged, no row. Given `WMS_URL` unset, then `ENTERED` and no row |
+| AC-JRN-06 | Given only a `picked` event and now after the end of the promise date, then stage 13 is `at_risk` (the AC-JRN-14 at-risk case). |
 | AC-JRN-07 | Given a past delivery with `f_cutoff` only, when requested, then only stage 4 is `failed`, and its note gives `checkPromise`'s next-day result with the reason. Given one with `f_lane` on a blocked lane, then stage 6 is `failed`, and the note names the recommended carrier and reason. |
 | AC-JRN-08 | Given any journey with synthetic stages, when the page renders, then each of those stages shows the "Synthetic data" badge (Playwright, C10). |
 | AC-JRN-09 | Given the Intake detail of email 7, when "Order journey" is clicked, then `/dashboard/journey/email:7` opens and shows the timeline. |
-| AC-JRN-10 | Given the pipeline has run, when `journey_timing` is queried, then each (warehouse, commitment) row has n > 0 and the medians match a pandas recomputation from `deliveries.csv`. |
+| AC-JRN-10 | *(Dropped with REQ-JRN-10.)* |
 | AC-JRN-12 | (Stretch.) Given an `at_risk` order, when the notice is drafted, then it is addressed to the client's allow-listed address, stays unsent until an operator approves it, and a non-allow-listed address is refused. |
+| AC-JRN-13 | Given an entered order, when the five events are posted in order, then each gets 201; posting `picked_up` before `picked` gets 409; reposting `picked` with the same `ts` gets 200 and no new row; with a different `ts`, 409; a `ts` earlier than the previous event, 409; an order not in the WMS, 409; `email:99999`, 404 |
+| AC-SEC-JRN-04 | Given no token or a wrong token, then 401 and no row; with `WMS_EVENTS_TOKEN` unset, then 503. The body sent to the fake WMS for client C025, whose email has a contact name and phone, holds no name, phone or email address |
+| AC-JRN-14 | Given events up to `in_transit`, then stages 9–12 are `done`, 13 `current`; given `delivered` two days after the promise date, then stage 13 is `failed` with "2 days late"; given no `delivered` and now after the end of the promise date, then `at_risk` |
 | AC-NFR-JRN-01 | Given the demo database, when 50 journeys are requested, then p95 < 500 ms. |
 | AC-SEC-JRN-01 | Given fixture C190 (with a contact name and phone), when its journey is returned, then the JSON has no name, phone or email address. |
 | AC-SEC-JRN-02 | Given any journey request, then no row changes in `recommendations`, `audit_log` or `override_log`. |
@@ -171,29 +174,26 @@ Carriers (C) ────────────┤
   recommendations        │
   override_log           │
   carrier_events (SD-07) │
-  order_events  ◀── written once at send_to_wms (Node, synthetic)
+  order_events  ◀── wms_entered at send_to_wms; later steps from the simulator (POST /api/orders/:ref/events)
 Python pipeline ─────────┤
   deliveries_clean       │
   delivery_causes        │
-  lane_scores            │
-  journey_timing (new)   ┘
+  lane_scores            ┘
 ```
 
 - **Module (as built):** in the Carriers area, which owns D9: `backend/api/src/modules/carriers/journey.ts` (pure stage
   builders, tested without a database), reads in `queries.ts`, the route in `routes.ts`. Being inside Carriers lets the
   past-delivery note use `laneRows` + `recommendFromLane` directly, which log nothing; the public `recommendCarrier`
   writes a `recommendations` row and would break REQ-JRN-02.
-- **Table `order_events`** (migration `301_order_events.sql`, writer: Node journey module): `id`, `order_ref`, `event`
+- **Table `order_events`** (migration `301_order_events.sql`, writer: `recordOrderEvent` in `modules/carriers/index.ts`; intake calls it for `wms_entered`): `id`, `order_ref`, `event`
   (`wms_entered` | `picked` | `picked_up` | `in_transit` | `out_for_delivery` | `delivered`), `ts`, `detail jsonb`,
   `synthetic boolean`, unique (`order_ref`, `event`).
-- **Table `journey_timing`** (writer: Python, `backend/analytics/carriers/journey.py`): `warehouse`, `commitment`,
-  `median_hours_to_ship`, `n`.
-- **Hook into WMS entry:** `applyAction(… 'send_to_wms')` calls `journey.simulateForward(orderRef)` after setting
-  ENTERED. This is the one change in A's module; it needs A's review.
+- **WMS entry:** `applyAction(… 'send_to_wms')` calls the WMS (`modules/intake/wms.ts`) and then C's
+  `recordOrderEvent` (passed in, like `logOverride`); see the design §5.
 - **Contracts:** the response shape goes in `docs/CONTRACTS.md` as `Journey { ref, kind: 'order' | 'delivery',
   stages: Stage[] }`, `Stage { n, key, label, status, ts, actor, source, check, note, synthetic }`.
 - **Screen:** `frontend/app/dashboard/journey/[ref]/page.tsx` with `frontend/components/dashboard/journey/`. It is a
-  vertical timeline using the existing theme tokens, an "as of" date control, and a link back to Intake or Carriers.
+  vertical timeline using the existing theme tokens, and a link back to Intake or Carriers.
 
 ## 8. Tiers and plan (deadline Thu 29 Oct)
 
@@ -201,7 +201,7 @@ Python pipeline ─────────┤
 |---|---|---|---|
 | Past-delivery journey (REQ-JRN-01, -07, SEC) | Core | **Built (C11)** | B5 causes, C6 tracking |
 | New-order journey, stages 1–9 (REQ-JRN-01–04) | Core | **Built (C11)**; the Intake link (REQ-JRN-09) waits for A's open changes | A8 intake |
-| Simulated stages 10–13 (REQ-JRN-05, -06, -10) | Synthetic | 2 h, not built | A's review of the `send_to_wms` hook |
+| Simulated stages 9–13 (REQ-JRN-05, -06, -13) | Synthetic | built 30 Oct (simulator) | A's review of the `send_to_wms` change |
 | Delay notice (REQ-JRN-12) | Stretch | — | E10 |
 
 Drop order if behind: delay notice → simulated stages → new-order journey. The past-delivery journey stays: it is the
@@ -221,11 +221,11 @@ per-order proof of SPEC §2.2.
 |---|---|
 | Simulated delivery stages read as real tracking | Badge on every synthetic stage and a page note (REQ-JRN-08); simulated data never feeds a headline figure (SPEC §12.1). |
 | A "With LateLens" note reads as a guaranteed on-time result | The note shows the rule's output only; on-time rates appear only on Replay (§4.3). |
-| Touching A's `send_to_wms` the day before submission | The hook is one call after ENTERED and fails safe: an error is logged and the order stays ENTERED. A reviews it before merge. |
+| Touching A's `send_to_wms` the day before submission | A WMS failure answers 503 and leaves the status unchanged, and no event is written. The Email owner (A) reviews the `send_to_wms` change before merge. |
 | Scope too large for one day | Tiered as in §8; the past-delivery journey alone meets the success measure for the "before pickup" argument. |
 
 ## 11. Open items
 
 - Owner: Carriers (Task C11).
-- `[WMS_CONTRACT]`: the WMS order number format follows the assumed interface once A adds it to CONTRACTS.md (SPEC §12).
+- `[WMS_CONTRACT]`: closed 30 Oct, the assumed interface is in CONTRACTS §6.
 - Add D9 to SPEC §3 and the demo script (§11) once the team agrees: after "ALL_CLEAR", open the order's journey and move "as of" to the delivery day.
