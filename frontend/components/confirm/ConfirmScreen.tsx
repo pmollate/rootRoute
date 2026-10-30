@@ -31,6 +31,7 @@ export { LINK_INVALID_TEXT };
 export const NO_PIN_START: LinkPin = { lat: 39.8283, lon: -98.5795 };
 
 type Fields = { line1: string; line2: string; city: string; state: string; zip: string };
+const REQUIRED: (keyof Fields)[] = ['line1', 'city', 'state', 'zip'];
 const FIELDS: { key: keyof Fields; label: string; auto: string; max: number; mode?: 'numeric' }[] = [
   { key: 'line1', label: 'Address line 1', auto: 'address-line1', max: 100 },
   { key: 'line2', label: 'Address line 2', auto: 'address-line2', max: 100 },
@@ -94,6 +95,9 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
     setFilled(null);
     back();
   };
+  // Line 1, city, state and ZIP must all hold text before Confirm is enabled (line 2 is optional); the API still checks the
+  // format (SEC-LINK-10) and the map (REQ-LINK-12).
+  const complete = REQUIRED.every((k) => fields[k].trim() !== '');
   const fail = () => { setMapShown(false); setMapReady(false); back(); };
   const move = (p: LinkPin) => { setPin(p); setFilled(null); back(); void readPin(p); };
 
@@ -159,13 +163,16 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
     );
   }
 
-  const input = (f: (typeof FIELDS)[number]) => (
-    <label key={f.key} className={s.field}>
-      <span>{f.label}{f.key === 'line2' ? ' (optional)' : ''}</span>
-      <input name={f.key} aria-label={f.label} autoComplete={f.auto} maxLength={f.max} inputMode={f.mode}
-        value={fields[f.key]} onChange={(e) => setField(f.key, e.target.value)} />
-    </label>
-  );
+  const input = (f: (typeof FIELDS)[number]) => {
+    const required = f.key !== 'line2';
+    return (
+      <label key={f.key} className={s.field}>
+        <span>{f.label}{required ? <span className={s.req} data-required aria-hidden="true">*</span> : ' (optional)'}</span>
+        <input name={f.key} aria-label={f.label} autoComplete={f.auto} maxLength={f.max} inputMode={f.mode} required={required}
+          value={fields[f.key]} onChange={(e) => setField(f.key, e.target.value)} />
+      </label>
+    );
+  };
 
   return (
     <main className={s.page}>
@@ -229,7 +236,8 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
         )}
 
         {phase.note && <p role="alert" className={s.note}>{phase.note}</p>}
-        <button type="submit" className={s.button} disabled={busy}>{phase.kind === 'check' ? 'Confirm again' : 'Confirm'}</button>
+        {!complete && <p className={s.muted}>Fill in the fields marked <span className={s.req} aria-hidden="true">*</span> to confirm.</p>}
+        <button type="submit" className={s.button} disabled={busy || !complete}>{phase.kind === 'check' ? 'Confirm again' : 'Confirm'}</button>
       </form>
     </main>
   );

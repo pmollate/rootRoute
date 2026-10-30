@@ -20,6 +20,8 @@
 .muted { margin: 6px 0; color: var(--ink-2); font-size: 0.95rem; }
 .message { margin: 24px 0 16px; font-size: 1.1rem; }
 .form { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
+/* required fields: a red asterisk after the label */
+.req { margin-left: 2px; color: var(--bad); }
 .field { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 0.95rem; }
 /* 16 px inputs: phones do not zoom in on focus */
 .field input {
@@ -54,4 +56,4 @@
   font-weight: 700;
   cursor: pointer;
 }
-.button:disabled { opacity: 0.6; cursor: wait; }
+.button:disabled { opacity: 0.6; cursor: not-allowed; }

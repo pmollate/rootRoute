@@ -130,6 +130,26 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     expect(JSON.stringify(posted(fn)[0].body)).not.toMatch(/39\.8283|-98\.5795/);
   });
 
+  it('page: line 1, city, state and ZIP are required (red asterisk); Confirm stays disabled until all four are filled', () => {
+    render(<ConfirmScreen token={TOKEN} view={{ ...view, address: { city: 'Madhapur' }, pin: null }} />);
+    for (const n of ['Address line 1', 'City', 'State', 'ZIP code']) {
+      expect(field(n).required, n).toBe(true);
+      expect(field(n).closest('label')!.querySelector('[data-required]')?.textContent, n).toBe('*');
+    }
+    expect(field('Address line 2').required).toBe(false);
+    expect(field('Address line 2').closest('label')!.querySelector('[data-required]')).toBeNull();
+    const confirm = () => screen.getByRole('button', { name: 'Confirm' }) as HTMLButtonElement;
+    expect(confirm().disabled).toBe(true);
+    fireEvent.change(field('Address line 1'), { target: { value: '65156 Powers Rd' } });
+    fireEvent.change(field('State'), { target: { value: 'OR' } });
+    expect(confirm().disabled).toBe(true); // ZIP still empty
+    fireEvent.change(field('ZIP code'), { target: { value: '97828' } });
+    expect(confirm().disabled).toBe(false);
+    fireEvent.change(field('City'), { target: { value: '   ' } });
+    expect(confirm().disabled).toBe(true); // spaces only count as empty
+    expect(screen.getByText(/Fill in the fields marked/)).toBeTruthy();
+  });
+
   it('AC-LINK-16 (page): moving the pin fills line 1, city, state and ZIP from the map, keeps line 2, and Confirm sends the look-up checkId', async () => {
     lookupAnswer = [200, { reading: { line1: '65156 Powers Rd', city: 'Enterprise', state: 'OR', zip: '97828', found: true }, checkId: 'fill-1' }];
     const fn = stubFetch([200, { status: 'confirmed' }]);
