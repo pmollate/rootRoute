@@ -1,5 +1,6 @@
 import type { LinkView } from '@/components/confirm/ConfirmScreen';
 import type { VerifyView } from '@/components/confirm/VerifyStep';
+import { apiUrl } from '@/lib/apiUrl';
 
 // Server code only: reads API_URL from the environment. Never import from a client component.
 
@@ -11,7 +12,7 @@ import type { VerifyView } from '@/components/confirm/VerifyStep';
  * verification token, so the answer is the VerifyView (masked sender only, REQ-LINK-17); the browser fetches the address.
  */
 export async function loadLink(token: string, fetcher: typeof fetch = fetch): Promise<LinkView | VerifyView | null> {
-  const api = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+  const api = apiUrl();
   const r = await fetcher(`${api}/api/confirm/${encodeURIComponent(token)}`, { cache: 'no-store', headers: { accept: 'application/json' } });
   if (r.status === 404) return null;
   if (r.status !== 200) throw new Error(`confirm link API answered ${r.status}`); // the status only: never the token (SEC-LINK-01)

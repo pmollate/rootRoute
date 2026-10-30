@@ -26,7 +26,8 @@ let overrides: Partial<LinkDeps> = {};
 export function getLinkDeps(): LinkDeps {
   return {
     enabled: config.CONFIRM_LINK === 'on', hours: config.CONFIRM_LINK_HOURS, timeZone: MAILBOX_TIMEZONE,
-    appUrl: config.AUTH_URL ?? 'http://localhost:3000', links: linkRepo, maps: getDeps().maps,
+    appUrl: config.AUTH_URL ?? '', // with CONFIRM_LINK=on the API refuses to start without AUTH_URL (checkConfirmLink)
+    links: linkRepo, maps: getDeps().maps,
     credentials: createMapCredentials(), now: () => new Date(), log: () => {},
     // REQ-LINK-17, -18: the emailed code, sent from the orders mailbox to ALLOW_LIST addresses only (as send_reply)
     code: config.CONFIRM_LINK_CODE === 'on', outbox: { gmail: getDeps().gmail, allow: allowList },

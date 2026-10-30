@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # C13 step 6 (SPEC-auth §10 step 2): sign-in settings for the live apps, demo accounts only (Entra comes later, Q-AUTH-01).
-# Run once from the repo root: bash infra/setup-auth.sh
+# Run once from the repo root: bash infra/setup-auth.sh   (custom domain: WEB_URL=https://rootroute.in bash infra/setup-auth.sh)
 # Secrets are generated here and written straight to Key Vault; no value is printed. AUTH_REQUIRED stays off.
 # Re-running keeps existing secrets (delete one in Key Vault to make a new value).
 set -euo pipefail
@@ -9,7 +9,9 @@ RG=rg-unhandled-rejections
 KV=rootroute01-kv
 WEB=rootroute01-web
 API=rootroute01-api
-WEB_URL=https://$WEB.azurewebsites.net
+# The public address people open (the custom domain once bound, e.g. WEB_URL=https://rootroute.in): sign-in redirects,
+# the /api proxy's Origin check and the address link (<WEB_URL>/confirm/<token>) all use it.
+WEB_URL=${WEB_URL:-https://$WEB.azurewebsites.net}
 API_URL=https://$API.azurewebsites.net
 ref() { echo "@Microsoft.KeyVault(SecretUri=https://$KV.vault.azure.net/secrets/$1/)"; }
 
@@ -59,7 +61,8 @@ az webapp config appsettings set -g "$RG" -n "$WEB" -o none --settings \
   "API_URL=$API_URL" \
   "API_KEY=$(ref api-key)"
 az webapp config appsettings set -g "$RG" -n "$API" -o none --settings \
-  "INTERNAL_AUTH_SECRET=$(ref internal-auth-secret)"
+  "INTERNAL_AUTH_SECRET=$(ref internal-auth-secret)" \
+  "AUTH_URL=$WEB_URL"
 echo "app settings: set on $WEB and $API (AUTH_REQUIRED left off)"
 
 # 4. Restart so Key Vault references resolve.

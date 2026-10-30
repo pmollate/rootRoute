@@ -1,5 +1,6 @@
 import { type ProxySettings, proxy } from '@/lib/auth/proxy';
 import { authRequired, currentUser } from '@/lib/auth/session';
+import { apiUrl } from '@/lib/apiUrl';
 
 /**
  * Same-origin `/api/*` for the browser (SPEC-auth §5.1): forwards to the Fastify API with a fresh internal token.
@@ -16,7 +17,7 @@ type Ctx = { params: Promise<{ path: string[] }> };
 function proxySettings(req: Request): ProxySettings {
   return {
     required: authRequired(),
-    apiUrl: process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+    apiUrl: apiUrl(),
     appOrigin: process.env.AUTH_URL ? new URL(process.env.AUTH_URL).origin : new URL(req.url).origin,
     internalSecret: process.env.INTERNAL_AUTH_SECRET || undefined,
     apiKey: process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || undefined,
