@@ -1,17 +1,24 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useEffect } from 'react';
 import { renderToString } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfirmScreen, LINK_INVALID_TEXT, type LinkView } from './ConfirmScreen';
 
-// The real map loads the Azure Maps web SDK from its CDN; here a stub shows where the pin is and moves it on a click.
+// The real map loads the Azure Maps web SDK; here a stub shows where the pin is, moves it on a click, and reports
+// ready on mount (as the SDK's 'ready' event does) unless a test holds it back with `mapReady.auto = false`.
 const mapProps = vi.fn();
+const mapReady = { auto: true };
+type MapStub = { pin: { lat: number; lon: number }; credential: { kind: string }; onMove: (pin: { lat: number; lon: number }) => void;
+  onFail: () => void; onReady: () => void };
 vi.mock('./ConfirmMap', () => ({
-  ConfirmMap: (p: { pin: { lat: number; lon: number }; credential: { kind: string }; onMove: (pin: { lat: number; lon: number }) => void; onFail: () => void }) => {
+  ConfirmMap: (p: MapStub) => {
     mapProps(p);
+    useEffect(() => { if (mapReady.auto) p.onReady(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
     return (
       <div data-testid="map">
         <span>pin {p.pin.lat},{p.pin.lon}</span>
         <button type="button" onClick={() => p.onMove({ lat: p.pin.lat + 0.01, lon: p.pin.lon })}>Move pin</button>
+        <button type="button" onClick={p.onReady}>Ready map</button>
         <button type="button" onClick={p.onFail}>Fail map</button>
       </div>
     );
@@ -41,7 +48,7 @@ const posted = (fn: ReturnType<typeof stubFetch>) => fn.mock.calls.map(([url, in
 const field = (name: string) => screen.getByLabelText(name) as HTMLInputElement;
 
 describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); mapProps.mockClear(); });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); mapProps.mockClear(); mapReady.auto = true; });
 
   it('AC-LINK-02 (page): the five fields hold the email\'s address, the pin and the expiry show, and nothing else about the order', () => {
     render(<ConfirmScreen token={TOKEN} view={view} />);
@@ -56,17 +63,100 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeTruthy();
   });
 
-  it('REQ-LINK-02 (page): with no map credential the page is the address form alone; Confirm still sends the start pin', async () => {
-    const fn = stubFetch([409, { error: 'needs_second_confirm', checkId: 'c-1', reading: { line1: null, city: 'Lebanon', state: 'KS', zip: null, distanceM: 0 } }]);
+  it('AC-LINK-15, REQ-LINK-02 (page): with no map credential the page is the form alone and Confirm sends no pin; a 409 shows the map\'s reading of the address', async () => {
+    const fn = stubFetch([409, { error: 'needs_second_confirm', checkId: 'c-1',
+      reading: { of: 'address', found: true, line1: '920 Broad St', city: 'Phoenix', state: 'AZ', zip: '85004', distanceM: null, differs: ['city', 'state'] } }]);
     render(<ConfirmScreen token={TOKEN} view={{ ...view, map: null }} />);
     expect(screen.queryByTestId('map')).toBeNull();
     expect(screen.queryByText(/Drag the pin/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     expect(await screen.findByRole('button', { name: 'Confirm again' })).toBeTruthy();
-    expect(posted(fn)[0].body.pin).toEqual(view.pin);
-    expect(screen.getByText(/920 Broad St/, { selector: 'p' })).toBeTruthy();
-    // without a map the pin is not the client's: its reading would only confuse
+    expect('pin' in posted(fn)[0].body).toBe(false);
+    const reading = screen.getByRole('region', { name: 'The map\'s reading of your address' });
+    expect(reading.textContent).toContain('The map reads your address as');
+    expect(reading.textContent).toContain('920 Broad St, Phoenix, AZ 85004');
+    expect(reading.textContent).toContain('The map has a different city and state.');
+    expect(screen.getByRole('region', { name: 'The address you typed' }).textContent).toContain('920 Broad St, Dock 5, Newark, NJ 85004');
     expect(screen.queryByText('The map reads your pin as')).toBeNull();
+  });
+
+  it('AC-LINK-15 (page): a map that refuses its tiles (hidden) sends no pin, even after it was ready', async () => {
+    const fn = stubFetch([200, { status: 'confirmed' }]);
+    render(<ConfirmScreen token={TOKEN} view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Fail map' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await screen.findByText('Thank you. Your delivery address is confirmed.');
+    expect('pin' in posted(fn)[0].body).toBe(false);
+  });
+
+  it('AC-LINK-15 (page): a map shown but not yet ready sends no pin', async () => {
+    mapReady.auto = false;
+    const fn = stubFetch([200, { status: 'confirmed' }]);
+    render(<ConfirmScreen token={TOKEN} view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await screen.findByText('Thank you. Your delivery address is confirmed.');
+    expect('pin' in posted(fn)[0].body).toBe(false);
+  });
+
+  it('AC-LINK-15 (page): a working map with a start pin posts that pin', async () => {
+    const fn = stubFetch([200, { status: 'confirmed' }]);
+    render(<ConfirmScreen token={TOKEN} view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await screen.findByText('Thank you. Your delivery address is confirmed.');
+    expect(posted(fn)[0].body.pin).toEqual(view.pin);
+  });
+
+  it('AC-LINK-15 (page): a working map with no start pin posts no pin until the client drags it, then the dragged pin; never the display default', async () => {
+    const fn = stubFetch([409, { error: 'needs_second_confirm', checkId: 'c-1',
+      reading: { of: 'address', found: false, line1: null, city: null, state: null, zip: null, distanceM: null, differs: ['city', 'state', 'zip'] } }],
+    [200, { status: 'confirmed' }]);
+    render(<ConfirmScreen token={TOKEN} view={{ ...view, pin: null }} />);
+    expect(screen.getByText('pin 39.8283,-98.5795')).toBeTruthy(); // the map's view only
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await screen.findByRole('button', { name: 'Confirm again' });
+    expect('pin' in posted(fn)[0].body).toBe(false);
+    expect(screen.getByRole('region', { name: 'The map\'s reading of your address' }).textContent).toContain('The map could not find this address');
+    fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
+    expect(screen.queryByRole('button', { name: 'Confirm again' })).toBeNull(); // the pin moved: the checkId is dropped
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await screen.findByText('Thank you. Your delivery address is confirmed.');
+    expect(posted(fn)[1].body).toEqual({ address: expect.any(Object), pin: { lat: expect.closeTo(39.8383, 6), lon: -98.5795 } });
+    expect(JSON.stringify(posted(fn)[0].body)).not.toMatch(/39\.8283|-98\.5795/);
+  });
+
+  it('REQ-LINK-13 (page): changing any field after a reading drops the checkId', async () => {
+    const fn = stubFetch(
+      [409, { error: 'needs_second_confirm', checkId: 'chk-1', reading: { of: 'address', found: true, line1: '920 Broad St', city: 'Phoenix', state: 'AZ', zip: '85004', distanceM: null, differs: ['city'] } }],
+      [409, { error: 'needs_second_confirm', checkId: 'chk-2', reading: { of: 'address', found: true, line1: '920 Broad St', city: 'Phoenix', state: 'AZ', zip: '85004', distanceM: null, differs: ['city'] } }],
+    );
+    render(<ConfirmScreen token={TOKEN} view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await screen.findByRole('button', { name: 'Confirm again' });
+    fireEvent.change(field('City'), { target: { value: 'Phoenix' } });
+    expect(screen.queryByRole('button', { name: 'Confirm again' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await screen.findByRole('button', { name: 'Confirm again' });
+    expect(posted(fn).map((p) => p.body.checkId)).toEqual([undefined, undefined]);
+  });
+
+  it('AC-LINK-13 (page): a reading of the pin names the parts the map reads differently', async () => {
+    stubFetch([409, { error: 'needs_second_confirm', checkId: 'c', reading: { of: 'pin', found: true, line1: '65156 Powers Rd', city: 'Enterprise', state: 'OR', zip: '97828', distanceM: 400, differs: ['city'] } }]);
+    render(<ConfirmScreen token={TOKEN} view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    const reading = await screen.findByRole('region', { name: 'The map\'s reading of your pin' });
+    expect(reading.textContent).toContain('65156 Powers Rd, Enterprise, OR 97828');
+    expect(reading.textContent).toContain('about 400 m from where we placed the pin');
+    expect(reading.textContent).toContain('The map has a different city for the address you typed.');
+  });
+
+  it('AC-LINK-12 (page): a 503 map_unavailable asks the client to try again; the form stays and nothing is lost', async () => {
+    stubFetch([503, { error: 'map_unavailable' }]);
+    render(<ConfirmScreen token={TOKEN} view={view} />);
+    fireEvent.change(field('City'), { target: { value: 'Newark ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(await screen.findByText(/could not check your address on the map just now. Please try again in a minute/)).toBeTruthy();
+    expect(field('City').value).toBe('Newark ');
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Confirm' }) as HTMLButtonElement).disabled).toBe(false));
   });
 
   it('REQ-LINK-02 (page): a map that fails to load is hidden, not unmounted, leaving the form', async () => {
@@ -107,7 +197,7 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
   it('AC-LINK-03 (page): 409 shows the map\'s reading with "Confirm again", which sends the checkId; 200 thanks the client', async () => {
     const fn = stubFetch(
       [409, { error: 'needs_second_confirm', checkId: 'chk-1',
-        reading: { line1: '920 Broad St', city: 'Newark', state: 'NJ', zip: '07102', distanceM: 1112 } }],
+        reading: { of: 'pin', found: true, line1: '920 Broad St', city: 'Newark', state: 'NJ', zip: '07102', distanceM: 1112, differs: [] } }],
       [200, { status: 'confirmed' }],
     );
     render(<ConfirmScreen token={TOKEN} view={view} />);
@@ -131,8 +221,8 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
 
   it('REQ-LINK-03 (page): changing the ZIP or moving the pin after a reading drops the checkId', async () => {
     const fn = stubFetch(
-      [409, { error: 'needs_second_confirm', checkId: 'chk-1', reading: { line1: null, city: 'Newark', state: 'NJ', zip: '07102', distanceM: 0 } }],
-      [409, { error: 'needs_second_confirm', checkId: 'chk-2', reading: { line1: null, city: 'Newark', state: 'NJ', zip: '07102', distanceM: 0 } }],
+      [409, { error: 'needs_second_confirm', checkId: 'chk-1', reading: { of: 'pin', found: true, line1: null, city: 'Newark', state: 'NJ', zip: '07102', distanceM: 0, differs: [] } }],
+      [409, { error: 'needs_second_confirm', checkId: 'chk-2', reading: { of: 'pin', found: true, line1: null, city: 'Newark', state: 'NJ', zip: '07102', distanceM: 0, differs: [] } }],
     );
     render(<ConfirmScreen token={TOKEN} view={view} />);
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
@@ -178,7 +268,7 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
   });
 
   it('SEC-LINK-07: the client\'s text is shown as text, never as markup', async () => {
-    stubFetch([409, { error: 'needs_second_confirm', checkId: 'c', reading: { line1: '<img src=x onerror=alert(1)>', city: null, state: null, zip: null, distanceM: 0 } }]);
+    stubFetch([409, { error: 'needs_second_confirm', checkId: 'c', reading: { of: 'pin', found: true, line1: '<img src=x onerror=alert(1)>', city: null, state: null, zip: null, distanceM: 0, differs: [] } }]);
     render(<ConfirmScreen token={TOKEN} view={view} />);
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     await screen.findByRole('button', { name: 'Confirm again' });

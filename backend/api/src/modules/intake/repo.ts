@@ -243,7 +243,7 @@ export const linkRepo: LinkRepo = {
       const used = await db.query(
         `UPDATE address_confirm_tokens SET used_at = $5, confirmed_address = $2, lat = $3, lon = $4, map_reading = $6
           WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL AND expires_at > $5 RETURNING id`,
-        [c.linkId, JSON.stringify(c.address), c.pin.lat, c.pin.lon, c.at, c.reading && JSON.stringify(c.reading)]);
+        [c.linkId, JSON.stringify(c.address), c.pin?.lat ?? null, c.pin?.lon ?? null, c.at, c.reading && JSON.stringify(c.reading)]);
       const moved = used.rowCount === 1 ? await db.query(
         "UPDATE intake_emails SET status = 'AWAITING_APPROVAL' WHERE id = $1 AND status = 'SENT' RETURNING id", [c.emailId]) : null;
       if (moved?.rowCount !== 1) {
@@ -280,6 +280,6 @@ export const linkRepo: LinkRepo = {
           AND ${ADDRESS_KEY('s.city')} = ${ADDRESS_KEY('$4::text')} AND upper(s.state) = upper($5::text) AND left(s.zip, 5) = left($6::text, 5))
        RETURNING id`,
       [a.clientId, a.address.line1, a.address.line2, a.address.city, a.address.state, a.address.zip, a.synthetic,
-        a.pin.lat, a.pin.lon, a.emailId, a.confirmedAt])).length === 1;
+        a.pin?.lat ?? null, a.pin?.lon ?? null, a.emailId, a.confirmedAt])).length === 1;
   },
 };

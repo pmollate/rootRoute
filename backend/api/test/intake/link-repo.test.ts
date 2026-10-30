@@ -49,7 +49,8 @@ describe.skipIf(!hasDb)('E19 link store on migration 103 (needs test database)',
 
     expect(await linkRepo.countLookup(id)).toBe(1);
     expect(await linkRepo.countLookup(id)).toBe(2);
-    const pending = { checkId: 'c1', pin: PIN, zip: '32801', reading: { line1: null, city: 'Orlando', state: 'FL', zip: '32801', distanceM: 0 } };
+    const pending = { checkId: 'c1', pin: PIN, address: ADDRESS,
+      reading: { of: 'pin' as const, found: true, line1: null, city: 'Orlando', state: 'FL', zip: '32801', distanceM: null, differs: [] } };
     await linkRepo.setReading(id, pending);
     expect((await linkRepo.byHash(hash))!.map_reading).toEqual(pending);
 
@@ -97,6 +98,25 @@ describe.skipIf(!hasDb)('E19 link store on migration 103 (needs test database)',
     expect(await linkRepo.saveAddress({ clientId: 'C190', address: { ...ADDRESS, line1: '400 s. orange ave', zip: '32801-1234' }, pin: PIN,
       emailId: follow, confirmedAt: now, synthetic: true })).toBe(false);
     expect((await query("SELECT 1 FROM saved_addresses WHERE email_id = ANY($1::int[]) AND source = 'link'", [[first, follow]]))).toHaveLength(1);
+    // AC-LINK-05: an address confirmed without a pin is saved with lat and lon null.
+    expect(await linkRepo.saveAddress({ clientId: 'C190', address: { ...ADDRESS, line1: '1 Nowhere Rd' }, pin: null, emailId: follow,
+      confirmedAt: now, synthetic: true })).toBe(true);
+    expect(await query("SELECT lat, lon FROM saved_addresses WHERE email_id = $1 AND source = 'link'", [follow])).toEqual([{ lat: null, lon: null }]);
+  });
+
+  it('REQ-LINK-13, REQ-LINK-14: a confirmation with no pin stores lat and lon null with the reading of the address', async () => {
+    const id0 = await email(null, 'nopin');
+    await query("UPDATE intake_emails SET status = 'SENT' WHERE id = $1", [id0]);
+    const now = new Date('2026-10-29T10:00:00Z');
+    const hash = hashToken(newToken());
+    const id = await linkRepo.insert({ token_hash: hash, email_id: id0, issued_at: now, expires_at: new Date('2026-10-30T06:00:00Z'),
+      issued_by: 'u1', prefill: { address: {}, pin: null }, synthetic: true });
+    const reading = { of: 'address' as const, found: false, line1: null, city: null, state: null, zip: null, distanceM: null, differs: ['city', 'state', 'zip'] as ('city' | 'state' | 'zip')[] };
+    expect(await linkRepo.confirm({ linkId: id, emailId: id0, address: ADDRESS, pin: null, reading, at: now,
+      extraction: { email_id: id0, extraction: null, decision: 'ALL_CLEAR', reply_draft: 'r', reply_source: 'template',
+        checks: { address: null, promise: null, warehouse: null, carrier: null } },
+      audit: { actor: `client-link:${id0}`, action: 'link_confirmed', payload: {} } })).toBe(true);
+    expect(await linkRepo.byHash(hash)).toMatchObject({ used_at: now, lat: null, lon: null, map_reading: reading });
   });
 
   it('AC-LINK-05, REQ-LINK-05: saved addresses keep the same order after a re-seed with a link row present (seed rows first, then link rows)', async () => {

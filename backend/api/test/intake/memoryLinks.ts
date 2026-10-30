@@ -42,7 +42,7 @@ export function memoryLinks(parents: () => { id: number; in_reply_to: number | n
       const r = rows[c.linkId - 1];
       if (r.used_at || r.revoked_at || r.expires_at <= c.at) return false;
       if ((await repo.getEmail(c.emailId))?.status !== 'SENT') return false;
-      Object.assign(r, { used_at: c.at, confirmed_address: c.address, lat: c.pin.lat, lon: c.pin.lon, map_reading: c.reading });
+      Object.assign(r, { used_at: c.at, confirmed_address: c.address, lat: c.pin?.lat ?? null, lon: c.pin?.lon ?? null, map_reading: c.reading });
       await repo.saveExtraction(c.extraction);
       await repo.setStatus(c.emailId, 'AWAITING_APPROVAL');
       await repo.logAudit(c.audit.actor, c.audit.action, `email:${c.emailId}`, c.audit.payload);

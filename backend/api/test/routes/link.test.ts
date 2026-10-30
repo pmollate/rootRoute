@@ -202,7 +202,8 @@ describe.skipIf(!hasDb)('E19 confirm routes, link state and review fields (needs
     const first = await confirm(orders.A.token, { address: ORLANDO, pin: ORLANDO_PIN });
     expect(first.statusCode).toBe(409); // ZIP changed and the pin is far from Newark: the map's reading first (REQ-LINK-03)
     const { checkId, reading } = first.json();
-    expect(reading).toMatchObject({ line1: '400 S Orange Ave', city: 'Orlando', state: 'FL', zip: '32801' });
+    // The typed address matches the recorded map answer; the reading is of the pin (ZIP changed, REQ-LINK-03).
+    expect(reading).toMatchObject({ of: 'pin', found: true, line1: '400 S Orange Ave', city: 'Orlando', state: 'FL', zip: '32801', differs: [] });
     expect((await row(orders.A.id)).used_at).toBeNull();
     expect((await confirm(orders.A.token, { address: ORLANDO, pin: ORLANDO_PIN, checkId })).json()).toEqual({ status: 'confirmed' });
     const a = await row(orders.A.id);
@@ -215,17 +216,20 @@ describe.skipIf(!hasDb)('E19 confirm routes, link state and review fields (needs
     expect((await get(`/api/confirm/${orders.A.token}`)).statusCode).toBe(404); // single use
   });
 
-  it('AC-LINK-04, AC-LINK-11 (API): C190 confirms 400 S Orange Ave after the second Confirm; ALL_CLEAR, in the review with addressSource link; send_to_wms before approval is 409', async () => {
-    const first = await confirm(orders.B.token, { address: ORLANDO, pin: ORLANDO_PIN });
-    expect(first.statusCode).toBe(409); // no start pin
-    const second = await confirm(orders.B.token, { address: ORLANDO, pin: ORLANDO_PIN, checkId: first.json().checkId });
-    expect(second.json()).toEqual({ status: 'confirmed' });
-    expect((await row(orders.B.id)).used_at).not.toBeNull();
+  it('AC-LINK-04, AC-LINK-12, AC-LINK-11 (API): C190 confirms 400 S Orange Ave with no pin and a matching recorded map answer at once; ALL_CLEAR, in the review with the geocoded pin; send_to_wms before approval is 409', async () => {
+    const before = (await query<{ map_lookups: number }>('SELECT map_lookups FROM address_confirm_tokens WHERE email_id = $1', [orders.B.id]))[0].map_lookups;
+    expect((await confirm(orders.B.token, { address: ORLANDO })).json()).toEqual({ status: 'confirmed' });
+    const r = await row(orders.B.id);
+    expect(r.used_at).not.toBeNull();
+    // The recorded Azure Maps answer for 400 S Orange Ave, Orlando, FL 32801 (test/recordings).
+    expect([r.lat, (r as unknown as { lon: number }).lon]).toEqual([28.537664, -81.37965]);
+    expect((await query<{ map_lookups: number }>('SELECT map_lookups FROM address_confirm_tokens WHERE email_id = $1', [orders.B.id]))[0].map_lookups)
+      .toBe(before + 1);
     const d = (await get(`/api/intake/${orders.B.id}`)).json();
     expect([d.decision, d.email.status]).toEqual(['ALL_CLEAR', 'AWAITING_APPROVAL']);
     const review = (await get('/api/intake/review')).json().orders.find((o: { id: number }) => o.id === orders.B.id);
-    expect(review).toMatchObject({ addressSource: 'link', confirmedAddress: ORLANDO,
-      mapReading: { line1: '400 S Orange Ave', city: 'Orlando', state: 'FL', zip: '32801' } });
+    expect(review).toMatchObject({ addressSource: 'link', confirmedAddress: ORLANDO, confirmedPin: { lat: 28.537664, lon: -81.37965 },
+      mapReading: { of: 'address', found: true, line1: '400 S Orange Ave', city: 'Orlando', state: 'FL', zip: '32801', distanceM: null, differs: [] } });
     expect(review.emailAddress).toMatchObject({ city: 'Orlando', state: 'FL' });
     expect(review.emailAddress.line1).toBeUndefined(); // the email had no street (fixture 34)
     expect((await post(`/api/intake/${orders.B.id}/action`, { action: 'send_to_wms' })).statusCode).toBe(409);

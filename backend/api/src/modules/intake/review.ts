@@ -1,5 +1,5 @@
 import type { CarrierId, CarrierOption, CarrierRecommendation, PromiseResult, Region, WarehouseChoice } from '../../core/contracts.js';
-import type { LinkAddress, LinkRepo, MapReading } from './link.js';
+import type { LinkAddress, LinkPin, LinkRepo, LinkRow, MapReading } from './link.js';
 import { regionOfState } from './region.js';
 import type { Repo } from './repo.js';
 
@@ -22,10 +22,19 @@ export interface ReviewOrder {
   commitment: PromiseResult['commitment'] | null; promiseReason: string | null; warehouseReason: string | null;
   warnClient: boolean; addressStatus: string | null; blockedLanes: BlockedCarrier[];
   // REQ-LINK-11 (E19): where the address came from. 'link': confirmed by the client through a one-time link ("Address
-  // confirmed by client link"), shown with the address the email gave, the confirmed one and the map's reading of the pin
-  // (null when the pin needed no reading). Only with CONFIRM_LINK on.
+  // confirmed by client link"), shown with the address the email gave, the confirmed one, the stored pin (null: "no map
+  // point") and the map's reading (`of` picks "Map reads the pin as …" or "Map reads the address as …"). Only with
+  // CONFIRM_LINK on.
   addressSource?: 'link' | 'saved' | 'email';
-  emailAddress?: Partial<LinkAddress>; confirmedAddress?: LinkAddress | null; mapReading?: MapReading | null;
+  emailAddress?: Partial<LinkAddress>; confirmedAddress?: LinkAddress | null; confirmedPin?: LinkPin | null; mapReading?: MapReading | null;
+}
+
+/** The stored reading the client confirmed; a pending check is not one. A reading stored before v0.18 was of the pin. */
+function confirmedReading(r: LinkRow['map_reading']): MapReading | null {
+  if (!r || 'checkId' in r) return null;
+  const old = r as Partial<MapReading>;
+  return { of: old.of ?? 'pin', found: old.found ?? true, line1: r.line1, city: r.city, state: r.state, zip: r.zip,
+    distanceM: r.distanceM ?? null, differs: old.differs ?? [] };
 }
 
 /** REQ-INT-15: the carriers a supervisor may pick on the order's lane. A blocked carrier is never offered. */
@@ -63,8 +72,7 @@ export async function reviewQueue(repo: Repo, links?: LinkRepo): Promise<ReviewO
       blockedLanes: rec.blocked.map((c) => ({ carrier: c, onTime: rec.options.find((o) => o.carrier === c)?.onTime ?? null })),
       addressSource,
       ...(l ? { emailAddress: l.prefill.address, confirmedAddress: l.confirmed_address,
-        // A pending second-Confirm check (it has a checkId) is not a reading the client confirmed.
-        mapReading: l.map_reading && !('checkId' in l.map_reading) ? l.map_reading : null } : {}),
+        confirmedPin: l.lat !== null && l.lon !== null ? { lat: l.lat, lon: l.lon } : null, mapReading: confirmedReading(l.map_reading) } : {}),
     });
   }
   return out;

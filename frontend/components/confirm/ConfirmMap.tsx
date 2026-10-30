@@ -34,15 +34,20 @@ function loadAtlas(): Promise<Atlas> {
 /**
  * E19 (SPEC §5.17): the draggable pin. Tiles are fetched with the SAS token the API issued for this link, expiring with
  * it (SEC-LINK-08): no Maps key and no NEXT_PUBLIC_ setting reaches the browser. Width 100%, height 280 px (NFR-LINK-01).
+ * `pin` is where the pin starts (the display default when `placed` is false). The client drags the pin or taps the map
+ * to place it (`onMove`). `onReady` once the map is ready, `onFail` when it cannot load or its tiles are refused: the
+ * page sends a pin only from a ready map (REQ-LINK-15).
  */
-export function ConfirmMap({ pin, credential, onMove, onFail, placed = true }: {
-  pin: LinkPin; credential: MapCredential; onMove: (pin: LinkPin) => void; onFail: () => void; placed?: boolean;
+export function ConfirmMap({ pin, credential, onMove, onFail, onReady, placed = true }: {
+  pin: LinkPin; credential: MapCredential; onMove: (pin: LinkPin) => void; onFail: () => void; onReady?: () => void; placed?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const move = useRef(onMove);
   move.current = onMove;
   const fail = useRef(onFail);
   fail.current = onFail;
+  const ready = useRef(onReady);
+  ready.current = onReady;
   const start = useRef(pin); // the map is built once, at the pin the page started with
   const [failed, setFailed] = useState(false);
   // A map that cannot load is taken away by the page (an empty box helps no one); the address fields still work.
@@ -61,13 +66,13 @@ export function ConfirmMap({ pin, credential, onMove, onFail, placed = true }: {
       map = m;
       // A refused credential: before the map is ready, any error; after it, a tile refused with 401 or 403 (the SDK reports
       // the map ready before its tiles load). Other later tile errors (a dropped connection) are ignored.
-      let ready = false;
+      let isReady = false;
       m.events.add('error', (e) => {
         const status = (e as { error?: { status?: number } }).error?.status;
-        if (!gone && (!ready || status === 401 || status === 403)) setFailed(true);
+        if (!gone && (!isReady || status === 401 || status === 403)) setFailed(true);
       });
       m.events.add('ready', () => {
-        ready = true;
+        isReady = true;
         setFailed(false);
         const marker = new atlas.HtmlMarker({ position: at, draggable: true });
         m.markers.add(marker);
@@ -75,6 +80,14 @@ export function ConfirmMap({ pin, credential, onMove, onFail, placed = true }: {
           const p = marker.getOptions().position;
           if (p) move.current({ lat: p[1], lon: p[0] });
         });
+        // A tap places the pin too (SPEC §5.17 step 3: the client drags or taps it).
+        m.events.add('click', (e) => {
+          const p = (e as { position?: [number, number] }).position;
+          if (!p) return;
+          marker.setOptions({ position: p });
+          move.current({ lat: p[1], lon: p[0] });
+        });
+        if (!gone) ready.current?.();
       });
     }).catch(() => { if (!gone) setFailed(true); });
     return () => { gone = true; map?.dispose(); };

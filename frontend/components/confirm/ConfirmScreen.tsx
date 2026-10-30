@@ -9,7 +9,15 @@ import { LINK_INVALID_TEXT } from './text';
 /** CONTRACTS §1 (E19): what `GET /api/confirm/:token` returns for a valid link. Nothing else about the order. */
 export interface LinkAddress { line1: string; line2: string | null; city: string; state: string; zip: string }
 export interface LinkPin { lat: number; lon: number }
-export interface MapReading { line1: string | null; city: string | null; state: string | null; zip: string | null; distanceM: number }
+/**
+ * CONTRACTS §1.1 (v0.18): the map's reading of the pin (reverse geocode) or of the typed address (forward geocode).
+ * `found` false: no point, parts null. `differs`: the typed parts the map reads differently.
+ */
+export interface MapReading {
+  of: 'pin' | 'address'; found: boolean;
+  line1: string | null; city: string | null; state: string | null; zip: string | null;
+  distanceM: number | null; differs: ('city' | 'state' | 'zip')[];
+}
 export interface MapCredential { kind: 'sas'; token: string; expiresAt: string }
 /** `map` is null when the API could not issue a tile credential: the page is then the address form alone. */
 export interface LinkView { address: Partial<LinkAddress>; pin: LinkPin | null; expiresAt: string; synthetic: boolean; map: MapCredential | null }
@@ -18,7 +26,7 @@ export { LINK_INVALID_TEXT };
 
 /**
  * Where the map and pin start when the map found no point for the email's address: the middle of the contiguous US.
- * A display default, not data; the API then always shows the map's reading before it accepts the pin (REQ-LINK-03).
+ * A display default, not data: it is never posted until the client places the pin (REQ-LINK-15).
  */
 export const NO_PIN_START: LinkPin = { lat: 39.8283, lon: -98.5795 };
 
@@ -39,35 +47,46 @@ type Phase =
 
 const oneLine = (parts: (string | null | undefined)[]) => parts.filter(Boolean).join(', ');
 const readingText = (r: MapReading) => oneLine([r.line1, r.city, [r.state, r.zip].filter(Boolean).join(' ')]) || 'No address found at this point';
+const PART: Record<MapReading['differs'][number], string> = { city: 'city', state: 'state', zip: 'ZIP code' };
+/** "city", "city and state", "city, state and ZIP code". */
+const partsText = (d: MapReading['differs']) => {
+  const w = d.map((x) => PART[x]);
+  return w.length < 2 ? w.join('') : `${w.slice(0, -1).join(', ')} and ${w.at(-1)}`;
+};
 const typedText = (a: LinkAddress) => oneLine([a.line1, a.line2, a.city, `${a.state} ${a.zip}`.trim()]);
 const until = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 /**
  * E19 (SPEC §5.17): the client's one-time address page. Shows the email's address in five fields, a draggable pin and
  * when the link stops working, and nothing else about the order (REQ-LINK-02). Confirm posts through the web proxy (its
- * Origin check, SEC-LINK-07); a 409 shows the map's reading next to the typed address and asks for a second Confirm
- * (REQ-LINK-03). All text is React text (SEC-LINK-10).
+ * Origin check, SEC-LINK-07), with a pin only from a working map the client used (REQ-LINK-15); a 409 shows the map's
+ * reading of the pin or of the typed address next to what was typed and asks for a second Confirm (REQ-LINK-03, -13,
+ * -14); a 503 asks to try again (REQ-LINK-12). All text is React text (SEC-LINK-10).
  */
 export function ConfirmScreen({ token, view }: { token: string; view: LinkView }) {
   const a = view.address;
   const [fields, setFields] = useState<Fields>({ line1: a.line1 ?? '', line2: a.line2 ?? '', city: a.city ?? '', state: a.state ?? '', zip: a.zip ?? '' });
-  const [pin, setPin] = useState<LinkPin>(view.pin ?? NO_PIN_START);
+  // The client's pin: the map's start pin, or null until the client places one (the display default is not a pin).
+  const [pin, setPin] = useState<LinkPin | null>(view.pin);
   const [phase, setPhase] = useState<Phase>({ kind: 'form', note: null });
   const [busy, setBusy] = useState(false);
-  // No credential, or the map refused it: the page is the form alone. The pin stays where it started (REQ-LINK-03 still
-  // checks it), but its reading is not shown: the client never saw or placed it.
+  // No credential, or the map refused it: the page is the form alone and sends no pin (REQ-LINK-15). A map counts only
+  // once the SDK reports it ready; a later refused tile hides it again.
   const [mapShown, setMapShown] = useState(view.map !== null);
+  const [mapReady, setMapReady] = useState(false);
+  const pinToSend = mapShown && mapReady ? pin : null;
   // The expiry in the reader's own locale and time zone, which only the browser knows: formatted after hydration, so
   // the server's text (en-US, the server's zone) never has to match the browser's.
   const [expires, setExpires] = useState<string | null>(null);
   useEffect(() => { setExpires(until(view.expiresAt)); }, [view.expiresAt]);
 
-  /** A reading only counts for the pin and ZIP it was read for: moving either drops it (and its checkId). */
+  /** A reading only counts for the typed address and pin it was read for: changing any field or the pin drops it (and its checkId). */
   const back = () => setPhase((p) => (p.kind === 'check' ? { kind: 'form', note: null } : p));
   const setField = (k: keyof Fields, v: string) => {
     setFields((f) => ({ ...f, [k]: v }));
-    if (k === 'zip') back();
+    back();
   };
+  const fail = () => { setMapShown(false); setMapReady(false); back(); };
   const move = (p: LinkPin) => { setPin(p); back(); };
 
   async function confirm() {
@@ -79,7 +98,7 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
     try {
       const r = await fetch(`/api/confirm/${encodeURIComponent(token)}`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store',
-        body: JSON.stringify(checkId ? { address, pin, checkId } : { address, pin }),
+        body: JSON.stringify({ address, ...(pinToSend ? { pin: pinToSend } : {}), ...(checkId ? { checkId } : {}) }),
       });
       if (r.status === 200) setPhase({ kind: 'done', address });
       else if (r.status === 404) setPhase({ kind: 'invalid' });
@@ -88,6 +107,7 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
         setPhase({ kind: 'check', reading: b.reading, checkId: b.checkId, typed: address, note: null });
       } else if (r.status === 400) note('Please check the address fields: a two-letter US state, a 5-digit ZIP code, and line 1 and city filled in.');
       else if (r.status === 429) note('Too many tries from this connection. Please wait a minute and try again.');
+      else if (r.status === 503) note('We could not check your address on the map just now. Please try again in a minute.');
       else note('Something went wrong. Please try again.');
     } catch {
       note('Could not reach us. Please check your connection and try again.');
@@ -134,7 +154,8 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
         {view.map && (
           <div className={s.mapBlock} hidden={!mapShown}>
             <p className={s.muted}>{view.pin ? 'Drag the pin if your delivery entrance is somewhere else.' : 'Drag the pin to your delivery entrance.'}</p>
-            <ConfirmMap pin={pin} credential={view.map} onMove={move} onFail={() => setMapShown(false)} placed={view.pin !== null} />
+            <ConfirmMap pin={view.pin ?? NO_PIN_START} credential={view.map} onMove={move} onFail={fail}
+              onReady={() => setMapReady(true)} placed={view.pin !== null} />
           </div>
         )}
 
@@ -144,18 +165,34 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
               <h2>You typed</h2>
               <p>{typedText(phase.typed)}</p>
             </section>
-            {mapShown ? (
-              <>
-                <section aria-label="The map's reading of your pin" className={s.box}>
-                  <h2>The map reads your pin as</h2>
-                  <p>{readingText(phase.reading)}</p>
-                  {view.pin && <p className={s.muted}>about {phase.reading.distanceM} m from where we placed the pin</p>}
-                </section>
-                <p className={s.muted}>If both are right, confirm again. If not, fix the fields or move the pin.</p>
-              </>
+            {phase.reading.of === 'address' ? (
+              <section aria-label="The map's reading of your address" className={s.box}>
+                {phase.reading.found ? (
+                  <>
+                    <h2>The map reads your address as</h2>
+                    <p>{readingText(phase.reading)}</p>
+                    {phase.reading.differs.length > 0 && <p className={s.muted}>The map has a different {partsText(phase.reading.differs)}.</p>}
+                  </>
+                ) : (
+                  <>
+                    <h2>The map could not find this address</h2>
+                    <p className={s.muted}>Please check it. If it is right, confirm again and our order desk will check it.</p>
+                  </>
+                )}
+              </section>
             ) : (
-              <p className={s.muted}>Please check the address above and confirm again.</p>
+              <section aria-label="The map's reading of your pin" className={s.box}>
+                <h2>The map reads your pin as</h2>
+                <p>{readingText(phase.reading)}</p>
+                {phase.reading.distanceM !== null && <p className={s.muted}>about {phase.reading.distanceM} m from where we placed the pin</p>}
+                {phase.reading.differs.length > 0 && (
+                  <p className={s.muted}>The map has a different {partsText(phase.reading.differs)} for the address you typed.</p>
+                )}
+              </section>
             )}
+            <p className={s.muted}>{mapShown
+              ? 'If both are right, confirm again. If not, fix the fields or move the pin.'
+              : 'If your address is right, confirm again. If not, fix the fields.'}</p>
           </div>
         )}
 

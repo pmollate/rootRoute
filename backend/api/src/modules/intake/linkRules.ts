@@ -93,14 +93,37 @@ export const ConfirmBody = z.object({
     line1: text(100), line2: z.string().trim().max(100).refine(NO_CONTROL, 'no control characters').nullish().transform((v) => v || null), city: text(100),
     state: z.string().trim().toUpperCase().refine(isUsState, 'US state code'), zip: z.string().trim().regex(/^\d{5}(-\d{4})?$/),
   }).strict(),
-  pin: z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }).strict(),
+  // Optional (v0.18, REQ-LINK-15): the page sends a pin only from a working map the client used.
+  pin: z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }).strict().optional(),
   checkId: z.string().max(100).optional(),
 }).strict();
 export type ConfirmInput = z.infer<typeof ConfirmBody>;
 
-/** REQ-LINK-03: a second Confirm is needed when the pin moved > 500 m, the ZIP changed, or there was no start pin. */
+/**
+ * REQ-LINK-03: when a pin is sent, a second Confirm is needed when it moved > 500 m, the ZIP changed, or there was no
+ * start pin. With no pin sent this rule does not apply: the typed address is checked on the map instead (REQ-LINK-12).
+ */
 export function needsSecondConfirm(start: { pin: { lat: number; lon: number } | null; zip?: string | null }, input: ConfirmInput): boolean {
+  if (!input.pin) return false;
   if (!start.pin) return true;
   if ((start.zip ?? '') !== input.address.zip) return true;
   return distanceM(start.pin, input.pin) > SECOND_CONFIRM_M;
+}
+
+export type AddressPart = 'city' | 'state' | 'zip';
+const cityKey = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+const zip5 = (s: string) => s.trim().slice(0, 5);
+
+/**
+ * REQ-LINK-12, -13, -14: the typed parts the map's reading of the typed address does not match. City ignoring case and
+ * spaces, state code ignoring case, 5-digit ZIP; a part the reading lacks counts as different, and no reading (the map
+ * found no point) differs in all three.
+ */
+export function addressDiffers(typed: { city: string; state: string; zip: string },
+  read: { city: string | null; state: string | null; zip: string | null } | null): AddressPart[] {
+  const out: AddressPart[] = [];
+  if (!read?.city || cityKey(read.city) !== cityKey(typed.city)) out.push('city');
+  if (!read?.state || read.state.trim().toUpperCase() !== typed.state.trim().toUpperCase()) out.push('state');
+  if (!read?.zip || zip5(read.zip) !== zip5(typed.zip)) out.push('zip');
+  return out;
 }

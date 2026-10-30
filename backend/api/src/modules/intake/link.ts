@@ -6,7 +6,7 @@ import type { CarrierRecommendation, PromiseResult, WarehouseChoice } from '../.
 import type { AddressValidator, GeocodeResponse } from '../../core/maps/types.js';
 import type { AddressCheck } from './address.js';
 import { decide } from './decide.js';
-import { ConfirmBody, type ConfirmInput, distanceM, hashPrefix, hashToken, LINK_PLACEHOLDER, linkExpiry, MAX_MAP_LOOKUPS,
+import { addressDiffers, type AddressPart, ConfirmBody, type ConfirmInput, distanceM, hashPrefix, hashToken, LINK_PLACEHOLDER, linkExpiry, MAX_MAP_LOOKUPS,
   needsSecondConfirm, newToken, TOKEN_SHAPE } from './linkRules.js';
 import { senderAddress } from './mailbox.js';
 import type { Deps } from './pipeline.js';
@@ -20,15 +20,28 @@ export const INVALID = { error: 'link_invalid' } as const;
 
 export interface LinkAddress { line1: string; line2: string | null; city: string; state: string; zip: string }
 export interface LinkPin { lat: number; lon: number }
-export interface MapReading { line1: string | null; city: string | null; state: string | null; zip: string | null; distanceM: number }
+/**
+ * A reading of the pin (reverse geocode, REQ-LINK-03) or of the typed address (forward geocode, REQ-LINK-12 to -14).
+ * `found` false: the map found no point and the four parts are null. `distanceM`: the pin's distance from its start
+ * (null for a reading of the address, or with no start pin). `differs`: the typed parts the map's reading of the typed
+ * address does not match ([] when all match).
+ */
+export interface MapReading {
+  of: 'pin' | 'address'; found: boolean;
+  line1: string | null; city: string | null; state: string | null; zip: string | null;
+  distanceM: number | null; differs: AddressPart[];
+}
 export type LinkState = 'sent' | 'confirmed' | 'expired' | 'revoked';
 /** SEC-LINK-08: the map tile credential is an Azure Maps SAS token only, expiring no later than the link. */
 export interface MapCredential { kind: 'sas'; token: string; expiresAt: string }
 /** `map` is null when no tile credential could be issued: the page then shows the address fields without a map. */
 export interface LinkView { address: Partial<LinkAddress>; pin: LinkPin | null; expiresAt: string; synthetic: boolean; map: MapCredential | null }
 
-/** The reading shown at a second Confirm, with what it was read for; the client's next Confirm must match it. */
-export interface PendingCheck { checkId: string; pin: LinkPin; zip: string; reading: MapReading }
+/**
+ * The reading shown at a second Confirm, with what it was read for: the whole typed address and the pin, or none
+ * (REQ-LINK-13). The client's next Confirm must carry its checkId with the same address and pin.
+ */
+export interface PendingCheck { checkId: string; pin: LinkPin | null; address: LinkAddress; reading: MapReading }
 export interface LinkRow {
   id: number; token_hash: string; email_id: number; issued_at: Date; expires_at: Date; issued_by: string;
   used_at: Date | null; revoked_at: Date | null;
@@ -59,12 +72,16 @@ export interface LinkRepo {
   confirm(c: ConfirmWrite): Promise<boolean>;
   /** The newest link of each email (for GET /api/intake and the review). */
   newestFor(emailIds: number[]): Promise<Map<number, LinkRow>>;
-  /** Adds a source='link' saved address; false (nothing added) if the client already has the same address (REQ-LINK-05). */
-  saveAddress(a: { clientId: string; address: LinkAddress; pin: LinkPin; emailId: number; confirmedAt: Date; synthetic: boolean }): Promise<boolean>;
+  /**
+   * Adds a source='link' saved address; false (nothing added) if the client already has the same address (REQ-LINK-05).
+   * `pin` null: confirmed without one (lat, lon null).
+   */
+  saveAddress(a: { clientId: string; address: LinkAddress; pin: LinkPin | null; emailId: number; confirmedAt: Date; synthetic: boolean }): Promise<boolean>;
 }
 
 export interface ConfirmWrite {
-  linkId: number; emailId: number; address: LinkAddress; pin: LinkPin; reading: MapReading | null; at: Date;
+  /** `pin` null: stored without one (REQ-LINK-13, -14). */
+  linkId: number; emailId: number; address: LinkAddress; pin: LinkPin | null; reading: MapReading | null; at: Date;
   extraction: Omit<ExtractionRow, 'id'>;
   audit: { actor: string; action: string; payload: object };
 }
@@ -173,17 +190,46 @@ export type ConfirmResult =
   | { code: 409; body: { error: 'needs_second_confirm'; reading: MapReading; checkId: string } }
   | { code: 400; body: { error: 'invalid' } }
   | { code: 404; body: typeof INVALID }
-  | { code: 429; body: { error: 'rate_limited' } };
+  | { code: 429; body: { error: 'rate_limited' } }
+  | { code: 503; body: { error: 'map_unavailable' } };
 
-function reading(g: GeocodeResponse, from: LinkPin | null, pin: LinkPin): MapReading {
+const NOT_FOUND = { line1: null, city: null, state: null, zip: null };
+function parts(g: GeocodeResponse) {
   const a = g.features[0]?.properties.address ?? {};
   return { line1: a.addressLine ?? null, city: a.locality ?? null, state: a.adminDistricts?.[0]?.shortName ?? null,
-    zip: a.postalCode?.slice(0, 5) ?? null, distanceM: from ? Math.round(distanceM(from, pin)) : 0 };
+    zip: a.postalCode?.slice(0, 5) ?? null };
 }
-const samePin = (a: LinkPin, b: LinkPin) => distanceM(a, b) < 1;
+/** REQ-LINK-12: the map's reading of the typed address and its point; no point = not found (REQ-LINK-14). */
+function addressReading(g: GeocodeResponse, typed: LinkAddress): { reading: MapReading; point: LinkPin | null } {
+  const point = pinOf(g);
+  const read = point ? parts(g) : NOT_FOUND;
+  return { point, reading: { of: 'address', found: point !== null, ...read, distanceM: null,
+    differs: addressDiffers(typed, point ? read : null) } };
+}
+/** REQ-LINK-03: the map's reading of the pin, with the typed parts the address reading did not match (REQ-LINK-13). */
+function pinReading(g: GeocodeResponse, from: LinkPin | null, pin: LinkPin, differs: AddressPart[]): MapReading {
+  const found = g.features.length > 0;
+  return { of: 'pin', found, ...(found ? parts(g) : NOT_FOUND), distanceM: from ? Math.round(distanceM(from, pin)) : null, differs };
+}
+const samePin = (a: LinkPin | null, b: LinkPin | null) => (a === null || b === null ? a === b : distanceM(a, b) < 1);
+const sameAddress = (a: LinkAddress, b: LinkAddress) =>
+  a.line1 === b.line1 && (a.line2 ?? null) === (b.line2 ?? null) && a.city === b.city && a.state === b.state && a.zip === b.zip;
 const isPending = (r: LinkRow['map_reading']): r is PendingCheck => r !== null && 'checkId' in r;
 
-/** POST /api/confirm/:token (REQ-LINK-03, -04, SEC-LINK-02, -04, -10). */
+/** The map could not be reached (or answer): the link stays unused and the client may try again (REQ-LINK-12). */
+class MapUnavailable extends Error {}
+
+/**
+ * POST /api/confirm/:token (REQ-LINK-03, -04, -12 to -14, SEC-LINK-02, -04, -10). Without a valid checkId the typed
+ * address is always looked up on the map (and the pin too when REQ-LINK-03 or a difference asks for its reading).
+ *
+ * | pin sent | typed address on the map         | first Confirm                  | pin stored          |
+ * | no       | point; city, state, ZIP match    | confirmed at once              | the geocoded point  |
+ * | no       | another city, state or ZIP       | 409, the address's reading     | none                |
+ * | no       | no point                         | 409, reading "not found"       | none                |
+ * | yes      | match, REQ-LINK-03 does not apply| confirmed at once              | the client's pin    |
+ * | yes      | differ / no point / REQ-LINK-03  | 409, the pin's reading         | the client's pin    |
+ */
 export async function confirmLink(d: LinkDeps, intake: Deps, token: string, body: unknown): Promise<ConfirmResult> {
   const l = await find(d, token);
   if (!l) return { code: 404, body: INVALID };
@@ -195,29 +241,63 @@ export async function confirmLink(d: LinkDeps, intake: Deps, token: string, body
     return { code: 400, body: { error: 'invalid' } };
   }
   const input: ConfirmInput = parsed.data;
-  let seen: MapReading | null = null;
-  // The API measures the distance itself (REQ-LINK-03); a checkId only counts for the pin and ZIP it was issued for.
-  if (needsSecondConfirm({ pin: l.prefill.pin, zip: l.prefill.address.zip ?? null }, input)) {
-    const pending = isPending(l.map_reading) ? l.map_reading : null;
-    if (pending && input.checkId === pending.checkId && samePin(pending.pin, input.pin) && pending.zip === input.address.zip) {
-      seen = pending.reading; // the client saw this reading and confirmed again
-    } else {
-      if ((await d.links.countLookup(l.id)) > MAX_MAP_LOOKUPS) {
-        d.log('link_refused', { ...fieldsOf(l), why: 'map_lookups' });
-        return { code: 429, body: { error: 'rate_limited' } };
+  const sent: LinkPin | null = input.pin ?? null;
+  let pin: LinkPin | null;
+  let seen: MapReading;
+  const pending = isPending(l.map_reading) ? l.map_reading : null;
+  // A checkId counts only for the typed address (all five fields) and the pin, or no pin, it was issued for (REQ-LINK-13).
+  if (pending && input.checkId === pending.checkId && sameAddress(pending.address, input.address) && samePin(pending.pin, sent)) {
+    pin = sent; // the client saw the reading and confirmed again: their pin, or none (Q-LINK-07)
+    seen = pending.reading;
+  } else {
+    // One map look-up, counted (SEC-LINK-04) and refused after the 20th; a map that cannot be reached is MapUnavailable.
+    const lookUp = async <T>(call: () => Promise<T>): Promise<T | 'rate_limited'> => {
+      if ((await d.links.countLookup(l.id)) > MAX_MAP_LOOKUPS) return 'rate_limited';
+      try {
+        return await call();
+      } catch (err) {
+        throw new MapUnavailable(err instanceof Error ? err.message : String(err));
       }
-      if (!d.maps.reverse) throw new Error(`the map provider ${d.maps.name} cannot reverse-geocode`);
-      const r = reading(await d.maps.reverse(input.pin), l.prefill.pin, input.pin);
-      const checkId = randomUUID();
-      await d.links.setReading(l.id, { checkId, pin: input.pin, zip: input.address.zip, reading: r });
-      d.log('link_second_confirm', { ...fieldsOf(l), distanceM: r.distanceM });
-      return { code: 409, body: { error: 'needs_second_confirm', reading: r, checkId } };
+    };
+    const refuse = (why: 'map_lookups' | 'map_unavailable'): ConfirmResult => {
+      d.log('link_refused', { ...fieldsOf(l), why });
+      return why === 'map_lookups' ? { code: 429, body: { error: 'rate_limited' } } : { code: 503, body: { error: 'map_unavailable' } };
+    };
+    try {
+      const { line1, city, state, zip } = input.address;
+      const forward = await lookUp(() => d.maps.geocode({ line1, city, state, zip }));
+      if (forward === 'rate_limited') return refuse('map_lookups');
+      const typed = addressReading(forward, input.address);
+      const pinRule = needsSecondConfirm({ pin: l.prefill.pin, zip: l.prefill.address.zip ?? null }, input);
+      if (!sent && typed.reading.differs.length === 0) {
+        pin = typed.point; // REQ-LINK-12: a matching typed address confirms at once with the map's point
+        seen = typed.reading;
+      } else if (sent && typed.reading.differs.length === 0 && !pinRule) {
+        pin = sent;
+        seen = typed.reading;
+      } else {
+        let reading = typed.reading;
+        if (sent) {
+          const reverse = d.maps.reverse;
+          if (!reverse) throw new MapUnavailable(`the map provider ${d.maps.name} cannot reverse-geocode`);
+          const g = await lookUp(() => reverse.call(d.maps, sent));
+          if (g === 'rate_limited') return refuse('map_lookups');
+          reading = pinReading(g, l.prefill.pin, sent, typed.reading.differs);
+        }
+        const checkId = randomUUID();
+        await d.links.setReading(l.id, { checkId, pin: sent, address: input.address, reading });
+        d.log('link_second_confirm', { ...fieldsOf(l), of: reading.of, found: reading.found, differs: reading.differs, distanceM: reading.distanceM });
+        return { code: 409, body: { error: 'needs_second_confirm', reading, checkId } };
+      }
+    } catch (err) {
+      if (err instanceof MapUnavailable) return refuse('map_unavailable'); // the map's error is not logged with the link
+      throw err;
     }
   }
   // Decide first (reads and other areas' calls only), then write everything in one transaction: a failure on the way
   // leaves the link unused and the order as it was, so the client can try again (A17 review 2).
   const extraction = await decideAgain(intake, l.email_id, input.address);
-  const done = await d.links.confirm({ linkId: l.id, emailId: l.email_id, address: input.address, pin: input.pin, reading: seen,
+  const done = await d.links.confirm({ linkId: l.id, emailId: l.email_id, address: input.address, pin, reading: seen,
     at: d.now(), extraction, audit: { actor: `client-link:${l.email_id}`, action: 'link_confirmed', payload: { hash: hashPrefix(l.token_hash) } } });
   if (!done) return { code: 404, body: INVALID };
   d.log('link_confirmed', fieldsOf(l));
@@ -262,7 +342,9 @@ export async function decideAgain(intake: Deps, emailId: number, address: LinkAd
 export async function saveOnApproval(d: LinkDeps, email: EmailRow, x: ExtractionRow | null): Promise<'saved' | 'already_saved' | null> {
   if (!d.enabled || x?.checks.address?.status !== 'confirmed' || !email.client_id) return null;
   const l = (await d.links.newestFor([email.id])).get(email.id);
-  if (!l?.used_at || !l.confirmed_address || l.lat === null || l.lon === null) return null;
-  return (await d.links.saveAddress({ clientId: email.client_id, address: l.confirmed_address, pin: { lat: l.lat, lon: l.lon },
+  if (!l?.used_at || !l.confirmed_address) return null;
+  // REQ-LINK-05: an address confirmed without a pin is saved with lat and lon null.
+  const pin = l.lat !== null && l.lon !== null ? { lat: l.lat, lon: l.lon } : null;
+  return (await d.links.saveAddress({ clientId: email.client_id, address: l.confirmed_address, pin,
     emailId: email.id, confirmedAt: l.used_at, synthetic: l.synthetic })) ? 'saved' : 'already_saved';
 }
