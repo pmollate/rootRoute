@@ -128,6 +128,8 @@ The "With LateLens" note shows the rule's output, never a promise that the deliv
 | REQ-JRN-11 | The journey **SHOULD** show, for a new order, the time from email arrival to approval and to WMS entry. |
 | REQ-JRN-12 | (Stretch, with E10.) An `at_risk` order **MAY** get a drafted delay notice addressed to the client only, sent only after an operator approves it and only to the allow-list. |
 | REQ-JRN-13 | `POST /api/orders/:ref/events` **MUST** accept `picked`, `picked_up`, `in_transit`, `out_for_delivery`, `delivered` for an order in the WMS, each only after the one before it and never earlier than it; a repeat with the same time **MUST** change nothing (200) and one with another time **MUST** be refused (409). |
+| REQ-JRN-14 | An admin **MAY** switch on auto-advance (Settings). While it is on, approving an ALL_CLEAR order **MUST** enter it in the WMS and record steps 10–13 as synthetic events; approval and the reply **MUST** stay manual. Design: `docs/superpowers/specs/2026-10-30-order-journey-auto-advance-design.md`. |
+| REQ-JRN-15 | Auto-advanced steps **MUST** become visible 5 seconds apart and **MUST NOT** carry a timestamp earlier than the step before. Delivery **SHOULD** be on the promise date; when it cannot be, the order **MUST** show as late. |
 
 ### 5.2 Non-functional and security
 
@@ -138,6 +140,7 @@ The "With LateLens" note shows the rule's output, never a promise that the deliv
 | SEC-JRN-02 | *(Replaced by REQ-AUTH-04 in `docs/SPEC-auth.md` once P7 ships: reads then need a signed-in user.)* The journey endpoint **MUST** be read-only. Like the other dashboard reads (`GET /api/intake`, `/api/carriers`) it needs no API key, which is why SEC-JRN-01 keeps people's details out of it. |
 | SEC-JRN-03 | Journey requests **MUST** log the ref (`emailId` or `deliveryId`), so an order's journey views are traceable in Application Insights (NFR-03). |
 | SEC-JRN-04 | `POST /api/orders/:ref/events` **MUST** need `Authorization: Bearer <WMS_EVENTS_TOKEN>` (401 without it, 503 when unset). The order sent to the WMS **MUST NOT** carry names, phone numbers, email addresses or a street line. |
+| SEC-SET-01 | Only an admin **MUST** be able to change the auto-advance setting, and every change **MUST** be written to `audit_log` with its actor. |
 
 ## 6. Acceptance criteria
 
@@ -157,6 +160,13 @@ The "With LateLens" note shows the rule's output, never a promise that the deliv
 | AC-JRN-13 | Given an entered order, when the five events are posted in order, then each gets 201; posting `picked_up` before `picked` gets 409; reposting `picked` with the same `ts` gets 200 and no new row; with a different `ts`, 409; a `ts` earlier than the previous event, 409; an order not in the WMS, 409; `email:99999`, 404 |
 | AC-SEC-JRN-04 | Given no token or a wrong token, then 401 and no row; with `WMS_EVENTS_TOKEN` unset, then 503. The body sent to the fake WMS for client C025, whose email has a contact name and phone, holds no name, phone or email address |
 | AC-JRN-14 | Given events up to `in_transit`, then stages 9–12 are `done`, 13 `current`; given `delivered` two days after the promise date, then stage 13 is `failed` with "2 days late"; given no `delivered` and now after the end of the promise date, then `at_risk` |
+| AC-JRN-15 | Given the switch on and an ALL_CLEAR order with promise, warehouse and carrier, when it is approved, then the status is `ENTERED`, six events are recorded in order with non-decreasing `ts` shown 0/5/10/15/20/25 s after approval, and the audit has `send_to_wms` by `system:auto-advance` |
+| AC-JRN-16 | Given the switch off, when an order is approved, then the status is `APPROVED` and nothing is auto-advanced |
+| AC-JRN-17 | Given auto-advanced events and now = approval + 7 s, then steps 9–10 are `done`, 11 `current`, 12–13 `not_reached`; at + 26 s step 13 is `done` |
+| AC-JRN-18 | Given an approval after the promise date, then `delivered` comes an hour after `in_transit` and step 13 is `failed` "N days late"; step 9 says "Auto-advance (simulated)" |
+| AC-JRN-19 | Given an order already `ENTERED`, when `send_to_wms` is posted, then 200 `ENTERED` and nothing new is sent or written |
+| AC-SET-01 | `POST /api/settings/auto-advance` is 403 for every role but admin and writes nothing; for admin it saves and writes one `set_auto_advance` audit row |
+| AC-SET-02 | The Settings card toggles the switch for an admin and is read-only for the order desk |
 | AC-NFR-JRN-01 | Given the demo database, when 50 journeys are requested, then p95 < 500 ms. |
 | AC-SEC-JRN-01 | Given fixture C190 (with a contact name and phone), when its journey is returned, then the JSON has no name, phone or email address. |
 | AC-SEC-JRN-02 | Given any journey request, then no row changes in `recommendations`, `audit_log` or `override_log`. |

@@ -29,6 +29,9 @@ Decisions taken with the user (30 Oct): manual steps, not a clock; LateLens push
 simulator lives in this repo at `tools/wms-simulator/`; if the simulator is down, `send_to_wms` is refused and the
 order stays `APPROVED`; one token for each direction.
 
+Later on 30 Oct: when an admin switches on **auto-advance**, approval runs steps 9–13 itself and this simulator is not
+used for those orders (`2026-10-30-order-journey-auto-advance-design.md`). With the switch off, this design applies.
+
 ## 3. Flow
 
 ```

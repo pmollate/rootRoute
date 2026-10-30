@@ -235,7 +235,7 @@ module exposes `build(ctx) -> dict[str, DataFrame]`; later modules may read earl
 | `001–099` | B | `audit_log` |
 | `100–199` | A | `client_domains`, `saved_addresses`, `intake_emails`, `intake_extractions`, `outbound_messages`, `inbound_orders`, `alerts`, `complaint_triage`, `intake_polls` (101: one row per Gmail check — trigger `schedule` \| `button`, query, started_at, finished_at, fetched, processed, retried, failed, ok, error); `address_confirm_tokens` and new `saved_addresses` columns (103, E19, after submission; below) |
 | `200–299` | B | (none planned) |
-| `300–399` | C | `recommendations`, `override_log`, `order_events` |
+| `300–399` | C | `recommendations`, `override_log`, `order_events`, `app_settings` |
 
 D10 (assistant) adds **no table**: questions and answers are not stored (SEC-ASK-03).
 
@@ -250,6 +250,11 @@ D10 (assistant) adds **no table**: questions and answers are not stored (SEC-ASK
 | `ts` | timestamp NOT NULL | local, no zone; `YYYY-MM-DD HH:mm` in the API |
 | `detail` | jsonb NOT NULL | `wms_entered`: `{ wmsOrderId }` |
 | `synthetic` | boolean NOT NULL DEFAULT true | always true: the WMS and carriers are simulated |
+| `visible_at` | timestamptz NOT NULL DEFAULT now() | when the journey shows the event (303; auto-advance) |
+
+**Migration `302_app_settings.sql`** (C; auto-advance). Writer: `modules/settings/repo.ts`. One row, `auto_advance`
+(`true` | `false`); no row is off. `GET /api/settings` → `{ autoAdvance }` (every role);
+`POST /api/settings/auto-advance` `{ enabled }` → `{ autoAdvance }` (admin; audited as `set_auto_advance`).
 
 **Migration `103_address_links.sql`** (A; E19, SPEC §5.17). Reuses `saved_addresses` rather than a new
 `client_addresses` table: the intake already reads it for matches and candidates.

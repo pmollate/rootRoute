@@ -100,6 +100,7 @@ the registered routes.
 | Reject an order (E18) | `POST /api/intake/:id/action` `reject` | Y | | | | | Y | No (SPEC §7) |
 | Send a reply to a client | `POST /api/intake/:id/action` `send_reply` | Y | | | | | Y | Yes |
 | Enter an approved order in the WMS | `POST /api/intake/:id/action` `send_to_wms` | | Y | | | | Y | Yes (Q-AUTH-03) |
+| Turn auto-advance on or off | `POST /api/settings/auto-advance` | | | | | | Y | Yes (SEC-SET-01) |
 | Post an API or EDI order (E11) | `POST /api/orders`, `POST /api/orders/edi` | Y | | | | | Y | No (SPEC §7) |
 | Log a carrier recommendation | `POST /api/recommend` | | | Y | | | Y | Yes |
 | Override a carrier | `POST /api/overrides` | | | Y | | | Y | Yes |
@@ -150,7 +151,7 @@ matrix; `backend/api/src/core/permissions.ts` gives each GET the roles of the pa
 
 | GET route | Pages that use it | Roles |
 |---|---|---|
-| `overview`, `causes`, `replay`, `attribution`, `cause-kpis`, `journey/:ref` | Overview, Order journey (and others) | every role |
+| `overview`, `causes`, `replay`, `attribution`, `cause-kpis`, `journey/:ref`, `settings` | Overview, Order journey (and others); the Settings card reads `settings` | every role |
 | `accounts` | Warehouses, Replay | `warehouse_supervisor`, `carrier_manager`, `leadership`, `admin` |
 | `compare` (D11, SPEC §5.8) | Replay | `warehouse_supervisor`, `carrier_manager`, `leadership`, `admin` |
 | `warehouses`, `placement`, `penalties/unpaid` | Warehouses | `warehouse_supervisor`, `leadership`, `admin` |
