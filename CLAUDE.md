@@ -24,7 +24,7 @@ routing-vendor scenarios).
 - `Halcyon-Hackathon-Dataset/` — the supplied synthetic dataset: CSVs, README, DATA_DICTIONARY (read-only; never edit)
 - `docs/` — `SPEC.md` (product + technical spec, source of truth), `CONTRACTS.md` (shared types, tables, API),
   `superpowers/plans/` (task plans for resources A, B, C), `prototype/` (clickable UX prototype),
-  `SPEC-carrier-optimizer.md`,
+  `SPEC-carrier-optimizer.md`, `SPEC-ai-evals.md` (every AI eval: graders, gates, how to run and re-record),
   `SPEC-email-address-resolution.md`, `Halcyon.docx` (the participant problem statement)
 - `backend/` — `analytics/` (Python pipeline: loader, five cause flags, replay; run `npm run pipeline`), `api/` (Node +
   Fastify API and agents), `db/migrations/`, `synthetic-data/` (generators, reference data), `tests/fixtures/`,

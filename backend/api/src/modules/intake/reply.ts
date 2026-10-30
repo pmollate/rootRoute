@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { PromiseResult } from '../../core/contracts.js';
-import type { LLM } from '../../core/llm/types.js';
+import type { LLM, TextRequest } from '../../core/llm/types.js';
 import type { AddressQuery } from '../../core/maps/types.js';
 import type { AddressCheck } from './address.js';
 import type { Decision } from './decide.js';
@@ -119,14 +119,19 @@ export function templateReply(f: ReplyFacts): string {
 
 export const REPLY_SYSTEM = readFileSync(fileURLToPath(new URL('./prompts/reply.md', import.meta.url)), 'utf8');
 
+/** The model request for a reply: the checked facts only (SEC-02). The reply eval sends the same request. */
+export function replyRequest(f: ReplyFacts): TextRequest {
+  const user = JSON.stringify({ decision: f.decision, client_name: f.clientName, contact: f.contact, items: f.items,
+    promise: f.promise, missing: f.missing.length ? missingLabels(f.missing) : [],
+    address: f.address, address_problem: f.addressIssues.length ? issueSentences(f) : null, required_phrases: requiredPhrases(f) });
+  return { system: REPLY_SYSTEM, user, tag: 'reply' };
+}
+
 /** E6: model drafts from checked facts; falls back to the template if it fails or drops a required phrase. */
 export async function draftReply(llm: LLM, f: ReplyFacts): Promise<{ text: string; source: 'model' | 'template' }> {
   const required = requiredPhrases(f);
   try {
-    const user = JSON.stringify({ decision: f.decision, client_name: f.clientName, contact: f.contact, items: f.items,
-      promise: f.promise, missing: f.missing.length ? missingLabels(f.missing) : [],
-      address: f.address, address_problem: f.addressIssues.length ? issueSentences(f) : null, required_phrases: required });
-    const text = await llm.text({ system: REPLY_SYSTEM, user, tag: 'reply' });
+    const text = await llm.text(replyRequest(f));
     if (text && required.every((p) => text.includes(p))) return { text, source: 'model' };
   } catch {
     // fall through to the template
