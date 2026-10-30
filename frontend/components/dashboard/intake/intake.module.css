@@ -449,3 +449,11 @@
   .rvFoot .buttons { width: 100%; margin-left: 0; }
   .rvFoot .buttons .btn { flex: 1; }
 }
+/* Tier 1 clients' threads in a section at the top of the list; its header collapses it. */
+.group { border-bottom: 1px solid var(--line); }
+.groupHead { display: flex; align-items: center; gap: 6px; width: 100%; padding: 8px 17px; border: 0; border-bottom: 1px solid var(--line);
+  background: var(--bg); color: var(--ink-2); font-size: 0.6728rem; font-weight: 600; letter-spacing: 0.02em; text-align: left; cursor: pointer; }
+.groupHead:hover { color: var(--ink); }
+.groupHead svg { transition: transform 0.2s; }
+.groupHead[aria-expanded='false'] svg { transform: rotate(-90deg); }
+.groupCount { margin-left: auto; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 0.621rem; font-weight: 500; }

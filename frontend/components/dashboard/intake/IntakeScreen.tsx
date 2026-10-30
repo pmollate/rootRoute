@@ -387,6 +387,11 @@ const writeDraft = (id: number, text: string | null) => {
 const READ_KEY = 'rr.intake.read';
 const loadRead = (): number[] => { try { return JSON.parse(localStorage.getItem(READ_KEY) ?? '[]'); } catch { return []; } };
 const saveRead = (ids: Set<number>) => { try { localStorage.setItem(READ_KEY, JSON.stringify([...ids])); } catch { /* storage blocked */ } };
+/** The Tier 1 section at the top of the list: collapsed or not, per viewer (a convenience kept in this browser). */
+const TIER1_KEY = 'rr.intake.tier1Collapsed';
+const loadTier1Collapsed = () => { try { return localStorage.getItem(TIER1_KEY) === '1'; } catch { return false; } };
+const saveTier1Collapsed = (v: boolean) => { try { localStorage.setItem(TIER1_KEY, v ? '1' : '0'); } catch { /* storage blocked */ } };
+const isTier1 = (t: Thread) => t.latest.tier === 'Tier 1';
 
 export function IntakeScreen() {
   const list = useApi<Inbox>('/api/intake');
@@ -460,6 +465,9 @@ export function IntakeScreen() {
 
   // Read marks live in this browser; loaded after mount so the server render matches.
   useEffect(() => { const saved = loadRead(); if (saved.length) setRead((r) => new Set([...r, ...saved])); }, []);
+  const [tier1Collapsed, setTier1Collapsed] = useState(false);
+  useEffect(() => { setTier1Collapsed(loadTier1Collapsed()); }, []);
+  const toggleTier1 = () => setTier1Collapsed((c) => { saveTier1Collapsed(!c); return !c; });
   const markRead = (ids: number[], value: boolean) => setRead((r) => {
     const next = new Set(r);
     for (const id of ids) if (value) next.add(id); else next.delete(id);
@@ -592,8 +600,35 @@ export function IntakeScreen() {
   const inFolder = threads.filter((t) => folderDef.match(t.latest));
   const searched = inFolder.filter((t) => terms.every((q) => t.emails.some((e) => haystack(e).includes(q))));
   const shown = searched;
+  // Tier 1 clients' threads in their own section at the top, which the viewer can collapse; the rest below, as sorted.
+  const tier1 = shown.filter(isTier1);
+  const rest = shown.filter((t) => !isTier1(t));
   const thread = threads.find((t) => t.emails.some((e) => e.id === selected));
   const current = thread?.emails.find((e) => e.id === selected);
+  const row = (t: Thread) => {
+    const e = t.latest;
+    const unread = t.emails.some((x) => !read.has(x.id));
+    return (
+      <button key={t.id} type="button" aria-label={`Open email ${e.id}`} aria-pressed={pane === 'email' && t === thread}
+        data-unread={unread || undefined} className={`${s.row} ${unread ? s.unread : ''} ${t.emails.some((x) => fresh.has(x.id)) ? s.fresh : ''}`}
+        onClick={() => open(e.id)}>
+        {unread && <span className={s.srOnly}>Unread</span>}
+        <span className={s.avatar}>{initials(clientOf(e))}</span>
+        <span className={s.rowMain}>
+          <span className={s.rowTop}>
+            <b className={s.client}>{clientOf(e)}</b>
+            {(e.tier || e.priority) && (
+              <span className={s.tier} title={e.priority ? 'Tier 1 or at-risk client: handled first' : undefined}>{e.tier ?? 'Priority'}</span>
+            )}
+            {(() => { const l = linkChip(e); return l && <span className={`${s.chip} ${l.tone}`}>{l.text}</span>; })()}
+            <time>{timeOf(e.receivedAt)}</time>
+          </span>
+          <span className={s.rowSubject}><span>{bare(e.subject)}</span>{t.emails.length > 1 && <i>{t.emails.length}</i>}</span>
+          {e.preview && <span className={s.preview}>{e.preview}</span>}
+        </span>
+      </button>
+    );
+  };
   // Opening a thread marks all its emails read; "Mark as unread" undoes it until the thread is opened again.
   const threadIds = thread?.emails.map((e) => e.id).join(',');
   useEffect(() => {
@@ -689,30 +724,15 @@ export function IntakeScreen() {
             {emails.length > 0 && shown.length === 0 && (
               <p className={s.empty}>{terms.length ? `No emails match "${query.trim()}" in ${folderDef.label}.` : 'No threads here.'}</p>
             )}
-            {shown.map((t) => {
-              const e = t.latest;
-              const unread = t.emails.some((x) => !read.has(x.id));
-              return (
-                <button key={t.id} type="button" aria-label={`Open email ${e.id}`} aria-pressed={pane === 'email' && t === thread}
-                  data-unread={unread || undefined} className={`${s.row} ${unread ? s.unread : ''} ${t.emails.some((x) => fresh.has(x.id)) ? s.fresh : ''}`}
-                  onClick={() => open(e.id)}>
-                  {unread && <span className={s.srOnly}>Unread</span>}
-                  <span className={s.avatar}>{initials(clientOf(e))}</span>
-                  <span className={s.rowMain}>
-                    <span className={s.rowTop}>
-                      <b className={s.client}>{clientOf(e)}</b>
-                      {(e.tier || e.priority) && (
-                        <span className={s.tier} title={e.priority ? 'Tier 1 or at-risk client: handled first' : undefined}>{e.tier ?? 'Priority'}</span>
-                      )}
-                      {(() => { const l = linkChip(e); return l && <span className={`${s.chip} ${l.tone}`}>{l.text}</span>; })()}
-                      <time>{timeOf(e.receivedAt)}</time>
-                    </span>
-                    <span className={s.rowSubject}><span>{bare(e.subject)}</span>{t.emails.length > 1 && <i>{t.emails.length}</i>}</span>
-                    {e.preview && <span className={s.preview}>{e.preview}</span>}
-                  </span>
+            {tier1.length > 0 && (
+              <section className={s.group} aria-label="Tier 1 clients">
+                <button type="button" className={s.groupHead} aria-expanded={!tier1Collapsed} onClick={toggleTier1}>
+                  <Icon size={13}>{ICON.down}</Icon>Tier 1<span className={s.groupCount}>{tier1.length}</span>
                 </button>
-              );
-            })}
+                {!tier1Collapsed && tier1.map(row)}
+              </section>
+            )}
+            {rest.map(row)}
             {shown.length > 0 && others === 0 && (
               <p className={s.done}><Icon size={17}>{ICON.check}</Icon>No other threads need you</p>
             )}

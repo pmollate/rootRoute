@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { asRole, mockApi, renderScreen } from '../test-utils';
 import { IntakeScreen, localMinute } from './IntakeScreen';
@@ -27,6 +27,27 @@ describe('Order emails', () => {
     renderScreen(<IntakeScreen />);
     fireEvent.click(await screen.findByRole('button', { name: 'Order review' }));
     expect(await screen.findByText('No all-clear orders are waiting for approval.')).toBeTruthy();
+  });
+
+  it('lists Tier 1 threads first in a section that collapses, and remembers it', async () => {
+    mockApi({ '/api/intake': { emails: [
+      item(70, { tier: 'Tier 1', clientName: 'Client 070' }), item(71, { tier: 'Tier 3', clientName: 'Client 071', priority: false }),
+      item(72, { tier: 'Tier 1', clientName: 'Client 072' })] } });
+    const view = renderScreen(<IntakeScreen />);
+    const toggle = await screen.findByRole('button', { name: /Tier 1/, expanded: true });
+    expect(toggle.textContent).toContain('2');
+    const section = screen.getByRole('region', { name: 'Tier 1 clients' });
+    expect(within(section).getByRole('button', { name: 'Open email 70' })).toBeTruthy();
+    expect(within(section).getByRole('button', { name: 'Open email 72' })).toBeTruthy();
+    expect(within(section).queryByRole('button', { name: 'Open email 71' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open email 71' })).toBeTruthy(); // the others stay below
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { name: /Tier 1/, expanded: false })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Open email 70' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open email 71' })).toBeTruthy();
+    view.unmount();
+    renderScreen(<IntakeScreen />); // the choice is kept for this viewer
+    expect(await screen.findByRole('button', { name: /Tier 1/, expanded: false })).toBeTruthy();
   });
 
   // Live on 31 Oct: an email opened while the API was still reading it stayed "Not read yet" until the page was reloaded.
