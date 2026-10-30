@@ -129,8 +129,10 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
         {FIELDS.slice(0, 3).map(input)}
         <div className={s.row}>{FIELDS.slice(3).map(input)}</div>
 
-        {mapShown && view.map && (
-          <div className={s.mapBlock}>
+        {/* A refused map is hidden, not unmounted: disposing the SDK's map right after a refused tile throws inside the
+            SDK (its attribution timer reads the removed style). It is disposed with the page. */}
+        {view.map && (
+          <div className={s.mapBlock} hidden={!mapShown}>
             <p className={s.muted}>{view.pin ? 'Drag the pin if your delivery entrance is somewhere else.' : 'Drag the pin to your delivery entrance.'}</p>
             <ConfirmMap pin={pin} credential={view.map} onMove={move} onFail={() => setMapShown(false)} placed={view.pin !== null} />
           </div>

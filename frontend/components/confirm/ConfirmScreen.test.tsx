@@ -69,11 +69,15 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     expect(screen.queryByText('The map reads your pin as')).toBeNull();
   });
 
-  it('REQ-LINK-02 (page): a map that fails to load is taken away, leaving the form', async () => {
+  it('REQ-LINK-02 (page): a map that fails to load is hidden, not unmounted, leaving the form', async () => {
     render(<ConfirmScreen token={TOKEN} view={view} />);
+    const map = screen.getByTestId('map');
     fireEvent.click(screen.getByRole('button', { name: 'Fail map' }));
-    await waitFor(() => expect(screen.queryByTestId('map')).toBeNull());
-    expect(screen.queryByText(/Drag the pin/)).toBeNull();
+    // Hidden, not disposed: disposing the SDK's map right after a refused tile throws inside the SDK
+    // ("reading 'sources'" from its attribution timer).
+    await waitFor(() => expect(map.closest('[hidden]')).not.toBeNull());
+    expect(screen.getByTestId('map')).toBe(map); // the same element: never unmounted
+    expect(screen.getByText(/Drag the pin/).closest('[hidden]')).not.toBeNull();
     expect(field('City').value).toBe('Newark');
   });
 
