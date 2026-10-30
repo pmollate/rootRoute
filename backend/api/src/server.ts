@@ -56,6 +56,8 @@ export async function buildApp(opts: BuildOptions = {}): Promise<FastifyInstance
     llm: config.LLM_PROVIDER,
     version: process.env.GIT_SHA ?? 'dev',
   }));
+  // MCP clients look for OAuth before connecting; /api/mcp has its own token, so say there is none (404, not 401).
+  app.get('/.well-known/*', async (_req, reply) => reply.code(404).send({ error: 'not found' }));
   await registerModules(app);
   return app;
 }
