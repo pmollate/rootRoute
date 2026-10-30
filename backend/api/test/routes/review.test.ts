@@ -33,6 +33,8 @@ describe.skipIf(!hasDb)('order review over HTTP (needs test database)', () => {
   it('AC-INT-15, AC-AUTH-14: unblocked carriers only; order_desk approves another carrier, logged once with that user', async () => {
     const r = await paste();
     expect(r.decision).toBe('ALL_CLEAR');
+    // The zone receivedAt is stored in, so the queue can show "keyed" in the viewer's own zone.
+    expect((await app.inject({ method: 'GET', url: '/api/intake/review', headers: await desk() })).json().timeZone).toBe('America/New_York');
     const o = (await review()).find((x) => x.id === r.id)!;
     const offered = o.choices.map((c) => c.carrier);
     for (const b of o.blocked) expect(offered).not.toContain(b);

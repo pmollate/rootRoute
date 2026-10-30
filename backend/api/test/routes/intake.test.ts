@@ -49,8 +49,11 @@ describe.skipIf(!hasDb)('intake routes (needs test database)', () => {
 
   it('lists priority clients first, and dedupes a pasted email', async () => {
     const again = (await paste('34')).json();
-    const list = (await app.inject({ method: 'GET', url: '/api/intake' })).json().emails;
+    const inbox = (await app.inject({ method: 'GET', url: '/api/intake' })).json();
+    const list = inbox.emails;
     expect(list).toHaveLength(2);
+    // receivedAt is a wall clock in this zone; the dashboard shows it in the viewer's own.
+    expect(inbox.timeZone).toBe('America/New_York');
     // C190 (Tier 1, threatening to leave) first, although the fixture 02 email is newer.
     expect(list.map((e: { id: number; priority: boolean }) => [e.id, e.priority])).toEqual([[again.id, true], [2, false]]);
   });

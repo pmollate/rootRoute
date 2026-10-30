@@ -22,6 +22,18 @@ const detail = (id: number, over: object = {}) => ({
 describe('Order emails', () => {
   afterEach(() => { cleanup(); localStorage.clear(); });
 
+  it('shows when each email arrived in the viewer\'s own time zone', async () => {
+    const zone = Intl.DateTimeFormat.prototype.resolvedOptions;
+    const spy = vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
+      .mockImplementation(function (this: Intl.DateTimeFormat) { return { ...zone.call(this), timeZone: 'Asia/Kolkata' }; });
+    try {
+      mockApi({ '/api/intake': { emails: [item(34)], timeZone: 'America/New_York' }, '/api/intake/34': detail(34) });
+      renderScreen(<IntakeScreen />);
+      expect(await screen.findByText('16:57')).toBeTruthy();   // 07:27 in New York (EDT) is 16:57 in India
+      expect(screen.queryByText('07:27')).toBeNull();
+    } finally { spy.mockRestore(); }
+  });
+
   it('E18: "Order review" in the rail opens the review in the reading pane', async () => {
     mockApi({ '/api/intake': { emails: [item(34)] }, '/api/intake/34': detail(34), '/api/intake/review': { orders: [] } });
     renderScreen(<IntakeScreen />);
@@ -357,6 +369,24 @@ describe('Order emails', () => {
       await waitFor(() => expect(calls(fetch).some(([url]) => url.endsWith('/api/intake/email'))).toBe(true));
       const [, init] = calls(fetch).find(([url]) => url.endsWith('/api/intake/email'))!;
       expect(JSON.parse(String(init?.body)).receivedAt).toBe('2026-09-14 09:30');
+    });
+
+    it('the picked time is the operator\'s own clock, sent in the mailbox\'s zone', async () => {
+      const zone = Intl.DateTimeFormat.prototype.resolvedOptions;
+      const spy = vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
+        .mockImplementation(function (this: Intl.DateTimeFormat) { return { ...zone.call(this), timeZone: 'Asia/Kolkata' }; });
+      try {
+        const fetch = mockApi({ '/api/intake': { emails: [], timeZone: 'America/New_York' }, '/api/intake/email': { id: 7, decision: 'ALL_CLEAR' } });
+        renderScreen(<IntakeScreen />);
+        await waitFor(() => expect(calls(fetch).some(([url]) => url.endsWith('/api/intake'))).toBe(true));
+        await openPaste();
+        type('Received at', '2026-09-14T19:00');
+        type('Body', 'Please send 10 x HX-220.');
+        fireEvent.click(process());
+        await waitFor(() => expect(calls(fetch).some(([url]) => url.endsWith('/api/intake/email'))).toBe(true));
+        const [, init] = calls(fetch).find(([url]) => url.endsWith('/api/intake/email'))!;
+        expect(JSON.parse(String(init?.body)).receivedAt).toBe('2026-09-14 09:30');
+      } finally { spy.mockRestore(); }
     });
 
     it('AC-INT-19: the body shows its length against the limit; over it, the form says so and does not send', async () => {

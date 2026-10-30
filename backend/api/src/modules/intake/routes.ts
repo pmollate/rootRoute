@@ -14,6 +14,7 @@ import { getLinkDeps } from './linkDeps.js';
 import { processEmail } from './pipeline.js';
 import { safeNames } from './reply.js';
 import { ActionBody, EmailBody, FetchBody, limits, readable } from './input.js';
+import { MAILBOX_TIMEZONE } from './mailbox.js';
 import { pollLogFields, runPoll } from './poll.js';
 import { reviewQueue } from './review.js';
 import { httpWms } from './wms.js';
@@ -72,6 +73,8 @@ const routes: FastifyPluginAsync = async (app) => {
         processed: last.processed, retried: last.retried, failed: last.failed, ok: last.ok },
       // REQ-INT-16: the paste form shows these limits before the API refuses a longer email.
       limits: limits(),
+      // The zone receivedAt is stored in; the dashboard shows it in the viewer's own zone.
+      timeZone: MAILBOX_TIMEZONE,
     };
   });
 
@@ -98,7 +101,7 @@ const routes: FastifyPluginAsync = async (app) => {
   app.get('/intake/review', async () => {
     const l = getLinkDeps();
     // REQ-LINK-11: with E19 on, a link-confirmed order carries the email's address, the confirmed one and the map's reading.
-    return { orders: await reviewQueue(getDeps().repo, l.enabled ? l.links : undefined) };
+    return { orders: await reviewQueue(getDeps().repo, l.enabled ? l.links : undefined), timeZone: MAILBOX_TIMEZONE };
   });
 
   // E19 (SPEC §5.17): public and token-gated (permissions.ts); no order id in the route (SEC-LINK-03). The same 404 body

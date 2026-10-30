@@ -5,6 +5,7 @@ import { useCan } from '@/components/auth/UserContext';
 import { Pill, Status, SyntheticBadge } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
 import { SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
+import { toViewer } from '@/lib/mailTime';
 import s from './intake.module.css';
 
 export interface CarrierChoice {
@@ -36,8 +37,12 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 /** "2026-10-31" as a calendar day (no time zone shift), e.g. "Sat 31 Oct". */
 const ymd = (d: string) => { const [y, m, dd] = d.slice(0, 10).split('-').map(Number); return new Date(Date.UTC(y, m - 1, dd)); };
 const longDay = (d: string) => { const t = ymd(d); return `${DAYS[t.getUTCDay()]} ${t.getUTCDate()} ${MONTHS[t.getUTCMonth()]}`; };
-/** "2026-10-27 16:21" as "27 Oct 16:21". */
-const keyed = (at: string) => { const t = ymd(at); return `${t.getUTCDate()} ${MONTHS[t.getUTCMonth()]} ${at.slice(11, 16)}`; };
+/** "2026-10-27 16:21" (mailbox zone) as "27 Oct 16:21" in the viewer's zone. */
+const keyed = (stored: string, zone?: string) => {
+  const at = toViewer(stored, zone);
+  const t = ymd(at);
+  return `${t.getUTCDate()} ${MONTHS[t.getUTCMonth()]} ${at.slice(11, 16)}`;
+};
 /** Whole days from the day the order was keyed to the promise date. */
 const slack = (at: string, promise: string) => {
   const n = Math.round((ymd(promise).getTime() - ymd(at).getTime()) / 86400_000);
@@ -56,7 +61,7 @@ const costDelta = (rate: number | null | undefined, base: number | null | undefi
  * signed-in roles (SPEC-auth §4.3); the API refuses anyway.
  */
 export function OrderReview({ onChange }: { onChange?: () => void }) {
-  const q = useApi<{ orders: ReviewOrder[] }>('/api/intake/review');
+  const q = useApi<{ orders: ReviewOrder[]; timeZone?: string }>('/api/intake/review');
   const canApprove = useCan('approve');
   const canReject = useCan('reject');
   const [pick, setPick] = useState<Record<number, string>>({});
@@ -112,7 +117,7 @@ export function OrderReview({ onChange }: { onChange?: () => void }) {
               <div className={s.rvPromise}>
                 <span>Promise</span>
                 <b>{o.promiseDate ? longDay(o.promiseDate) : '—'}</b>
-                <small>{o.promiseDate && <>{slack(o.receivedAt, o.promiseDate)} · </>}email {o.id} · keyed {keyed(o.receivedAt)}</small>
+                <small>{o.promiseDate && <>{slack(o.receivedAt, o.promiseDate)} · </>}email {o.id} · keyed {keyed(o.receivedAt, q.data?.timeZone)}</small>
               </div>
             </header>
 

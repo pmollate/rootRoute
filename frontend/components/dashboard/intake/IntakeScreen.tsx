@@ -7,6 +7,7 @@ import { useApi } from '@/hooks/useApi';
 import { InputRefused, SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
 import s from './intake.module.css';
 import { OrderReview } from './OrderReview';
+import { toMailbox, toViewer } from '@/lib/mailTime';
 
 export type Decision = 'ALL_CLEAR' | 'CONFIRM_ADDRESS' | 'MISSING_INFO';
 interface Item { sku: string; qty: number }
@@ -21,8 +22,9 @@ export interface EmailItem {
 export interface LinkInfo { state: 'sent' | 'confirmed' | 'expired' | 'revoked'; expiresAt: string }
 /** lastPoll: the API's last Gmail check, scheduled or by hand. */
 /** limits: the longest email the API accepts (REQ-INT-16); older APIs leave it out and the form shows no counter. */
+/** timeZone: the mailbox zone receivedAt is stored in; times are shown in the viewer's own zone (older APIs: as stored). */
 interface Inbox { emails: EmailItem[]; lastPoll?: { startedAt: string; finishedAt: string | null; ok: boolean | null } | null;
-  limits?: { bodyChars: number; subjectChars: number; fromChars: number } }
+  limits?: { bodyChars: number; subjectChars: number; fromChars: number }; timeZone?: string }
 interface PollResult { processed: number; retried: number; ok: boolean }
 interface Address { line1: string; line2: string | null; city: string; state: string; zip: string }
 export interface Detail {
@@ -89,9 +91,9 @@ const ISSUE: Record<string, string> = {
 };
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const day = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return `${d} ${MONTHS[m - 1]} ${y}`; };
-/** "2026-10-21 07:42" -> "21 Oct 2026, 07:42". */
-const stamp = (at: string) => { const [date, time] = at.split(' '); return time ? `${day(date)}, ${time}` : at; };
-const timeOf = (at: string) => at.split(' ')[1] ?? at;
+/** "2026-10-21 07:42" (mailbox zone) -> "21 Oct 2026, 07:42" in the viewer's zone. */
+const stamp = (at: string, zone?: string) => { const [date, time] = toViewer(at, zone).split(' '); return time ? `${day(date)}, ${time}` : at; };
+const timeOf = (at: string, zone?: string) => toViewer(at, zone).split(' ')[1] ?? at;
 const ACTION_DONE: Record<string, string> = { approve: 'Approved', send_reply: 'Reply sent', send_to_wms: 'Sent to WMS' };
 /** A time of day as "09:14 am". */
 const clock = (t: Date) => `${String(t.getHours() % 12 || 12).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')} ${t.getHours() < 12 ? 'am' : 'pm'}`;
@@ -251,7 +253,7 @@ function Stepper({ d }: { d: Detail }) {
 }
 
 /** An earlier email in the thread: folded to one line, so only the latest email is open; its header opens it (text fetched on open). */
-function Earlier({ e }: { e: EmailItem }) {
+function Earlier({ e, zone }: { e: EmailItem; zone?: string }) {
   const [open, setOpen] = useState(false);
   const fetched = useApi<Detail>(open ? `/api/intake/${e.id}` : null);
   const d = fetched.data;
@@ -262,7 +264,7 @@ function Earlier({ e }: { e: EmailItem }) {
         <span className={s.avatar}>{initials(name)}</span>
         <b>{name}</b>
         <span className={s.earlierSum}>Email {e.id} · {e.preview ?? bare(e.subject)}</span>
-        <time>{timeOf(e.receivedAt)}</time>
+        <time>{timeOf(e.receivedAt, zone)}</time>
         <span className={s.chev}><Icon size={12}>{ICON.down}</Icon></span>
       </button>
       {open && (
@@ -440,6 +442,7 @@ export function IntakeScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reading, selected]);
   const emails = list.data?.emails ?? [];
+  const zone = list.data?.timeZone;
   const threads = toThreads(emails);
   // The reply the operator edits in place: a saved draft or the AI's draft until they type, kept per email.
   const [edit, setEdit] = useState<{ id: number; text: string } | null>(null);
@@ -565,7 +568,8 @@ export function IntakeScreen() {
   const invalid = (field: Field) => (pasteError?.fields[field] ? true : undefined);
   const bodyLimit = list.data?.limits?.bodyChars;
   const bodyOver = bodyLimit !== undefined && draft.body.length > bodyLimit;
-  // Received at is picked on a calendar (datetime-local, "YYYY-MM-DDTHH:mm") and sent as "YYYY-MM-DD HH:mm".
+  // Received at is picked on a calendar (datetime-local, "YYYY-MM-DDTHH:mm") in the operator's own zone and sent as
+  // "YYYY-MM-DD HH:mm" in the mailbox's zone, as the API stores it.
   // Nothing after the operator's own clock: the picker greys it out, and a typed future time blocks sending.
   const latestAt = localMinute(new Date());
   const receivedFuture = draft.receivedAt.replace(' ', 'T') > latestAt;
@@ -576,7 +580,7 @@ export function IntakeScreen() {
     let r: { id: number; decision: Decision | null };
     try {
       r = await postJSON<{ id: number; decision: Decision | null }>('/api/intake/email',
-        { ...draft, ...(replyTo ? { inReplyTo: replyTo } : {}) });
+        { ...draft, receivedAt: toMailbox(draft.receivedAt, zone), ...(replyTo ? { inReplyTo: replyTo } : {}) });
     } catch (e) {
       if (e instanceof InputRefused) setPasteError({ text: e.message, fields: e.fields });
       throw e;
@@ -621,7 +625,7 @@ export function IntakeScreen() {
               <span className={s.tier} title={e.priority ? 'Tier 1 or at-risk client: handled first' : undefined}>{e.tier ?? 'Priority'}</span>
             )}
             {(() => { const l = linkChip(e); return l && <span className={`${s.chip} ${l.tone}`}>{l.text}</span>; })()}
-            <time>{timeOf(e.receivedAt)}</time>
+            <time>{timeOf(e.receivedAt, zone)}</time>
           </span>
           <span className={s.rowSubject}><span>{bare(e.subject)}</span>{t.emails.length > 1 && <i>{t.emails.length}</i>}</span>
           {e.preview && <span className={s.preview}>{e.preview}</span>}
@@ -835,7 +839,7 @@ export function IntakeScreen() {
 
                   <div className={s.threadBody}>
                     <div className={s.conversation}>
-                      {thread.emails.filter((e) => e.id !== d.email.id).map((e) => <Earlier key={e.id} e={e} />)}
+                      {thread.emails.filter((e) => e.id !== d.email.id).map((e) => <Earlier key={e.id} e={e} zone={zone} />)}
                       <article className={`${s.card} ${s.message}`}>
                         {(() => {
                           const name = signer(d.email.body, d.email.from);
@@ -850,7 +854,7 @@ export function IntakeScreen() {
                                   <span>{d.email.from} · to Orders desk</span>
                                 </div>
                                 <div className={s.when}>
-                                  <time>{stamp(d.email.receivedAt)}</time>
+                                  <time>{stamp(d.email.receivedAt, zone)}</time>
                                 </div>
                               </div>
                               {status === 'WAITING' && (
