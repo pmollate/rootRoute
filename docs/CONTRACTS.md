@@ -94,7 +94,8 @@ export interface DiagnosisApi {
 
 ### 1.1 After submission: D10 assistant and E19 address link (SPEC §5.16, §5.17; flags default off)
 
-Not in the submitted build. Added in the PR that builds each feature, reviewed by all three resources.
+Not in the submitted build. Added in the PR that builds each feature, reviewed by all three resources. D10 is built
+(C14–C16, on `main` 30 Oct, `ASK_ASSISTANT` off) and the types below match its code; E19 is not built yet (A16–A20).
 
 ```ts
 // backend/api/src/modules/mcp/tools.ts (owner C): the one registry read by the MCP server and the assistant (REQ-ASK-02)
@@ -108,28 +109,40 @@ export interface ToolDef<I extends z.ZodRawShape = z.ZodRawShape> {
 }
 export const TOOLS: readonly ToolDef[];
 
-// backend/api/src/core/llm/types.ts (P3, owner A; change reviewed by A): one more method on LLM, used only by D10
+// backend/api/src/core/llm/types.ts (P3, owner A; change reviewed by A): tool calling for D10 only. `LLM` itself is
+// unchanged, so the intake and its hand-made LLM stand-ins need no `toolChat`.
+export interface ToolCall { id: string; name: string; arguments: string }   // arguments: raw JSON from the model (untrusted)
+export interface ToolChatMessage { role: 'user' | 'assistant' | 'tool'; content: string; toolCallId?: string; toolCalls?: ToolCall[] }
 export interface ToolChatRequest {
   system: string;
-  messages: { role: 'user' | 'assistant' | 'tool'; content: string; toolCallId?: string; toolCalls?: ToolCall[] }[];
-  tools: { name: string; description: string; parameters: object }[];   // JSON schema from each ToolDef.input
+  messages: ToolChatMessage[];
+  tools: { name: string; description: string; parameters: object }[];   // JSON schema from each ToolDef.input; [] = none offered (left out of the request)
   tag: 'assistant';
   store: false;                            // SEC-ASK-03: no stored completion
+  answerSchema?: z.ZodType<unknown>;       // the final answer's shape, sent as Structured Outputs; the caller checks it again
 }
-export interface ToolCall { id: string; name: string; arguments: string }   // arguments: raw JSON from the model
 export type ToolChatTurn = { kind: 'tool_calls'; calls: ToolCall[] } | { kind: 'final'; content: string };
-// LLM gains: toolChat(req: ToolChatRequest): Promise<ToolChatTurn>   (recorded: keyed by a hash of the whole request)
+export interface ToolChatLLM extends LLM {
+  toolChat(req: ToolChatRequest): Promise<ToolChatTurn>;
+}
+// createLLM() returns a ToolChatLLM (azure-openai, recorded, and the RECORD=1 wrapper all implement it).
+// Recorded key (REQ-ASK-10): recording kind 'tool' + system prompt + JSON of { messages, tools, answer: JSON schema of
+// answerSchema or null }. Changing the conversation, the tools offered or the answer schema needs a new recording;
+// a missing one is LLMError 'missing_recording' (503 at the route), a damaged one LLMError 'invalid'.
 
 // backend/api/src/modules/assistant/ (owner C)
 export interface AssistantRequest {
-  question: string;                        // 1..500 characters (SEC-ASK-01)
-  history?: { role: 'user' | 'assistant'; text: string }[];   // at most 6, oldest first
+  question: string;                        // 1..500 characters after trimming; over 500 → 400 too_long (SEC-ASK-01)
+  history?: (                              // at most 6 turns, oldest first; untrusted like the question; else 400 invalid
+    | { role: 'user'; text: string }       //   at most 500 characters
+    | { role: 'assistant'; text: string }  //   at most 2,000 characters
+  )[];
 }
 export interface AssistantAnswer {
   questionId: string;                      // the id in the log line (NFR-ASK-02)
-  answer: string;                          // plain text; the fixed refusal or "could not check" text when those apply
+  answer: string;                          // plain text, at most 2,000 characters; the fixed refusal or "could not check" text when those apply
   refused: boolean;
-  checked: boolean;                        // every figure found in a tool result (REQ-ASK-04)
+  checked: boolean;                        // every figure found in a tool result or a tool's arguments, never the question alone (REQ-ASK-04); not "verified"
   sources: { tool: ToolDef['name']; args: Record<string, unknown>; result: unknown }[];   // built by code (REQ-ASK-05)
   toolCalls: number;
   skipped: string[];                       // tool requests not run (REQ-ASK-03)
@@ -143,7 +156,7 @@ export interface LinkView {
   pin: LinkPin | null;                     // the map's best match, null when there is none
   expiresAt: string;                       // ISO 8601 with offset
   synthetic: boolean;
-  map: { kind: 'sas' | 'entra'; token: string; expiresAt: string };   // short-lived tile credential (SEC-LINK-08, Q-LINK-02)
+  map: { kind: 'sas'; token: string; expiresAt: string };   // Azure Maps SAS token, rate-capped, expiresAt ≤ the link's (SEC-LINK-08)
 }
 export interface MapReading { line1: string | null; city: string | null; state: string | null; zip: string | null; distanceM: number }
 export type LinkState = 'sent' | 'confirmed' | 'expired' | 'revoked';
@@ -232,7 +245,7 @@ D10 (assistant) adds **no table**: questions and answers are not stored (SEC-ASK
 |---|---|---|---|
 | `address_confirm_tokens` | `id` | serial PK | |
 | | `token_hash` | char(64) UNIQUE NOT NULL | SHA-256 hex of the token; the token itself is never stored (SEC-LINK-01) |
-| | `email_id` | int NOT NULL → `intake_emails(id)` | the order's first email; one live link per order (REQ-LINK-08) |
+| | `email_id` | int NOT NULL → `intake_emails(id)` | the email the `CONFIRM_ADDRESS` reply was sent for (the order's first email or a client follow-up in its thread). One live link per order: minting revokes unused links on every email of the thread, found through `in_reply_to` (REQ-LINK-08) |
 | | `issued_at`, `expires_at` | timestamptz NOT NULL | lifetime rule in SPEC §5.17 |
 | | `issued_by` | text NOT NULL | the operator's `sub` who sent the reply |
 | | `used_at`, `revoked_at` | timestamptz | set once; a link with either set, or past `expires_at`, is invalid |
@@ -242,7 +255,7 @@ D10 (assistant) adds **no table**: questions and answers are not stored (SEC-ASK
 | | `map_reading` | jsonb | the reverse-geocoded reading shown at the second Confirm |
 | | `map_lookups` | int NOT NULL DEFAULT 0 | capped at 20 (SEC-LINK-04) |
 | | `synthetic` | boolean NOT NULL | true for every demo order |
-| `saved_addresses` (new columns) | `source` | text NOT NULL DEFAULT `'seed'` | `seed` \| `link` |
+| `saved_addresses` (new columns) | `source` | text NOT NULL DEFAULT `'seed'` | `seed` \| `link`. The seed (`npm run seed`) owns only `seed` rows: it deletes and rewrites those and never touches `link` rows (REQ-LINK-05) |
 | | `lat`, `lon` | double precision | from the confirmed pin |
 | | `email_id` | int → `intake_emails(id)` | the order whose approval saved it |
 | | `confirmed_at` | timestamptz | when the client confirmed it |
@@ -290,8 +303,8 @@ Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 
 | `POST /api/complaints/:id/triage` | A | → `{ complaintId, deliveryId, stages, prePickup, escalate, draft, source }` |
 | `POST /api/alerts/run` | A | body `{ asOf }` → `{ drafted: number }` (needs `x-api-key`) |
 | `POST /api/mcp` | C | MCP Streamable HTTP (stateless, JSON responses). Tools, all read-only: `overview`, `delivery_causes`, `scenario`, `lane_scores`, `recommend_carrier`, `check_promise`. Needs `Authorization: Bearer <MCP_TOKEN>`; 401 without it, 503 when `MCP_TOKEN` is unset. From D10 the tools come from `modules/mcp/tools.ts` (§1.1); nothing else changes |
-| `POST /api/assistant` | C | *After submission (D10, SPEC §5.16).* body `AssistantRequest` → `AssistantAnswer`. Every role (SPEC-auth §4.2); `x-api-key` while `AUTH_REQUIRED=off`. 404 when `ASK_ASSISTANT` is off; 400 `{ error: "too_long" }` over 500 characters; 429 `{ error: "rate_limited" }`; 503 `{ error: "assistant_unavailable" }` when the model is unreachable or a recording is missing. Writes no table |
-| `GET /api/confirm/:token` | A | *After submission (E19, SPEC §5.17).* Public, token-gated. → `LinkView`; 404 `{ error: "link_invalid" }` for an unknown, expired, used or revoked link, byte-identical in every case; 404 also when `CONFIRM_LINK` is off. Never uses up the link |
+| `POST /api/assistant` | C | *After submission (D10, SPEC §5.16; built 30 Oct, flag off).* body `AssistantRequest` → `AssistantAnswer`. Called by the Ask LateLens panel and by Overview's Router. Every role (SPEC-auth §4.2); `x-api-key` while `AUTH_REQUIRED=off`. 404 when `ASK_ASSISTANT` is off; 400 `{ error: "too_long" }` for a question over 500 characters, 400 `{ error: "invalid" }` for any other bad body (history limits in §1.1); 429 `{ error: "rate_limited" }`; 503 `{ error: "assistant_unavailable" }` when the model is unreachable, a recording is missing or a tool's read fails (no server text). Writes no table |
+| `GET /api/confirm/:token` | A | *After submission (E19, SPEC §5.17).* Public, token-gated; the request log shows the path as `/api/confirm/[token]` (SEC-LINK-01). → `LinkView` (with the SAS map credential); 404 `{ error: "link_invalid" }` for an unknown, expired, used or revoked link, byte-identical in every case; 404 also when `CONFIRM_LINK` is off. Never uses up the link |
 | `POST /api/confirm/:token` | A | *After submission (E19).* Public, token-gated; through the web proxy's `Origin` check. body `{ address: LinkAddress, pin: LinkPin, checkId? }` → `{ status: "confirmed" }`; 409 `{ error: "needs_second_confirm", reading: MapReading, checkId }` (REQ-LINK-03); 400 `{ error: "invalid" }` (SEC-LINK-10, link stays unused); 404 `link_invalid`; 429 `rate_limited` |
 
 ## 7. Environment variables (`.env.example`, owner B)
@@ -307,8 +320,11 @@ Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 
 After submission (SPEC §5.16, §5.17; values are design settings, not data): `ASK_ASSISTANT` (`on` \| `off`, default off;
 read by API and web), `ASK_MAX_TOOL_CALLS` (default 5), `ASK_RATE_PER_MINUTE` (default 10); `CONFIRM_LINK` (`on` \| `off`,
 default off; API and web), `CONFIRM_LINK_HOURS` (default 24), `CONFIRM_LINK_RATE_PER_MINUTE` (default 10, web),
-`AZURE_MAPS_CLIENT_ID` (API only: the Maps account id for the tile credential, Q-LINK-02). No `NEXT_PUBLIC_` variable is
-added for either feature; the Maps key stays server-side (SEC-LINK-08).
+`AUTH_URL` (also read by the API with `CONFIRM_LINK=on`: the link is `<AUTH_URL>/confirm/<token>`; the API refuses to start
+without it, REQ-LINK-09), `AZURE_MAPS_ACCOUNT_ID` (API only: the Maps account's Azure Resource Manager id, for `listSas`),
+`AZURE_MAPS_SAS_PRINCIPAL_ID` (API only: principal id of the user-assigned identity the SAS token is issued for; it holds
+the Maps data-reader role). Both are for the SAS tile credential (SEC-LINK-08, Q-LINK-02); `AZURE_MAPS_CLIENT_ID`
+(the Entra path) is not used. No `NEXT_PUBLIC_` variable is added for either feature; the Maps key stays server-side.
 `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_KEY` (dashboard in `frontend/`; `next.config.mjs` loads the root `.env`; the demo key is visible in the browser, acceptable for synthetic data only).
 
 ## 8. Team rules

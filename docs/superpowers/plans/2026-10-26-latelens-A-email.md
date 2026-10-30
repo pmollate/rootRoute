@@ -4199,6 +4199,10 @@ git commit -m "feat(a): complaints screen, escalation first, poll log names its 
 > SPEC default and are named on the step they touch: Q-LINK-02 (tile credential: A20 only), Q-LINK-03 (lifetime and
 > time zone: A16 Step 3 uses `MAILBOX_TIMEZONE`, today `[HALCYON_TIMEZONE]`), Q-LINK-04 (promise from the arrival time:
 > A17 Step 3), Q-LINK-05 (no link in automatic replies: A17 Step 1), Q-LINK-06 (real clients: A20 Step 5).
+>
+> **SPEC v0.12 (30 Oct) changed rules here; `planner` to update A16–A20:** lifetime on instants with the zone's DST rules,
+> not wall-clock minutes (SEC-LINK-02, new AC-SEC-LINK-02 example); SAS only, settings `AZURE_MAPS_ACCOUNT_ID` and
+> `AZURE_MAPS_SAS_PRINCIPAL_ID` (SEC-LINK-08, CONTRACTS §7); AC-LINK-02 uses fixture 21 and AC-LINK-04 fixture 34.
 
 Five tasks, one PR each, in order **A16 → A17 → A18 → A19 → A20**. A16–A18 are backend and run in CI with no Azure key
 (recorded maps, memory repos, the test database). A19 is the web app. A20 is the Azure part and the only one that needs
