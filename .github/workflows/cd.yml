@@ -178,6 +178,7 @@ jobs:
           cp -R backend/api/dist backend/api/package.json backend/api/package-lock.json deploy-api/backend/api/
           if [ -d backend/api/test/recordings ]; then cp -R backend/api/test/recordings deploy-api/backend/api/test/; fi
           cp -R backend/synthetic-data/reference deploy-api/backend/synthetic-data/
+          cp -R config deploy-api/   # config/environments/production.env (non-secret defaults)
           npm --prefix deploy-api/backend/api ci --omit=dev --no-audit --no-fund
       - name: Build and package the Next.js app (landing page + dashboard)
         env:
@@ -188,6 +189,7 @@ jobs:
           npm run build
           mkdir deploy-web
           cp -R frontend/.next frontend/public frontend/package.json frontend/package-lock.json frontend/next.config.mjs deploy-web/
+          cp -R config deploy-web/   # next.config.mjs reads ./config/environments/production.env
           npm --prefix deploy-web ci --omit=dev --no-audit --no-fund
           rm -rf deploy-web/.next/cache
           echo "BUILD_ID=$(cat deploy-web/.next/BUILD_ID)" >> "$GITHUB_ENV"

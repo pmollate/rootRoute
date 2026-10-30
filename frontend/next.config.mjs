@@ -1,4 +1,5 @@
 import nextEnv from '@next/env';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /** One .env at the repo root serves the API, the pipeline and this app (API_URL, AUTH_*, INTERNAL_AUTH_SECRET). */
@@ -7,6 +8,12 @@ import { fileURLToPath } from 'node:url';
 // re-expands the already-unescaped values (the `$` in AUTH_DEMO_USERS's bcrypt hashes), blanking them.
 if (!process.env.ROOT_ENV_LOADED) {
   nextEnv.loadEnvConfig(fileURLToPath(new URL('..', import.meta.url)), process.env.NODE_ENV !== 'production', console, true);
+  // Then this environment's non-secret defaults (config/environments/<APP_ENV>.env); never overwrites a set variable.
+  const appEnv = process.env.APP_ENV || (['production', 'test'].includes(process.env.NODE_ENV) ? process.env.NODE_ENV : 'development');
+  for (const dir of ['../config/environments/', './config/environments/']) {
+    const file = fileURLToPath(new URL(`${dir}${appEnv}.env`, import.meta.url));
+    if (existsSync(file)) { process.loadEnvFile(file); break; }
+  }
   process.env.ROOT_ENV_LOADED = '1';
 }
 

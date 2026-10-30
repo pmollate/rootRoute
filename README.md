@@ -78,6 +78,11 @@ npm run bench                             # optional: timed 1x / 10x / second-cl
 Activate the venv in every new terminal; `pipeline`, `data` and `test:py` call `python`. One `.env` at the repo root
 serves every script (`.env.example` lists each setting).
 
+**Environments.** `development`, `test` and `production` each have their own non-secret settings in
+[`config/environments/`](config/environments/); `APP_ENV` picks one (tests pick `test` by themselves). Your `.env`
+holds secrets and local overrides. Production reads Key Vault through App Service settings. Details and the order in
+which settings win: [`docs/ARCHITECTURE.md` §4](docs/ARCHITECTURE.md#4-hosting-and-deploy).
+
 ## Sample input
 
 Root Route reads three kinds of input. All of it is in the repo or generated from it; nothing needs a live system.
