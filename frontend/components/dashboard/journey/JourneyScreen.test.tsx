@@ -65,6 +65,15 @@ describe('Order journey', () => {
     expect(place(/Warehouse W4/).textContent).toMatch(/Picked 2 Apr/);
   });
 
+  it('REQ-JRN-08: a synthetic stage that is not done shows its status followed by "synthetic data"', async () => {
+    const failed = { ...D000213, stages: D000213.stages.map((st) => (st.n === 12 ? { ...st, status: 'failed' } : st)) };
+    mockApi({ '/api/journey/delivery:D000213': failed, '/api/intake': INBOX });
+    renderScreen(<JourneyScreen initialRef="delivery:D000213" />);
+    await screen.findByRole('region', { name: 'Journey map' });
+    fireEvent.click(place(/Last mile/));
+    expect(popup('Last mile').textContent).toMatch(/In transit.*Went wrong here · synthetic data/);
+  });
+
   it('the open place closes on its close button, on Escape, and when selected again', async () => {
     mockApi({ '/api/journey/delivery:D000213': D000213, '/api/intake': INBOX });
     renderScreen(<JourneyScreen initialRef="delivery:D000213" />);
