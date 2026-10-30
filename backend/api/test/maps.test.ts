@@ -11,7 +11,10 @@ const HIT: GeocodeResponse = { features: [{ properties: { type: 'Address', confi
   address: { addressLine: '400 S Orange Ave', locality: 'Orlando', postalCode: '32801', adminDistricts: [{ shortName: 'FL' }] } } }] };
 
 describe('Azure Maps validator', () => {
-  it('sends a structured US address with the key in a header, never in the URL', async () => {
+  // Free text, not the structured parameters: live on 30 Oct the structured query matched "65156 Powers Rd, Enterprise,
+  // OR 97828" to US Highway 59, Sallisaw, OK (Medium, UpHierarchy), while free text found it (High, Good). The query
+  // parameter accepts no countryRegion, so the text names the country. validate.ts still compares each part.
+  it('sends the US address as one line of text with the key in a header, never in the URL', async () => {
     const sent: { url: string; headers: Record<string, string> }[] = [];
     const fetch = async (url: unknown, init?: RequestInit) => {
       sent.push({ url: String(url), headers: init?.headers as Record<string, string> });
@@ -20,8 +23,8 @@ describe('Azure Maps validator', () => {
     expect(await new AzureMapsValidator('secret', fetch).geocode(Q)).toEqual(HIT);
     const url = new URL(sent[0].url);
     expect(url.origin + url.pathname).toBe('https://atlas.microsoft.com/geocode');
-    expect(Object.fromEntries(url.searchParams)).toMatchObject({ addressLine: '400 S Orange Ave', locality: 'Orlando',
-      adminDistrict: 'FL', postalCode: '32801', countryRegion: 'US', top: '1' });
+    expect(Object.fromEntries(url.searchParams)).toEqual({ 'api-version': '2026-01-01',
+      query: '400 S Orange Ave, Orlando, FL 32801, United States', top: '1' });
     expect(sent[0].url).not.toContain('secret');
     expect(sent[0].headers['subscription-key']).toBe('secret');
   });
