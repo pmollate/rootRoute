@@ -1,6 +1,6 @@
 # LateLens — Product and Technical Spec
 
-Repo: root-route · Status: draft v0.17 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
+Repo: root-route · Status: draft v0.18 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
 Hackathon: FDE AI Hackathon 5.0, Problem 2 (Halcyon Logistics). Coding: Mon 26 – Thu 29 Oct 2026. Code submission: 29 Oct, `[DEADLINE_TIME]`.
 Source brief: `docs/Halcyon.docx` (Participant Problem Statement). Data: `Halcyon-Hackathon-Dataset/` (supplied) and `backend/synthetic-data/` (ours, §12.1).
 
@@ -72,6 +72,18 @@ with the expected behaviour, the REQ/AC id, the code that handles it and the tes
 records two gaps between REQ-INT-09 and the code (a `medium` map result and an unreachable map both still reach
 `ALL_CLEAR`; the operator approval, SEC-04, still stands before WMS entry) and that SEC-06 automatic replies are not built.
 No requirement, figure, cause or fair-data definition changes.
+**Changes in v0.18** (30 Oct, two decisions by the user, nvarada, after local testing). (1) E19 address link: the
+server looks up the typed address on the map at Confirm. `pin` in the confirm body is optional; the page sends it only
+when it had a working map and the client placed the pin, never its display default (the centre of the contiguous US).
+With no pin, the geocoded point becomes the pin; a city, state or ZIP that does not match the map's reading, or no
+point at all, asks for the second Confirm; with no point the address is stored without a pin. New REQ-LINK-12 to -15
+and AC-LINK-12 to -15; REQ-LINK-02, -03, -04, -05, -11, SEC-LINK-04, -10 and AC-LINK-03, -04, -05, -11, AC-SEC-LINK-04,
+-10 updated (§5.17). (2) New E20, the SKU catalogue check: a synthetic product catalogue per client (new SD-10, table
+`sku_catalog`, migration 104), each extracted item matched to it by code, and an unknown item answered with up to 3
+"did you mean" suggestions from that client's catalogue only (§5.3 step 5a, new REQ-SKU-01 to -07 with AC-SKU-01 to
+-07). Also touched: §3 (E20, after-submission note, OS-10, OS-12), §4.2, §4.4, §5.7, §6, §9.1, §9.4 (EC-24, EC-25),
+§10.1, §12 (Q-LINK-07, Q-SKU-01, -02), §12.1 (SD-09 registered, SD-10), §14.1. CONTRACTS §1.1, §5, §6. No figure,
+cause or fair-data definition changes.
 **Changes in v0.17** (30 Oct, team request): the assistant's scope is the current client's data and Root Route's
 analysis of it: any question about Halcyon's deliveries, causes, replay, carriers, warehouses, promises, complaints
 or orders that the read-only tools can answer, and nothing outside that context (REQ-ASK-06, new fixed refusal text).
@@ -370,6 +382,7 @@ Four tiers. **Core** must work at submission. **Synthetic** features are built o
 | E17 | Automatic correction replies for address problems, within safety checks | Email | Core | §5.3, §8 |
 | E18 | Order review: supervisor approves or rejects ALL_CLEAR orders, may change the carrier | Email | Core | §5.3, §5.7 |
 | E19 | One-time address link (`/confirm/{token}`) in `CONFIRM_ADDRESS` replies: address fields + map pin, confirmed by the client (flag `CONFIRM_LINK`) | Email (built by C if A agrees, Q-LINK-01) | Stretch (after submission) | §5.17 |
+| E20 | SKU catalogue check: each extracted item matched to the client's synthetic catalogue (SD-10); an unknown item gets "did you mean" suggestions from that client's catalogue only | Email | Stretch (after submission; synthetic) | §5.3 |
 | C11 | Friday capacity cap on carrier D | Carriers | Core | §5.2 |
 | P1 | Repo skeleton, Docker Postgres, migrations, UI kit | Warehouse | Core | §4 |
 | P2 | Python pipeline filling Postgres | All | Core | §4 |
@@ -383,7 +396,8 @@ roles (Entra ID plus demo accounts, one role per agent gate; specified in `docs/
 for stock replenishment.
 
 **After submission** (29 Oct decision, §14.1): D10 and E19 are not part of the submitted build. Each ships behind a flag
-that defaults to off (`ASK_ASSISTANT`, `CONFIRM_LINK`), so turning it off restores the submitted behaviour.
+that defaults to off (`ASK_ASSISTANT`, `CONFIRM_LINK`), so turning it off restores the submitted behaviour. E20 (30 Oct)
+has no flag: a client with no `sku_catalog` rows keeps the submitted behaviour (REQ-SKU-05), so an empty table turns it off.
 
 **Drop order if behind schedule** (never drop Core for these): E13 → C8 → W5 → E11 → E10. The three core agents
 (E1–E9 intake, E12 complaint triage, D7 Ask LateLens) are never dropped: Level 1 requires agents across roles (§16).
@@ -402,9 +416,9 @@ Root Route does not do the following. Each line names why and where it was decid
 | OS-07 | Any email to an address outside the test allow-list | Hackathon safety rule | SEC-03 |
 | OS-08 | Real personal, employee or customer data | Brief ground rule; only the supplied dataset and labelled synthetic data | Brief (ground rules); SEC-05; §12.1 |
 | OS-09 | Synthetic data in a headline figure, the replay or the recommendation | Headline figures come from the supplied data only | §12.1 rule 3; REQ-REP-04 |
-| OS-10 | D10 (in-app assistant) and E19 (one-time address link) in the submitted build | Decided after submission; each sits behind a flag that defaults to off | §3 After submission; §14.1 (29 Oct) |
+| OS-10 | D10 (in-app assistant), E19 (one-time address link) and E20 (SKU catalogue check) in the submitted build | Decided after submission; D10 and E19 sit behind a flag that defaults to off; E20 is off while `sku_catalog` is empty | §3 After submission; §14.1 (29 and 30 Oct) |
 | OS-11 | Assistant questions its read-only tools cannot answer, per-order questions, and any action (sending, approving, writing rows) | The assistant only reads aggregates and never acts | §5.16 Out of scope; Q-ASK-04; REQ-ASK-07 |
-| OS-12 | Real stock levels, SKUs and carrier capacity contracts | Not in the dataset; W5 and C10 run on synthetic SD-05 and SD-06 | §12 assumptions; §12.1 |
+| OS-12 | Real stock levels, SKUs, product catalogues and carrier capacity contracts | Not in the dataset; W5, C10 and E20 run on synthetic SD-05, SD-06 and SD-10 | §12 assumptions; §12.1 |
 | OS-13 | An Outlook / Microsoft 365 inbox | The intake reads Gmail; Microsoft Graph would sit behind the same three mailbox calls if Halcyon uses Outlook | §12 open questions |
 
 ### 3.2 Constraints
@@ -460,7 +474,7 @@ replay and the live app cannot disagree.
 
 | Written by Python (`backend/analytics/`) | Written by Node (`backend/api/`) |
 |---|---|
-| `deliveries_clean`, `delivery_causes`, `dq_report`, `kpis`, `cause_summary`, `cause_attribution`, `cause_kpis`, `accounts`, `clients`, `carriers`, `warehouses`, `complaints`, `lane_scores`, `carrier_capacity`, `carrier_backtest`, `scenario_results`, `scenario_breakdown` (D11), `risk_lookup`, `warehouse_region_distance`, `client_region_nearest`, `warehouse_stats`, `penalty_reconciliation`, `stock_daily`, `placement_suggestions`, `placement_impact`, `carrier_events` | `audit_log` (approvals and actions), `intake_emails`, `intake_extractions`, `outbound_messages`, `saved_addresses`, `client_domains`, `inbound_orders`, `recommendations`, `alerts`, `override_log`, `complaint_triage`, `address_confirm_tokens` (E19) |
+| `deliveries_clean`, `delivery_causes`, `dq_report`, `kpis`, `cause_summary`, `cause_attribution`, `cause_kpis`, `accounts`, `clients`, `carriers`, `warehouses`, `complaints`, `lane_scores`, `carrier_capacity`, `carrier_backtest`, `scenario_results`, `scenario_breakdown` (D11), `risk_lookup`, `warehouse_region_distance`, `client_region_nearest`, `warehouse_stats`, `penalty_reconciliation`, `stock_daily`, `placement_suggestions`, `placement_impact`, `carrier_events` | `audit_log` (approvals and actions), `intake_emails`, `intake_extractions`, `outbound_messages`, `saved_addresses`, `client_domains`, `inbound_orders`, `recommendations`, `alerts`, `override_log`, `complaint_triage`, `address_confirm_tokens` (E19), `sku_catalog` (E20; written only by the seed from SD-10, like `saved_addresses`) |
 
 ### 4.3 Repository layout (one folder per problem area in every layer)
 Two top-level apps: `frontend/` (everything the browser loads) and `backend/` (everything else). The root `package.json`
@@ -511,7 +525,7 @@ db/ llm/  pg queries · AI model interface (claude | azure-openai | recorded)
 
   | Agent | Role it serves | Trigger | AI step | Tools / data | Human gate | Tier |
   |---|---|---|---|---|---|---|
-  | Intake agent (§5.3) | Order desk, warehouse supervisor | The 10-minute Gmail poll finds an order email or a client's reply | Extract order to JSON; draft reply | Client lookup, saved addresses, Azure Maps, `checkPromise`, `pickWarehouse`, `recommendCarrier` | Supervisor approves or rejects before WMS entry; address corrections sent automatically within SEC-06, other replies approved by an operator | Core |
+  | Intake agent (§5.3) | Order desk, warehouse supervisor | The 10-minute Gmail poll finds an order email or a client's reply | Extract order to JSON; draft reply | Client lookup, saved addresses, the client's SKU catalogue (E20), Azure Maps, `checkPromise`, `pickWarehouse`, `recommendCarrier` | Supervisor approves or rejects before WMS entry; address corrections sent automatically within SEC-06, other replies approved by an operator | Core |
   | Complaint triage agent (§5.10) | Customer success | Complaint email arrives | Draft a response stating cause and next action | `delivery_causes`, accounts (Tier 1 / at risk) | Agent drafts, person sends | Core |
   | "Ask LateLens" agent (§5.14) | Leadership / COO | A question in Claude (Desktop or web) | The model chooses read-only tools and answers from their results | MCP tools: `delivery_causes`, `lane_scores`, `scenario`, `recommend_carrier`, `check_promise` | Read-only; no actions possible | Core |
   | In-app "Ask LateLens" assistant (§5.16) | Every dashboard role (questions about the data) | A question typed in the dashboard's Ask LateLens panel, or in Overview's Router | The model routes the question to read-only tools and answers from their results; code checks every figure | The shared tool registry (same six tools as MCP), filtered by the user's role | Read-only; no actions possible. Answers only; a person decides | Stretch (after submission) |
@@ -617,7 +631,7 @@ rate of the "if fixed" estimate for that set. Values add up to the overall late 
 | AC-CAR-07 | Given carrier A's synthetic Northeast capacity of N per day, when N + 10 Northeast orders favour A, then A receives at most N. |
 | AC-CAR-08 | Given a Friday and carrier D at its Friday limit, when the next order would favour D, then it goes to the next eligible carrier and D shows "at daily capacity"; every D `friday_limit` is below D's observed Friday peak. |
 
-### 5.3 Email intake agent (owner: Email; E1–E9)
+### 5.3 Email intake agent (owner: Email; E1–E9, E20)
 Synthetic test set: 50 emails across the 14 layouts, ~28% with an incomplete or ambiguous address (matching the 27.8%
 in the data), each with a gold JSON answer in `backend/tests/fixtures/emails/`. Every fixture is labelled synthetic and uses US
 addresses (ZIP codes).
@@ -635,15 +649,19 @@ Pipeline (code controls every step; AI only at steps 5 and 11). Code: `backend/a
    reachable → WAITING, retried by the next poll; nothing unredacted reaches the model.
 5. **Extract (AI)** from the redacted text, temperature 0, JSON only → zod validate; retry once; fail → `MISSING_INFO`;
    model not reachable → WAITING.
+5a. **SKU check** (E20, code only, `sku.ts`): each extracted item's `sku` text is matched to the client's own catalogue
+   (`sku_catalog`, SD-10). An exact code is known; anything else is unknown and gets up to 3 suggestions. Rules and
+   REQ-SKU-* below ("SKU catalogue check"). No client, or a client with no catalogue rows: skipped (REQ-SKU-05).
 6. Address check (`address.ts`): a value counts only if it appears in the email text; complete means line1 + city +
    state + 5-digit ZIP; with no street, a ZIP matching exactly one saved address counts as that address.
 7. **Map check** (Azure Maps geocoding, `validate.ts`) for complete addresses not taken from a saved address: the map's
    best match gives a confidence `high` | `medium` | `low` and any issues `street_not_found` | `state_mismatch` |
    `zip_mismatch`. Map not reachable → WAITING, retried by the next poll.
-8. Decide (code only, `decide.ts`): `ALL_CLEAR` | `CONFIRM_ADDRESS` | `MISSING_INFO` (rules in REQ-INT-09).
+8. Decide (code only, `decide.ts`): `ALL_CLEAR` | `CONFIRM_ADDRESS` | `MISSING_INFO` (rules in REQ-INT-09). Any
+   unknown item from step 5a makes the decision `MISSING_INFO` (REQ-SKU-03).
 9. Promise (`checkPromise`) 10. Warehouse (`pickWarehouse`) and carrier (`recommendCarrier`), for `ALL_CLEAR` only.
 11. **Draft reply (AI)** from a facts object only; the promise date, missing fields and address problems must appear
-    verbatim, else a fixed template is used.
+    verbatim, else a fixed template is used. The SKU questions of step 5a are such required text (REQ-SKU-04).
 12. Route by decision:
     - `CONFIRM_ADDRESS` with every SEC-06 check passing → the fixed template is sent automatically in the client's Gmail
       thread → SENT (E17). Any check failing → AWAITING_APPROVAL; an operator approves and sends.
@@ -651,7 +669,8 @@ Pipeline (code controls every step; AI only at steps 5 and 11). Code: `backend/a
       → APPROVED → `send_to_wms` → ENTERED, with the confirmation reply sent by an operator; or rejects with a
       reason → REJECTED. Nothing reaches the WMS without approval (SEC-04).
     - `MISSING_INFO` → AWAITING_APPROVAL; an operator approves and sends, or leaves it.
-13. A client's answer re-runs from step 4 and merges with the saved extraction (REQ-INT-07).
+13. A client's answer re-runs from step 4 and merges with the saved extraction (REQ-INT-07); the SKU check (step 5a)
+    runs again on the merged items.
 14. With `CONFIRM_LINK=on` (E19, §5.17): a `CONFIRM_ADDRESS` reply sent by an operator carries a one-time address link.
     When the client confirms through it, the order is decided again from step 8 with the confirmed address, and an
     `ALL_CLEAR` order joins the order review (step 12). A reply by email still works as in step 13.
@@ -680,7 +699,7 @@ correction, `AWAITING_APPROVAL → REJECTED` for a rejected order.
 | REQ-INT-06 | The agent **SHOULD** offer up to 3 saved addresses for the client in a `CONFIRM_ADDRESS` reply. |
 | REQ-INT-07 | When a client replies to a `CONFIRM_ADDRESS` email, the agent **MUST** re-run from extraction and merge the answer with the saved extraction. |
 | REQ-INT-08 | The API **MUST** poll the Gmail inbox every `INTAKE_POLL_MINUTES` (default 10) from the last successful poll minus 2 minutes, and **MUST NOT** process an email with a stored Gmail id twice. The poll **MUST** be switchable off (`INTAKE_POLL_MINUTES=0`). |
-| REQ-INT-09 | The decision **MUST** be `ALL_CLEAR` only for a known client with valid items and an address that is matched to a saved address, confirmed by the map with confidence `high` and no issues, or (with `CONFIRM_LINK=on`) confirmed by the client through the address link (REQ-LINK-04). A complete address with confidence `medium` or `low`, or any issue, **MUST** be `CONFIRM_ADDRESS`. If the map cannot be reached the email **MUST** wait (WAITING) and be retried, never decided on the format rules alone. |
+| REQ-INT-09 | The decision **MUST** be `ALL_CLEAR` only for a known client with valid items (with E20, every item known in the client's catalogue, REQ-SKU-03) and an address that is matched to a saved address, confirmed by the map with confidence `high` and no issues, or (with `CONFIRM_LINK=on`) confirmed by the client through the address link (REQ-LINK-04). A complete address with confidence `medium` or `low`, or any issue, **MUST** be `CONFIRM_ADDRESS`. If the map cannot be reached the email **MUST** wait (WAITING) and be retried, never decided on the format rules alone. |
 | REQ-INT-10 | An email from an unknown sender domain **MUST** be set to `MISSING_INFO` without calling PII detection or the model, and **MUST NOT** receive an automatic reply. |
 | REQ-INT-11 | A `CONFIRM_ADDRESS` reply **MUST** say what is wrong in the client's terms: the missing parts, each map issue (keeping the map's ZIP for a ZIP mismatch), or for `medium` with no issue that the address could only be partly matched and must be confirmed. It **MUST NOT** suggest a different street. |
 | REQ-INT-12 | When `INTAKE_AUTO_REPLY=on` and every SEC-06 check passes, a `CONFIRM_ADDRESS` email **MUST** be answered automatically with the fixed template (not the model's draft), in the client's Gmail thread, and logged in `outbound_messages` as sent by `auto`. `INTAKE_AUTO_REPLY` defaults to off. |
@@ -713,6 +732,54 @@ correction, `AWAITING_APPROVAL → REJECTED` for a rejected order.
 | AC-INT-17 | Given `from` `not-an-email`, `a@b`, `Sam <sam@>` or `@client190.example`, then 400 "From must be an email address, like orders@client190.example."; given `receivedAt` `21/10/2026 08:05`, `2026-10-21T08:05`, `2026-10-21`, `2026-02-30 08:05`, `2026-10-21 24:00` or `2026-13-01 10:00`, then 400 "Received at must look like 2026-09-14 09:30 (a real date, 24-hour time)."; given `receivedAt` `2099-01-01 09:00` or two days from now, then 400 "Received at is in the future. Pick when the email arrived." and nothing is stored; given `[]`, `"hello"`, `null` or plain text, then 400 naming the four fields; `GET /api/intake` returns `limits`. |
 | AC-INT-18 | Given a body of `INTAKE_MAX_BODY_CHARS` + 1 characters, then 400 "The email body is longer than 20,000 characters." (likewise subject and `from`); given a request over 1 MB, then 413 JSON "The request is larger than 1 MB. Paste only the text of one email."; given `{"from": ` or an empty request, then 400 "The request is not valid JSON."; given a form-encoded request, then 415; nothing is stored. An unknown action or a fetch `max` of 0 gets the same shape. |
 | AC-INT-19 | Given the API refuses a pasted email with 400 or 413, when the form is submitted, then the sentence appears in an alert inside the form, the refused field has `aria-invalid`, and the typed body is kept; given a 500, then the generic message shows and no server text; given an empty or whitespace body, then **Process email** is disabled; given a 1,000-character limit, then the form shows "20 / 1,000 characters", and at 1,001 says the body is too long and sends nothing; **Received at** is a `datetime-local` input with `max` = the current minute, a future or empty value is named ("Received at is in the future. Pick when the email arrived.") and disables **Process email**, and a picked `2026-09-14T09:30` is sent as `2026-09-14 09:30`. |
+
+**SKU catalogue check (E20, decided 30 Oct by the user; after submission).** Until 30 Oct intake accepted any item text
+(`decide.ts`: a non-empty `sku` and an integer `qty` above 0). The supplied data has no product catalogue: `stock_daily`
+(SD-05) holds three codes per client (`SKU-<nnn>-<k>`) with no names, and the fixture emails use `HX-###` codes that are
+not in `stock_daily`. E20 adds a synthetic catalogue per client (SD-10, §12.1) and checks every extracted item against it
+with code. No AI model is used in the check. Code: `backend/api/src/modules/intake/sku.ts` (pure matching) and
+migration `104_sku_catalog.sql` (Email area).
+
+Matching, for each extracted item, against the rows of the email's client only:
+
+| Step | Rule | Result |
+|---|---|---|
+| 1. Exact code | Upper-case the text and the codes and remove spaces, hyphens, underscores and dots; equal to exactly one code | Known; the item's `sku` is stored as the catalogue code (`hx 989` → `HX-989`) |
+| 2. Score | Otherwise each row scores the higher of: trigram similarity of the cleaned text and the cleaned code, and word similarity of the lower-cased text and the row's name (the `pg_trgm` definitions of `similarity` and `word_similarity`) | Unknown |
+| 3. Suggest | Rows with score ≥ `SKU_MIN_SIM` (0.60), highest first, ties by code; at most 3 | 0 to 3 suggestions |
+| 4. Ask | Any unknown item, even one with a single strong suggestion, is asked about; an item is never replaced without the client's answer (Q-SKU-01) | `MISSING_INFO` |
+
+The question, one per unknown item, in the reply (style of `docs/SPEC-email-address-resolution.md` §11):
+- With suggestions: "For '{text}', did you mean {sku} ({name}, {unit})?", the suggestions joined with ", " and a final
+  " or ", e.g. "For 'apple', did you mean HX-790 (Apple crate, 12) or HX-791 (Apple tray, 6)?" (example wording; the
+  codes and names come from the catalogue).
+- With none: "We couldn't find '{text}' in your catalogue. Could you send the SKU code?"
+- `{text}` is the item text as the email wrote it, control characters removed, cut to `SKU_TEXT_MAX` characters.
+- Address parts still missing are asked in the same reply, as a `MISSING_INFO` reply does today.
+
+**Design settings** (chosen by the team, not data; reused from `docs/SPEC-email-address-resolution.md` §14):
+`SKU_MIN_SIM` 0.60, `SKU_TEXT_MAX` 60. `SKU_MIN_GAP` (0.10) is kept for Q-SKU-01 and not used while every unknown item
+is asked about.
+
+| ID | Requirement |
+|---|---|
+| REQ-SKU-01 | One seeded Python generator (`backend/synthetic-data/generators/sd10_catalog.py`) **MUST** build SD-10 from the supplied data: for every client in `clients.csv`, rows (`client_id`, `sku`, `name`, `unit`, `synthetic` = true) holding every code that client's fixture emails use (gold items in `backend/tests/fixtures/emails/*.json`) and every code of that client in `stock_daily` (SD-05), each with a product name and unit, names unique within a client. `npm run seed` **MUST** be the only writer of `sku_catalog`, replacing all its rows from the generator's output. |
+| REQ-SKU-02 | An item whose text equals one of the client's codes after step 1's cleaning **MUST** be known and stored with the catalogue's code. |
+| REQ-SKU-03 | An item that is not known **MUST** make the decision `MISSING_INFO` (missing field `items[<i>].sku`) and **MUST** get at most 3 suggestions, scored and ordered as in steps 2 and 3, taken only from the catalogue of the client identified by the sender's domain. A suggestion **MUST NOT** come from another client's catalogue or from the email text, and an item **MUST NOT** be replaced by a suggestion without the client's answer. |
+| REQ-SKU-04 | The reply for an unknown item **MUST** hold its question in the wording above. The question is required text (§5.3 step 11): a model draft without it **MUST** fall back to the template. The client's answer re-runs the pipeline (REQ-INT-07) and the check runs on the merged items. |
+| REQ-SKU-05 | With no identified client the check **MUST NOT** run and **MUST NOT** read any catalogue (the decision stays as today, REQ-INT-10). A known client with no catalogue rows **MUST** keep today's item rule, and the check records `catalogue: "none"`. |
+| REQ-SKU-06 | With SD-10 seeded, every fixture email **MUST** keep its gold decision: the catalogue holds every fixture code, so no fixture item is unknown. |
+| REQ-SKU-07 | `GET /api/intake/:id` **MUST** return the check in `checks.items` (CONTRACTS §6), and the Intake screen **MUST** show each unknown item's text and suggestions with the "Synthetic data" badge (REQ-UI-04). Item text **MUST** be shown as text, never as markup. |
+
+| ID | Acceptance criterion |
+|---|---|
+| AC-SKU-01 | Given `sd10_catalog.py` run twice, then the outputs are byte-identical; every client in `clients.csv` has rows; every (`client_id`, `sku`) of the 50 fixtures' gold items and of `stock_daily` is a row; every row has a non-empty name and unit and `synthetic` true, and no client has two rows with one name. After `npm run seed`, `sku_catalog` equals the output; a second seed leaves the same rows. |
+| AC-SKU-02 | Given fixture 01 (C003, gold items `HX-989` and `HX-293`) with the items written `hx 989` and `Hx_293`, when decided, then both are known, stored as `HX-989` and `HX-293`, and the decision is the gold `ALL_CLEAR`. |
+| AC-SKU-03 | Given a test catalogue where client X has `X-1` "Apple crate", `X-2` "Apple tray", `X-3` "Apple juice", `X-4` "Apple sauce", `X-5` "Pear box" and client Y has `Y-1` "Apple", when an email from X has the item "apple", then the decision is `MISSING_INFO` with 3 suggestions, all from X, none `X-5` or `Y-1`; when it has the item `Y-1`, then the item is unknown and `Y-1` is not suggested; no item is replaced. |
+| AC-SKU-04 | Given the item "apple" with suggestions `X-1` and `X-2` only, when the reply is drafted, then it holds "For 'apple', did you mean X-1 (Apple crate, {unit}) or X-2 (Apple tray, {unit})?" with the catalogue's units; given the item "zzzz" with no row scoring 0.60, then it holds "We couldn't find 'zzzz' in your catalogue. Could you send the SKU code?"; given a recorded model draft without the question, then the template is used; given the client's reply in the thread naming `X-1` and a quantity, when processed, then the item is known and the order is decided by the address rules. |
+| AC-SKU-05 | Given fixture 50 (unknown domain), when processed, then no catalogue is read and the result is as AC-INT-10, with no suggestion; given a known client with no `sku_catalog` rows and the item "apple", then the item passes today's rule and `checks.items.catalogue` is `none`. |
+| AC-SKU-06 | Given the 50 fixtures and the seeded SD-10 catalogue, when decided, then each decision equals its gold decision (AC-INT-02) and no item is unknown. |
+| AC-SKU-07 | Given an email with the unknown item `<b>apple</b>`, when `GET /api/intake/:id` is called, then `checks.items` lists the item's text, `known: false` and its suggestions with `synthetic: true`; when the Intake screen shows it, then the text appears as typed (no bold) next to the suggestions and the "Synthetic data" badge. |
 
 ### 5.4 Promise and stock check (owner: Warehouse; W1–W3, W6)
 
@@ -775,7 +842,7 @@ is a client component that reads the Node API (`NEXT_PUBLIC_API_URL`).
 | Screen | Owner | Content |
 |---|---|---|
 | Overview | Warehouse | KPIs, points of on-time lost per cause, one measure per cause (§1.4), late rate by cause and stage |
-| Intake | Email | Email queue (Tier 1 and at-risk clients first, marked Priority) → extracted fields with checks and map confidence → reply draft → Approve; automatic replies marked "Auto-sent" with their text and time; order review for supervisors: `ALL_CLEAR` orders with Approve, Reject (reason) and a carrier choice among unblocked carriers (E18); last poll time; API/EDI orders (E11) and complaints (E12); with E19 on, each address link's state (sent, confirmed, "Address not confirmed") and "Address confirmed by client link" in the order review (§5.17) |
+| Intake | Email | Email queue (Tier 1 and at-risk clients first, marked Priority) → extracted fields with checks and map confidence → reply draft → Approve; automatic replies marked "Auto-sent" with their text and time; order review for supervisors: `ALL_CLEAR` orders with Approve, Reject (reason) and a carrier choice among unblocked carriers (E18); last poll time; API/EDI orders (E11) and complaints (E12); with E19 on, each address link's state (sent, confirmed, "Address not confirmed") and "Address confirmed by client link" in the order review (§5.17); with E20, each unknown item's text and its "did you mean" suggestions, with the "Synthetic data" badge (REQ-SKU-07) |
 | Warehouses | Warehouse | Cut-off misses, out-of-stock and skipped-nearest by site; second pick run; placement suggestions (W5) |
 | Carriers | Carriers | Region/promise picker; ranked carriers Recommended / Backup / Blocked with reason; backtest; tracking (C8) |
 | Replay & decision | Warehouse | Programme waterfall (expected adoption); today vs with LateLens by warehouse, lane, carrier, region, month or client (D11); full-fix upper bounds; on-time vs 94% benchmark; cost avoided; 9 at-risk accounts |
@@ -1102,7 +1169,7 @@ Today a `CONFIRM_ADDRESS` reply asks the client to write the address back by ema
 link to that reply. It opens a page with the address fields filled in from the client's own email and a map pin the
 client can drag. **Confirm** sends the address back, and the order is decided again. The order still needs a
 supervisor's approval before the WMS (SEC-04), and the reply is still sent by a person (SEC-03, SEC-06 unchanged).
-No AI model is used anywhere in this flow. Code: `backend/api/src/modules/intake/link.ts` and migration `102`
+No AI model is used anywhere in this flow. Code: `backend/api/src/modules/intake/link.ts` and migration `103`
 (Email area, A); the page `frontend/app/confirm/[token]/page.tsx`. A must agree before C builds it (Q-LINK-01).
 Token rules come from `docs/SPEC-email-address-resolution.md` §9; its PIN codes, Service Bus and Durable Functions do not
 apply here.
@@ -1122,17 +1189,35 @@ Flow:
 3. **Open.** The page shows the address the email gave (line 1, line 2, city, state, ZIP; empty where the email had
    none), a map with a pin at the map's best match for it, the time the link stops working, and nothing else about the
    order. Opening the page does not use up the link (mail scanners open links too).
-4. **Confirm.** The client edits the fields or drags the pin and clicks **Confirm**. A second Confirm is required
-   when the pin is more than 500 m from where the page placed it, when the ZIP was changed, or when the page had no pin
-   to start with: the API looks up the pin on the map (reverse geocoding), the page shows the map's reading next to
-   the typed address, and the client clicks **Confirm** again.
-5. **Decide again.** The API marks the link used, saves the confirmed address and pin on the link row, writes a new
-   `intake_extractions` row and decides the order with code (§5.3 steps 8–10), the confirmed address counting as
-   verified (REQ-INT-09). An `ALL_CLEAR` order joins the order review as AWAITING_APPROVAL, marked "Address confirmed
-   by client link". The promise uses the email's arrival time, as every intake promise does (REQ-INT-03; Q-LINK-04).
+   - **No start pin.** When the map found no point for the email's address, the map opens on a display default (the
+     centre of the contiguous US, 39.8283, −98.5795; a view, not data) and the page sends no pin until the client
+     places one (drags or taps it).
+   - **No working map** (decided 30 Oct). When the page has no map credential, or the map refuses its tiles (for
+     example while the Maps data-reader role is not assigned, Q-LINK-02), the page hides the map and shows the fields
+     and **Confirm** only. The client cannot place a pin, so the page sends none.
+4. **Confirm.** The client edits the fields, places or drags the pin if there is a working map, and clicks
+   **Confirm**. The API always looks up the typed address on the map itself (forward geocoding, on the server,
+   REQ-LINK-12). A second Confirm is required, with the map's reading shown next to the typed address, when:
+   - a pin was sent and it is more than 500 m from where the page placed it, the ZIP was changed, or the page had no
+     pin to start with: the reading is the pin's (reverse geocoding, REQ-LINK-03);
+   - the map's reading of the typed address has another city, state or 5-digit ZIP, or the map finds no point for it:
+     the reading is the address's (REQ-LINK-13, -14).
+
+   | Pin sent? | Map reading of the typed address | First Confirm | Pin stored after the (second) Confirm |
+   |---|---|---|---|
+   | No | Point found; city, state, ZIP match | Confirmed at once | The geocoded point |
+   | No | Point found; city, state or ZIP differ | 409, reading of the address | None (lat/lon null) |
+   | No | No point | 409, reading "not found" | None (lat/lon null); the review says "no map point" |
+   | Yes | Match, and REQ-LINK-03 does not apply | Confirmed at once | The client's pin |
+   | Yes | Differ or no point, or REQ-LINK-03 applies | 409, reading of the pin, with the differing parts named | The client's pin |
+5. **Decide again.** The API marks the link used, saves the confirmed address, the pin (or none) and the map's reading
+   on the link row, writes a new `intake_extractions` row and decides the order with code (§5.3 steps 8–10), the
+   confirmed address counting as verified (REQ-INT-09). An `ALL_CLEAR` order joins the order review as
+   AWAITING_APPROVAL, marked "Address confirmed by client link". The promise uses the email's arrival time, as every
+   intake promise does (REQ-INT-03; Q-LINK-04).
 6. **Save.** When a supervisor approves the order, the confirmed address is added to the client's `saved_addresses`
-   (`source = 'link'`). It is not saved for later orders before then, so a forwarded link cannot plant an address that
-   later replies offer to the client.
+   (`source = 'link'`), with `lat` and `lon` null when it was confirmed without a pin. It is not saved for later orders
+   before then, so a forwarded link cannot plant an address that later replies offer to the client.
 7. **Expire.** No timer runs. When the order list or the order is read and the link has expired unused, the order shows
    "Address not confirmed" to the order desk, who follow up as today.
 
@@ -1159,8 +1244,8 @@ the day before daylight saving ends lasts exactly 24 hours of real time, not 25.
 | L6 | Clickjacking or the token leaking in a `Referer` header | `frame-ancestors 'none'` and `Referrer-Policy: no-referrer` on `/confirm/*`; no third-party script except the Azure Maps web SDK | SEC-LINK-07 |
 | L7 | Azure Maps key stolen from the browser | No Maps key in the browser and no `NEXT_PUBLIC_` Maps setting; geocoding only on the server; map tiles with a rate-capped SAS token issued only for a valid link and expiring no later than it (map credential below) | SEC-LINK-08 |
 | L8 | Link scanners in mail systems use up the link | Opening (GET) never uses the link; only Confirm (POST) does | SEC-LINK-06 |
-| L9 | Abuse of the public page to run up Maps calls | Rate limit per IP at the web app; at most 20 map look-ups per link | SEC-LINK-04 |
-| L10 | Bad input in the address fields | zod schema: US state code, 5-digit ZIP (or ZIP+4), length limits, pin inside valid latitude and longitude; shown to staff as text | SEC-LINK-10 |
+| L9 | Abuse of the public page to run up Maps calls | Rate limit per IP at the web app; at most 20 map look-ups per link, reverse geocodes of the pin and forward geocodes of the typed address together | SEC-LINK-04 |
+| L10 | Bad input in the address fields, or a pin the client never placed | zod schema: US state code, 5-digit ZIP (or ZIP+4), length limits, pin (optional) inside valid latitude and longitude; shown to staff as text. The page never sends its display default as a pin; the API checks the typed address against the map itself | SEC-LINK-10, REQ-LINK-13, -15 |
 | L11 | The public page widens what is public | Only `/confirm/*` and `/api/confirm/*` are added; both need a valid token for any data; every other page and route keeps SPEC-auth's rules | SEC-LINK-05 |
 
 **Map credential** (decided 30 Oct; Q-LINK-02 now asks only who sets up the Maps account). The page's map tiles use an
@@ -1174,7 +1259,8 @@ identity's full Maps access. Settings: `AZURE_MAPS_ACCOUNT_ID`, `AZURE_MAPS_SAS_
 
 **Design settings** (chosen by the team, not data): link lifetime 24 h (`CONFIRM_LINK_HOURS`), cut-off margin 2 h,
 1-hour floor, 500 m pin distance, 10 requests per minute per IP (`CONFIRM_LINK_RATE_PER_MINUTE`), 20 map look-ups per
-link, SAS rate cap 50 requests per second.
+link (forward and reverse together), SAS rate cap 50 requests per second. The page's display default for a map with no
+start pin (the centre of the contiguous US) is a view, not data, and is never stored.
 
 **Rate limit scope.** The per-IP count is kept in the web app process's memory; the 20 look-ups per link are counted
 in the database (`map_lookups`). The first is correct for the one web instance we run (§10); with N instances a client
@@ -1183,53 +1269,61 @@ could make N times as many requests, so a scale-out must move the count to a sha
 | ID | Requirement |
 |---|---|
 | REQ-LINK-01 | With `CONFIRM_LINK=on`, every `CONFIRM_ADDRESS` reply draft **MUST** carry `[CONFIRM_LINK]` (a model draft without it falls back to the template), and sending it with `send_reply` **MUST** replace the placeholder with a new one-time link `<AUTH_URL>/confirm/<token>` for that order. If the text the operator sends no longer holds the placeholder, `send_reply` **MUST NOT** mint a link and **MUST** send the text as written. |
-| REQ-LINK-02 | `/confirm/{token}` **MUST** show the address fields (line 1, line 2, city, state, ZIP) filled in from the order's email, a map pin the client can drag, the time the link stops working and a **Confirm** button, and **MUST NOT** show any other order data (items, promise, client name, contact, email text). |
-| REQ-LINK-03 | When the pin is more than 500 m from its start, the ZIP was changed, or there was no start pin, the API **MUST** reverse-geocode the pin, return the map's reading and refuse the confirmation until the client confirms a second time with the reading shown. The API **MUST** measure the distance itself, not trust the browser. |
-| REQ-LINK-04 | On confirmation the API **MUST** mark the link used, store the confirmed address and pin, and decide the order again with code, the confirmed address counting as verified; an `ALL_CLEAR` order **MUST** become AWAITING_APPROVAL in the order review, and **MUST NOT** reach the WMS without approval (SEC-04). |
-| REQ-LINK-05 | The confirmed address **MUST** be added to the client's `saved_addresses` (`source = 'link'`) only when a supervisor approves the order, and **MUST NOT** be offered or matched for other orders before then. Re-seeding (`npm run seed`) **MUST** replace only `source = 'seed'` rows and **MUST NOT** delete `source = 'link'` rows. |
+| REQ-LINK-02 | `/confirm/{token}` **MUST** show the address fields (line 1, line 2, city, state, ZIP) filled in from the order's email, a map pin the client can drag when the map works, the time the link stops working and a **Confirm** button, and **MUST NOT** show any other order data (items, promise, client name, contact, email text). With no map credential, or a map that refuses its tiles, the page **MUST** still show the fields and **Confirm**, without the map. |
+| REQ-LINK-03 | When a pin is sent and it is more than 500 m from its start, the ZIP was changed, or there was no start pin, the API **MUST** reverse-geocode the pin, return the map's reading and refuse the confirmation until the client confirms a second time with the reading shown. The API **MUST** measure the distance itself, not trust the browser. A typed address the map reads differently also asks for the second Confirm (REQ-LINK-13). |
+| REQ-LINK-04 | On confirmation the API **MUST** mark the link used, store the confirmed address, the pin (null when none, REQ-LINK-12 to -14) and the map's reading, and decide the order again with code, the confirmed address counting as verified; an `ALL_CLEAR` order **MUST** become AWAITING_APPROVAL in the order review, and **MUST NOT** reach the WMS without approval (SEC-04). |
+| REQ-LINK-05 | The confirmed address **MUST** be added to the client's `saved_addresses` (`source = 'link'`) only when a supervisor approves the order, and **MUST NOT** be offered or matched for other orders before then. An address confirmed without a pin **MUST** be saved with `lat` and `lon` null. Re-seeding (`npm run seed`) **MUST** replace only `source = 'seed'` rows and **MUST NOT** delete `source = 'link'` rows. |
 | REQ-LINK-06 | An order whose newest link expired unused **MUST** show "Address not confirmed" in `GET /api/intake` and `GET /api/intake/:id`, computed when read, with no timer or scheduled job. |
 | REQ-LINK-07 | An unknown, expired, used or revoked link **MUST** get the same page ("This link is no longer valid. Please reply to our email with the delivery address.") and the same HTTP status (404). |
 | REQ-LINK-08 | Sending a new link for an order **MUST** revoke every earlier unused link for that order, whichever email of the order's thread (linked by `in_reply_to`) it was sent for. |
 | REQ-LINK-09 | `CONFIRM_LINK` **MUST** default to off. When off, drafts **MUST NOT** carry the placeholder, a reply sent from an older draft **MUST** have the line holding `[CONFIRM_LINK]` removed, and `/confirm/*` and `/api/confirm/*` **MUST** return 404. With it on, the API **MUST** refuse to start without `AUTH_URL`, naming the setting. |
 | REQ-LINK-10 | The page **MUST** show the "Synthetic data" badge when the order's email or client is synthetic (all demo clients are, SD-02, SD-04). |
-| REQ-LINK-11 | The order review **MUST** show a link-confirmed order with "Address confirmed by client link", the address the email gave, the confirmed address and the map's reading of the pin. |
+| REQ-LINK-11 | The order review **MUST** show a link-confirmed order with "Address confirmed by client link", the address the email gave, the confirmed address and the stored map reading: "Map reads the pin as …" for a reading of the pin, "Map reads the address as …" for a reading of the typed address, and "no map point" when the address was stored without a pin. |
+| REQ-LINK-12 | On a Confirm that does not carry a valid `checkId`, the API **MUST** forward-geocode the typed address on the server (Azure Maps with the server key, SEC-LINK-08; the recorded provider in tests) and count it as a map look-up (SEC-LINK-04). With no pin sent and a result whose city, state and 5-digit ZIP match the typed ones (city ignoring case and spaces; a part the result lacks counts as different), the API **MUST** store the result's point as the pin and the result as the map reading, and confirm at once. If the map cannot be reached, the API **MUST** answer 503 `map_unavailable` and leave the link unused. |
+| REQ-LINK-13 | When the result's city, state or 5-digit ZIP differs from the typed one, the API **MUST** answer 409 `needs_second_confirm` with the map's reading and the differing parts, and refuse the confirmation until the client confirms again with the returned `checkId`. A `checkId` **MUST** count only for the same typed address (all five fields) and the same pin, or no pin, it was issued for. Confirmed again with no pin sent, the address **MUST** be stored with no pin (`lat`, `lon` null; Q-LINK-07); with a pin, the client's pin is stored. |
+| REQ-LINK-14 | When the map finds no point for the typed address, the API **MUST** answer 409 `needs_second_confirm` with a reading marked not found; confirmed again with the `checkId` and no pin, the address **MUST** be stored with no pin, and the order review **MUST** say "no map point" (REQ-LINK-11). With a pin sent, the case is a difference under REQ-LINK-13. |
+| REQ-LINK-15 | The page **MUST** send `pin` only when its map was shown and ready and the client's pin is on it: never with no map credential or a refused (hidden) map, and never the display default for a map with no start pin until the client has placed the pin. |
 | NFR-LINK-01 | The page **MUST** work at 375 px width without horizontal scrolling (clients open it on phones). |
 | SEC-LINK-01 | A token **MUST** be 32 bytes from a cryptographic random source, sent as base64url. Only its SHA-256 hash **MUST** be stored; the token **MUST NOT** be written to any table, log line or `outbound_messages.body`. The API's Fastify request log serializer **MUST** write the URL of a confirm route as `/api/confirm/[token]`; no web app log line **MUST** hold a `/confirm/` or `/api/confirm/` path with its token; and in Azure, App Service HTTP logs and Application Insights request telemetry for both apps **MUST** be off or rewrite these paths the same way before storing them. |
 | SEC-LINK-02 | A link **MUST** stop working at the lifetime above and after one confirmation; the API **MUST** check both on every request, from the stored `expires_at` and `used_at`. The lifetime **MUST** be computed on instants as in "Time arithmetic" above, with the cut-off turned into an instant by the IANA time zone's rules. |
 | SEC-LINK-03 | A token **MUST** give access to one order's address only: the routes take no order id, read and write only that order's address and pin, and return no other field. |
-| SEC-LINK-04 | The web app **MUST** limit `/confirm/*` and `/api/confirm/*` to 10 requests per minute per client IP (last `X-Forwarded-For` entry, as `clientIp` in `frontend/auth.ts`), answering 429; the API **MUST** refuse map look-ups after 20 for one link. |
+| SEC-LINK-04 | The web app **MUST** limit `/confirm/*` and `/api/confirm/*` to 10 requests per minute per client IP (last `X-Forwarded-For` entry, as `clientIp` in `frontend/auth.ts`), answering 429; the API **MUST** refuse map look-ups after 20 for one link, counting reverse geocodes of a pin and forward geocodes of a typed address together (429 `rate_limited`, the link stays unused). |
 | SEC-LINK-05 | `/confirm/*` **MUST** be the only page added to the open list in `frontend/middleware.ts`; the web proxy **MUST** forward `/api/confirm/*` without a session and without adding an API key or internal token; `permissions.ts` **MUST** list the confirm routes as public and token-gated; no other page or route changes. |
 | SEC-LINK-06 | `GET` requests **MUST NOT** use up or change a link; only the confirming `POST` does. |
 | SEC-LINK-07 | Posts **MUST** pass the proxy's `Origin` check (SEC-AUTH-04). `/confirm/*` responses **MUST** send `Content-Security-Policy: frame-ancestors 'none'` and `Referrer-Policy: no-referrer`, and load no third-party script except the Azure Maps web SDK. |
 | SEC-LINK-08 | No Azure Maps shared key **MUST** reach the browser, and no `NEXT_PUBLIC_` variable **MUST** hold a Maps credential. Geocoding **MUST** run on the server. Map tiles **MUST** use an Azure Maps SAS token (map credential above), rate-capped, issued only in the answer for a valid link, expiring no later than the link, and never stored or logged. |
 | SEC-LINK-09 | The link **MUST** go out only in a reply a person sends with `send_reply`, to an `ALLOW_LIST` address (SEC-03). SEC-06 automatic replies **MUST NOT** carry a link until Q-LINK-05 is answered. |
-| SEC-LINK-10 | The confirm body **MUST** validate against a zod schema (US state code, ZIP `^\d{5}(-\d{4})?$`, line 1, line 2 and city at most 100 characters, latitude −90 to 90, longitude −180 to 180); anything else gets 400 and does not use up the link. |
+| SEC-LINK-10 | The confirm body **MUST** validate against a zod schema (US state code, ZIP `^\d{5}(-\d{4})?$`, line 1, line 2 and city at most 100 characters; `pin` optional, and when present latitude −90 to 90, longitude −180 to 180); anything else gets 400 and does not use up the link. |
 | SEC-LINK-11 | Every link event (sent, opened, second confirm asked, confirmed, refused, rate limited) **MUST** be logged with the order's email id and the first 8 characters of the token hash, never the token; a confirmation **MUST** add an `audit_log` row with actor `client-link:<email id>`. |
 
 | ID | Acceptance criterion |
 |---|---|
 | AC-LINK-01 | Given `CONFIRM_LINK=on` and a `CONFIRM_ADDRESS` email, when drafted, then the draft holds `[CONFIRM_LINK]`; given a recorded model draft without it, then the template is used; when an operator sends it to an allow-listed address, then the Gmail text holds `<AUTH_URL>/confirm/` and a 43-character token, and one `address_confirm_tokens` row exists for the order. Given the operator deletes the placeholder line before sending, then the reply is sent as edited and no token row is created. |
 | AC-LINK-02 | Given a valid link for fixture 21 (`backend/tests/fixtures/emails/21.json`: gold `CONFIRM_ADDRESS`, complete address, ZIP that does not match the city; the recorded map answer is `Medium` with a point), when the page opens, then the five fields show the email's address, a pin shows at the recorded point, and the page text holds no SKU, quantity, promise date, client name or contact. |
-| AC-LINK-03 | Given a valid link, when Confirm is posted with the pin 600 m from its start, then 409 `needs_second_confirm` with the map's reading and the link is unused; when posted again with the returned `checkId`, then confirmed. Given the pin 400 m away and the ZIP unchanged, then confirmed at once. Given the ZIP changed, then 409 whatever the distance. Given a browser flag claiming "not moved" with the pin 600 m away, then 409. |
-| AC-LINK-04 | Given fixture 34 (C190, gold `CONFIRM_ADDRESS`, line 1 and ZIP missing, so no start pin) and a confirmation through its link of 400 S Orange Ave, Orlando, FL 32801 (the address of the recorded C190 reply in AC-INT-07), after the second Confirm that REQ-LINK-03 asks for, then the link is used, a new `intake_extractions` row has decision `ALL_CLEAR`, the order is AWAITING_APPROVAL in `GET /api/intake/review`, and `send_to_wms` before approval is refused. |
-| AC-LINK-05 | Given a confirmed, not yet approved order, then `saved_addresses` has no `source = 'link'` row for it and the client's next `CONFIRM_ADDRESS` reply does not offer that address; when the supervisor approves, then one `saved_addresses` row with `source = 'link'` and the pin is added; when `npm run seed` runs again, then that row is still there and the `source = 'seed'` rows are rebuilt. |
+| AC-LINK-03 | Given a valid link and a recorded map answer that matches the typed city, state and ZIP, when Confirm is posted with the pin 600 m from its start, then 409 `needs_second_confirm` with the map's reading and the link is unused; when posted again with the returned `checkId`, then confirmed. Given the pin 400 m away and the ZIP unchanged, then confirmed at once. Given the ZIP changed, then 409 whatever the distance. Given a browser flag claiming "not moved" with the pin 600 m away, then 409. |
+| AC-LINK-04 | Given fixture 34 (C190, gold `CONFIRM_ADDRESS`, line 1 and ZIP missing, so no start pin) and a confirmation through its link of 400 S Orange Ave, Orlando, FL 32801 (the address of the recorded C190 reply in AC-INT-07), sent with a placed pin after the second Confirm that REQ-LINK-03 asks for, or sent with no pin and a recorded map answer that matches it (REQ-LINK-12), then the link is used, a new `intake_extractions` row has decision `ALL_CLEAR`, the order is AWAITING_APPROVAL in `GET /api/intake/review`, and `send_to_wms` before approval is refused. |
+| AC-LINK-05 | Given a confirmed, not yet approved order, then `saved_addresses` has no `source = 'link'` row for it and the client's next `CONFIRM_ADDRESS` reply does not offer that address; when the supervisor approves, then one `saved_addresses` row with `source = 'link'` and the pin is added (given an order confirmed with no pin, the row has `lat` and `lon` null); when `npm run seed` runs again, then that row is still there and the `source = 'seed'` rows are rebuilt. |
 | AC-LINK-06 | Given a link sent 25 hours ago and never used, when `GET /api/intake` is called, then that order shows "Address not confirmed"; given the same link used, then it shows confirmed. No job or timer exists for it. |
 | AC-LINK-07 | Given a random token, an expired link, a used link and a revoked link, when each page and `GET /api/confirm/:token` is requested, then all four return the same text and 404, with byte-identical API bodies. |
 | AC-LINK-08 | Given an order with an unused link, when the reply is sent again, then the first link returns the invalid page and the second works. Given a link sent for the order's first email and a new link sent for the client's follow-up email in the same thread, then the first link is revoked. |
 | AC-LINK-09 | Given `CONFIRM_LINK` unset, then drafts hold no `[CONFIRM_LINK]`, and `/confirm/<valid token>` and `POST /api/confirm/<valid token>` return 404; given a draft written with the flag on and sent after it was turned off, then the sent text holds no `[CONFIRM_LINK]` line and no token row is created. Given `CONFIRM_LINK=on` and `AUTH_URL` unset, when the API starts, then it exits with an error naming `AUTH_URL`. |
 | AC-LINK-10 | Given a link for a synthetic fixture order, when the page opens, then the "Synthetic data" badge is visible. |
-| AC-LINK-11 | Given a link-confirmed order, when the order review loads, then it shows "Address confirmed by client link", the email's address, the confirmed address and the map's reading. |
+| AC-LINK-11 | Given a link-confirmed order, when the order review loads, then it shows "Address confirmed by client link", the email's address, the confirmed address and the map's reading: "Map reads the pin as …" for an order confirmed with a pin, "Map reads the address as …" for one confirmed without a pin, and "no map point" for one stored without a pin. |
+| AC-LINK-12 | Given a valid link, a Confirm with no pin and a recorded map answer whose city, state and ZIP match the typed ones, then 200 at once: the link is used, its `lat` and `lon` are the recorded point, `map_reading` is the address reading, and `map_lookups` went up by 1. Given the map unreachable, then 503 `map_unavailable` and the link is unused. |
+| AC-LINK-13 | Given a valid link and the address of the 30 Oct local test (line 1 "65156 Powers Rd, Enterprise, OR 97828, United States", city "Madhapur", state OR, ZIP 97828) with no pin, and a recorded map answer reading Enterprise, OR 97828, then 409 `needs_second_confirm` whose reading names `city` as different, and the link is unused; posted again with the `checkId` and the same fields, then 200 and the link row has `lat` and `lon` null; posted again with the `checkId` and another city, then the `checkId` does not count and the address is checked anew. Given a pin 400 m from its start, the ZIP unchanged and the same city difference, then 409. |
+| AC-LINK-14 | Given a valid link, a Confirm with no pin and a recorded map answer with no point, then 409 with a reading marked not found; posted again with the `checkId`, then 200, the link row has `lat` and `lon` null, and the order review shows "no map point". |
+| AC-LINK-15 | Given a `LinkView` with `map` null, when the client clicks **Confirm**, then the posted body has no `pin`; given a map that refuses its tiles (hidden), then likewise; given a working map and `pin` null in the view, then no `pin` is posted until the pin is dragged, after which the dragged pin is posted; given a working map and a start pin, then the pin is posted; no posted body ever holds 39.8283, −98.5795 unless the client placed the pin there. |
 | AC-NFR-LINK-01 | Given a 375 × 812 viewport, when the page opens, then the page width equals the viewport width and the pin can be dragged by touch. |
 | AC-SEC-LINK-01 | Given a sent link opened and confirmed, when every table, the API and web log output for the run (request lines included) and `outbound_messages.body` are searched for the token, then it is found nowhere and the request lines show `/api/confirm/[token]`; `address_confirm_tokens.token_hash` equals its SHA-256 hex. Given the deployed apps (A20), when `AppServiceHTTPLogs` and Application Insights `requests` are queried after opening a link, then the token is in neither. |
 | AC-SEC-LINK-02 | Given a link whose `expires_at` has passed, or with `used_at` set, when GET or POST is called, then 404. Given an email that arrived at 05:00 and a link sent at 05:10 (that day's 08:00 cut-off is under 3 hours away, so the next day's is used), then `expires_at` is 05:10 the next day (24 hours, the sooner); given arrival at 09:00 and a send at 09:30, then `expires_at` is 06:00 the next day; given a send at 07:30 for that day's 08:00 cut-off, then `expires_at` is 06:00 the next day. Given `America/New_York`, an email that arrived at 05:00 and a link sent at 05:10 EDT on 31 Oct 2026 (daylight saving ends at 02:00 on 1 Nov), then `expires_at` is 2026-11-01T09:10Z (04:10 EST), exactly 24 hours later. |
 | AC-SEC-LINK-03 | Given two orders with links, when order A's token is posted with order B's address, then only A's address and pin change; given the GET response, then it holds only `address`, `pin`, `expiresAt`, `synthetic` and the map credential. |
-| AC-SEC-LINK-04 | Given 11 requests to `/api/confirm/*` from one IP within a minute, then the 11th gets 429; given 21 map look-ups for one link, then the 21st is refused. |
+| AC-SEC-LINK-04 | Given 11 requests to `/api/confirm/*` from one IP within a minute, then the 11th gets 429; given 21 map look-ups for one link, reverse and forward geocodes together, then the 21st is refused with 429 and the link is unused. |
 | AC-SEC-LINK-05 | Given `AUTH_REQUIRED=on` and no session, when `/confirm/<token>` opens, then it loads (no redirect to `/login`) and the API receives no internal token or key; when `/dashboard`, `/api/overview` or `/confirmx` is requested, then each is refused as before; the permissions test lists the confirm routes as public. |
 | AC-SEC-LINK-06 | Given a valid link, when `GET /confirm/<token>` and `GET /api/confirm/<token>` are each called 3 times, then the link is still unused and confirmable. |
 | AC-SEC-LINK-07 | Given a valid link, when a confirm POST arrives with `Origin: https://evil.example`, then 403 `bad_origin` and the link is unused; the page response carries `frame-ancestors 'none'` and `Referrer-Policy: no-referrer`. |
 | AC-SEC-LINK-08 | Given the production build, when `.next/static` and the `/confirm` HTML are searched for `AZURE_MAPS_KEY`'s value, then it is not found; no `NEXT_PUBLIC_*MAPS*` variable exists; given a valid link, then the `GET /api/confirm/:token` answer's `map.kind` is `sas`, its `expiresAt` is no later than the link's, and the SAS request carries that expiry and a 50-per-second rate cap; given an expired link, then no map credential is issued. |
 | AC-SEC-LINK-09 | Given `send_reply` to an address off the allow-list, then 403 and no token row. Given the intake code, then a link is minted only inside `send_reply` (no other caller of the mint function). Once SEC-06 automatic replies (`INTAKE_AUTO_REPLY`, REQ-INT-12) are built (not on `main` on 30 Oct), the task that builds them **MUST** add: given `CONFIRM_LINK=on` and `INTAKE_AUTO_REPLY=on`, when a `CONFIRM_ADDRESS` reply is sent automatically, then it holds no link and no token row is created. |
-| AC-SEC-LINK-10 | Given a confirm body with state `XX`, ZIP `1234`, a 101-character city or latitude 91, then each gets 400 and the link stays unused. |
+| AC-SEC-LINK-10 | Given a confirm body with state `XX`, ZIP `1234`, a 101-character city or latitude 91, then each gets 400 and the link stays unused; given a valid body with no `pin`, then it is not refused as invalid. |
 | AC-SEC-LINK-11 | Given a confirmation, then `audit_log` has one row with actor `client-link:<email id>`, and each logged link event holds the 8-character hash prefix and not the token. |
 
 ---
@@ -1250,7 +1344,8 @@ received_at, in_reply_to, hash, client_id, status, auth_result, auto_submitted) 
 gmail_id, status, sent_by = user or `auto`) ·
 `inbound_orders` (channel, payload, status, missing) · `saved_addresses` (migration 103 adds `source` seed | link, `lat`,
 `lon`, `email_id`, `confirmed_at`; E19) · `address_confirm_tokens` (token hash, email id, lifetime, use, confirmed
-address and pin; migration 103, E19; 102 is `client_emails`) · `client_domains` · `audit_log` (approvals, rejections with reason, and actions) ·
+address, pin (null when confirmed without one) and map reading; migration 103, E19; 102 is `client_emails`) ·
+`sku_catalog` (client_id, sku, name, unit, synthetic; migration 104, E20; written only by the seed from SD-10) · `client_domains` · `audit_log` (approvals, rejections with reason, and actions) ·
 `recommendations` · `alerts` · `override_log` · `complaint_triage`.
 Intake statuses: RECEIVED | WAITING | AWAITING_APPROVAL | APPROVED | SENT | ENTERED | REJECTED. The other v0.7 intake
 columns come in a later 1xx migration; `override_log` stays written by the Carriers module.
@@ -1308,7 +1403,7 @@ SEC-ASK-01 to -06 (§5.16), NFR-LINK-01 and SEC-LINK-01 to -11 (§5.17). They ad
 ### 9.1 Test plan
 Unit: flag definitions (AC-DIAG-01), block rule (AC-CAR-02), promise rules (AC-PRO-*), risk inputs (AC-RISK-01).
 Golden: every number in §2 (AC-DIAG-04, AC-DIAG-07, AC-REP-01, AC-REP-06). Extraction: 50 fixtures (AC-INT-*). Security: AC-SEC-02 to 04, AC-SEC-06.
-Synthetic consistency: AC-STK-01, AC-TRK-01, AC-API-02, AC-NFR-05.
+Synthetic consistency: AC-STK-01, AC-TRK-01, AC-API-02, AC-NFR-05, AC-SKU-01.
 E2E: fixture email → decision → reply draft → dashboard shows it. Smoke: Playwright opens every screen on the deployed
 app at phone and desktop width after each deploy (P6, core). Backup demo video recorded on 29 Oct.
 **Test evidence** (Level 1, §16): `docs/TEST-EVIDENCE.md` lists, per area, the test counts, the ACs covered, links to
@@ -1372,8 +1467,11 @@ to `backend/api/` (`src/`, `test/`) unless they start with `backend/analytics/` 
 | EC-21 | Pasted email with an empty or whitespace-only body, or with `from`, `body` or `receivedAt` left out | 400 with one readable sentence per field ("The email body is empty.", "From is missing."); nothing stored, no AI call; the body of a valid email is stored as sent. The paste form keeps **Process email** disabled for an empty body and shows the API's sentence next to the form | REQ-INT-16, AC-INT-16, REQ-INT-19, AC-INT-19 | `src/modules/intake/input.ts` (`EmailBody`, `readable`), `routes.ts`; `frontend/components/dashboard/intake/IntakeScreen.tsx` (paste form), `frontend/lib/api.ts` (`InputRefused`) | `test/routes/intake-input.test.ts` "AC-INT-16: an empty body is 400…", "…only spaces, tabs and newlines counts as empty", "AC-INT-17: each missing field is named…", "AC-INT-16: a valid email with surrounding whitespace is still processed…"; `frontend/components/dashboard/intake/IntakeScreen.test.tsx` "AC-INT-19: Process email is disabled for an empty or whitespace-only body", "AC-INT-19: the API's readable refusal is shown next to the form…" |
 | EC-22 | Malformed `from` (no address), `receivedAt` in another format or an impossible date (30 February, 24:00) or a future date, `inReplyTo` not a number, a JSON array / string / plain text instead of an object, broken or empty JSON, a non-JSON content type | 400 saying what is expected ("From must be an email address, like orders@client190.example.", "Received at must look like 2026-09-14 09:30…", "The request is not valid JSON."); 415 for a form-encoded request; never Fastify's or zod's raw text; a 500 stays generic on screen | REQ-INT-17, AC-INT-17, REQ-INT-18, AC-INT-18 | `src/modules/intake/input.ts` (`isLocalTime`, `ADDRESS`), `src/server.ts` (`bodyErrors`) | `test/routes/intake-input.test.ts` "AC-INT-17: a malformed From…", "…a malformed or impossible Received at…", "…inReplyTo must be an email number", "…a JSON body that is not an object…", "AC-INT-18: malformed JSON and an empty JSON request…", "…a request that is not JSON is 415…"; `IntakeScreen.test.tsx` "AC-INT-19: a server failure without a readable message stays generic" |
 | EC-23 | Oversized input: body over `INTAKE_MAX_BODY_CHARS` (20,000), subject over `INTAKE_MAX_SUBJECT_CHARS` (300), `from` over 320 characters, a request over the 1 MB HTTP limit | 400 naming the limit; 413 JSON "The request is larger than 1 MB. Paste only the text of one email."; nothing stored. The form shows "N / 20,000 characters" and blocks a longer body | REQ-INT-18, AC-INT-18, REQ-INT-19, AC-INT-19 | `src/core/config.ts` (limits), `src/modules/intake/input.ts`, `src/server.ts` (`bodyErrors`), `routes.ts` (`limits` in `GET /api/intake`); `IntakeScreen.tsx` (counter) | `test/routes/intake-input.test.ts` "AC-INT-18: a body, subject or From over its limit…", "…over the HTTP body limit is 413…", "AC-INT-17: the limits the form shows come from GET /api/intake"; `IntakeScreen.test.tsx` "AC-INT-19: the body shows its length against the limit…", "AC-INT-19: a request over the size limit (413) shows the API sentence…" |
+| EC-24 | E19 address link with no working map (no map credential, or tiles refused while the Maps data-reader role is not assigned), or a typed city that does not match the street and ZIP | The page sends no pin; the API geocodes the typed address on the server. A match is confirmed with the geocoded point; a different city, state or ZIP, or no point, asks for the second Confirm with the map's reading; no point stores the address without a pin and the review says "no map point" | REQ-LINK-12 to -15, AC-LINK-12 to -15 | Not built (30 Oct, v0.18): today the page posts its display default (the centre of the contiguous US) and the API stores it | Not tested (not built) |
+| EC-25 | An order email names an item that is not in the client's catalogue ("apple"), or writes a known code in another case or spacing ("hx 989") | Unknown item → `MISSING_INFO` with up to 3 suggestions from that client's catalogue only; a known code in another form is known and stored as the catalogue's code; no client → no suggestions | REQ-SKU-02 to -05, AC-SKU-02 to -05 | Not built (30 Oct, v0.18): `decide.ts` accepts any non-empty item text | Not tested (not built) |
 
-Summary: 23 edge cases; 20 handled and tested as specified (EC-21 to EC-23 added 30 Oct with REQ-INT-16 to -19);
+Summary: 25 edge cases; 20 handled and tested as specified (EC-21 to EC-23 added 30 Oct with REQ-INT-16 to -19);
+EC-24 and EC-25 (v0.18) are specified and not built yet;
 EC-09 is a gap kept on purpose (tested as built, not as specified; the row says what the fix needs); EC-06 and EC-20 are
 partly tested, with the untested parts not built (EC-20's link service is tested since A17; its HTTP routes and page are
 A18 and A19). AC-NFR-02 (decision within 30 s) is tested by `test/intake/decision-time.test.ts` with recorded AI
@@ -1385,7 +1483,7 @@ those features are built.
 ### 10.1 Problem areas and owners
 | Area | Owner | Problems (see problem list) | Features |
 |---|---|---|---|
-| Email orders (resource A) | `[EMAIL_OWNER]` | Incomplete addresses (email, API/EDI), manual keying, clients not told, complaints load, Tier 1 first | E1–E14, P3; E19 (after submission, built by C if A agrees, Q-LINK-01) |
+| Email orders (resource A) | `[EMAIL_OWNER]` | Incomplete addresses (email, API/EDI), manual keying, clients not told, complaints load, Tier 1 first | E1–E14, P3; E19 (after submission, built by C if A agrees, Q-LINK-01); E20 (after submission) |
 | Warehouse & promise (resource B) | `[WAREHOUSE_OWNER]` | Cut-off, out of stock, skipped nearest, unpaid penalties; plus the shared diagnosis, attribution, KPIs and decision screens | W1–W7, D1–D6, D8, P1, P4 |
 | Carriers (resource C) | `[CARRIERS_OWNER]` | Five bad lanes, D's Friday overload, spreadsheet choice, capacity, tracking | C1–C11, D7, P5, P6; D10 (after submission) |
 
@@ -1433,6 +1531,8 @@ Decisions (due Mon 26):
 Assumptions (how we would test each):
 - `[CAPACITY_SHARE]` per carrier per lane is not in the data; default 40%, or the synthetic contracts (SD-06). Test: ask procurement for contracted daily capacity.
 - Stock levels and SKUs are not in the data; W5 runs on synthetic stock (SD-05). Test: WMS inventory extract.
+- There is no product catalogue in the data (no item names, and the fixture emails' `HX-###` codes are not in
+  `stock_daily`); E20 runs on a synthetic catalogue per client (SD-10). Test: Halcyon's item master per client from the WMS.
 - **WMS interface (assumed, Q-002):** Operations IT's WMS has an API for order and inventory records; for the hackathon
   order entry, pick lists and stock allocation are simulated. We assume `POST /orders` (client, items, ship-to address,
   promise date, warehouse, carrier) → WMS order number, and `GET /inventory` (warehouse × SKU on hand). Today
@@ -1512,6 +1612,17 @@ Open questions:
   - Q-LINK-05: may SEC-06 automatic replies carry the link? Today only replies a person sends do (SEC-LINK-09). Email owner.
   - Q-LINK-06: may a client's real staff open a public page on a Halcyon domain at all (brand, privacy notice, PC-13)?
     Ask the VP Customer Success before real clients get links.
+  - Q-LINK-07: when the map reads a typed address with another city, state or ZIP and the client confirms it again
+    without a pin, should the map's point be kept? Default (v0.18): no; the address is stored without a pin, because
+    the point belongs to the map's reading, not to the address the client confirmed (REQ-LINK-13). Email owner.
+- SKU catalogue check (E20, §5.3; build after submission):
+  - Q-SKU-01: may an unknown item with one clear suggestion (score ≥ `SKU_MIN_SIM` and ahead of the next by
+    `SKU_MIN_GAP`) be resolved without asking? Default (v0.18): no; every unknown item is asked about (REQ-SKU-03).
+    Email owner, with the VP Customer Success.
+  - Q-SKU-02: a client's answer merges with the first email by replacing the whole item list when the answer names any
+    item (REQ-INT-07, `mergeExtraction`). An answer that names only the corrected code ("HX-790", no quantity) would
+    drop the other items and the quantity. Should the merge replace only the unknown item and keep its quantity?
+    Email owner.
 
 ### 12.1 Synthetic data register
 Rules: (1) generated **from** the supplied data, same ids, dates and clients, so they agree; (2) one seeded generator per
@@ -1529,6 +1640,8 @@ screens using synthetic data show a badge (REQ-UI-04).
 | SD-06 | Carrier capacity contracts | Observed daily volume p95 per carrier and region | C4, C10 | Carriers | Procurement contracts |
 | SD-07 | Carrier tracking events (JSON, HTML, CSV) | Real `shipped_ts`, `delivered_date`, carrier | C8 | Carriers | Carrier feeds |
 | SD-08 | Gmail demo inbox loaded with the SD-02 fixtures (insert, never sent) + mock WMS form | — | E13 | Email | Outlook, WMS |
+| SD-09 | 10× replica of the deliveries and a second client, for the timed scale run (`sd09_scale.py`) | Every supplied delivery, copied with new ids | Scale run (`docs/SCALE-RUN.md`) | All | — |
+| SD-10 | Product catalogue per client: `client_id`, `sku`, `name`, `unit`, `synthetic` (`sd10_catalog.py` → `sku_catalog`, migration 104, written by the seed) | Every client in `clients.csv`; the codes each client's fixture emails use (SD-02) and its `stock_daily` codes (SD-05); invented product names and units | E20 | Email | WMS item master per client |
 
 ## 13. Related artifacts
 - Deck: https://claude.ai/artifact/FHzG4eA9c79H8sfrjtUpSp
@@ -1592,6 +1705,8 @@ changed. A question with no answer yet stays in §12 and §14 until it gets one.
 | 30 Oct | How strict should the assistant be with what the model returns (C15 and C16 review findings)? | Carriers owner (Priyank); reviewer runs on `C15-assistant-api` and `C16-assistant-panel` | Answers say what the data shows, never what Halcyon should do; rates as percentages with one decimal; markup or a URL in an answer is never returned; the last turn is offered no tools; history turns limited to 500 (user) and 2,000 (assistant) characters, 6 turns; a failed tool read is a 503; a number only in the question does not pass the figure check | REQ-ASK-04 (code follow-up in the C plan), new REQ-ASK-11, -12; SEC-ASK-01, -06; NFR-ASK-02; their ACs |
 | 30 Oct | Where does the CD e2e job get the demo password now that the live app enforces sign-in (C13 step 5, Q-AUTH-06)? | Carriers owner (Priyank), branch `C13-e2e-sign-in` | From Key Vault `auth-demo-password`, read in the e2e job through Azure OIDC in the `demo` environment and masked; the job fails if the secret is missing or empty, and the role refusal tests fail in CI if the app does not enforce sign-in. Demo accounts stay on the live, synthetic-data app | `docs/SPEC-auth.md` v0.4: §5.5, §9.1, §9.2, SEC-AUTH-02, NFR-AUTH-04 and AC-NFR-AUTH-04; Q-AUTH-06 answered (§12, SPEC-auth §13) |
 | 30 Oct | Can steps 9–13 (WMS entry to delivery) run on their own after approval, from a Settings switch? | Carriers owner (Priyank) | Yes, as a demo aid: an admin-only switch, off by default; steps shown 5 s apart, synthetic, on time when the promise date allows (otherwise shown late); approval and the reply stay manual | REQ-JRN-14/15, SEC-SET-01 (`SPEC-order-workflow.md`); design and plan `2026-10-30-order-journey-auto-advance`; `app_settings` (302), `order_events.visible_at` (303) |
+| 30 Oct | When the address page has no usable map, what pin is stored, and who checks that the city and ZIP agree? | The user (nvarada), after local testing of E19: with no map the page posted its display default (centre of the contiguous US); the review read it as "130 AA Rd, Lebanon, KS"; the form took city "Madhapur" with ZIP 97828 and line 1 "65156 Powers Rd, Enterprise, OR 97828" | The pin is optional and sent only from a working map the client used; the API geocodes the typed address on every Confirm; a matching result becomes the pin; another city, state or ZIP, or no point, asks for the second Confirm with the map's reading; no point stores the address without a pin | v0.18: §5.17 flow, threat model L9 and L10, REQ-LINK-02 to -05, -11, new REQ-LINK-12 to -15, SEC-LINK-04, -10 and their ACs; EC-24; Q-LINK-07; CONTRACTS §1.1 (`MapReading`, `LinkView.map`), §5 (103), §6 (confirm body, review) |
+| 30 Oct | Should intake check item codes, and what should a client be asked when an item is unknown? | The user (nvarada); code check: `decide.ts` accepts any non-empty item text; the data has no product catalogue (`stock_daily` has three unnamed codes per client; the fixtures' `HX-###` codes are not in it) | Yes: a synthetic catalogue per client (SD-10) holding the fixture and stock codes with names; an exact code (any case or spacing) is known; anything else is `MISSING_INFO` with up to 3 "did you mean" suggestions from that client's catalogue only, asked, never replaced; no client, no suggestions | v0.18: E20, §5.3 step 5a and "SKU catalogue check", REQ-SKU-01 to -07 / AC-SKU-01 to -07, REQ-INT-09 note, §4.2, §5.7, §6, §12.1 (SD-10), OS-12, EC-25, Q-SKU-01, -02; CONTRACTS §5 (104), §6 (`checks.items`) |
 
 ## 15. Mapping to the brief's task list
 | Brief asks | Where in this spec |
