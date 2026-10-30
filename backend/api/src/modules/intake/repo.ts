@@ -79,6 +79,8 @@ export interface Repo {
   /** Any other audited write: actor is a user id or system:intake (REQ-AUTH-07, SEC-AUTH-10). */
   logAudit(actor: string, action: string, ref: string, payload?: object): Promise<void>;
   logOutbound(emailId: number, to: string, body: string, status: 'sent' | 'refused', gmailId?: string | null): Promise<void>;
+  /** Whether a reply to the email has gone out (an order can reach the WMS before its reply does). */
+  replySent(emailId: number): Promise<boolean>;
   /** Emails parked because PII detection, the model or the map could not be reached; the next poll runs them again. */
   waitingEmails(): Promise<EmailRow[]>;
   /** Start of the last successful Gmail check, in seconds since the epoch; null before the first one. */
@@ -155,6 +157,9 @@ export const repo: Repo = {
   async logOutbound(emailId, to, body, status, gmailId = null) {
     await query('INSERT INTO outbound_messages (email_id, to_addr, body, gmail_id, status) VALUES ($1,$2,$3,$4,$5)',
       [emailId, to, body, gmailId, status]);
+  },
+  async replySent(emailId) {
+    return (await one<{ id: number }>("SELECT id FROM outbound_messages WHERE email_id = $1 AND status = 'sent' LIMIT 1", [emailId])) !== null;
   },
   waitingEmails: () => query<EmailRow>("SELECT * FROM intake_emails WHERE status = 'WAITING' ORDER BY id", []),
   async lastPollStart() {

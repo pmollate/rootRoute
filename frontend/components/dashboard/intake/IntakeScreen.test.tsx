@@ -143,6 +143,36 @@ describe('Order emails', () => {
     await waitFor(() => expect(actions(fetch, 35)).toEqual(['approve', 'send_reply']));
   });
 
+  it('AC-SEC-04 (UI): an approved ALL_CLEAR order whose reply has not gone out can still be sent to the WMS on its own', async () => {
+    const approved = detail(34, { decision: 'ALL_CLEAR', email: { ...detail(34).email, status: 'APPROVED' }, replySent: false });
+    const fetch = mockApi({ '/api/intake': { emails: [item(34, { decision: 'ALL_CLEAR', status: 'APPROVED' })] },
+      '/api/intake/34': approved, '/api/intake/34/action': { status: 'ENTERED' } });
+    renderScreen(<IntakeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
+    expect(await screen.findByRole('button', { name: 'Send reply' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Send to WMS' }));
+    await waitFor(() => expect(actions(fetch, 34)).toEqual(['send_to_wms']));
+  });
+
+  it('an order in the WMS whose reply has not gone out still offers Send reply, and nothing more once it has', async () => {
+    const entered = (replySent: boolean) => detail(34, { decision: 'ALL_CLEAR', email: { ...detail(34).email, status: 'ENTERED' }, replySent });
+    const fetch = mockApi({ '/api/intake': { emails: [item(34, { decision: 'ALL_CLEAR', status: 'ENTERED' })] },
+      '/api/intake/34': entered(false), '/api/intake/34/action': { status: 'ENTERED' } });
+    renderScreen(<IntakeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
+    expect((await screen.findByLabelText('Reply') as HTMLTextAreaElement).readOnly).toBe(false);
+    expect(screen.queryByText('Reply sent and order in the WMS')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send to WMS' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Send reply' }));
+    await waitFor(() => expect(actions(fetch, 34)).toEqual(['send_reply']));
+    cleanup();
+    mockApi({ '/api/intake': { emails: [item(34, { decision: 'ALL_CLEAR', status: 'ENTERED' })] }, '/api/intake/34': entered(true) });
+    renderScreen(<IntakeScreen />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open email 34' }));
+    expect(await screen.findByText('Reply sent and order in the WMS')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Send reply' })).toBeNull();
+  });
+
   it('shows a client reply in the same thread as the order it answers', async () => {
     mockApi({ '/api/intake': { emails: [item(35, { inReplyTo: 34, subject: '[SYNTHETIC] Re: Order 34', decision: 'ALL_CLEAR' }), item(34, { status: 'SENT' })] },
       '/api/intake/35': detail(35, { email: { ...detail(35).email, inReplyTo: 34 }, decision: 'ALL_CLEAR' }) });

@@ -31,6 +31,7 @@ export function memoryRepo(clients: Record<string, ClientRow>, saved: SavedAddre
     logApproval: async (emailId, action, user, payload) => { audit.push({ emailId, ref: `email:${emailId}`, action, user, payload }); },
     logAudit: async (user, action, ref, payload) => { audit.push({ ref, action, user, payload }); },
     logOutbound: async (emailId, to, body, status, gmailId = null) => { outbound.push({ emailId, to, body, status, gmailId }); },
+    replySent: async (emailId) => outbound.some((o) => o.emailId === emailId && o.status === 'sent'),
     waitingEmails: async () => emails.filter((e) => e.status === 'WAITING'),
     lastPollStart: async () => {
       const ok = polls.filter((p) => p.ok).at(-1);
