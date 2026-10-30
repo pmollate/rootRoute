@@ -35,20 +35,26 @@ const view: LinkView = {
   map: { kind: 'sas', token: 'sas-stand-in', expiresAt: '2026-10-31T10:22:00.000Z' },
 };
 
-/** fetch stub: one `[status, body]` per call, in order. */
+/** The pin look-up's answer (REQ-LINK-16); by default the map read nothing, so the fields stay as they are. */
+const NOTHING_READ = { reading: { line1: null, city: null, state: null, zip: null, found: false }, checkId: null };
+let lookupAnswer: [number, unknown] = [200, NOTHING_READ];
+/** fetch stub: one `[status, body]` per Confirm post, in order; a pin look-up gets `lookupAnswer`. */
 function stubFetch(...answers: [number, unknown][]) {
-  const fn = vi.fn(async (_url: string, _init: RequestInit) => {
-    const [status, body] = answers.shift() ?? [500, {}];
+  const fn = vi.fn(async (url: string, _init: RequestInit) => {
+    const [status, body] = url.endsWith('/lookup') ? lookupAnswer : answers.shift() ?? [500, {}];
     return { ok: status < 300, status, json: async () => body } as Response;
   });
   vi.stubGlobal('fetch', fn);
   return fn;
 }
-const posted = (fn: ReturnType<typeof stubFetch>) => fn.mock.calls.map(([url, init]) => ({ url, body: JSON.parse(String(init.body)) }));
+const sent = (fn: ReturnType<typeof stubFetch>) => fn.mock.calls.map(([url, init]) => ({ url, body: JSON.parse(String(init.body)) }));
+/** The Confirm posts only (pin look-ups left out). */
+const posted = (fn: ReturnType<typeof stubFetch>) => sent(fn).filter((c) => !c.url.endsWith('/lookup'));
+const lookups = (fn: ReturnType<typeof stubFetch>) => sent(fn).filter((c) => c.url.endsWith('/lookup'));
 const field = (name: string) => screen.getByLabelText(name) as HTMLInputElement;
 
 describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); mapProps.mockClear(); mapReady.auto = true; });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); mapProps.mockClear(); mapReady.auto = true; lookupAnswer = [200, NOTHING_READ]; });
 
   it('AC-LINK-02 (page): the five fields hold the email\'s address, the pin and the expiry show, and nothing else about the order', () => {
     render(<ConfirmScreen token={TOKEN} view={view} />);
@@ -122,6 +128,39 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     await screen.findByText('Thank you. Your delivery address is confirmed.');
     expect(posted(fn)[1].body).toEqual({ address: expect.any(Object), pin: { lat: expect.closeTo(39.8383, 6), lon: -98.5795 } });
     expect(JSON.stringify(posted(fn)[0].body)).not.toMatch(/39\.8283|-98\.5795/);
+  });
+
+  it('AC-LINK-16 (page): moving the pin fills line 1, city, state and ZIP from the map, keeps line 2, and Confirm sends the look-up checkId', async () => {
+    lookupAnswer = [200, { reading: { line1: '65156 Powers Rd', city: 'Enterprise', state: 'OR', zip: '97828', found: true }, checkId: 'fill-1' }];
+    const fn = stubFetch([200, { status: 'confirmed' }]);
+    render(<ConfirmScreen token={TOKEN} view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
+    await waitFor(() => expect(field('City').value).toBe('Enterprise'));
+    expect(['Address line 1', 'Address line 2', 'City', 'State', 'ZIP code'].map((n) => field(n).value))
+      .toEqual(['65156 Powers Rd', 'Dock 5', 'Enterprise', 'OR', '97828']);
+    const moved = { lat: view.pin!.lat + 0.01, lon: view.pin!.lon };
+    expect(lookups(fn)).toEqual([{ url: `/api/confirm/${TOKEN}/lookup`, body: { pin: moved, line2: 'Dock 5' } }]);
+    expect(screen.getByText(/Filled in from the map/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await screen.findByText('Thank you. Your delivery address is confirmed.');
+    expect(posted(fn)[0].body).toEqual({ address: { line1: '65156 Powers Rd', line2: 'Dock 5', city: 'Enterprise', state: 'OR', zip: '97828' },
+      pin: moved, checkId: 'fill-1' });
+  });
+
+  it('AC-LINK-16 (page): editing a field after the fill drops the look-up checkId; a reading with parts missing fills only what it has', async () => {
+    lookupAnswer = [200, { reading: { line1: null, city: 'Enterprise', state: 'OR', zip: '97828', found: true }, checkId: null }];
+    const fn = stubFetch([409, { error: 'needs_second_confirm', checkId: 'c-9', reading: { of: 'pin', found: true, line1: null, city: 'Enterprise', state: 'OR', zip: '97828', distanceM: 900, differs: [] } }]);
+    render(<ConfirmScreen token={TOKEN} view={view} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
+    await waitFor(() => expect(field('City').value).toBe('Enterprise'));
+    expect(field('Address line 1').value).toBe('920 Broad St'); // not read: kept
+    lookupAnswer = [200, { reading: { line1: '1 Main St', city: 'Joseph', state: 'OR', zip: '97846', found: true }, checkId: 'fill-2' }];
+    fireEvent.click(screen.getByRole('button', { name: 'Move pin' }));
+    await waitFor(() => expect(field('City').value).toBe('Joseph'));
+    fireEvent.change(field('Address line 1'), { target: { value: '2 Main St' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    await screen.findByRole('button', { name: 'Confirm again' });
+    expect(posted(fn)[0].body.checkId).toBeUndefined();
   });
 
   it('REQ-LINK-13 (page): changing any field after a reading drops the checkId', async () => {

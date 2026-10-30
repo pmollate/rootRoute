@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SyntheticBadge } from '@/components/dashboard/ui';
 import { ConfirmMap } from './ConfirmMap';
 import s from './confirm.module.css';
@@ -80,19 +80,50 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
   const [expires, setExpires] = useState<string | null>(null);
   useEffect(() => { setExpires(until(view.expiresAt)); }, [view.expiresAt]);
 
+  // REQ-LINK-16: the fields the map filled from the pin, and the look-up's checkId: Confirming them unedited is the
+  // client's second Confirm of the map's reading. Editing a field or moving the pin again drops it.
+  const [filled, setFilled] = useState<{ checkId: string | null } | null>(null);
+  const fieldsNow = useRef(fields);
+  fieldsNow.current = fields;
+  const lookupSeq = useRef(0);
+
   /** A reading only counts for the typed address and pin it was read for: changing any field or the pin drops it (and its checkId). */
   const back = () => setPhase((p) => (p.kind === 'check' ? { kind: 'form', note: null } : p));
   const setField = (k: keyof Fields, v: string) => {
     setFields((f) => ({ ...f, [k]: v }));
+    setFilled(null);
     back();
   };
   const fail = () => { setMapShown(false); setMapReady(false); back(); };
-  const move = (p: LinkPin) => { setPin(p); back(); };
+  const move = (p: LinkPin) => { setPin(p); setFilled(null); back(); void readPin(p); };
+
+  /** REQ-LINK-16: the server reads the pin (no map key or geocoding in the browser, SEC-LINK-08); the latest move wins. */
+  async function readPin(p: LinkPin) {
+    const seq = ++lookupSeq.current;
+    const line2 = fieldsNow.current.line2.trim() || null;
+    const note = (text: string) => setPhase({ kind: 'form', note: text });
+    try {
+      const r = await fetch(`/api/confirm/${encodeURIComponent(token)}/lookup`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store', body: JSON.stringify({ pin: p, line2 }),
+      });
+      if (seq !== lookupSeq.current) return;
+      if (r.status === 404) { setPhase({ kind: 'invalid' }); return; }
+      if (r.status === 429) { note('Too many tries from this connection. Please wait a minute and try again.'); return; }
+      if (r.status !== 200) return; // the fields stay as typed; Confirm still checks them on the map
+      const b = (await r.json()) as { reading: { line1: string | null; city: string | null; state: string | null; zip: string | null; found: boolean }; checkId: string | null };
+      if (seq !== lookupSeq.current || !b.reading.found) return;
+      const { line1, city, state, zip } = b.reading;
+      setFields((f) => ({ ...f, line1: line1 ?? f.line1, city: city ?? f.city, state: state ?? f.state, zip: zip ?? f.zip }));
+      setFilled({ checkId: b.checkId });
+    } catch {
+      // offline: the fields stay as typed
+    }
+  }
 
   async function confirm() {
     const address: LinkAddress = { line1: fields.line1.trim(), line2: fields.line2.trim() || null, city: fields.city.trim(),
       state: fields.state.trim().toUpperCase(), zip: fields.zip.trim() };
-    const checkId = phase.kind === 'check' ? phase.checkId : undefined;
+    const checkId = phase.kind === 'check' ? phase.checkId : filled?.checkId ?? undefined;
     const note = (text: string) => setPhase((p) => (p.kind === 'check' ? { ...p, note: text } : { kind: 'form', note: text }));
     setBusy(true);
     try {
@@ -156,6 +187,7 @@ export function ConfirmScreen({ token, view }: { token: string; view: LinkView }
             <p className={s.muted}>{view.pin ? 'Drag the pin if your delivery entrance is somewhere else.' : 'Drag the pin to your delivery entrance.'}</p>
             <ConfirmMap pin={view.pin ?? NO_PIN_START} credential={view.map} onMove={move} onFail={fail}
               onReady={() => setMapReady(true)} placed={view.pin !== null} />
+            {filled && <p className={s.muted} role="status">Filled in from the map. Check the address above, then Confirm.</p>}
           </div>
         )}
 

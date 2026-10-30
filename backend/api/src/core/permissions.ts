@@ -36,6 +36,7 @@ export const PERMISSIONS: Record<string, Permission> = {
   'POST /api/orders/:ref/events': 'public', // its own Bearer WMS_EVENTS_TOKEN (order journey simulator, design §6)
   'GET /api/confirm/:token': 'public', // token-gated: a valid one-time token in the path, no session, no key (SEC-LINK-05)
   'POST /api/confirm/:token': 'public', // token-gated: a valid one-time token in the path, no session, no key (SEC-LINK-05)
+  'POST /api/confirm/:token/lookup': 'public', // token-gated as above; reads a pin for the page (REQ-LINK-16)
 
   // Reads, by the pages that use them
   'GET /api/overview': { roles: ALL },

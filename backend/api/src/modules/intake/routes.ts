@@ -9,7 +9,7 @@ import { applyAction } from './actions.js';
 import { runAlerts } from './alerts.js';
 import { complaintQueue, deliveryStages, listComplaints, savedTriages, saveTriage, triage } from './complaints.js';
 import { getDeps } from './deps.js';
-import { confirmLink, INVALID, type LinkRow, linkState, viewLink } from './link.js';
+import { confirmLink, INVALID, type LinkRow, linkState, lookupPin, viewLink } from './link.js';
 import { getLinkDeps } from './linkDeps.js';
 import { processEmail } from './pipeline.js';
 import { safeNames } from './reply.js';
@@ -103,6 +103,11 @@ const routes: FastifyPluginAsync = async (app) => {
   });
   app.post<{ Params: { token: string } }>('/confirm/:token', async (req, reply) => {
     const r = await confirmLink(linkDeps(req), getDeps(), req.params.token, req.body);
+    return reply.code(r.code).send(r.body);
+  });
+  // REQ-LINK-16: the map's reading of a pin the client placed, to fill the fields; counted, never uses the link.
+  app.post<{ Params: { token: string } }>('/confirm/:token/lookup', async (req, reply) => {
+    const r = await lookupPin(linkDeps(req), getDeps(), req.params.token, req.body);
     return reply.code(r.code).send(r.body);
   });
 

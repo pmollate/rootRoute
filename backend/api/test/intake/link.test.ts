@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CarrierRecommendation, CarriersApi, PromiseResult, WarehouseApi } from '../../src/core/contracts.js';
 import type { AddressValidator } from '../../src/core/maps/types.js';
 import { applyAction } from '../../src/modules/intake/actions.js';
-import { confirmLink, INVALID, type LinkDeps, linkState, mintLink, viewLink } from '../../src/modules/intake/link.js';
+import { confirmLink, INVALID, type LinkDeps, linkState, lookupPin, mintLink, viewLink } from '../../src/modules/intake/link.js';
 import { hashToken } from '../../src/modules/intake/linkRules.js';
 import { type Deps, processEmail } from '../../src/modules/intake/pipeline.js';
 import { replyFactsOf, templateReply, withoutLinkPlaceholder } from '../../src/modules/intake/reply.js';
@@ -688,5 +688,58 @@ describe('E19 address look-up on Confirm (REQ-LINK-12 to -15)', () => {
     expect((await applyAction(t.mem.repo, t.id, 'approve', 'u1', undefined, { link: t.link })).code).toBe(200);
     expect(t.store.saved).toEqual([{ clientId: 'C025', address: ADDRESS, emailId: t.id, pin: null, confirmedAt: new Date('2026-10-29T10:00:00Z'), synthetic: true }]);
     expect(t.mem.audit.at(-1)).toMatchObject({ action: 'approve', payload: { savedAddress: 'link' } });
+  });
+});
+
+describe('E19 the pin fills the address fields (REQ-LINK-16)', () => {
+  const READ = { line1: '1 Other St', city: 'Boston', state: 'MA', zip: '02210' }; // the fake map's reading of any pin
+
+  it('AC-LINK-16: a pin look-up returns the map\'s reading and a checkId, never uses the link; a Confirm of the filled address is confirmed at once', async () => {
+    const t = await setup(); await t.send();
+    const pin = north(600);
+    const r = await lookupPin(t.link, t.intake, t.tokenOf()!, { pin, line2: 'Dock 1' });
+    expect(r.code).toBe(200);
+    const body = r.body as { reading: typeof READ & { found: boolean }; checkId: string | null };
+    expect(body.reading).toEqual({ ...READ, found: true });
+    expect(body.checkId).toEqual(expect.any(String));
+    expect(t.store.rows[0]).toMatchObject({ used_at: null, map_lookups: 1 });
+    expect(t.events.map((e) => e.event)).toContain('link_pin_read');
+
+    const forwardBefore = t.mode.forwardCalls;
+    const ok = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: { ...READ, line2: 'Dock 1' }, pin, checkId: body.checkId });
+    expect(ok.code).toBe(200); // 600 m from the start would otherwise ask a second Confirm (REQ-LINK-03)
+    expect(t.mode.forwardCalls).toBe(forwardBefore); // the client confirmed the map's own reading: no further look-up
+    expect(t.store.rows[0]).toMatchObject({ confirmed_address: { ...READ, line2: 'Dock 1' }, lat: pin.lat, lon: pin.lon });
+  });
+
+  it('AC-LINK-16: an edited field after the fill drops the checkId: the usual checks run', async () => {
+    const t = await setup(); await t.send();
+    const pin = north(600);
+    const r = await lookupPin(t.link, t.intake, t.tokenOf()!, { pin, line2: 'Dock 1' });
+    const checkId = (r.body as { checkId: string }).checkId;
+    const edited = await confirmLink(t.link, t.intake, t.tokenOf()!, { address: { ...READ, line2: 'Dock 1', city: 'Cambridge' }, pin, checkId });
+    expect(edited.code).toBe(409);
+    expect(t.store.rows[0].used_at).toBeNull();
+  });
+
+  it('AC-LINK-16: invalid body 400; unknown link 404; the 21st map look-up 429; map down 503; the link stays unused', async () => {
+    const t = await setup(); await t.send();
+    expect((await lookupPin(t.link, t.intake, t.tokenOf()!, { pin: { lat: 91, lon: 0 } })).code).toBe(400);
+    expect(await lookupPin(t.link, t.intake, 'A'.repeat(43), { pin: START })).toEqual({ code: 404, body: INVALID });
+    t.mode.reverseDown = true;
+    expect(await lookupPin(t.link, t.intake, t.tokenOf()!, { pin: START })).toEqual({ code: 503, body: { error: 'map_unavailable' } });
+    t.mode.reverseDown = false;
+    t.store.rows[0].map_lookups = 20;
+    expect(await lookupPin(t.link, t.intake, t.tokenOf()!, { pin: START })).toEqual({ code: 429, body: { error: 'rate_limited' } });
+    expect(t.store.rows[0].used_at).toBeNull();
+  });
+
+  it('AC-LINK-16: a reading without all four parts fills what it has and gives no checkId', async () => {
+    const t = await setup(); await t.send();
+    t.intake.maps.reverse = async () => ({ features: [{ properties: { type: 'Address', confidence: 'Low',
+      address: { locality: 'Boston', postalCode: '02210', adminDistricts: [{ shortName: 'MA' }] } } }] });
+    t.link.maps = t.intake.maps;
+    const r = await lookupPin(t.link, t.intake, t.tokenOf()!, { pin: START });
+    expect(r).toEqual({ code: 200, body: { reading: { line1: null, city: 'Boston', state: 'MA', zip: '02210', found: true }, checkId: null } });
   });
 });

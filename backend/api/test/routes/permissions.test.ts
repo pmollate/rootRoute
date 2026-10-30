@@ -51,6 +51,7 @@ describe('permission matrix (SPEC-auth §4.2)', () => {
     // AC-SEC-LINK-05: E19's confirm routes are public and token-gated (a valid one-time token in the path).
     expect(who('GET', '/api/confirm/:token')).toBe('public');
     expect(who('POST', '/api/confirm/:token')).toBe('public');
+    expect(who('POST', '/api/confirm/:token/lookup')).toBe('public'); // REQ-LINK-16
     expect(who('POST', '/api/intake/:id/action', { action: 'approve' })).toEqual(['order_desk', 'admin']);
     expect(who('POST', '/api/intake/:id/action', { action: 'reject' })).toEqual(['order_desk', 'admin']);
     expect(who('POST', '/api/intake/:id/action', { action: 'send_reply' })).toEqual(['order_desk', 'admin']);

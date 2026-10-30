@@ -22,6 +22,7 @@ describe('E19 confirm routes: the token never reaches a log line', () => {
     await app.inject({ method: 'GET', url: `/api/confirm/${token}` });
     await app.inject({ method: 'GET', url: `/api/confirm/${token}?x=1` });
     await app.inject({ method: 'GET', url: `/api/confirm/${token}/more` }); // unmatched: the auth hook's route field
+    await app.inject({ method: 'POST', url: `/api/confirm/${token}/lookup`, payload: { pin: { lat: 45.4, lon: -117.3 } } }); // REQ-LINK-16
     await app.close();
     expect(lines.length).toBeGreaterThan(0);
     for (const l of lines) expect(l).not.toContain(token);
@@ -32,7 +33,8 @@ describe('E19 confirm routes: the token never reaches a log line', () => {
     const app = await buildApp({ auth: AUTH_ON });
     const t = newToken();
     for (const res of [await app.inject({ method: 'GET', url: `/api/confirm/${t}` }),
-      await app.inject({ method: 'POST', url: `/api/confirm/${t}`, payload: {} })]) {
+      await app.inject({ method: 'POST', url: `/api/confirm/${t}`, payload: {} }),
+      await app.inject({ method: 'POST', url: `/api/confirm/${t}/lookup`, payload: { pin: { lat: 45.4, lon: -117.3 } } })]) { // REQ-LINK-16
       expect([res.statusCode, res.body]).toEqual([404, '{"error":"link_invalid"}']);
     }
     expect((await app.inject({ method: 'GET', url: '/api/overview' })).statusCode).toBe(401);

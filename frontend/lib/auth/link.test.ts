@@ -40,7 +40,13 @@ describe('E19 address link at the web app (SEC-LINK-04, -05, -07)', () => {
     expect(new Headers(fetch.mock.calls[0][1]!.headers).get('authorization')).toBeNull();
     const other = api();
     expect((await proxy(new Request('https://web.example/api/overview'), ['overview'], { session: null, settings: on, fetch: other })).status).toBe(401);
-    // deeper paths are not link routes
+    // REQ-LINK-16: the pin look-up is a link route too (no session, no key); it counts in the per-IP limit
+    const look = api();
+    expect((await proxy(new Request(`https://web.example/api/confirm/${TOKEN}/lookup`), ['confirm', TOKEN, 'lookup'],
+      { session: null, settings: on, fetch: look })).status).toBe(200);
+    expect(new Headers(look.mock.calls[0][1]!.headers).get('x-api-key')).toBeNull();
+    expect(linkGate(`/api/confirm/${TOKEN}/lookup`, '9.9.9.9', true, new RateLimiter(1, 60_000, () => 0)).kind).toBe('pass');
+    // any other deeper path is not a link route
     expect((await proxy(new Request(`https://web.example/api/confirm/${TOKEN}/x`), ['confirm', TOKEN, 'x'],
       { session: null, settings: on, fetch: other })).status).toBe(401);
   });

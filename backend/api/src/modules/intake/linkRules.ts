@@ -99,6 +99,12 @@ export const ConfirmBody = z.object({
 }).strict();
 export type ConfirmInput = z.infer<typeof ConfirmBody>;
 
+/** REQ-LINK-16: the pin to read, and the client's line 2 (kept, and bound into the pending check with the reading). */
+export const LookupBody = z.object({
+  pin: ConfirmBody.shape.pin.unwrap(),
+  line2: ConfirmBody.shape.address.shape.line2,
+}).strict();
+
 /**
  * REQ-LINK-03: when a pin is sent, a second Confirm is needed when it moved > 500 m, the ZIP changed, or there was no
  * start pin. With no pin sent this rule does not apply: the typed address is checked on the map instead (REQ-LINK-12).

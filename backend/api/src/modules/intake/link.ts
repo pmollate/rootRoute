@@ -6,7 +6,7 @@ import type { CarrierRecommendation, PromiseResult, WarehouseChoice } from '../.
 import type { AddressValidator, GeocodeResponse } from '../../core/maps/types.js';
 import type { AddressCheck } from './address.js';
 import { decide } from './decide.js';
-import { addressDiffers, type AddressPart, ConfirmBody, type ConfirmInput, distanceM, hashPrefix, hashToken, LINK_PLACEHOLDER, linkExpiry, MAX_MAP_LOOKUPS,
+import { addressDiffers, type AddressPart, ConfirmBody, type ConfirmInput, LookupBody, distanceM, hashPrefix, hashToken, LINK_PLACEHOLDER, linkExpiry, MAX_MAP_LOOKUPS,
   needsSecondConfirm, newToken, TOKEN_SHAPE } from './linkRules.js';
 import { senderAddress } from './mailbox.js';
 import type { Deps } from './pipeline.js';
@@ -302,6 +302,54 @@ export async function confirmLink(d: LinkDeps, intake: Deps, token: string, body
   if (!done) return { code: 404, body: INVALID };
   d.log('link_confirmed', fieldsOf(l));
   return { code: 200, body: { status: 'confirmed' } };
+}
+
+export type LookupResult =
+  | { code: 200; body: { reading: { line1: string | null; city: string | null; state: string | null; zip: string | null; found: boolean }; checkId: string | null } }
+  | { code: 400; body: { error: 'invalid' } }
+  | { code: 404; body: typeof INVALID }
+  | { code: 429; body: { error: 'rate_limited' } }
+  | { code: 503; body: { error: 'map_unavailable' } };
+
+/**
+ * POST /api/confirm/:token/lookup (REQ-LINK-16): the map's reading of the pin the client placed, so the page can fill
+ * the fields. Server-side reverse geocoding (SEC-LINK-08), counted in the 20 look-ups (SEC-LINK-04); never uses the link
+ * (SEC-LINK-06). With all four parts read, the reading is stored as a pending check for that pin and the filled address
+ * (the client's line 2 kept): a Confirm of exactly that is the client's second Confirm of the map's reading.
+ */
+export async function lookupPin(d: LinkDeps, intake: Deps, token: string, body: unknown): Promise<LookupResult> {
+  const l = await find(d, token);
+  if (!l) return { code: 404, body: INVALID };
+  if ((await intake.repo.getEmail(l.email_id))?.status !== 'SENT') return { code: 404, body: INVALID };
+  const parsed = LookupBody.safeParse(body);
+  if (!parsed.success) {
+    d.log('link_refused', { ...fieldsOf(l), why: 'invalid' });
+    return { code: 400, body: { error: 'invalid' } };
+  }
+  const { pin, line2 } = parsed.data;
+  if ((await d.links.countLookup(l.id)) > MAX_MAP_LOOKUPS) {
+    d.log('link_refused', { ...fieldsOf(l), why: 'map_lookups' });
+    return { code: 429, body: { error: 'rate_limited' } };
+  }
+  let g: GeocodeResponse;
+  try {
+    if (!d.maps.reverse) throw new Error(`the map provider ${d.maps.name} cannot reverse-geocode`);
+    g = await d.maps.reverse(pin);
+  } catch {
+    d.log('link_refused', { ...fieldsOf(l), why: 'map_unavailable' }); // the map's error is not logged with the link
+    return { code: 503, body: { error: 'map_unavailable' } };
+  }
+  const found = g.features.length > 0;
+  const read = found ? parts(g) : NOT_FOUND;
+  let checkId: string | null = null;
+  if (read.line1 && read.city && read.state && read.zip) {
+    checkId = randomUUID();
+    const address: LinkAddress = { line1: read.line1, line2: line2 ?? null, city: read.city, state: read.state, zip: read.zip };
+    await d.links.setReading(l.id, { checkId, pin, address,
+      reading: pinReading(g, l.prefill.pin, pin, []) });
+  }
+  d.log('link_pin_read', { ...fieldsOf(l), found, complete: checkId !== null });
+  return { code: 200, body: { reading: { ...read, found }, checkId } };
 }
 
 /**

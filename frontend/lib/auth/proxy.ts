@@ -17,7 +17,7 @@ export interface ProxyDeps {
 }
 
 /** E19 (SEC-LINK-05): the address-link routes are public and token-gated; they get no session, key or internal token. */
-export const isLinkRoute = (path: string) => /^\/api\/confirm\/[^/]+$/.test(path);
+export const isLinkRoute = (path: string) => /^\/api\/confirm\/[^/]+(\/lookup)?$/.test(path); // REQ-LINK-16: and its pin look-up
 
 const json = (status: number, body: object) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
