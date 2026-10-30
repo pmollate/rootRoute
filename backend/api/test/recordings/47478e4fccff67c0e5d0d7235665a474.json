@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"Root Route's tools don't hold that. I can't send or approve orders. I can, from your data, show things that help decide whether to approve: carrier recommendation for a lane and commitment, the delivery date Root Route would promise for an order received at a time, on-time rates and penalties (overview), the five causes of lateness and how many deliveries each affects, and replay scenarios that show the best routing vs fixing pre-pickup causes. Say which of those you want (carrier, promise, causes, overview or replay) and I will fetch it.\\\",\\\"refused\\\":true}\"}"
+}

@@ -1,4 +1,0 @@
-{
-  "kind": "tool",
-  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_z7OugIvh1ziDHDfFrrh95g8R\",\"name\":\"overview\",\"arguments\":\"{}\"},{\"id\":\"call_hjRKvCgcesjwyP2SdEBl499i\",\"name\":\"scenario\",\"arguments\":\"{\\\"segment\\\": \\\"all\\\"}\"}]}"
-}

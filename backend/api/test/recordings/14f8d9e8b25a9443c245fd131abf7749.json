@@ -1,4 +1,0 @@
-{
-  "kind": "tool",
-  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_cDVwQPJl1UomVizUJtKYiQzH\",\"name\":\"overview\",\"arguments\":\"{}\"},{\"id\":\"call_zXN1jnELnrK4aEFreJIbTgqd\",\"name\":\"delivery_causes\",\"arguments\":\"{\\\"segment\\\": \\\"all\\\"}\"},{\"id\":\"call_U2FeOcryamqe6ukliB4Vf2i2\",\"name\":\"scenario\",\"arguments\":\"{\\\"segment\\\": \\\"all\\\"}\"}]}"
-}

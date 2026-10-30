@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"Root Route's tools don't hold that. I can't access or list other clients. I can only report Halcyon Logistics' delivery data in Root Route: on-time and late rates, the five delivery causes and how many deliveries they affect, the replay scenarios (what fixing causes or rerouting would change), Root Route's blocked carrier lanes and per-lane scores, which carrier Root Route would book for a specific order, and the delivery promise calculator for a received order time. If you want any of those about Halcyon, tell me which (for example: on-time rate vs 94% benchmark, causes by deliveries affected, or a replay of fixes) and I will fetch the data.\\\",\\\"refused\\\":true}\"}"
+}
