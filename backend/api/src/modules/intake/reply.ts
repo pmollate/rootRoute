@@ -4,6 +4,7 @@ import type { PromiseResult } from '../../core/contracts.js';
 import type { LLM } from '../../core/llm/types.js';
 import type { AddressQuery } from '../../core/maps/types.js';
 import type { Decision } from './decide.js';
+import { LINK_PLACEHOLDER } from './linkRules.js';
 import type { SavedAddress } from './schema.js';
 import type { AddressIssue } from './validate.js';
 
@@ -19,6 +20,7 @@ export interface ReplyFacts {
   address: string | null;          // the address as given, when the map could not confirm it
   addressIssues: AddressIssue[];
   suggestion: AddressQuery | null; // the map's reading (never a different street)
+  link?: boolean;                  // E19 CONFIRM_LINK=on: a CONFIRM_ADDRESS reply carries [CONFIRM_LINK] (REQ-LINK-01)
 }
 
 const FIELD_LABEL: Record<string, string> = {
@@ -47,6 +49,7 @@ export function requiredPhrases(f: ReplyFacts): string[] {
   if (f.decision === 'CONFIRM_ADDRESS') {
     out.push(...missingLabels(f.missing), ...f.addressIssues.map((i) => ISSUE_LABEL[i]));
     if (f.addressIssues.includes('zip_mismatch') && f.suggestion) out.push(f.suggestion.zip);
+    if (f.link) out.push(LINK_PLACEHOLDER); // a model draft without it falls back to the template
   }
   return [...new Set(out)];
 }
@@ -82,7 +85,8 @@ export function templateReply(f: ReplyFacts): string {
       : `Before we ship, please check the delivery address you gave: ${f.address}. `
         + `${issueSentences(f) || 'We could not confirm it on the map.'} Please reply with the correct `
         + `${f.addressIssues.length ? [...new Set(f.addressIssues.map((i) => ISSUE_LABEL[i]))].join(', ') : 'street address and ZIP code'}.`;
-    return `${hello}\n\nThank you for your order:\n${items}\n\n${ask}${options}\n\n${promise}\n\nHalcyon Logistics`;
+    const link = f.link ? `\n\nOr confirm the address on a map with this one-time link: ${LINK_PLACEHOLDER}` : '';
+    return `${hello}\n\nThank you for your order:\n${items}\n\n${ask}${options}${link}\n\n${promise}\n\nHalcyon Logistics`;
   }
   return `${hello}\n\nYour order is confirmed:\n${items}\n\n${promise}\n\nHalcyon Logistics`;
 }

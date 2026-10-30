@@ -232,13 +232,13 @@ module exposes `build(ctx) -> dict[str, DataFrame]`; later modules may read earl
 | Range | Owner | Tables |
 |---|---|---|
 | `001–099` | B | `audit_log` |
-| `100–199` | A | `client_domains`, `saved_addresses`, `intake_emails`, `intake_extractions`, `outbound_messages`, `inbound_orders`, `alerts`, `complaint_triage`, `intake_polls` (101: one row per Gmail check — trigger `schedule` \| `button`, query, started_at, finished_at, fetched, processed, retried, failed, ok, error); `address_confirm_tokens` and new `saved_addresses` columns (102, E19, after submission; below) |
+| `100–199` | A | `client_domains`, `saved_addresses`, `intake_emails`, `intake_extractions`, `outbound_messages`, `inbound_orders`, `alerts`, `complaint_triage`, `intake_polls` (101: one row per Gmail check — trigger `schedule` \| `button`, query, started_at, finished_at, fetched, processed, retried, failed, ok, error); `address_confirm_tokens` and new `saved_addresses` columns (103, E19, after submission; below) |
 | `200–299` | B | (none planned) |
 | `300–399` | C | `recommendations`, `override_log` |
 
 D10 (assistant) adds **no table**: questions and answers are not stored (SEC-ASK-03).
 
-**Migration `102_address_links.sql`** (A; E19, SPEC §5.17). Reuses `saved_addresses` rather than a new
+**Migration `103_address_links.sql`** (A; E19, SPEC §5.17). Reuses `saved_addresses` rather than a new
 `client_addresses` table: the intake already reads it for matches and candidates.
 
 | Table | Column | Type | Note |
@@ -257,7 +257,7 @@ D10 (assistant) adds **no table**: questions and answers are not stored (SEC-ASK
 | | `synthetic` | boolean NOT NULL | true for every demo order |
 | `saved_addresses` (new columns) | `source` | text NOT NULL DEFAULT `'seed'` | `seed` \| `link`. The seed (`npm run seed`) owns only `seed` rows: it deletes and rewrites those and never touches `link` rows (REQ-LINK-05) |
 | | `lat`, `lon` | double precision | from the confirmed pin |
-| | `email_id` | int → `intake_emails(id)` | the order whose approval saved it |
+| | `email_id` | int (no foreign key) | the order whose approval saved it; no FK so that `TRUNCATE intake_emails … CASCADE` (a demo or test reset) cannot empty `saved_addresses`. Provenance only: after a reset with `RESTART IDENTITY` the id can match a newer email, so never join on it |
 | | `confirmed_at` | timestamptz | when the client confirmed it |
 
 Index: `address_confirm_tokens (email_id) WHERE used_at IS NULL AND revoked_at IS NULL`. A `source = 'link'` row is
@@ -334,4 +334,4 @@ the Maps data-reader role). Both are for the SAS tile credential (SEC-LINK-08, Q
 - Every test names the acceptance criteria it covers, e.g. `it('AC-PRO-01: …')` / `def test_ac_diag_01_…`.
 - Commit messages: `feat(a): …`, `fix(b): …`, `test(c): …`, `docs: …`.
 - Never edit `Halcyon-Hackathon-Dataset/`. Never commit `.env` or anything under `backend/synthetic-data/out/`.
-- Folders per resource: A owns `backend/analytics/intake`, `backend/api/src/modules/intake`, `frontend/components/dashboard/intake`, `frontend/app/dashboard/intake`; B owns `core` and `warehouse` in the same places plus `overview` and `replay` screens; C owns `carriers` (and `mcp`, and after submission `backend/api/src/modules/assistant` and `frontend/components/dashboard/assistant`). E19 sits in A's folders (`modules/intake/link.ts`, migration 102, `frontend/app/confirm/`), built by C only if A agrees (SPEC Q-LINK-01). Shared: `frontend/config/dashboard.ts` (screen list), `frontend/components/dashboard/ui.tsx`.
+- Folders per resource: A owns `backend/analytics/intake`, `backend/api/src/modules/intake`, `frontend/components/dashboard/intake`, `frontend/app/dashboard/intake`; B owns `core` and `warehouse` in the same places plus `overview` and `replay` screens; C owns `carriers` (and `mcp`, and after submission `backend/api/src/modules/assistant` and `frontend/components/dashboard/assistant`). E19 sits in A's folders (`modules/intake/link.ts`, migration 103, `frontend/app/confirm/`), built by C only if A agrees (SPEC Q-LINK-01). Shared: `frontend/config/dashboard.ts` (screen list), `frontend/components/dashboard/ui.tsx`.

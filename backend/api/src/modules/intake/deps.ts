@@ -1,3 +1,4 @@
+import { config } from '../../core/config.js';
 import { createGmailClient } from '../../core/gmail.js';
 import { createLLM } from '../../core/llm/index.js';
 import { createAddressValidator } from '../../core/maps/index.js';
@@ -20,7 +21,7 @@ function gmailOrNull(): Deps['gmail'] {
 
 export function getDeps(): Deps {
   current ??= { llm: createLLM(), pii: createPiiDetector(), maps: createAddressValidator(), repo,
-    warehouse: warehouseApi, carriers: carriersApi, gmail: gmailOrNull() };
+    warehouse: warehouseApi, carriers: carriersApi, gmail: gmailOrNull(), confirmLink: config.CONFIRM_LINK === 'on' };
   return current;
 }
 

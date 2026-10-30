@@ -43,7 +43,7 @@ frontend/public/mock-wms.html  frontend/bots/wms-entry.ts (stretch)
 backend/api/src/modules/intake/review.ts  backend/api/test/intake/review.test.ts  backend/api/test/routes/review.test.ts  (A14)
 frontend/components/dashboard/intake/OrderReview.tsx (+ .test.tsx)  (A14: a mode of the Order emails desk)
 frontend/components/dashboard/complaints/ComplaintsScreen.tsx (+ .test.tsx)  frontend/app/dashboard/complaints/page.tsx  (A15)
-backend/db/migrations/102_address_links.sql   backend/api/src/modules/intake/{linkRules,link,linkDeps}.ts  (E19, A16–A18)
+backend/db/migrations/103_address_links.sql   backend/api/src/modules/intake/{linkRules,link,linkDeps}.ts  (E19, A16–A18)
 backend/api/test/intake/{link-rules,link-draft,link}.test.ts  backend/api/test/intake/memoryLinks.ts  backend/api/test/routes/link.test.ts
 frontend/app/confirm/[token]/{page,not-found}.tsx  frontend/components/confirm/  frontend/lib/confirm/load.ts  frontend/e2e/confirm.spec.ts  (A19)
 ```
@@ -4194,7 +4194,7 @@ git commit -m "feat(a): complaints screen, escalation first, poll log names its 
 ## After submission: E19 one-time address link (added 29 Oct, planner)
 
 > **Owner A; built by C (Q-LINK-01 answered 29 Oct: A agrees, A reviews); after submission.** E19 lives in A's folders (intake module,
-> migration 102, the order review), so nothing below starts until the Email owner agrees and says who builds it.
+> migration 103, the order review), so nothing below starts until the Email owner agrees and says who builds it.
 > `CONFIRM_LINK` defaults to off (REQ-LINK-09): every PR can merge with the feature dark. Other open questions use the
 > SPEC default and are named on the step they touch: Q-LINK-02 (tile credential: A20 only), Q-LINK-03 (lifetime and
 > time zone: A16 Step 3 uses `MAILBOX_TIMEZONE`, today `[HALCYON_TIMEZONE]`), Q-LINK-04 (promise from the arrival time:
@@ -4209,7 +4209,7 @@ Five tasks, one PR each, in order **A16 → A17 → A18 → A19 → A20**. A16�
 the Maps account (not in our resource group today).
 
 **Read first:** SPEC §5.3 steps 11–14, REQ-INT-09, §5.17 (flow, lifetime, threat model L1–L11, REQ/NFR/SEC-LINK-*),
-§12 Q-LINK-01 to -06; CONTRACTS §1.1 (`LinkView`, `MapReading`, `LinkState`), §5 (migration 102), §6 (confirm routes
+§12 Q-LINK-01 to -06; CONTRACTS §1.1 (`LinkView`, `MapReading`, `LinkState`), §5 (migration 103), §6 (confirm routes
 and the intake rows), §7; SPEC-auth §4.2, REQ-AUTH-01, -04, T15; `docs/SPEC-email-address-resolution.md` §9 (token
 rules only). Code: `modules/intake/{actions,pipeline,reply,repo,review,routes,address,decide,mailbox,seed}.ts`,
 `core/maps/*`, `frontend/middleware.ts`, `frontend/lib/auth/{proxy,demo}.ts`, `frontend/auth.ts` (`clientIp`).
@@ -4218,7 +4218,7 @@ rules only). Code: `modules/intake/{actions,pipeline,reply,repo,review,routes,ad
 ran: API `tsc` clean; `link-rules.test.ts` 6, `link-draft.test.ts` 3, `link.test.ts` 10 passing; the whole backend
 suite 289 passing with two failures that only lack the gitignored `synthetic-data/out/` files (`oracle`, `eval`; they
 pass in a normal checkout). A19 Steps 1–3 ran: frontend `tsc` clean, `link.test.ts` 5 passing, all 81 frontend tests
-passing. Not run: migration 102 (A16 Step 7) and the SQL in `linkRepo` (A17 Step 4b), the routes on the test database (A18), the
+passing. Not run: migration 103 (A16 Step 7) and the SQL in `linkRepo` (A17 Step 4b), the routes on the test database (A18), the
 confirm page and map (A19 Steps 4–8), anything in Azure (A20).
 
 **Commands.** Backend: `npm --prefix backend/api test -- <files>`. Frontend: `npm --prefix frontend test -- <files>`
@@ -4238,15 +4238,23 @@ confirm page and map (A19 Steps 4–8), anything in Azure (A20).
 
 ---
 
-### Task A16 (E19, part 1): Migration 102, link rules, reply placeholder
+### Task A16 (E19, part 1): Migration 103, link rules, reply placeholder
 
 **Branch:** `A16-link-data` · **REQ:** REQ-LINK-01 (draft half), REQ-LINK-09 (drafts), SEC-LINK-01, SEC-LINK-02
 (lifetime), SEC-LINK-10, REQ-INT-09 (`confirmed` status) · **AC:** AC-LINK-01 (draft half), AC-LINK-03 (rule),
 AC-LINK-09 (drafts), AC-SEC-LINK-01 (token shape), AC-SEC-LINK-02 (lifetime examples), AC-SEC-LINK-10 ·
 **Blocked by:** Q-LINK-01 (whole task); Q-LINK-03 (lifetime numbers are the SPEC defaults).
 
+> **As built (30 Oct, `A16-link-data`; run record `docs/agent-runs/2026-10-30-implementer-A16-link-data.md`).** Follows
+> SPEC v0.12 where this task's code predates it: `linkExpiry(receivedAt, sentAt: Date, hours, timeZone)` returns a
+> `Date` and works on instants (cut-off via `localToInstant` in the IANA zone), not wall-clock minutes; tests use the
+> AC-SEC-LINK-02 instants incl. the DST example. Migration is `103` (102 is `client_emails`). `saved_addresses.email_id`
+> has no foreign key (a `TRUNCATE intake_emails … CASCADE` would empty the table). The seed moved into `seedTables.ts`
+> (`writeSeed`) so AC-LINK-05 is tested; `checkConfirmLink` in `config.ts` is the REQ-LINK-09 start check;
+> `test/setup.ts` pins `CONFIRM_LINK=off`.
+
 **Files:**
-- Create: `backend/db/migrations/102_address_links.sql`, `backend/api/src/modules/intake/linkRules.ts`,
+- Create: `backend/db/migrations/103_address_links.sql`, `backend/api/src/modules/intake/linkRules.ts`,
   `backend/api/test/intake/link-rules.test.ts`, `backend/api/test/intake/link-draft.test.ts`
 - Modify: `backend/api/src/modules/intake/reply.ts` (`ReplyFacts.link`, required phrase, template line),
   `backend/api/src/modules/intake/pipeline.ts` (`Deps.confirmLink`), `backend/api/src/modules/intake/deps.ts`,
@@ -4263,7 +4271,7 @@ AC-LINK-09 (drafts), AC-SEC-LINK-01 (token shape), AC-SEC-LINK-02 (lifetime exam
   the `LinkRepo` interface it implements.)
 - With the flag off nothing a user sees changes: same drafts, same required phrases, same recordings.
 
-- [ ] **Step 1: Write the failing rule tests** `backend/api/test/intake/link-rules.test.ts`:
+- [x] **Step 1: Write the failing rule tests** `backend/api/test/intake/link-rules.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -4319,7 +4327,7 @@ describe('E19 link rules', () => {
 
   Run `npm --prefix backend/api test -- test/intake/link-rules.test.ts`. Expected: FAIL, module not found.
 
-- [ ] **Step 2: Implement** `backend/api/src/modules/intake/linkRules.ts` (no AI anywhere in E19):
+- [x] **Step 2: Implement** `backend/api/src/modules/intake/linkRules.ts` (no AI anywhere in E19):
 
 ```ts
 // E19 one-time address link (SPEC §5.17, owner A): the pure rules. No AI model anywhere in this flow.
@@ -4403,12 +4411,11 @@ export function needsSecondConfirm(start: { pin: { lat: number; lon: number } | 
 }
 ```
 
-- [ ] **Step 3: Run.** Expected: PASS (6). The three AC-SEC-LINK-02 examples are wall-clock times in
-  `MAILBOX_TIMEZONE`; arithmetic is in whole minutes, so a link that spans a daylight-saving change is off by the
-  shift (at most one hour, and only twice a year). Q-LINK-03 (time zone and margin) is open: the numbers are the SPEC
-  defaults, held as named constants.
+- [x] **Step 3: Run.** Expected: PASS. ~~Wall-clock, whole-minute arithmetic~~ superseded by SPEC v0.12: the lifetime
+  works on UTC instants with the zone's DST rules (see "As built" above and AC-SEC-LINK-02's DST example).
+  Q-LINK-03 (time zone and margin) is open: the numbers are the SPEC defaults, held as named constants.
 
-- [ ] **Step 4: Write the failing draft tests** `backend/api/test/intake/link-draft.test.ts`:
+- [x] **Step 4: Write the failing draft tests** `backend/api/test/intake/link-draft.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -4441,7 +4448,7 @@ describe('E19 reply draft (REQ-LINK-01, -09)', () => {
 
   Run. Expected: FAIL on the first test (`[CONFIRM_LINK]` not in the template).
 
-- [ ] **Step 5: Implement the placeholder.**
+- [x] **Step 5: Implement the placeholder.**
   1. `reply.ts`: `import { LINK_PLACEHOLDER } from './linkRules.js';`; add to `ReplyFacts`
      `link?: boolean; // E19 CONFIRM_LINK=on: a CONFIRM_ADDRESS reply carries [CONFIRM_LINK] (REQ-LINK-01)`; in
      `requiredPhrases`, inside the `CONFIRM_ADDRESS` branch, after the ZIP line:
@@ -4475,11 +4482,11 @@ describe('E19 reply draft (REQ-LINK-01, -09)', () => {
      and at the end of the file, fail closed:
      `if (config.CONFIRM_LINK === 'on' && !config.AUTH_URL) throw new Error('CONFIRM_LINK=on needs AUTH_URL: refusing to start');`
 
-- [ ] **Step 6: Run.** `npm --prefix backend/api test -- test/intake && npm run typecheck`
+- [x] **Step 6: Run.** `npm --prefix backend/api test -- test/intake && npm run typecheck`
   Expected: PASS. Every existing intake test and recording is unchanged because the flag is off in `test/setup.ts`.
 
-- [ ] **Step 7: Migration and seed** (needs the test database; not run on the planning machine).
-  1. `backend/db/migrations/102_address_links.sql`:
+- [x] **Step 7: Migration and seed** (needs the test database; not run on the planning machine).
+  1. `backend/db/migrations/103_address_links.sql`:
 
 ```sql
 -- Owner A. E19 one-time address link (SPEC §5.17, CONTRACTS §5). After submission; CONFIRM_LINK defaults to off.
@@ -4517,10 +4524,10 @@ ALTER TABLE saved_addresses
   4. Run `npm run migrate:test && npm run seed:test`, then
      `psql "$TEST_DATABASE_URL" -c '\d address_confirm_tokens' -c '\d saved_addresses'`: the columns of CONTRACTS §5.
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
 
 ```bash
-git add backend/db/migrations/102_address_links.sql backend/api/src/modules/intake backend/api/src/core/config.ts \
+git add backend/db/migrations/103_address_links.sql backend/api/src/modules/intake backend/api/src/core/config.ts \
   backend/api/test/intake/link-rules.test.ts backend/api/test/intake/link-draft.test.ts .env.example
 git commit -m "feat(a): address link data, rules and reply placeholder (E19, REQ-LINK-01, SEC-LINK-01, -02, -10)"
 ```
@@ -4528,6 +4535,15 @@ git commit -m "feat(a): address link data, rules and reply placeholder (E19, REQ
 ---
 
 ### Task A17 (E19, part 2): Mint at `send_reply`, open, confirm, decide again, save on approval
+
+> **From the A16 review (30 Oct, `docs/agent-runs/2026-10-30-reviewer-A16-link-data.md`), A17 must also:**
+> - remove the "not available yet" line in `checkConfirmLink` (`core/config.ts`) in the same commit that replaces
+>   `[CONFIRM_LINK]` at send time, and change `test/intake/link-config.test.ts` back to "on with AUTH_URL starts";
+> - trim a trailing `/` from `AUTH_URL` when building `<AUTH_URL>/confirm/<token>`;
+> - give `repo.savedAddresses` a stable order that does not depend on `id` (a re-seed gives seed rows new, higher ids,
+>   so a kept `source='link'` row would sort first and change prompts and recordings); add a re-seed test with a link row;
+> - when the flag is off at send time, strip only the placeholder sentence, or re-check the required phrases after
+>   stripping and fall back to the template (a model draft may put `[CONFIRM_LINK]` on the line with the promise date).
 
 **Branch:** `A17-link-service` · **REQ:** REQ-LINK-01 (send half), -03, -04, -05, -07, -08, SEC-LINK-01, -02, -03,
 -04 (look-ups), -06, -09, -11, REQ-INT-09 · **AC:** AC-LINK-01, -03, -04, -05, -07, -08, AC-SEC-LINK-01, -02, -03, -04
@@ -4542,7 +4558,7 @@ time); Q-LINK-05 (Step 1: minting lives only in `send_reply`).
   (`GeocodeFeature.geometry`, optional `reverse`), `backend/api/src/core/maps/{azureMaps,recorded}.ts` (`reverse`)
 
 **Interfaces:**
-- Consumes: A16's rules and migration 102; `Deps` (intake: `repo`, `warehouse`, `carriers`); `decide`, `regionOfState`,
+- Consumes: A16's rules and migration 103; `Deps` (intake: `repo`, `warehouse`, `carriers`); `decide`, `regionOfState`,
   `templateReply`; `AddressValidator.geocode` (start pin from the recorded feature's `geometry`, which every saved map
   recording already holds) and `reverse` (new).
 - Produces: `link.ts`: `LinkRepo`, `LinkRow`, `LinkDeps`, `MapCredentials`, `LinkView`, `MapReading`, `LinkState`,
@@ -4557,7 +4573,7 @@ time); Q-LINK-05 (Step 1: minting lives only in `send_reply`).
 ```ts
 import type { LinkRepo, LinkRow } from '../../src/modules/intake/link.js';
 
-/** In-memory stand-in for migration 102 (address_confirm_tokens, saved_addresses source 'link'). */
+/** In-memory stand-in for migration 103 (address_confirm_tokens, saved_addresses source 'link'). */
 export function memoryLinks(parents: () => { id: number; in_reply_to: number | null }[]) {
   const rows: LinkRow[] = [];
   const saved: Parameters<LinkRepo['saveAddress']>[0][] = [];
@@ -4807,7 +4823,7 @@ export interface LinkRow {
 }
 export type NewLink = Pick<LinkRow, 'token_hash' | 'email_id' | 'issued_at' | 'expires_at' | 'issued_by' | 'prefill' | 'synthetic'>;
 
-/** Migration 102's tables (A). Implemented in repo.ts (`linkRepo`) and test/intake/memoryLinks.ts. */
+/** Migration 103's tables (A). Implemented in repo.ts (`linkRepo`) and test/intake/memoryLinks.ts. */
 export interface LinkRepo {
   /** Every email of the order: the first email and every client answer below it (REQ-LINK-08). */
   orderEmailIds(emailId: number): Promise<number[]>;
@@ -5041,7 +5057,7 @@ const withoutPlaceholder = (text: string) => text.split('\n').filter((l) => !l.i
   `import type { LinkRepo, LinkRow } from './link.js';`:
 
 ```ts
-/** Migration 102 (E19). Only the token's hash is ever read or written (SEC-LINK-01). */
+/** Migration 103 (E19). Only the token's hash is ever read or written (SEC-LINK-01). */
 export const linkRepo: LinkRepo = {
   async orderEmailIds(emailId) {
     const rows = await query<{ id: number }>(

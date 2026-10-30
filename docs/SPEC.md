@@ -1127,9 +1127,9 @@ received_at, in_reply_to, hash, client_id, status, auth_result, auto_submitted) 
 `intake_extractions` (email_id, extraction, decision, checks incl. map confidence and issues, reply_draft, reply_source) ·
 `intake_polls` (trigger, query, started_at, finished_at, fetched, processed, retried, failed, ok, error; migration 101) · `outbound_messages` (email_id unique, to_addr, body,
 gmail_id, status, sent_by = user or `auto`) ·
-`inbound_orders` (channel, payload, status, missing) · `saved_addresses` (migration 102 adds `source` seed | link, `lat`,
+`inbound_orders` (channel, payload, status, missing) · `saved_addresses` (migration 103 adds `source` seed | link, `lat`,
 `lon`, `email_id`, `confirmed_at`; E19) · `address_confirm_tokens` (token hash, email id, lifetime, use, confirmed
-address and pin; migration 102, E19) · `client_domains` · `audit_log` (approvals, rejections with reason, and actions) ·
+address and pin; migration 103, E19; 102 is `client_emails`) · `client_domains` · `audit_log` (approvals, rejections with reason, and actions) ·
 `recommendations` · `alerts` · `override_log` · `complaint_triage`.
 Intake statuses: RECEIVED | WAITING | AWAITING_APPROVAL | APPROVED | SENT | ENTERED | REJECTED. The other v0.7 intake
 columns come in a later 1xx migration; `override_log` stays written by the Carriers module.

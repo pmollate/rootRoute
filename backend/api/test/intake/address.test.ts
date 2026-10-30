@@ -140,4 +140,9 @@ describe('decision', () => {
     expect(decide('C003', null, null)).toBe('MISSING_INFO');
     expect(decide('C003', { ...extraction(), items: [{ sku: 'HX-1', qty: 0 }] }, complete)).toBe('MISSING_INFO');
   });
+
+  it('REQ-INT-09, REQ-LINK-04: an address the client confirmed through the link counts as verified (E19)', () => {
+    const confirmed = { ...checkAddress(FULL, SAVED, SOURCE), status: 'confirmed' as const };
+    expect(decide('C003', extraction(), confirmed)).toBe('ALL_CLEAR');
+  });
 });
