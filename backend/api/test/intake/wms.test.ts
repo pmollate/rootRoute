@@ -62,7 +62,7 @@ describe('send_to_wms with the WMS (design §5)', () => {
   it('AC-JRN-05: the WMS fails or times out: 503, the order stays APPROVED, no event', async () => {
     const t = await approved(async () => { throw new Error('WMS answered 500'); });
     expect(await applyAction(t.mem.repo, t.id, 'send_to_wms', sup, undefined, { wms: t.wms, orderEvents: t.orderEvents }))
-      .toEqual({ code: 503, error: 'WMS not reachable' });
+      .toEqual({ code: 503, error: 'WMS not reachable', cause: 'WMS answered 500' });
     expect((await t.mem.repo.getEmail(t.id))?.status).toBe('APPROVED');
     expect(t.events).toEqual([]);
   });

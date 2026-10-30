@@ -106,7 +106,7 @@ const routes: FastifyPluginAsync = async (app) => {
       { edited: body.data.reply, reason: body.data.reason, carrier: body.data.carrier, overrides: logOverride,
         wms, orderEvents: recordOrderEvent });
     req.log.info({ emailId: Number(req.params.id), action: body.data.action, carrier: body.data.carrier ?? null, code: result.code,
-      error: result.error ?? null }, 'intake action');
+      error: result.error ?? null, cause: result.cause ?? null }, 'intake action');
     return reply.code(result.code).send(result.error ? { error: result.error } : { status: result.status });
   });
 

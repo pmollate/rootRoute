@@ -9,7 +9,7 @@ import { type Wms, wmsOrder } from './wms.js';
 
 export const ACTIONS = ['approve', 'reject', 'send_reply', 'send_to_wms'] as const;
 export type Action = (typeof ACTIONS)[number];
-export interface ActionResult { code: 200 | 400 | 403 | 404 | 409 | 503; status?: string; error?: string }
+export interface ActionResult { code: 200 | 400 | 403 | 404 | 409 | 503; status?: string; error?: string; cause?: string }
 export interface Outbox { gmail: Pick<GmailClient, 'sendMessage'> | null; allow: Set<string> }
 /** The Carriers module's override log (`logOverride` in modules/carriers/index.ts), the one writer of override_log. */
 export type OverrideLog = (o: { orderRef: string; from: string; to: string; reason: string; user: string }) => Promise<number>;
@@ -100,8 +100,8 @@ export async function applyAction(repo: Repo, id: number, action: Action, actor:
     let wmsOrderId: string;
     try {
       ({ wmsOrderId } = await opts.wms.sendOrder(order));
-    } catch {
-      return { code: 503, error: 'WMS not reachable' };
+    } catch (e) {
+      return { code: 503, error: 'WMS not reachable', cause: e instanceof Error ? e.message : String(e) };
     }
     const r = await opts.orderEvents({ orderRef: order.orderRef, event: 'wms_entered', detail: { wmsOrderId } });
     // A retry after a lost response finds wms_entered already there: the WMS has the order, so it is entered.
