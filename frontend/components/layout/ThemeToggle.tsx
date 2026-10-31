@@ -8,7 +8,13 @@ import styles from './SiteHeader.module.css';
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme | null>(null); // null until mounted, so SSR and client agree
 
-  useEffect(() => setTheme(currentTheme()), []);
+  // Follows <html data-theme>, so it stays in step with Settings → Appearance.
+  useEffect(() => {
+    setTheme(currentTheme());
+    const watch = new MutationObserver(() => setTheme(currentTheme()));
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => watch.disconnect();
+  }, []);
 
   const toggle = () => {
     const next: Theme = currentTheme() === 'dark' ? 'light' : 'dark';

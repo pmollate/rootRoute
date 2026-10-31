@@ -1,0 +1,42 @@
+/* Settings: stacked cards, each a header row (icon, title, text) with its control on the right; one column on phones. */
+.page { display: grid; gap: 16px; max-width: 760px; }
+.card { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 18px 20px; border: 1px solid var(--line);
+  border-radius: 12px; background: var(--surface); box-shadow: 0 1px 2px rgb(var(--shadow-rgb) / 0.06); min-width: 0; }
+.body { flex: 1 1 280px; display: grid; gap: 4px; min-width: 0; }
+.title { display: flex; align-items: center; gap: 8px; margin: 0; font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; }
+.title svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.text { margin: 0; color: var(--ink-2); font-size: 0.9rem; line-height: 1.5; max-width: 62ch; }
+.side { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.full { flex-basis: 100%; }
+
+/* Profile: a round avatar with the initial in a small badge. */
+.avatar { position: relative; flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
+  background: rgb(var(--ink-rgb) / 0.08); color: var(--ink-2); }
+.avatar svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.badge { position: absolute; right: -2px; bottom: -2px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--surface); background: var(--ink-2); color: var(--surface); font-size: 0.7rem; font-weight: 700; }
+.roles { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 0; padding: 0; list-style: none; }
+.roles li { padding: 2px 8px; border-radius: 999px; background: var(--navy-soft); color: var(--navy); font-size: 0.75rem; font-weight: 600; }
+.primary { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--navy);
+  background: var(--navy); color: var(--on-navy); font: inherit; font-weight: 600; font-size: 0.9rem; text-decoration: none; cursor: pointer; gap: 8px; }
+.primary:hover { background: var(--navy-2); border-color: var(--navy-2); }
+
+/* Order journey: the checkbox row. */
+.check { display: flex; align-items: center; gap: 10px; font-size: 0.92rem; cursor: pointer; }
+.check input { width: 18px; height: 18px; margin: 0; accent-color: var(--navy); cursor: pointer; }
+.check input:disabled, .check input:disabled + span { cursor: default; opacity: 0.6; }
+.note { margin: 0; color: var(--ink-2); font-size: 0.85rem; }
+
+/* Appearance: "Theme" and a two-way Light / Dark switch. */
+.label { color: var(--ink-2); font-size: 0.9rem; }
+.segment { display: inline-flex; padding: 3px; border-radius: 10px; background: rgb(var(--ink-rgb) / 0.07); }
+.segment button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 14px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ink-2); font: inherit; font-size: 0.9rem; font-weight: 500; cursor: pointer; }
+.segment button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.segment button[aria-pressed='true'] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgb(var(--shadow-rgb) / 0.15); }
+.segment button:focus-visible { outline: 2px solid var(--navy); outline-offset: 1px; }
+
+@media (max-width: 560px) {
+  .card { padding: 16px; }
+  .side { margin-left: 0; }
+}

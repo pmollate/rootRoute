@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { SignOutButton } from '@/components/auth/SignOutButton';
 import { AutoAdvanceCard } from '@/components/dashboard/settings/AutoAdvanceCard';
+import { ThemeSwitch } from '@/components/dashboard/settings/ThemeSwitch';
+import s from '@/components/dashboard/settings/settings.module.css';
 import ui from '@/components/dashboard/ui.module.css';
-import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { ROLE_LABELS } from '@/lib/auth/roles';
 import { currentUser } from '@/lib/auth/session';
 
@@ -15,35 +17,48 @@ export const dynamic = 'force-dynamic';
  */
 export default async function Page() {
   const user = await currentUser();
+  const initial = (user?.name.trim()[0] ?? 'G').toUpperCase(); // G: guest
   return (
     <>
       <div className={ui.head}><h1 className={ui.title}>Settings</h1></div>
-      <section className={ui.card}>
-        <h2 className={ui.cardTitle}>Profile</h2>
-        {user ? (
-          <dl className={ui.facts}>
-            <dt>Name</dt><dd>{user.name}</dd>
-            <dt>Roles</dt><dd>{user.roles.map((r) => ROLE_LABELS[r]).join(', ') || 'None'}</dd>
-            <dt>Account</dt><dd>{user.demo ? 'Demo account' : 'Organisation account'}</dd>
-          </dl>
-        ) : (
-          // AUTH_REQUIRED=off and nobody signed in. Say nothing about how the app is configured.
-          <p className={ui.lede}>You are not signed in. Your name and roles are shown here once you sign in.</p>
-        )}
-      </section>
-      <AutoAdvanceCard />
-      <section className={ui.card}>
-        <h2 className={ui.cardTitle}>Appearance</h2>
-        <p className={ui.lede}>Light by default. The switch is remembered in this browser.</p>
-        <p className={ui.row}>Theme <ThemeToggle /></p>
-      </section>
-      {user && (
-        <section className={ui.card}>
-          <h2 className={ui.cardTitle}>Session</h2>
-          <p className={ui.lede}>A session ends 8 hours after sign-in.</p>
-          <p className={ui.row}><SignOutButton /></p>
+      <div className={s.page}>
+        <section className={s.card} aria-labelledby="set-profile">
+          <span className={s.avatar} aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="4" /><path d="M4.5 20a7.5 7.5 0 0 1 15 0" /></svg>
+            <span className={s.badge}>{initial}</span>
+          </span>
+          <div className={s.body}>
+            <h2 className={s.title} id="set-profile">{user ? user.name : 'Profile'}</h2>
+            {user ? (
+              <>
+                <p className={s.text}>{user.demo ? 'Demo account' : 'Organisation account'}. A session ends 8 hours after sign-in.</p>
+                <ul className={s.roles} aria-label="Roles">
+                  {user.roles.length > 0 ? user.roles.map((r) => <li key={r}>{ROLE_LABELS[r]}</li>) : <li>No role</li>}
+                </ul>
+              </>
+            ) : (
+              // AUTH_REQUIRED=off and nobody signed in. Say nothing about how the app is configured.
+              <p className={s.text}>You are not signed in. Your name and roles are shown here once you sign in.</p>
+            )}
+          </div>
+          <div className={s.side}>
+            {user ? <SignOutButton className={s.primary} /> : <Link className={s.primary} href="/login?next=/dashboard/settings">Sign in</Link>}
+          </div>
         </section>
-      )}
+
+        <AutoAdvanceCard />
+
+        <section className={s.card} aria-labelledby="set-appearance">
+          <div className={s.body}>
+            <h2 className={s.title} id="set-appearance">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 0 0 18Z" fill="currentColor" /></svg>
+              Appearance
+            </h2>
+            <p className={s.text}>Light by default. The switch is remembered in this browser.</p>
+          </div>
+          <div className={s.side}><span className={s.label}>Theme</span><ThemeSwitch /></div>
+        </section>
+      </div>
     </>
   );
 }
