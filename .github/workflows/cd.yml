@@ -117,10 +117,16 @@ jobs:
           # Real host names: newer App Service apps get a unique suffix, not just <name>.azurewebsites.net
           api_host=$(az webapp show -g "$RG" -n "$API_APP" --query defaultHostName -o tsv)
           web_host=$(az webapp show -g "$RG" -n "$WEB_APP" --query defaultHostName -o tsv)
+          # The web app's public address is AUTH_URL (the custom domain once bound, infra/setup-auth.sh): the /api
+          # proxy accepts writes only from that Origin, so smoke and e2e tests must use it, not the default host name.
+          web_url=$(az webapp config appsettings list -g "$RG" -n "$WEB_APP" \
+            --query "[?name=='AUTH_URL'].value | [0]" -o tsv)
+          web_url=${web_url%/}
+          web_url=${web_url:-https://$web_host}
           echo "API_URL=https://$api_host" >> "$GITHUB_ENV"
-          echo "WEB_URL=https://$web_host" >> "$GITHUB_ENV"
+          echo "WEB_URL=$web_url" >> "$GITHUB_ENV"
           echo "api_url=https://$api_host" >> "$GITHUB_OUTPUT"
-          echo "web_url=https://$web_host" >> "$GITHUB_OUTPUT"
+          echo "web_url=$web_url" >> "$GITHUB_OUTPUT"
           for s in database-url api-key; do
             v=$(az keyvault secret show --vault-name "$KEY_VAULT" -n "$s" --query value -o tsv)
             if [ -z "$v" ]; then echo "::error::Key Vault secret $s is empty"; exit 1; fi

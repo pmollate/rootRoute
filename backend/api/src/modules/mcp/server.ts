@@ -23,9 +23,12 @@ export function buildMcpServer(): McpServer {
 
 /**
  * REQ-MCP-02: `Authorization: Bearer <MCP_TOKEN>`, or the same token in `x-api-key` for clients that keep Authorization
- * for their own OAuth (claude.ai custom connectors). No token configured means the endpoint is off, never open.
+ * for their own OAuth, or in the URL path (`/api/mcp/<token>`) for claude.ai custom connectors, whose form takes a URL
+ * and no headers. No token configured means the endpoint is off, never open.
  */
-export function mcpAuth(headers: { authorization?: string; 'x-api-key'?: string | string[] }, token: string | undefined) {
+export function mcpAuth(headers: { authorization?: string; 'x-api-key'?: string | string[] }, token: string | undefined,
+  pathToken?: string) {
+  if (pathToken !== undefined) return bearerAuth(`Bearer ${pathToken}`, token);
   const bearer = bearerAuth(headers.authorization, token);
   const key = headers['x-api-key'];
   return bearer === 401 && typeof key === 'string' ? bearerAuth(`Bearer ${key}`, token) : bearer;
