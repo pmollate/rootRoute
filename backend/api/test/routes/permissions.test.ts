@@ -47,6 +47,8 @@ describe('permission matrix (SPEC-auth §4.2)', () => {
     expect(who('POST', '/api/mcp')).toBe('public');
     expect(who('GET', '/api/mcp')).toBe('public'); // 405, no data
     expect(who('DELETE', '/api/mcp')).toBe('public'); // 405, no data
+    expect(who('POST', '/api/mcp/:token')).toBe('public'); // MCP_TOKEN in the path
+    expect(who('GET', '/api/mcp/:token')).toBe('public'); // 405, no data
     expect(who('GET', '/.well-known/*')).toBe('public'); // 404, no data
     // AC-SEC-LINK-05: E19's confirm routes are public and token-gated (a valid one-time token in the path).
     expect(who('GET', '/api/confirm/:token')).toBe('public');

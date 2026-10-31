@@ -41,6 +41,16 @@ describe.skipIf(!hasDb)('MCP route (needs test database)', () => {
     expect(res.statusCode).toBe(200);
   });
 
+  it('AC-MCP-02: accepts the token in the URL path, with sign-in enforced (claude.ai custom connectors)', async () => {
+    const on = await buildApp({ auth: AUTH_ON });
+    const post = (token: string) => on.inject({ method: 'POST', url: `/api/mcp/${token}`, headers: HEADERS,
+      payload: call('overview', {}) });
+    expect((await post(process.env.MCP_TOKEN!)).statusCode).toBe(200);
+    expect((await post('wrong')).statusCode).toBe(401);
+    expect((await on.inject({ method: 'GET', url: `/api/mcp/${process.env.MCP_TOKEN}` })).statusCode).toBe(405);
+    await on.close();
+  });
+
   it('answers the probes an MCP client makes before connecting, with sign-in enforced: 405 for GET and DELETE, 404 for OAuth discovery', async () => {
     const on = await buildApp({ auth: AUTH_ON });
     for (const method of ['GET', 'DELETE'] as const) {
