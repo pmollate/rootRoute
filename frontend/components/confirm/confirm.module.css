@@ -103,6 +103,8 @@
 .linkBtn { padding: 0; border: 0; background: none; color: var(--navy); font: inherit; font-weight: 600; cursor: pointer; }
 .linkBtn:disabled { color: var(--ink-2); font-weight: 500; cursor: not-allowed; }
 .cardBody .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--navy); color: #fff; }
+/* Below the card: the "Synthetic data" badge, centred, out of the way of the form. */
+.pageFoot { display: flex; justify-content: center; margin: 16px 0 0; }
 .cardFoot { margin: 0; padding: 14px 22px; border-top: 1px solid var(--line); background: var(--bg); color: var(--ink-2); font-size: 0.9rem; text-align: right; }
 @media (max-width: 480px) {
   .cardHead { grid-template-columns: 1fr; justify-items: start; }
@@ -174,6 +176,11 @@
 .stepper { justify-content: center; }
 .stepper li, .stepper li:not(:last-child), .stepper li.stepNow { flex: 0 1 auto; }
 .stepper li:not(:last-child)::after { flex: 0 0 clamp(32px, 14vw, 180px); margin: 0 4px 0 6px; }
+/* Dot, label and line share one centre line: no inherited 1.5 line-height pushing the glyphs off-centre. */
+.stepper, .stepper li, .stepDot { line-height: 1; }
+.stepper li::after { align-self: center; }
+/* The page's own step is ticked: a filled navy dot with the ring that marks it as current. */
+.stepNow .stepDot { border-color: var(--navy); background: var(--navy); color: #fff; }
 @media (max-width: 480px) {
   .stepper li.stepNow { flex: 0 0 auto; }
 }

@@ -64,7 +64,6 @@ const partsText = (d: MapReading['differs']) => {
   return w.length < 2 ? w.join('') : `${w.slice(0, -1).join(', ')} and ${w.at(-1)}`;
 };
 const typedText = (a: LinkAddress) => oneLine([a.line1, a.line2, a.city, `${a.state} ${a.zip}`.trim()]);
-const until = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 /**
  * E19 (SPEC §5.17): the client's one-time address page. Shows the email's address in five fields, a draggable pin and
@@ -91,8 +90,6 @@ export function ConfirmScreen({ token, view, verifyToken, onVerifyRequired }:
   const pinToSend = mapShown && mapReady ? pin : null;
   // The expiry in the reader's own locale and time zone, which only the browser knows: formatted after hydration, so
   // the server's text (en-US, the server's zone) never has to match the browser's.
-  const [expires, setExpires] = useState<string | null>(null);
-  useEffect(() => { setExpires(until(view.expiresAt)); }, [view.expiresAt]);
 
   // REQ-LINK-16: the fields the map filled from the pin, and the look-up's checkId: Confirming them unedited is the
   // client's second Confirm of the map's reading. Editing a field or moving the pin again drops it.
@@ -223,7 +220,6 @@ export function ConfirmScreen({ token, view, verifyToken, onVerifyRequired }:
             {view.synthetic && <SyntheticBadge />}
           </div>
           <p className={s.lead}>Check the details below. This is where we deliver your order.</p>
-          <p className={s.muted}>{expires ? `This link works until ${expires}.` : 'This link works for a limited time.'}</p>
 
           {input(by('line1'), true)}
           {input(by('line2'))}

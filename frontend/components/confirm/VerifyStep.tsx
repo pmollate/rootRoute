@@ -185,13 +185,10 @@ export function VerifyStep({ token, view }: { token: string; view: VerifyView })
         <div className={s.cardHead}>
           <Countdown left={left} />
           <div>
-            <div className={s.head}>
-              <h1 id="verify-title">Check your inbox</h1>
-              {view.synthetic && <SyntheticBadge />}
-            </div>
+            <h1 id="verify-title">Check your inbox</h1>
             <p className={s.lead}>
               {sentAt === null ? 'We will email a 6-digit code to ' : 'Enter the 6-digit code we sent to '}
-              <b>{view.verify.sentTo}</b>, the address your order came from. It expires in 10 minutes.
+              the registered email address your order came from.
             </p>
           </div>
         </div>
@@ -213,7 +210,7 @@ export function VerifyStep({ token, view }: { token: string; view: VerifyView })
           {sentAt !== null && (
             <p className={s.sent} role="status">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8 12.5 2.8 2.8L16.5 9.5" /></svg>
-              Code sent at {new Date(sentAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+              Code sent
               {left === 0 && <span> · expired</span>}
             </p>
           )}
@@ -224,7 +221,7 @@ export function VerifyStep({ token, view }: { token: string; view: VerifyView })
             {[3, 4, 5].map(box)}
           </div>
           <div className={s.digitsMeta}>
-            <span>{filled} of {DIGITS} digits entered · {triesLeft} {triesLeft === 1 ? 'attempt' : 'attempts'} left</span>
+            <span>{triesLeft} {triesLeft === 1 ? 'attempt' : 'attempts'} left</span>
             {sentAt !== null && (
               <button type="button" className={s.linkBtn} disabled={busy || wait > 0 || noMore} onClick={() => void sendCode()}>
                 {sendLabel}
@@ -241,7 +238,7 @@ export function VerifyStep({ token, view }: { token: string; view: VerifyView })
 
         <p className={s.cardFoot}>Didn&apos;t get it? Check your spam folder.</p>
       </section>
-
+      {view.synthetic && <p className={s.pageFoot}><SyntheticBadge /></p>}
     </main>
   );
 }

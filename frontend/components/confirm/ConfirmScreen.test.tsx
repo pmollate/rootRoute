@@ -62,10 +62,8 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
       .toEqual(['920 Broad St', 'Dock 5', 'Newark', 'NJ', '85004']);
     expect(screen.getByText('pin 40.7228,-74.1797')).toBeTruthy();
     expect(mapProps.mock.calls[0][0].credential).toEqual(view.map);
-    expect(screen.getByText(/This link works until/).textContent).toContain(new Date(view.expiresAt).toLocaleString(undefined,
-      { dateStyle: 'medium', timeStyle: 'short' }));
     const text = document.body.textContent ?? '';
-    for (const no of ['HX-', 'qty', 'Promise', 'promise', 'C130', 'Client 130', 'Tom Okafor', '555-0171', 'client130']) expect(text, no).not.toContain(no);
+    for (const no of ['This link works', 'HX-', 'qty', 'Promise', 'promise', 'C130', 'Client 130', 'Tom Okafor', '555-0171', 'client130']) expect(text, no).not.toContain(no);
     expect(screen.getByRole('button', { name: 'Confirm address' })).toBeTruthy();
   });
 
