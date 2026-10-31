@@ -50,6 +50,8 @@ describe('E19 confirm routes: the token never reaches a log line', () => {
     expect(redactLink('/api/confirm/abc_DEF-123?x=1')).toBe('/api/confirm/[token]?x=1');
     expect(redactLink('/confirm/abc')).toBe('/confirm/[token]');
     expect(redactLink('/api/intake/3')).toBe('/api/intake/3');
+    expect(redactLink('/api/mcp/s3cret-token')).toBe('/api/mcp/[token]'); // REQ-MCP-02: MCP_TOKEN in the path
+    expect(redactLink('/api/mcp')).toBe('/api/mcp');
   });
 });
 

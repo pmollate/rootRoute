@@ -50,6 +50,12 @@ describe('MCP token (REQ-MCP-02)', () => {
     expect(mcpAuth({ 'x-api-key': 'wrong' }, token)).toBe(401);
     expect(mcpAuth({ 'x-api-key': [token, token] }, token)).toBe(401);
   });
+  it('AC-MCP-02: accepts the token in the URL path (claude.ai connectors take a URL, no headers); the path wins', () => {
+    expect(mcpAuth({}, token, token)).toBe(200);
+    expect(mcpAuth({}, token, 'wrong')).toBe(401);
+    expect(mcpAuth({ authorization: `Bearer ${token}` }, token, 'wrong')).toBe(401);
+    expect(mcpAuth({}, undefined, token)).toBe(503);
+  });
   it('is switched off (503) when no token is configured, so it is never open by accident', () => {
     expect(mcpAuth({ authorization: `Bearer ${token}` }, undefined)).toBe(503);
     expect(mcpAuth({ 'x-api-key': token }, undefined)).toBe(503);

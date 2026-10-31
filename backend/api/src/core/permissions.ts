@@ -32,6 +32,9 @@ export const PERMISSIONS: Record<string, Permission> = {
   'POST /api/mcp': 'public', // its own Bearer MCP_TOKEN (REQ-MCP-02)
   'GET /api/mcp': 'public', // 405: MCP clients probe it before connecting
   'DELETE /api/mcp': 'public', // 405, as GET
+  'POST /api/mcp/:token': 'public', // MCP_TOKEN in the path, for claude.ai connectors (REQ-MCP-02)
+  'GET /api/mcp/:token': 'public', // 405, as GET /api/mcp
+  'DELETE /api/mcp/:token': 'public', // 405, as GET
   'GET /.well-known/*': 'public', // 404: MCP clients' OAuth discovery
   'POST /api/orders/:ref/events': 'public', // its own Bearer WMS_EVENTS_TOKEN (order journey simulator, design §6)
   'GET /api/confirm/:token': 'public', // token-gated: a valid one-time token in the path, no session, no key (SEC-LINK-05)
