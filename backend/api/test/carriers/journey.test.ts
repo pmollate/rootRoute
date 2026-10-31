@@ -172,6 +172,31 @@ describe('new order journey', () => {
     expect(byKey(j, 'picked').status).toBe('not_reached');
   });
 
+  // E19 (REQ-LINK-04): the address round was approved and its reply sent, then the client confirmed through the link and
+  // the order came back ALL_CLEAR, awaiting approval. That earlier approval is not this order's approval (CD 41158539029).
+  const ADDRESS_ROUND: EmailFacts['approvals'] = [
+    { action: 'approve', actor: 'sup', at: '2026-10-31 08:00', reason: null },
+    { action: 'send_reply', actor: 'op', at: '2026-10-31 08:01', reason: null },
+    { action: 'link_confirmed', actor: 'client-link:8', at: '2026-10-31 08:10', reason: null },
+  ];
+
+  it('AC-JRN-01: after a link confirmation the order waits for approval again; the address round is not its approval', () => {
+    const j = buildEmailJourney({ ...EMAIL, approvals: ADDRESS_ROUND, outbound: [{ status: 'sent', at: '2026-10-31 08:01' }] });
+    expect(byKey(j, 'address')).toMatchObject({ status: 'done', at: '2026-10-31 08:10', actor: 'Client (address link)' });
+    expect(byKey(j, 'approved').status).toBe('current');
+    expect(byKey(j, 'told').status).toBe('not_reached');
+    expect(byKey(j, 'wms').status).toBe('not_reached');
+  });
+
+  it('approved and told after the link confirmation, even within the same minute as it', () => {
+    const j = buildEmailJourney({ ...EMAIL, status: 'SENT',
+      approvals: [...ADDRESS_ROUND, { action: 'approve', actor: 'sup2', at: '2026-10-31 08:10', reason: null },
+        { action: 'send_reply', actor: 'op2', at: '2026-10-31 08:10', reason: null }],
+      outbound: [{ status: 'sent', at: '2026-10-31 08:01' }, { status: 'sent', at: '2026-10-31 08:10' }] });
+    expect(byKey(j, 'approved')).toMatchObject({ status: 'done', actor: 'sup2' });
+    expect(byKey(j, 'told')).toMatchObject({ status: 'done', at: '2026-10-31 08:10', actor: 'op2' });
+  });
+
   it('AC-JRN-03: a CONFIRM_ADDRESS email waits on the client and shows each round', () => {
     const j = buildEmailJourney({ ...EMAIL, decision: 'CONFIRM_ADDRESS', checks: null,
       rounds: [{ id: 2, receivedAt: '2026-10-28 07:00', decision: 'CONFIRM_ADDRESS' }] });
