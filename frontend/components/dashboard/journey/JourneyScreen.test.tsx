@@ -26,7 +26,8 @@ const D000213 = {
     stage(14, 'notice', 'Delay notice', 'skipped'),
   ],
 };
-const INBOX = { emails: [{ id: 8, decision: 'ALL_CLEAR', status: 'AWAITING_APPROVAL' }] };
+const INBOX = { emails: [{ id: 8, decision: 'ALL_CLEAR', status: 'AWAITING_APPROVAL', subject: 'purchase order -190', inReplyTo: null,
+  receivedAt: '2026-10-31 09:00' }] };
 const heading = () => screen.getByRole('heading', { level: 1 }).textContent;
 /** A place's label on the board. */
 const place = (name: RegExp) => within(screen.getByRole('region', { name: 'Journey map' })).getByRole('button', { name });
@@ -114,12 +115,26 @@ describe('Order journey', () => {
     expect(within(popup('Order intake')).queryByText('Changed by Root Route')).toBeNull();
   });
 
+  it('lists an order once, by its subject and newest email, though the client answered in the same conversation', async () => {
+    const inbox = { emails: [
+      { id: 9, decision: 'ALL_CLEAR', status: 'AWAITING_APPROVAL', subject: 'Re: purchase order -190', inReplyTo: 8, receivedAt: '2026-10-31 10:00' },
+      { id: 8, decision: 'CONFIRM_ADDRESS', status: 'SENT', subject: 'purchase order -190', inReplyTo: null, receivedAt: '2026-10-31 09:00' },
+      { id: 7, decision: 'ALL_CLEAR', status: 'ENTERED', subject: '', inReplyTo: null, receivedAt: '2026-10-30 09:00' },
+    ] };
+    mockApi({ '/api/journey/delivery:D000213': D000213, '/api/intake': inbox });
+    renderScreen(<JourneyScreen initialRef="delivery:D000213" />);
+    const group = await screen.findByRole('group', { name: 'New email orders' });
+    const options = within(group).getAllByRole('option');
+    expect(options.map((o) => o.textContent)).toEqual(['purchase order -190 — awaiting approval', 'Email order 7 — entered']);
+    expect((options[0] as HTMLOptionElement).value).toBe('email:9');
+  });
+
   it('lists orders in plain words to choose from, including recent email orders', async () => {
     const order = { ...D000213, ref: 'email:8', kind: 'order', summary: { ...D000213.summary, outcome: 'awaiting approval' },
       stages: D000213.stages.map((st) => (st.n >= 10 ? { ...st, status: 'not_reached', at: null } : st)) };
     const fetch = mockApi({ '/api/journey/delivery:D000213': D000213, '/api/intake': INBOX, '/api/journey/email:8': order });
     renderScreen(<JourneyScreen initialRef="delivery:D000213" />);
-    expect(await screen.findByRole('option', { name: 'Email order 8 — awaiting approval' })).toBeTruthy();
+    expect(await screen.findByRole('option', { name: 'purchase order -190 — awaiting approval' })).toBeTruthy();
     const select = screen.getByLabelText('Order') as HTMLSelectElement;
     expect(select.selectedOptions[0].textContent).toBe('Delivery D000213 — incomplete address, slow carrier lane');
     expect(screen.queryByLabelText('Delivery ID')).toBeNull();
