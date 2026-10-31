@@ -143,12 +143,20 @@ const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - D
 const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 
 export function buildEmailJourney(e: EmailFacts, now = localNow()): Journey {
-  const did = (action: string) => e.approvals.find((a) => a.action === action);
+  // E19: a client's link confirmation re-decides the order, so the approval and reply of the address round before it
+  // are history, not this order's approval. Count only what came after the newest confirmation (audit rows are in
+  // order; replies by time, which is to the minute, falling back on the send_reply row after it).
+  const cut = e.approvals.map((a) => a.action).lastIndexOf('link_confirmed');
+  const approvals = cut < 0 ? e.approvals : e.approvals.slice(cut + 1);
+  const confirmedAt = cut < 0 ? null : e.approvals[cut].at;
+  const later = confirmedAt ? e.outbound.filter((o) => o.at > confirmedAt) : e.outbound;
+  const outbound = confirmedAt && !later.length && approvals.some((a) => a.action === 'send_reply') ? e.outbound.slice(-1) : later;
+  const did = (action: string) => approvals.find((a) => a.action === action);
   const approve = did('approve');
   const reject = did('reject');
   const wms = did('send_to_wms');
-  const sent = e.outbound.find((o) => o.status === 'sent');
-  const refused = e.outbound.find((o) => o.status === 'refused');
+  const sent = outbound.find((o) => o.status === 'sent');
+  const refused = outbound.find((o) => o.status === 'refused');
   const known = e.clientId !== null;
   const read = e.decision !== null;
   const clear = e.decision === 'ALL_CLEAR';
@@ -194,7 +202,9 @@ export function buildEmailJourney(e: EmailFacts, now = localNow()): Journey {
         ? { status: 'current', at: null, actor: 'Client', source: 'real', detail: `Waiting for the client to confirm the address${rounds}.` }
         : e.decision === 'MISSING_INFO'
           ? { status: 'failed', at: null, actor: 'Code', source: 'real', detail: `Information missing${rounds}.` }
-          : { status: 'done', at: null, actor: 'Code + map', source: 'real', detail: `Address verified${rounds}.` },
+          : confirmedAt
+            ? { status: 'done', at: confirmedAt, actor: 'Client (address link)', source: 'real', detail: `Address confirmed by the client through the link${rounds}.` }
+            : { status: 'done', at: null, actor: 'Code + map', source: 'real', detail: `Address verified${rounds}.` },
     promise: c?.promise
       ? { status: 'done', at: null, actor: 'Warehouse rule', source: 'rule',
         detail: `Promise ${c.promise.promiseDate}.${c.promise.reason ? ` ${c.promise.reason}` : ''}` }
