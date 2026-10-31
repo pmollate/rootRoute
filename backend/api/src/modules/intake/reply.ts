@@ -21,6 +21,7 @@ export interface ReplyFacts {
   addressIssues: AddressIssue[];
   suggestion: AddressQuery | null; // the map's reading (never a different street)
   link?: boolean;                  // E19 CONFIRM_LINK=on: a CONFIRM_ADDRESS reply carries [CONFIRM_LINK] (REQ-LINK-01)
+  deliverTo?: string;              // E19: the address the client confirmed through the link, repeated in the acceptance
 }
 
 export const formatAddress = (a: NonNullable<AddressCheck['address']>) =>
@@ -44,6 +45,7 @@ export function replyFactsOf(f: { decision: Decision; clientName: string | null;
     addressIssues: unverified ? address.validation?.issues ?? [] : [],
     suggestion: suggestion && { ...suggestion, line1: clean(suggestion.line1), city: clean(suggestion.city), state: clean(suggestion.state), zip: clean(suggestion.zip) },
     ...(f.link ? { link: true } : {}),
+    ...(address?.status === 'confirmed' && address.address ? { deliverTo: clean(formatAddress(address.address)) } : {}),
   };
 }
 
@@ -77,6 +79,7 @@ export function requiredPhrases(f: ReplyFacts): string[] {
     if (f.addressIssues.includes('city_mismatch') && f.suggestion) out.push(f.suggestion.city);
     if (f.link) out.push(LINK_PLACEHOLDER); // a model draft without it falls back to the template
   }
+  if (f.decision === 'ALL_CLEAR' && f.deliverTo) out.push(f.deliverTo); // the client checks the address they confirmed
   return [...new Set(out)];
 }
 
@@ -114,7 +117,8 @@ export function templateReply(f: ReplyFacts): string {
     const link = f.link ? `\n\nYou can also update the address with this one-time link: ${LINK_PLACEHOLDER}` : '';
     return `${hello}\n\nThank you for your order:\n${items}\n\n${ask}${link}\n\n${promise}\n\nHalcyon Logistics`;
   }
-  return `${hello}\n\nYour order is confirmed:\n${items}\n\n${promise}\n\nHalcyon Logistics`;
+  const deliverTo = f.deliverTo ? `We will deliver to the address you confirmed: ${f.deliverTo}.\n\n` : '';
+  return `${hello}\n\nYour order is confirmed:\n${items}\n\n${deliverTo}${promise}\n\nHalcyon Logistics`;
 }
 
 export const REPLY_SYSTEM = readFileSync(fileURLToPath(new URL('./prompts/reply.md', import.meta.url)), 'utf8');
@@ -123,7 +127,9 @@ export const REPLY_SYSTEM = readFileSync(fileURLToPath(new URL('./prompts/reply.
 export function replyRequest(f: ReplyFacts): TextRequest {
   const user = JSON.stringify({ decision: f.decision, client_name: f.clientName, contact: f.contact, items: f.items,
     promise: f.promise, missing: f.missing.length ? missingLabels(f.missing) : [],
-    address: f.address, address_problem: f.addressIssues.length ? issueSentences(f) : null, required_phrases: requiredPhrases(f) });
+    address: f.address, address_problem: f.addressIssues.length ? issueSentences(f) : null,
+    // only after a link confirmation, so the recorded E7 requests (no deliver_to) are unchanged
+    ...(f.deliverTo ? { deliver_to: f.deliverTo } : {}), required_phrases: requiredPhrases(f) });
   return { system: REPLY_SYSTEM, user, tag: 'reply' };
 }
 
