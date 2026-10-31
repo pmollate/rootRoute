@@ -77,11 +77,11 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     expect(await screen.findByRole('button', { name: 'Confirm again' })).toBeTruthy();
     expect('pin' in posted(fn)[0].body).toBe(false);
     const reading = screen.getByRole('region', { name: 'The map\'s reading of your address' });
-    expect(reading.textContent).toContain('The map reads your address as');
+    expect(reading.textContent).toContain('Suggested address');
     expect(reading.textContent).toContain('920 Broad St, Phoenix, AZ 85004');
     expect(reading.textContent).toContain('The map has a different city and state.');
     expect(screen.getByRole('region', { name: 'The address you typed' }).textContent).toContain('920 Broad St, Dock 5, Newark, NJ 85004');
-    expect(screen.queryByText('The map reads your pin as')).toBeNull();
+    expect(screen.queryByText('Suggested address from the pin')).toBeNull();
   });
 
   it('AC-LINK-15 (page): a map that refuses its tiles (hidden) sends no pin, even after it was ready', async () => {

@@ -64,6 +64,10 @@ const partsText = (d: MapReading['differs']) => {
   return w.length < 2 ? w.join('') : `${w.slice(0, -1).join(', ')} and ${w.at(-1)}`;
 };
 const typedText = (a: LinkAddress) => oneLine([a.line1, a.line2, a.city, `${a.state} ${a.zip}`.trim()]);
+/** One address in the 409 check, shown as a read-only text area: the client fixes it in the fields above. */
+const AddressText = ({ labelledBy, text }: { labelledBy: string; text: string }) => (
+  <textarea className={s.addrText} aria-labelledby={labelledBy} value={text} rows={2} readOnly tabIndex={-1} />
+);
 
 /**
  * E19 (SPEC §5.17): the client's one-time address page. Shows the email's address in five fields, a draggable pin and
@@ -174,7 +178,7 @@ export function ConfirmScreen({ token, view, verifyToken, onVerifyRequired }:
   if (phase.kind === 'invalid') return <main className={s.page}><p className={s.message}>{LINK_INVALID_TEXT}</p></main>;
   if (phase.kind === 'done') {
     return (
-      <main className={s.page}>
+      <main className={`${s.page} ${s.donePage}`}>
         <p className={s.brand}>Halcyon Logistics</p>
         <p className={s.message}>Thank you. Your delivery address is confirmed.</p>
         <p className={s.muted}>Our order desk will check it before your order ships. You can close this page.</p>
@@ -230,15 +234,15 @@ export function ConfirmScreen({ token, view, verifyToken, onVerifyRequired }:
           {phase.kind === 'check' && (
             <div className={s.check}>
               <section aria-label="The address you typed" className={s.box}>
-                <h2>You typed</h2>
-                <p>{typedText(phase.typed)}</p>
+                <h2 id="addr-typed">Your address</h2>
+                <AddressText labelledBy="addr-typed" text={typedText(phase.typed)} />
               </section>
               {phase.reading.of === 'address' ? (
                 <section aria-label="The map's reading of your address" className={s.box}>
                   {phase.reading.found ? (
                     <>
-                      <h2>The map reads your address as</h2>
-                      <p>{readingText(phase.reading)}</p>
+                      <h2 id="addr-read">Suggested address</h2>
+                      <AddressText labelledBy="addr-read" text={readingText(phase.reading)} />
                       {phase.reading.differs.length > 0 && <p className={s.muted}>The map has a different {partsText(phase.reading.differs)}.</p>}
                     </>
                   ) : (
@@ -250,8 +254,8 @@ export function ConfirmScreen({ token, view, verifyToken, onVerifyRequired }:
                 </section>
               ) : (
                 <section aria-label="The map's reading of your pin" className={s.box}>
-                  <h2>The map reads your pin as</h2>
-                  <p>{readingText(phase.reading)}</p>
+                  <h2 id="addr-read">Suggested address from the pin</h2>
+                  <AddressText labelledBy="addr-read" text={readingText(phase.reading)} />
                   {phase.reading.distanceM !== null && <p className={s.muted}>about {phase.reading.distanceM} m from where we placed the pin</p>}
                   {phase.reading.differs.length > 0 && (
                     <p className={s.muted}>The map has a different {partsText(phase.reading.differs)} for the address you typed.</p>

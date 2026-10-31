@@ -19,6 +19,8 @@
 .head h1 { margin: 0; font-size: 1.4rem; line-height: 1.25; }
 .muted { margin: 6px 0; color: var(--ink-2); font-size: 0.95rem; }
 .message { margin: 24px 0 16px; font-size: 1.1rem; }
+/* "Thank you": the message in the middle of the screen, both ways. */
+.donePage { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100dvh; text-align: center; }
 .form { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
 /* required fields: a red asterisk after the label */
 .req { margin-left: 2px; color: var(--bad); }
@@ -44,6 +46,14 @@
 .box { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .box h2 { margin: 0 0 4px; font-size: 0.95rem; }
 .box p { margin: 0; }
+.box h2 { margin-bottom: 6px; }
+/* Read-only: a very light grey fill, a dashed border and softer text, so it never reads as a field to type in. */
+.addrText { display: block; width: 100%; padding: 8px 10px; border: 1px dashed var(--line-strong, var(--line)); border-radius: 8px;
+  background: rgb(var(--ink-rgb) / 0.035); color: var(--ink-2); font: inherit; font-weight: 400; line-height: 1.4; resize: none;
+  cursor: default; box-shadow: none; }
+.addrText:focus { outline: none; }
+/* The difference note under a text area: its own line, clear of the box (the form pane's muted text pulls up 8px). */
+.formPane .box .muted { margin: 6px 0 0; }
 .note { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
 .button {
   width: 100%;

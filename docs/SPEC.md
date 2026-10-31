@@ -1591,7 +1591,7 @@ Open questions:
 - Sign-in and roles (P7, `docs/SPEC-auth.md` §13; build after submission):
   - Q-AUTH-01: tenant users may create app registrations (§14.1, 26 Oct); may we also add app roles, require assignment
     and assign users without a tenant admin, and which tenant holds real users? Ask the Azure admin.
-  - Q-AUTH-02: who assigns LateLens roles to real users after go-live (`[ROLE_ADMIN]` on the no-access page)? Ask the team / Halcyon ops lead.
+  - Q-AUTH-02: who assigns LateLens roles to real users after go-live? Ask the team / Halcyon ops lead.
   - Q-AUTH-03: is `send_to_wms` a warehouse supervisor's action, or the order desk's after the supervisor review (E18)? Ask the Email and Warehouse owners.
   - Q-AUTH-04: one `admin` demo account for judges, or one per role? Team.
   - Q-AUTH-05: may the Order journey show a staff member's name at stage 7, given SEC-JRN-01? Team (Carriers with Email).
