@@ -25,7 +25,7 @@ API health: <https://rootroute01-api.azurewebsites.net/api/health>.
 | Warehouses | Cut-off misses, orders from a non-nearest warehouse, unpaid penalties, weekly stock moves | Warehouse supervisor, leadership |
 | Carriers | Lane scorecards on fair data, capacity days, a recommended carrier with override | Carrier manager, leadership |
 | Complaints | Each complaint linked to its delivery and triaged by cause | Customer support |
-| Order journey | One delivery from email to doorstep, stage by stage | All roles |
+| Order journey | One delivery from email to doorstep, stage by stage; new email orders are listed once per conversation (a client's answer joins its order) | All roles |
 | Labs (Replay) | Past deliveries replayed with each fix on, by segment | Warehouse supervisor, carrier manager, leadership |
 
 Admin sees everything. AI only reads emails and drafts replies; a person approves every order before it reaches the
@@ -197,9 +197,12 @@ the client's saved addresses. With `CONFIRM_LINK=on` it also carries a one-time 
    (6 digits, 10 minutes) goes to the address the order came from; nothing about the address shows yet.
 2. **Confirm the delivery address.** After the code: the email's address in the fields and a map with a pin. Dragging
    or tapping the pin fills street, city, state and ZIP from the map; zoom and recenter are on the map. On Confirm
-   the server looks the address up again; if the map disagrees, the page shows what it found and asks to confirm again.
+   the server looks the address up again; if the map disagrees, the page shows **Your address** and **Suggested
+   address** (read-only) and asks to confirm again.
 3. The order is decided again (usually `ALL_CLEAR`) and waits in **Order review** marked "Address confirmed by client
-   link". Nothing reaches the WMS until a supervisor approves (SEC-04); approval saves the address for the client.
+   link", with the acceptance reply drafted: it repeats the address the client confirmed ("We will deliver to the
+   address you confirmed: …"). Nothing reaches the WMS and no reply is sent until a supervisor approves (SEC-04);
+   approval saves the address for the client.
 
 | Setting | Default | Effect |
 |---|---|---|
@@ -224,8 +227,16 @@ client only once registered by full address in `client_emails` (`backend/synthet
    enter the code, fix the city (or tap the map) and **Confirm address**. Each link and code works once.
 
 The map tiles need the SAS identity: a user-assigned managed identity attached to the Maps account with the Azure Maps
-Data Reader role (assigning the role needs Owner on the resource group). Without it the page hides the map and the
-fields still work.
+Data Reader role (assigning a role needs Owner, User Access Administrator or Role Based Access Control Administrator on
+the resource group). Without it the page hides the map and the fields still work. In Azure:
+
+- Azure Maps is not offered in `centralindia`: create the account with `-l eastus` (any of westus2, eastus,
+  westeurope, northeurope, westcentralus).
+- Attach the identity through the 2023-06-01 API; `az maps account update` may not take or show it:
+  `az rest --method patch --url "https://management.azure.com<account id>?api-version=2023-06-01" --body
+  '{"identity":{"type":"UserAssigned","userAssignedIdentities":{"<identity id>":{}}}}'`. Check with `az rest --method
+  get` on the same URL (`identity.type` is `UserAssigned`); `az maps account show` reports `identity: null` either way.
+- The API's managed identity calls `listSas`: Azure Maps Contributor on the account (Contributor on the group also works).
 
 Security in short: the token is 32 random bytes and only its SHA-256 is stored; the code and the verification token are
 stored only as hashes and never logged; the token never appears in logs (`/confirm/[token]`); the pages are light only,

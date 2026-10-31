@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LLM } from '../../src/core/llm/types.js';
 import { restore } from '../../src/core/pii/redact.js';
-import { draftReply, formatDate, type ReplyFacts, requiredPhrases, templateReply } from '../../src/modules/intake/reply.js';
+import { draftReply, formatDate, type ReplyFacts, replyFactsOf, replyRequest, requiredPhrases, templateReply } from '../../src/modules/intake/reply.js';
 import { checkPromise } from '../../src/modules/warehouse/domain.js';
 
 const C190_SAVED = [
@@ -80,5 +80,26 @@ describe('reply drafting', () => {
   it('falls back to the template when the model is unavailable', async () => {
     const down: LLM = { name: 'down', json: async () => { throw new Error('x'); }, text: async () => { throw new Error('timeout'); } };
     expect(await draftReply(down, base)).toMatchObject({ source: 'template' });
+  });
+  // E19 (REQ-LINK-04), 31 Oct (the user): the acceptance after a link confirmation repeats the confirmed address.
+  const confirmed = (status: 'confirmed' | 'complete') => replyFactsOf({ decision: 'ALL_CLEAR', clientName: 'Client 190', piiMap: {},
+    extraction: null, promise: base.promise,
+    address: { status, address: { line1: '65156 Powers Rd', line2: null, city: 'Enterprise', state: 'OR', zip: '97828' },
+      missing: [], candidates: [], validation: null } });
+
+  it('the acceptance after a link confirmation names the confirmed address, and it is required text', async () => {
+    const facts = confirmed('confirmed');
+    expect(templateReply(facts)).toContain('We will deliver to the address you confirmed: 65156 Powers Rd, Enterprise, OR 97828.');
+    expect(requiredPhrases(facts)).toContain('65156 Powers Rd, Enterprise, OR 97828');
+    expect(JSON.parse(replyRequest(facts).user).deliver_to).toBe('65156 Powers Rd, Enterprise, OR 97828');
+    const dropped = await draftReply(llmSaying('Confirmed, delivery by 25 Oct 2026. Halcyon Logistics'), facts);
+    expect(dropped.source).toBe('template'); // a model draft without the address is not sent
+  });
+
+  it('an acceptance without a link confirmation is unchanged: no address line, no deliver_to (E7 recordings hold)', () => {
+    const facts = confirmed('complete');
+    expect(facts.deliverTo).toBeUndefined();
+    expect(templateReply(facts)).not.toContain('deliver to the address');
+    expect('deliver_to' in JSON.parse(replyRequest(facts).user)).toBe(false);
   });
 });

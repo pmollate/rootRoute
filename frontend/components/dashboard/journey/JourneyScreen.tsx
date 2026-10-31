@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { useCanOpen } from '@/components/auth/UserContext';
+import { toThreads } from '@/components/dashboard/intake/threads';
 import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
 import s from './journey.module.css';
@@ -13,7 +14,7 @@ interface Journey { ref: string; kind: 'order' | 'delivery'; synthetic: boolean;
   summary: { clientId: string | null; tier: string | null; channel: string; commitment: string | null;
     destination: string | null; promisedDate: string | null; outcome: string };
   rounds: { id: number; receivedAt: string; decision: string | null }[]; stages: Stage[] }
-interface Inbox { emails: { id: number; decision: string | null; status: string }[] }
+interface Inbox { emails: { id: number; decision: string | null; status: string; subject: string; inReplyTo: number | null; receivedAt: string }[] }
 
 /** Real late deliveries from the supplied data, one per kind of cause (SPEC §5.1), with what made each late. */
 const EXAMPLES = [['delivery:D000213', 'incomplete address, slow carrier lane'], ['delivery:D000559', 'ordered after the 08:00 cut-off']] as const;
@@ -263,8 +264,11 @@ export function JourneyScreen({ initialRef }: { initialRef: string }) {
   }, [moving, ref, refresh]);
   // Email orders only for roles that may read the inbox (REQ-AUTH-16); others pick from deliveries.
   const inbox = useApi<Inbox>(useCanOpen('/dashboard/intake') ? '/api/intake' : null);
-  const emails = inbox.data?.emails.slice(0, EMAILS_LISTED) ?? [];
-  const listed = [...EXAMPLES.map(([r]) => r), ...emails.map((e) => `email:${e.id}`)];
+  // One entry per order: a client's answer is its own email in the same conversation, so list conversations, each by
+  // its subject and its newest email (the order's current state).
+  const orders = toThreads(inbox.data?.emails ?? []).slice(0, EMAILS_LISTED);
+  const latestOf = new Map(orders.flatMap((t) => t.emails.map((e): [string, string] => [`email:${e.id}`, `email:${t.latest.id}`])));
+  const listed: string[] = [...EXAMPLES.map(([r]) => r), ...latestOf.keys()];
   // "Another delivery ID" shows a box for the ID; it is also how a ref from the URL that is not in the list is shown.
   const [other, setOther] = useState(false);
   const typing = other || !listed.includes(ref);
@@ -277,14 +281,18 @@ export function JourneyScreen({ initialRef }: { initialRef: string }) {
     <div className={s.pick} role="search" aria-label="Choose an order">
       <label className={s.pickLab} htmlFor="oj-order">Order</label>
       <div className={s.select}>
-        <select id="oj-order" value={typing ? OTHER : ref}
+        <select id="oj-order" value={typing ? OTHER : latestOf.get(ref) ?? ref}
           onChange={(e) => { const v = e.target.value; setOther(v === OTHER); if (v !== OTHER) setRef(v); }}>
           <optgroup label="Past late deliveries">
             {EXAMPLES.map(([r, why]) => <option key={r} value={r}>Delivery {r.slice(9)} — {why}</option>)}
           </optgroup>
-          {emails.length > 0 && (
+          {orders.length > 0 && (
             <optgroup label="New email orders">
-              {emails.map((e) => <option key={e.id} value={`email:${e.id}`}>Email order {e.id} — {words(e.status)}</option>)}
+              {orders.map((t) => (
+                <option key={t.id} value={`email:${t.latest.id}`}>
+                  {t.emails[0].subject.trim() || `Email order ${t.latest.id}`} — {words(t.latest.status)}
+                </option>
+              ))}
             </optgroup>
           )}
           <option value={OTHER}>Another delivery ID…</option>

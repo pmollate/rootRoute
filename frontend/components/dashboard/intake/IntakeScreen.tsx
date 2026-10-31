@@ -8,6 +8,7 @@ import { InputRefused, SESSION_ENDED, SessionExpired, postJSON, signInAgain } fr
 import s from './intake.module.css';
 import { OrderReview } from './OrderReview';
 import { toMailbox, toViewer } from '@/lib/mailTime';
+import { type Thread as ThreadOf, toThreads } from './threads';
 
 export type Decision = 'ALL_CLEAR' | 'CONFIRM_ADDRESS' | 'MISSING_INFO';
 interface Item { sku: string; qty: number }
@@ -141,7 +142,7 @@ function Body({ text, address }: { text: string; address: Address | null }) {
 
 type Folder = 'inbox' | 'priority' | 'approval' | 'client' | 'wms';
 /** A conversation: the order and the replies linked to it, oldest first. */
-interface Thread { id: number; emails: EmailItem[]; latest: EmailItem }
+type Thread = ThreadOf<EmailItem>;
 
 const waitingOnClient = (e: EmailItem) => e.status === 'SENT' && e.decision !== null && e.decision !== 'ALL_CLEAR';
 const needsAction = (e: EmailItem) => e.status === 'AWAITING_APPROVAL' || e.status === 'APPROVED' || e.status === 'WAITING'
@@ -154,22 +155,6 @@ const FOLDERS: { key: Folder; label: string; icon: ReactNode; match: (e: EmailIt
   { key: 'client', label: 'Waiting on client', icon: ICON.reply, match: waitingOnClient },
   { key: 'wms', label: 'In WMS', icon: ICON.warehouse, match: (e) => e.status === 'ENTERED' },
 ];
-
-/** Groups emails into threads by their reply links, keeping the inbox order (priority clients first). */
-function toThreads(emails: EmailItem[]): Thread[] {
-  const byId = new Map(emails.map((e) => [e.id, e]));
-  const rootOf = (e: EmailItem) => {
-    let r = e;
-    for (let hops = 0; r.inReplyTo && byId.has(r.inReplyTo) && hops < 50; hops++) r = byId.get(r.inReplyTo)!;
-    return r.id;
-  };
-  const groups = new Map<number, EmailItem[]>();
-  for (const e of emails) { const id = rootOf(e); groups.set(id, [...(groups.get(id) ?? []), e]); }
-  return [...groups].map(([id, list]) => {
-    const sorted = [...list].sort((a, b) => a.receivedAt.localeCompare(b.receivedAt) || a.id - b.id);
-    return { id, emails: sorted, latest: sorted[sorted.length - 1] };
-  });
-}
 
 /** The address counts as done: complete, a saved address, or confirmed by the client through the link (E19). */
 const addressDone = (a: string | undefined) => a === 'complete' || a === 'matched' || a === 'confirmed';

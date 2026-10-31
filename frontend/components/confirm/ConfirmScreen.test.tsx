@@ -62,10 +62,8 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
       .toEqual(['920 Broad St', 'Dock 5', 'Newark', 'NJ', '85004']);
     expect(screen.getByText('pin 40.7228,-74.1797')).toBeTruthy();
     expect(mapProps.mock.calls[0][0].credential).toEqual(view.map);
-    expect(screen.getByText(/This link works until/).textContent).toContain(new Date(view.expiresAt).toLocaleString(undefined,
-      { dateStyle: 'medium', timeStyle: 'short' }));
     const text = document.body.textContent ?? '';
-    for (const no of ['HX-', 'qty', 'Promise', 'promise', 'C130', 'Client 130', 'Tom Okafor', '555-0171', 'client130']) expect(text, no).not.toContain(no);
+    for (const no of ['This link works', 'HX-', 'qty', 'Promise', 'promise', 'C130', 'Client 130', 'Tom Okafor', '555-0171', 'client130']) expect(text, no).not.toContain(no);
     expect(screen.getByRole('button', { name: 'Confirm address' })).toBeTruthy();
   });
 
@@ -79,11 +77,11 @@ describe('/confirm/{token} page (E19, SPEC §5.17)', () => {
     expect(await screen.findByRole('button', { name: 'Confirm again' })).toBeTruthy();
     expect('pin' in posted(fn)[0].body).toBe(false);
     const reading = screen.getByRole('region', { name: 'The map\'s reading of your address' });
-    expect(reading.textContent).toContain('The map reads your address as');
+    expect(reading.textContent).toContain('Suggested address');
     expect(reading.textContent).toContain('920 Broad St, Phoenix, AZ 85004');
     expect(reading.textContent).toContain('The map has a different city and state.');
     expect(screen.getByRole('region', { name: 'The address you typed' }).textContent).toContain('920 Broad St, Dock 5, Newark, NJ 85004');
-    expect(screen.queryByText('The map reads your pin as')).toBeNull();
+    expect(screen.queryByText('Suggested address from the pin')).toBeNull();
   });
 
   it('AC-LINK-15 (page): a map that refuses its tiles (hidden) sends no pin, even after it was ready', async () => {

@@ -129,8 +129,42 @@
 }
 
 /* The forbidden page (REQ-AUTH-15): the same card, inside the dashboard shell instead of a full screen. */
-.inShell { display: grid; place-items: center; padding: 64px 16px; }
-.links { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.9rem; }
 
 /* Icon + label on the Logout button (header and /no-access). */
 .signOut, .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
+/* /no-access ("Hold up!"): the guard scene, its heading inside the dome, then who is signed in and Logout. */
+.deniedPage { min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px; padding: 32px 16px; background: var(--bg); color: var(--ink); font-family: var(--font-sans); text-align: center; }
+.scene { position: relative; width: min(640px, 100%); }
+.sceneArt { display: block; width: 100%; height: auto; }
+/* Centred in the dome: the dome spans 0–57.5% of the art's height. */
+.sceneCopy { position: absolute; top: 12%; left: 20%; right: 20%; display: grid; gap: 6px; }
+.deniedTitle { margin: 0; font-family: var(--font-display); font-size: clamp(1.4rem, 6vw, 2.6rem); font-weight: 700;
+  letter-spacing: -0.02em; line-height: 1.1; color: var(--navy); }
+.deniedCode { margin: 0; color: var(--ink-2); font-size: clamp(0.78rem, 2.4vw, 1rem); }
+.deniedLead { margin: 0; max-width: 46ch; color: var(--ink-2); font-size: 0.95rem; line-height: 1.5; }
+.deniedBtn { display: inline-flex; align-items: center; gap: 8px; }
+
+/* /dashboard/forbidden (403): the message and a way back on the left, the guard scene on the right; stacked on phones. */
+.forbidden { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; gap: clamp(24px, 5vw, 64px);
+  width: min(1120px, 100%); margin: 0 auto; padding: clamp(32px, 6vw, 72px) 16px; }
+.forbiddenCopy { display: grid; justify-items: start; gap: 16px; min-width: 0; }
+.oops { margin: 0; font-family: var(--font-display); font-size: clamp(2.6rem, 6vw, 4.2rem); font-weight: 800; letter-spacing: -0.03em;
+  line-height: 1; color: var(--ink); }
+.forbiddenTitle { margin: 0; font-size: clamp(1.25rem, 2.6vw, 1.9rem); font-weight: 400; line-height: 1.25; color: var(--ink); }
+.forbiddenLead { margin: 0; max-width: 46ch; color: var(--ink-2); font-size: 1rem; line-height: 1.6; }
+.goBack { display: inline-flex; align-items: center; min-height: 48px; margin-top: 8px; padding: 0 28px; border-radius: 10px;
+  background: var(--accent); color: var(--accent-ink); font-weight: 600; text-decoration: none; transition: background 0.15s; }
+.goBack:hover { background: var(--accent-hover); }
+.goBack:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.alsoOpen { display: grid; gap: 8px; }
+.openList { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.openList a { display: inline-block; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  color: var(--ink); font-size: 0.85rem; text-decoration: none; }
+.openList a:hover { border-color: var(--line-strong); }
+.forbiddenArt { display: block; width: 100%; height: auto; }
+@media (max-width: 860px) {
+  .forbidden { grid-template-columns: minmax(0, 1fr); width: min(560px, 100%); }
+  .forbiddenArt { order: -1; width: min(420px, 100%); justify-self: center; }
+}

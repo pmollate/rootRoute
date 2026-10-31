@@ -47,7 +47,7 @@ describe('/confirm/{token} verify step (E19, REQ-LINK-17 to -19)', () => {
     expect(screen.queryByRole('textbox', { name: /email/i })).toBeNull(); // the address is shown, never typed or changed
     expect(screen.queryByRole('button', { name: 'Change' })).toBeNull();
     expect(screen.getByRole('timer').textContent).toBe('10:00');
-    expect(screen.getByText('0 of 6 digits entered · 5 attempts left')).toBeTruthy();
+    expect(screen.getByText('5 attempts left')).toBeTruthy();
     expect(button('Send code')).toBeTruthy();
     expect(screen.queryByLabelText('Street address')).toBeNull();
     expect(screen.getByText('Synthetic data')).toBeTruthy();
@@ -72,7 +72,7 @@ describe('/confirm/{token} verify step (E19, REQ-LINK-17 to -19)', () => {
       fireEvent.click(button('Send code'));
       for (let i = 0; i < 20; i += 1) await Promise.resolve(); // the stubbed fetch and json() settle in microtasks
     });
-    expect(screen.getByRole('status').textContent).toMatch(/^Code sent at /);
+    expect(screen.getByRole('status').textContent).toMatch(/^Code sent$/);
     expect(screen.getByText(/Enter the 6-digit code we sent to/)).toBeTruthy();
     expect(calls(fn)[0]).toMatchObject({ url: `/api/confirm/${TOKEN}/code`, method: 'POST' });
     expect(button('Resend in 01:00').disabled).toBe(true);
@@ -107,7 +107,7 @@ describe('/confirm/{token} verify step (E19, REQ-LINK-17 to -19)', () => {
     expect(button('Verify and continue').disabled).toBe(true);
     typeCode('12a34');
     expect(digits()).toBe('1234'); // letters dropped, digits spread over the boxes
-    expect(screen.getByText('4 of 6 digits entered · 5 attempts left')).toBeTruthy();
+    expect(screen.getByText('5 attempts left')).toBeTruthy();
     expect(button('Verify and continue').disabled).toBe(true);
     fireEvent.keyDown(digit(5), { key: 'Backspace' }); // an empty box: Backspace clears the one before
     expect(digits()).toBe('123');
@@ -123,7 +123,7 @@ describe('/confirm/{token} verify step (E19, REQ-LINK-17 to -19)', () => {
     expect(texts).toEqual(['That code is not right. 4 tries left.', 'That code is not right. 1 try left.',
       'That code is not right. Send a new code.', 'That code has expired. Send a new one.']);
     expect(calls(fn)[0]).toMatchObject({ url: `/api/confirm/${TOKEN}/verify`, method: 'POST', body: { code: '123456' } });
-    expect(screen.getByText('6 of 6 digits entered · 0 attempts left')).toBeTruthy();
+    expect(screen.getByText('0 attempts left')).toBeTruthy();
   });
 
   it('AC-LINK-19 (page): the right code fetches the address with x-link-verify and shows the address form; Confirm carries the header', async () => {
