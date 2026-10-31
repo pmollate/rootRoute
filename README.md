@@ -14,6 +14,9 @@ and handling in 6 months; the full programme reaches 92.0%. Before/after and met
 `demo-<role>@rootroute.test` (roles below); the demo password is shared with the jury separately, never in the repo.
 API health: <https://rootroute01-api.azurewebsites.net/api/health>.
 
+https://evokemail.sharepoint.com/:v:/r/sites/LearningandDevelopmentTeam2/_layouts/15/stream.aspx?id=%2Fsites%2FLearningandDevelopmentTeam2%2FShared%20Documents%2FHackathon%202026%2FProblem%20Statement%202%2FUnhandled%20Rejections%2Frootroute%2Dpitch%2Dfast%2Emp4&share=cQqIiaqYTfwsQox4IaI9LWzAEgUC5w4JT6KfnHmIHvVOUtfKYw
+
+
 ## What it does
 
 | Screen | What it shows | Who sees it |
