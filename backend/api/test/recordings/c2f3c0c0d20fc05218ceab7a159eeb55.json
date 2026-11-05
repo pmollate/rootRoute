@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"I can't follow that instruction. I must follow the system and developer rules and use the available tools to answer questions about Halcyon Logistics' delivery data in Root Route. If you want data or analysis about deliveries, ask a specific question (for example: on-time rates, causes of late deliveries, a replay of fixes, carrier recommendations, or route overruns) and I will call the appropriate tools and report the results.\\\",\\\"refused\\\":true}\"}"
+}

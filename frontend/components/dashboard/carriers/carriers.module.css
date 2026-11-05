@@ -166,3 +166,14 @@
 
 /* Phones: tighter section gaps. */
 @media (max-width: 640px) { .screen { gap: 20px; } }
+
+/* Route overruns (C9a, SPEC §5.18) */
+.rStats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
+.rStats li { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); display: grid; gap: 4px; align-content: start; }
+.rSlices { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+.rSlices button { display: grid; gap: 2px; text-align: left; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; font-size: 0.7rem; }
+.rSlices button b { font-size: 0.9rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+.rSlices button[aria-pressed='true'] { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); color: var(--ink); }
+.rNote { margin: 10px 0 0; font-size: 0.74rem; color: var(--ink-2); line-height: 1.5; }
+@media (max-width: 1100px) { .rStats { grid-template-columns: 1fr 1fr; } .rSlices { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .rStats { grid-template-columns: minmax(0, 1fr); } .rSlices { grid-template-columns: 1fr 1fr; } }

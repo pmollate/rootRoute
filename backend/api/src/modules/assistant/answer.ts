@@ -41,6 +41,7 @@ export interface AssistantAnswer {
 const TOOL_ROUTE: Record<ToolName, string | null> = {
   overview: 'GET /api/overview', delivery_causes: 'GET /api/causes', scenario: 'GET /api/replay',
   check_promise: null, lane_scores: 'GET /api/carriers', recommend_carrier: 'GET /api/carriers',
+  route_overruns: 'GET /api/routes/overruns', // C9a (SPEC §5.18): same roles as lane_scores
 };
 
 /** REQ-ASK-09: with AUTH_REQUIRED=on, only the tools the user's roles may read; with it off, every tool (as every screen). */
@@ -60,6 +61,11 @@ export const SUGGESTION = 'Suggestion (from the data, not a decision):';
 /** REQ-ASK-13: advice ("stop using", "should", "we recommend") anywhere but the labelled suggestion paragraph. */
 export function adviceOutsideSuggestion(answer: string): boolean {
   return /\bstop using\b|\bshould\b|\bwe recommend\b/i.test(answer.split(SUGGESTION)[0]);
+}
+
+/** REQ-ASK-13: a bare one-word verdict ("SIGN", "DON'T SIGN") is a decision for Halcyon, never an answer. */
+export function verdictOnly(answer: string): boolean {
+  return /^\W*(sign|don'?t sign)\W*$/i.test(answer);
 }
 
 /** A raw fraction from a tool (0.8035532415950516) as a percentage with one decimal (80.4%). */
@@ -119,6 +125,8 @@ export async function answerQuestion(input: z.output<typeof AssistantRequestSche
       // REQ-ASK-11 (v0.16): a raw fraction (0.8035…) is written as a percentage by code, not sent back to the model.
       const parsed = raw.success ? { ...raw, data: { ...raw.data, answer: percentages(raw.data.answer) } } : raw;
       if (fallback && (!parsed.success || parsed.data.refused)) return done(fallback, false, true);
+      // REQ-ASK-13: code, not the prompt, keeps a bare SIGN / DON'T SIGN verdict from ever being shown (eval injection-05).
+      if (parsed.success && verdictOnly(parsed.data.answer)) return done(REFUSAL, true, false);
       // REQ-ASK-06 (v0.17): in scope but no tool holds it: shown only as the fixed opening, with no figures.
       if (parsed.success && !parsed.data.refused && sources.length === 0 && parsed.data.answer.startsWith(NOT_HELD)
         && !figuresIn(parsed.data.answer).length && !/<|\]\(|https?:|www\./i.test(parsed.data.answer)

@@ -100,7 +100,7 @@ Not in the submitted build. Added in the PR that builds each feature, reviewed b
 ```ts
 // backend/api/src/modules/mcp/tools.ts (owner C): the one registry read by the MCP server and the assistant (REQ-ASK-02)
 export interface ToolDef<I extends z.ZodRawShape = z.ZodRawShape> {
-  name: 'overview' | 'delivery_causes' | 'scenario' | 'lane_scores' | 'recommend_carrier' | 'check_promise';
+  name: 'overview' | 'delivery_causes' | 'scenario' | 'lane_scores' | 'recommend_carrier' | 'check_promise' | 'route_overruns'; // route_overruns: C9a
   title: string;
   description: string;
   input: I;                                // zod shape, validated before the handler runs (REQ-ASK-03)
@@ -230,9 +230,11 @@ in 0..1, money in USD.
 | `carrier_capacity` | C (SD-06) | `carrier_id`, `region`, `daily_limit`, `friday_limit`, `synthetic` |
 | `carrier_backtest` | C | `choice` (`actual`/`recommended`), `n`, `on_time`, `mean_rate` |
 | `carrier_events` | C (SD-07) | `delivery_id`, `carrier_id`, `event` (`picked_up`/`in_transit`/`out_for_delivery`/`delivered`), `ts`, `source` (`api`/`portal`/`batch`), `synthetic` |
+| `route_overruns` | C | C9a (SPEC §5.18): `slice` (`all`/`carrier`/`region`/`warehouse`/`stops_band`/`weekday`/`month`), `value` (`all`, `B`, `Midwest`, `W1`, `up to 10`/`11-20`/`21-30`/`31+`, `Friday`, `2026-04`), `n`, `n_measured`, `n_overrun`, `overrun_rate` (0..1, of `n_measured`), `late_rate_overrun` (0..1, of `n_overrun`), `late_rate_other` (0..1, of every delivery that did not overrun, blank distances included), `n_blank`, `penalty_usd`, `handling_usd`, `points_lost` (0..1, `all` row only, else null), `ratio_to_all` (`overrun_rate` over the `all` row's), `min_rate`, `max_rate`, `spread_pts` (the slice's, over values with at least `min_n` measured, on each of its rows), `stands_out` (boolean) |
+| `route_demo` | C (SD-11) | C9c (SPEC §5.19): `delivery_id`, `n_stops`, `stops` (JSON text: `[[x, y], …]` km from the fulfilment warehouse, stop-number order), `planned_order`, `optimised_order` (JSON text: stop numbers, depot implied at both ends), `planned_km` (real), `optimised_km` (synthetic), `actual_km` (real, null when blank), `overran` (boolean, `f_route`), `example` (`overrun`/`on_plan`/`no_distance` on one row each: the lowest id of that kind whose reordering is shorter, else null), `synthetic` (true). Not written when `ROUTE_DEMO=off` (a table from an earlier run is then left in place; only the bench's throwaway databases use it) |
 | `risk_lookup` | A | `f_addr`, `f_cutoff`, `f_stock`, `f_lane`, `n`, `late_rate` |
 
-Pipeline order (`npm run pipeline`, i.e. `cd backend && python -m analytics.pipeline`): core (B) → warehouse (B) → carriers (C) → intake (A). Each area
+Pipeline order (`npm run pipeline`, i.e. `cd backend && python -m analytics.pipeline`): core (B) → warehouse (B) → carriers (C) → routes (C, C9a) → intake (A). Each area
 module exposes `build(ctx) -> dict[str, DataFrame]`; later modules may read earlier tables from `ctx.tables`.
 
 ## 5. Tables written by Node (`backend/db/migrations/`)
@@ -326,6 +328,9 @@ Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 
 | `GET /api/placement` | B | `{ synthetic: true, week, suggestions: [{ clientId, sku, from, to, qty, reason }], impact: [{ week, suggestions, avoidedNextWeek }] }` |
 | `GET /api/carriers?region=&commitment=&sla=true\|false` | C | `{ region, commitment, recommendation: CarrierRecommendation }` |
 | `GET /api/carriers/backtest` | C | `{ rows: [{ choice, n, onTime, meanRate }] }` |
+| `GET /api/routes/overruns` | C | C9a (SPEC §5.18): `{ all: RouteOverrunRow, slices: [{ slice, minRate, maxRate, spreadPts, standsOut, rows: RouteOverrunRow[] }] }`, `RouteOverrunRow` = `{ value, n, nMeasured, nOverrun, overrunRate, lateRateOverrun, lateRateOther, nBlank, penaltyUsd, handlingUsd, pointsLost, ratioToAll, standsOut }` (`pointsLost` null except on `all`; `standsOut` on a slice: any of its rows). 503 `{ error }` when the table is empty or not created yet; roles as `GET /api/carriers` (SPEC-auth §4.4) |
+| `GET /api/labs/route-demo` | C | C9c: `{ synthetic: true, examples: [{ deliveryId, kind }] }`; 503 when the table is empty or missing; Labs roles (SPEC-auth §4.4) |
+| `GET /api/labs/route-demo/:deliveryId` | C | C9c: `{ synthetic: true, deliveryId, nStops, stops: [number, number][], plannedOrder: number[], optimisedOrder: number[], plannedKm, optimisedKm, actualKm: number \| null, overran }`; 400 `{ error: "bad_delivery_id" }` unless `D` + 6 digits; 404 `{ error: "not_found" }`; 503 when the table is empty or missing; Labs roles |
 | `GET /api/tracking?asOf=YYYY-MM-DD` | C | `{ synthetic: true, asOf, freshness: [{ carrier, source, lastEventAt }], atRisk: [{ deliveryId, carrier, promisedDate }] }` |
 | `POST /api/recommend` | C | body `RecommendInput` → `CarrierRecommendation` |
 | `POST /api/overrides` | C | body `{ orderRef, from, to, reason, user }` → `{ id }` (needs `x-api-key`) |
@@ -341,7 +346,7 @@ Who may call each route: `backend/api/src/core/permissions.ts` (SPEC-auth §4.2 
 | `GET /api/complaints` | A | `{ complaints: [{ complaintId, clientId, deliveryId, category, date, text, atRisk, tier, escalate, triage: { stages, prePickup, escalate, draft, source, at } \| null }] }` — escalations (Tier 1 or at-risk) first, then complaint id order; `triage` is the latest saved one |
 | `POST /api/complaints/:id/triage` | A | → `{ complaintId, deliveryId, stages, prePickup, escalate, draft, source }` |
 | `POST /api/alerts/run` | A | body `{ asOf }` → `{ drafted: number }` (needs `x-api-key`) |
-| `POST /api/mcp` | C | MCP Streamable HTTP (stateless, JSON responses). Tools, all read-only: `overview`, `delivery_causes`, `scenario`, `lane_scores`, `recommend_carrier`, `check_promise`. Needs `Authorization: Bearer <MCP_TOKEN>`; 401 without it, 503 when `MCP_TOKEN` is unset. From D10 the tools come from `modules/mcp/tools.ts` (§1.1); nothing else changes |
+| `POST /api/mcp` | C | MCP Streamable HTTP (stateless, JSON responses). Tools, all read-only: `overview`, `delivery_causes`, `scenario`, `lane_scores`, `recommend_carrier`, `check_promise` (`route_overruns` added by C9a). Needs `Authorization: Bearer <MCP_TOKEN>`; 401 without it, 503 when `MCP_TOKEN` is unset. From D10 the tools come from `modules/mcp/tools.ts` (§1.1); nothing else changes |
 | `POST /api/assistant` | C | *After submission (D10, SPEC §5.16; built 30 Oct, flag off).* body `AssistantRequest` → `AssistantAnswer`. Called by the Ask LateLens panel and by Overview's Router. Every role (SPEC-auth §4.2); `x-api-key` while `AUTH_REQUIRED=off`. 404 when `ASK_ASSISTANT` is off; 400 `{ error: "too_long" }` for a question over 500 characters, 400 `{ error: "invalid" }` for any other bad body (history limits in §1.1); 429 `{ error: "rate_limited" }`; 503 `{ error: "assistant_unavailable" }` when the model is unreachable, a recording is missing or a tool's read fails (no server text). Writes no table |
 | `GET /api/confirm/:token` | A | *After submission (E19, SPEC §5.17).* Public, token-gated; the request log shows the path as `/api/confirm/[token]` (SEC-LINK-01). → `LinkView` (with the SAS map credential); 404 `{ error: "link_invalid" }` for an unknown, expired, used or revoked link, byte-identical in every case; 404 also when `CONFIRM_LINK` is off. Never uses up the link |
 | `POST /api/confirm/:token` | A | *After submission (E19).* Public, token-gated; through the web proxy's `Origin` check. body `{ address: LinkAddress, pin?: LinkPin, checkId? }` (v0.18: `pin` only from a working map the client used, REQ-LINK-15) → `{ status: "confirmed" }`; 409 `{ error: "needs_second_confirm", reading: MapReading, checkId }` (REQ-LINK-03, -13, -14; the `checkId` counts only for the same typed address and the same pin or no pin); 400 `{ error: "invalid" }` (SEC-LINK-10, link stays unused); 404 `link_invalid`; 429 `rate_limited` (also after 20 map look-ups, forward and reverse together, SEC-LINK-04); 503 `{ error: "map_unavailable" }` when the map cannot be reached (link stays unused, REQ-LINK-12) |

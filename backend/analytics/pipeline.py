@@ -10,13 +10,14 @@ import time
 
 import pandas as pd
 
-from analytics import carriers, intake, warehouse
+from analytics import carriers, intake, routes, warehouse
 from analytics.core.build import build as core_build
 from analytics.core.context import Ctx
 from analytics.core.db import write_tables
 from analytics.core.load import DATA_DIR, load
 
-STEPS = [("core", core_build), ("warehouse", warehouse.build), ("carriers", carriers.build), ("intake", intake.build)]
+STEPS = [("core", core_build), ("warehouse", warehouse.build), ("carriers", carriers.build), ("routes", routes.build),
+         ("intake", intake.build)]
 
 
 def run() -> dict[str, pd.DataFrame]:

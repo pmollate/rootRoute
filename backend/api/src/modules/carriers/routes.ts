@@ -6,11 +6,12 @@ import { config } from '../../core/config.js';
 import { query } from '../../core/db/pool.js';
 import { carriersApi, recordOrderEvent } from './index.js';
 import { FEED_EVENTS, TS } from './orderEvents.js';
+import { DELIVERY_ID } from './routeDemo.js';
 import { warehouseApi } from '../warehouse/index.js';
 import type { Commitment as CommitmentId, Region as RegionId, WarehouseId } from '../../core/contracts.js';
 import { recommendFromLane } from './domain.js';
 import { buildDeliveryJourney, buildEmailJourney } from './journey.js';
-import { backtestRows, deliveryFacts, emailExists, emailFacts, insertOverride, laneRows, tracking } from './queries.js';
+import { backtestRows, deliveryFacts, emailExists, emailFacts, insertOverride, laneRows, routeDemoExamples, routeDemoRow, routeOverruns, tracking } from './queries.js';
 
 const Region = z.enum(['Midwest', 'Northeast', 'Southeast', 'West']);
 const Commitment = z.enum(['same_day', 'next_day', 'standard']);
@@ -38,6 +39,25 @@ const routes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/carriers/backtest', async () => backtestRows());
+
+  /** C9a (SPEC §5.18, REQ-ROUTE-06): route overruns by slice, from `route_overruns` (Python). */
+  app.get('/routes/overruns', async (_req, reply) => {
+    const data = await routeOverruns();
+    return data ?? reply.code(503).send({ error: 'route overruns not computed yet: run the pipeline' });
+  });
+
+  /** C9c (SPEC §5.19, REQ-RDEMO-04): one delivery's synthetic reordering demo (SD-11). Labs only. */
+  app.get('/labs/route-demo', async (_req, reply) => {
+    const examples = await routeDemoExamples();
+    return examples ? { synthetic: true, examples } : reply.code(503).send({ error: 'route demo not computed yet: run the pipeline' });
+  });
+
+  app.get<{ Params: { deliveryId: string } }>('/labs/route-demo/:deliveryId', async (req, reply) => {
+    if (!DELIVERY_ID.test(req.params.deliveryId)) return reply.code(400).send({ error: 'bad_delivery_id' });
+    const r = await routeDemoRow(req.params.deliveryId);
+    if (r === 'no_table') return reply.code(503).send({ error: 'route demo not computed yet: run the pipeline' });
+    return r ?? reply.code(404).send({ error: 'not_found' });
+  });
 
   app.get<{ Querystring: { asOf?: string } }>('/tracking', async (req, reply) => {
     const asOf = req.query.asOf ?? '2026-09-10';

@@ -175,7 +175,7 @@ def _one_in_subprocess(name: str, data_dir: Path, args, no_profile: bool = False
     cmd += ["--trace"] if trace else []
     cmd += ["--db-url", args.db_url] if args.db_url and not trace else []
     started = time.perf_counter()
-    p = subprocess.run(cmd, cwd=BACKEND, capture_output=True, text=True)
+    p = subprocess.run(cmd, cwd=BACKEND, capture_output=True, text=True, env={**os.environ, "ROUTE_DEMO": "off"})
     if p.returncode != 0:
         err = (p.stderr.strip().splitlines() or ["(no output)"])[-1]
         return {"name": name, "error": err, "seconds_to_failure": round(time.perf_counter() - started, 1)}

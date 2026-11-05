@@ -29,7 +29,7 @@ def _waterfall() -> list[Scenario]:
              ("adopt_lanes", "+ lane rules and Friday cap ({})", "f_lane"),
              ("adopt_cutoff", "+ cutoff-aware promise ({})", "f_cutoff"),
              ("adopt_warehouse", "+ warehouse fallback ({})", "f_stock"),
-             ("adopt_all", "+ last-mile watch ({}): full programme", "f_route")]
+             ("adopt_all", "+ route overruns cut by {} (assumed; no fix built): full programme", "f_route")]
     out, rates = [], {}
     for key, label, flag in steps:
         rates = {**rates, flag: ADOPTION[flag]}

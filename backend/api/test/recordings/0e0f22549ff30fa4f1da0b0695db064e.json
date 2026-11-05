@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_T4BQ0Frc2I3OXStN7scJBAtU\",\"name\":\"route_overruns\",\"arguments\":\"{\\\"slice\\\":\\\"carrier\\\"}\"}]}"
+}

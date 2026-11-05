@@ -4,6 +4,8 @@ import { query } from '../../core/db/pool.js';
 import type { LaneRow } from './domain.js';
 import type { CauseFlags, DeliveryFacts, EmailFacts, TrackEvent } from './journey.js';
 import type { OrderEventRow } from './orderEvents.js';
+import { shapeRouteDemo, type RouteDemo, type RouteDemoDbRow } from './routeDemo.js';
+import { shapeRouteOverruns, type RouteOverrunDbRow, type RouteOverruns } from './routeOverruns.js';
 
 export const laneRows = (region: Region, commitment: Commitment) => cached(`lane:${region}:${commitment}`, () =>
   query<LaneRow>('SELECT * FROM lane_scores WHERE region = $1 AND commitment = $2', [region, commitment]));
@@ -37,6 +39,51 @@ export async function insertOverride(o: { orderRef: string; from: string; to: st
   return rows[0].id;
 }
 
+class NoRouteData extends Error {}
+class NoRouteDemo extends Error {}
+
+/** C9a (SPEC §5.18). Null while the pipeline has not filled `route_overruns`; an empty read is not cached. */
+export async function routeOverruns(): Promise<RouteOverruns | null> {
+  try {
+    return await cached('route_overruns', async () => {
+      const shaped = shapeRouteOverruns(await query<RouteOverrunDbRow>('SELECT * FROM route_overruns'));
+      if (!shaped) throw new NoRouteData();
+      return shaped;
+    });
+  } catch (err) {
+    // 42P01: the table does not exist yet (Python creates it on its first run after a deploy): not data, not a fault.
+    if (err instanceof NoRouteData || (err as { code?: string }).code === '42P01') return null;
+    throw err;
+  }
+}
+/** C9c (SPEC §5.19). 'no_table' while the pipeline has not written route_demo (42P01) or it is empty. */
+export async function routeDemoRow(id: string): Promise<RouteDemo | null | 'no_table'> {
+  try {
+    const [any] = await query<{ n: number }>('SELECT count(*)::int AS n FROM (SELECT 1 FROM route_demo LIMIT 1) t');
+    if (!any?.n) return 'no_table';
+    const [row] = await query<RouteDemoDbRow>('SELECT * FROM route_demo WHERE delivery_id = $1', [id]);
+    return row ? shapeRouteDemo(row) : null;
+  } catch (err) {
+    if ((err as { code?: string }).code === '42P01') return 'no_table';
+    throw err;
+  }
+}
+
+export async function routeDemoExamples(): Promise<{ deliveryId: string; kind: string }[] | null> {
+  try {
+    // An empty read is not cached (like routeOverruns): the pipeline may fill the table later.
+    const rows = await cached('route_demo_examples', async () => {
+      const found = await query<{ delivery_id: string; example: string }>(
+        'SELECT delivery_id, example FROM route_demo WHERE example IS NOT NULL ORDER BY example');
+      if (!found.length) throw new NoRouteDemo();
+      return found;
+    });
+    return rows.map((r) => ({ deliveryId: r.delivery_id, kind: r.example }));
+  } catch (err) {
+    if (err instanceof NoRouteDemo || (err as { code?: string }).code === '42P01') return null;
+    throw err;
+  }
+}
 export const backtestRows = () => cached('backtest', async () => ({
   rows: (await query<{ choice: string; n: number; on_time: number; mean_rate: number }>('SELECT * FROM carrier_backtest ORDER BY choice'))
     .map((r) => ({ choice: r.choice, n: r.n, onTime: r.on_time, meanRate: r.mean_rate })),

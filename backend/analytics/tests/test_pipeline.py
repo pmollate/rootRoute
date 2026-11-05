@@ -5,7 +5,7 @@ CONTRACT_TABLES = {
     "accounts", "scenario_results", "scenario_breakdown",
     "cause_attribution", "cause_kpis", "warehouse_region_distance", "client_region_nearest", "warehouse_stats",
     "penalty_reconciliation", "stock_daily", "placement_suggestions", "placement_impact", "lane_scores",
-    "carrier_capacity", "carrier_backtest", "carrier_events", "complaints", "risk_lookup",
+    "carrier_capacity", "carrier_backtest", "carrier_events", "route_overruns", "route_demo", "complaints", "risk_lookup",
 }
 
 

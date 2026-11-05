@@ -56,6 +56,10 @@ describe('page access (SPEC-auth §4.4)', () => {
   it('AC-AUTH-15: sub-paths follow their screen; pages that are not a screen are open to any role', () => {
     expect(canOpen(['order_desk'], '/dashboard/carriers/x')).toBe(false);
     expect(canOpen(['order_desk'], '/dashboard/carriersx')).toBe(true); // not a screen: 404s on its own
+    // A section link (#routes, C9a) or a query follows its screen too.
+    expect(canOpen(['warehouse_supervisor'], '/dashboard/carriers#routes')).toBe(false);
+    expect(canOpen(['order_desk'], '/dashboard/carriers?region=West')).toBe(false);
+    expect(canOpen(['carrier_manager'], '/dashboard/carriers#routes')).toBe(true);
     for (const p of ['/', '/dashboard', '/dashboard/forbidden']) expect(canOpen(['order_desk'], p), p).toBe(true);
   });
 

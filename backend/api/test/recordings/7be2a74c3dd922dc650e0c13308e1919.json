@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"Root Route's tools don't hold that. They do not list which carrier lanes are blocked. The tools can show Halcyon's delivery totals, on-time and late rates, the five causes (incomplete address, order after cut-off, non-nearest warehouse, carrier lane, route detour), replays of what fixing causes or changing routing would do, and the delivery promise rules. If you want one of those—late-rate breakdowns by cause, the replay of fixing causes, or the promise for a specific received-at time—say which and I will pull it.\\\",\\\"refused\\\":false}\"}"
+}

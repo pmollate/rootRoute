@@ -21,7 +21,8 @@ every one fixed) is **80.4%** (SPEC §2.4).
 
 **Method.** Each delivery carries five cause flags (SPEC §5.1). The replay switches on a fix and marks a late
 delivery on time when the fix removes all of its causes, at an expected adoption rate per fix (address 85%, lanes and
-Friday cap 90%, cut-off promise 85%, warehouse fallback 60%, last-mile watch 30%; SPEC §2.4). "As built" is the
+Friday cap 90%, cut-off promise 85%, warehouse fallback 60%, and route overruns cut by 30%, assumed with no fix built;
+SPEC §2.4). "As built" is the
 fixes this build delivers: email address check, cut-off-aware promise, nearest-warehouse rule, lane rules with a
 Friday cap. Cost avoided = $34 handling per late delivery avoided + $180 × late deliveries avoided for clients with a
 penalty clause × 0.708 (the share of such penalties actually paid, 4,847 / 6,849). Code:

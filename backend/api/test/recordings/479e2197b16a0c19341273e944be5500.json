@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_d2Ggu39OCd9QM4U2KdIm3nBN\",\"name\":\"route_overruns\",\"arguments\":\"{\\\"slice\\\":\\\"weekday\\\"}\"}]}"
+}

@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"For email orders the data shows these causes and their effects: incomplete address — 4250 deliveries affected, 63.6% late; order after the cut-off — 1228 deliveries affected, 51.3% late; shipped from a non-nearest warehouse — 1798 deliveries affected, 42.0% late; bad carrier lane (including Carrier D on Fridays) — 2762 deliveries affected, 37.1% late; route detour (route >20% over plan) — 776 deliveries affected, 52.8% late. Also 6406 email deliveries show none of the five causes, late rate 0.\\\",\\\"refused\\\":false}\"}"
+}

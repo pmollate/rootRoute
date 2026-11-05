@@ -125,8 +125,14 @@ test.describe('moving through the workflow', () => {
 
 test.describe('new orders from the inbox', () => {
   test.skip(({ viewport }) => (viewport?.width ?? 0) < 768, 'checked once, at desktop width');
-  type Inbox = { emails: { id: number; status: string; decision: string | null }[] };
+  type Inbox = { emails: { id: number; status: string; decision: string | null; inReplyTo: number | null }[] };
   let inbox: Inbox['emails'] = [];
+  /**
+   * An email's journey takes in the client's answers to it, so an answered email shows its answer's state (an approved
+   * answer marks Approved done). The status checks pick only emails nobody has answered: the newest of each conversation,
+   * the one the picker opens.
+   */
+  const unanswered = () => inbox.filter((e) => !inbox.some((r) => r.inReplyTo === e.id));
   // Read through the web app, as the page does; retried, since one dropped request would skip every inbox test.
   test.beforeAll(async ({ request }) => {
     for (let attempt = 1; ; attempt++) {
@@ -153,7 +159,7 @@ test.describe('new orders from the inbox', () => {
   });
 
   test('an all-clear order awaiting approval: checks done, waiting at approval, nothing shipped', async ({ page }) => {
-    const email = inbox.find((e) => e.decision === 'ALL_CLEAR' && e.status === 'AWAITING_APPROVAL');
+    const email = unanswered().find((e) => e.decision === 'ALL_CLEAR' && e.status === 'AWAITING_APPROVAL');
     test.skip(!email, 'no all-clear order is awaiting approval in the inbox');
     await open(page, `email:${email!.id}`);
     await expect(place(page, 'Planning')).toContainText('In progress: approved');
@@ -168,7 +174,7 @@ test.describe('new orders from the inbox', () => {
   });
 
   test('an order waiting for the client to confirm the address stops before the warehouse and carrier', async ({ page }) => {
-    const email = inbox.find((e) => e.decision === 'CONFIRM_ADDRESS' && e.status !== 'REJECTED');
+    const email = unanswered().find((e) => e.decision === 'CONFIRM_ADDRESS' && e.status !== 'REJECTED');
     test.skip(!email, 'no order in the inbox is waiting on an address');
     await open(page, `email:${email!.id}`);
     await expect(row(await stagesOf(page, 'Order intake'), 'Address checked')).toContainText('In progress');

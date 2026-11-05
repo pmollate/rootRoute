@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_SvanagH7dJ58zzNDZsR3676X\",\"name\":\"delivery_causes\",\"arguments\":\"{\\\"segment\\\":\\\"at_risk\\\"}\"}]}"
+}

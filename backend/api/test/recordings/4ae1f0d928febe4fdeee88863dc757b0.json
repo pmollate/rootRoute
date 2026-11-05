@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_w24nXqQs5WUHYZGKavTDR4x6\",\"name\":\"lane_scores\",\"arguments\":\"{\\\"region\\\":\\\"Midwest\\\",\\\"commitment\\\":\\\"next_day\\\"}\"}]}"
+}

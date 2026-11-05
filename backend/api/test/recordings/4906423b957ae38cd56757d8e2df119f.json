@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"The replay over August–September shows these on-time rates and the replayed late deliveries avoided and cost avoided for each fix. Today: 71.3% on time, late deliveries avoided 0, cost avoided $0. Route overruns only: 73.9% on time, late deliveries avoided 389, cost avoided $34,925. Carrier lanes only: 77.9% on time, late deliveries avoided 998, cost avoided $91,892. Carrier lanes + routes: 80.9% on time, late deliveries avoided 1441, cost avoided $131,886. Address + cut-off + stock: 87.6% on time, late deliveries avoided 2457, cost avoided $244,045. Address + cut-off + stock + lanes (all but route): 96.3% on time, late deliveries avoided 3752, cost avoided $365,680. LateLens as built (full fix): 88.6% on time, late deliveries avoided 2596, cost avoided $257,992.\\\",\\\"refused\\\":false}\"}"
+}

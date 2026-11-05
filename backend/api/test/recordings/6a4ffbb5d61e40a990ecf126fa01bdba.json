@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_WXhu3I8ipEAiyX5zziSgwcim\",\"name\":\"lane_scores\",\"arguments\":\"{\\\"region\\\":\\\"West\\\"}\"}]}"
+}

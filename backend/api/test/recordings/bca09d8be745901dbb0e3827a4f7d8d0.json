@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"Root Route would book carrier C, with carrier F as the backup. The tool shows Carrier C on-time: 97.2%, Carrier F on-time: 93.8%, and Carrier E is blocked (reason: \\\\\\\"54% late on fair data (limit 15%)\\\\\\\"). The tool also notes \\\\\\\"$3.17 more per shipment\\\\\\\" for Carrier C in its reason string.\\\",\\\"refused\\\":false}\"}"
+}

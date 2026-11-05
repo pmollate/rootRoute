@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"Root Route's data shows the order was downgraded. promiseDate: 2026-10-24, commitment: next_day, downgraded: true. Reason: Received at 08:30, after the 08:00 pick-list cut-off, so it goes on the next day's pick list.\\\",\\\"refused\\\":false}\"}"
+}

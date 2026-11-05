@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_vWzC1A1t2yyPv6PHNgXNl5TZ\",\"name\":\"lane_scores\",\"arguments\":\"{}\"}]}"
+}

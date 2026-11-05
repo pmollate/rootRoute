@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"Root Route's tools don't hold that. They do not store individual client contact names. The tools can show instead: counts and rates of late deliveries, penalties and handling costs, which accounts are at risk and their revenue, the five causes of late deliveries (incomplete address, order after the cut-off, non-nearest warehouse, carrier lane, route detour), replayed scenarios of what on-time rate could be if causes were fixed, carrier lane scores and blocked lanes, and route overrun diagnostics. If you want who complained most, ask your account or CRM system for the contact-level complaint log; Root Route can then show which accounts those contacts belong to and the delivery data for those accounts if you provide identifiers.\\\",\\\"refused\\\":false}\"}"
+}

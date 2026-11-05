@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { mockApi, renderScreen } from '../test-utils';
+import { asRole, mockApi, renderScreen } from '../test-utils';
 import { ReplayScreen } from './ReplayScreen';
 
 const s = (scenario: string, label: string, onTime: number, costAvoided: number) => ({ scenario, label, grp: 'adoption', onTime, lateAvoided: 1, costAvoided });
@@ -63,6 +63,48 @@ describe('Replay', () => {
 describe('Replay recent segment (REQ-DATA-14, AC-DATA-21)', () => {
   afterEach(() => cleanup());
   const base = { '/api/replay?segment=all': { segment: 'all', scenarios: [] }, '/api/accounts': { accounts: [] }, '/api/attribution': { causes: [] } };
+
+  it('C9a: a route-overrun account links to the Routes panel, and only for roles that can open Carriers', async () => {
+    cleanup();
+    const routes = {
+      '/api/replay?segment=all': { segment: 'all', scenarios: [s('today', 'Today', 0.71, 0)] },
+      '/api/accounts': { accounts: [acc('C301', 1_000_000, 'Route >20% over plan')] },
+      '/api/attribution': { causes: [] },
+    };
+    mockApi(routes);
+    renderScreen(<ReplayScreen />, asRole('carrier_manager'));
+    // The panel reports overruns; it is not the last-mile fix, which is not built (SPEC §12), so the link says so.
+    const link = await screen.findByRole('link', { name: 'C301: see route overruns' });
+    expect(link.textContent).toBe('See route overruns');
+    expect(link.getAttribute('href')).toBe('/dashboard/carriers#routes');
+    cleanup();
+    mockApi(routes);
+    renderScreen(<ReplayScreen />, asRole('warehouse_supervisor'));
+    expect(await screen.findByText('No fix built')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /route overruns/i })).toBeNull();
+  });
+
+  it('SPEC §14.1 (4 Nov): the route step is an assumption, so it protects no account and is labelled as one', async () => {
+    cleanup();
+    mockApi({
+      '/api/replay?segment=all': { segment: 'all', scenarios: [s('today', 'Today', 0.71, 0)] },
+      '/api/accounts': { accounts: [acc('C301', 1_000_000, 'Route >20% over plan'), acc('C263', 900_000, 'Incomplete address at intake')] },
+      '/api/attribution': { causes: [] },
+    });
+    renderScreen(<ReplayScreen />);
+    expect((await screen.findByTestId('coverage')).textContent).toBe('Address check protects 1 account.');
+    expect(screen.getAllByText('Route overruns cut (assumed)').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Last-mile watch/)).toBeNull();
+    cleanup();
+    mockApi({
+      '/api/replay?segment=all': { segment: 'all', scenarios: [s('today', 'Today', 0.71, 0)] },
+      '/api/accounts': { accounts: [acc('C301', 1_000_000, 'Route >20% over plan')] },
+      '/api/attribution': { causes: [] },
+    });
+    renderScreen(<ReplayScreen />);
+    await screen.findByRole('link', { name: 'C301: see route overruns' });
+    expect(screen.queryByTestId('coverage')).toBeNull();
+  });
 
   it('AC-DATA-21: the aug_sep segment is labelled with the months the API reports', async () => {
     mockApi({ ...base, '/api/overview': { deliveries: 1234, windowFrom: '2026-11-03', windowTo: '2027-02-02', recentFrom: '2027-01-01' } });

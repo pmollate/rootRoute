@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"The data shows a clear association: routes that ran over plan were much more likely to be late. Of nMeasured 47001 deliveries, nOverrun 2880 had route overruns (overrun rate 6.1%). When a route overran it was late 62.6% of the time, versus 26.9% when it did not overrun. The overruns carry penalties of $102,960 and handling costs of $61,336. By weekday, Friday had nOverrun 614 (overrun rate 5.5%) with late when overrun 61.2% and late when not overrun 31.6%; Monday had nOverrun 199 with late when overrun 69.8% and late when not overrun 21.7%.\\\",\\\"refused\\\":false}\"}"
+}
