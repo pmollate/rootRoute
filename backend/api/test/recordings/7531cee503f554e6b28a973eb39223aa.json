@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"The five causes are: incomplete address, order after the cut-off, non-nearest warehouse, carrier lane, route detour. Root Route’s data shows these causes hit at-risk accounts as follows: incomplete address — 1,566 deliveries, 63.4% late; same-day order after 8am cut-off — 909 deliveries, 61.9% late; shipped from a non-nearest warehouse — 1,294 deliveries, 48.4% late; nearest warehouse out of stock — 1,145 deliveries, 48.4% late; nearest warehouse skipped despite stock — 149 deliveries, 48.3% late; bad carrier lane (including D on Friday) — 1,872 deliveries, 44.1% late; bad carrier lane (bad lanes only) — 1,465 deliveries, 44.7% late; carrier D on a Friday — 818 deliveries, 42.5% late; route >20% over plan (route detour) — 543 deliveries, 59.1% late. None of the five causes — 4,305 deliveries, 0.0% late.\\\",\\\"refused\\\":false}\"}"
+}

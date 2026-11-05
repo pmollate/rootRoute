@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"Today the on-time rate is 71.0%. Fixing carrier lanes and routes raises on-time to 80.4%. Fixing address, cut-off and stock before pickup raises on-time to 87.8%.\\\\n\\\\nSuggestion (from the data, not a decision): the data shows that fixing address, cut-off and stock before pickup would yield the higher on-time rate (87.8%) than fixing carrier lanes and routes together (80.4%). The decision stays with Halcyon.\\\",\\\"refused\\\":false}\"}"
+}

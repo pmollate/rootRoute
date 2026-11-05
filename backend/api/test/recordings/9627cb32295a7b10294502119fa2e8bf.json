@@ -1,4 +1,0 @@
-{
-  "kind": "tool",
-  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"Root Route blocks these carrier lanes because their on-time rates on fair data exceed the 15% late limit: D → Midwest: 48.0% late (limit 15%); D → Southeast: 38.0% late (limit 15%); E → West: 47.0% late (limit 15%); F → Northeast: 43.0% late (limit 15%); F → Southeast: 47.0% late (limit 15%).\\\\n\\\\nNote: Carrier D is also capped on Fridays at its normal daily level (a capacity limit, not a block).\\\",\\\"refused\\\":false}\"}"
-}

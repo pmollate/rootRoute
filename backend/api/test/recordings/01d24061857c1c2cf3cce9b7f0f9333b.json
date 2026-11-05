@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_jQdEeC1tbFjy5HknPvjZH0yd\",\"name\":\"delivery_causes\",\"arguments\":\"{\\\"segment\\\":\\\"all\\\"}\"}]}"
+}

@@ -9,6 +9,7 @@ import { useApi } from '@/hooks/useApi';
 import { periods, type DataWindow } from '@/lib/dataWindow';
 import { SESSION_ENDED, SessionExpired, postJSON, signInAgain } from '@/lib/api';
 import { int, pct, points, usd2 } from '@/lib/metrics';
+import { RoutesPanel } from './RoutesPanel';
 import s from './carriers.module.css';
 
 interface Option { carrier: string; onTime: number; meanRate: number; n: number; score: number | null; status: string; reason: string }
@@ -381,6 +382,8 @@ export function CarriersScreen() {
           )}
         </section>
       </div>
+
+      <RoutesPanel />
 
       {canOverride && <section className={s.panel}>
         <Head title="Override a recommendation"

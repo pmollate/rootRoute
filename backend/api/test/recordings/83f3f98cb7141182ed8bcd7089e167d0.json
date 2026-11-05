@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"Root Route's tools don't hold that. They do not list deliveries by driver. Instead, Root Route's tools can show overall on-time rate and penalties, the breakdown of late deliveries by the five causes (incomplete address, order after the cut-off, non-nearest warehouse, carrier lane, route detour), replays of what on-time rate would be if causes were fixed or routes changed, which carrier lanes are blocked and carrier on-time rates on fair data, recommended carriers for a lane, promise checks given a received time, and a diagnostic of route overruns (counts, overrun rate, late rate with and without overruns, penalties and handling costs) by carrier, region, warehouse, stops on route, weekday or month. If you want a driver-level report, ask for one and I can report which of these available summaries you’d like instead.\\\",\\\"refused\\\":false}\"}"
+}

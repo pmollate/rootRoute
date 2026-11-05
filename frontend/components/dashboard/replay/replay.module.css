@@ -288,3 +288,27 @@
   .pagerRow { flex-direction: column; align-items: stretch; }
   .altStats b { font-size: 1.45rem; }
 }
+
+/* C9c route reordering demo (SPEC §5.19) */
+.rdHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.rdHead h2 { margin: 0; font-size: 1.05rem; }
+.rdForm { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-bottom: 10px; font-size: 0.8rem; }
+.rdForm input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); width: 11ch; }
+.rdForm button, .rdChips button { font: inherit; font-size: 0.78rem; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.rdChips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.rdBody { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.rdSvg { width: 100%; height: auto; aspect-ratio: 1; background: var(--bg); border-radius: 12px; }
+.rdPlanned { fill: none; stroke: var(--ink-2); stroke-width: 0.6; stroke-dasharray: 2 1.5; }
+.rdOptimised { fill: none; stroke: var(--accent); stroke-width: 0.9; }
+.rdStop { fill: var(--ink); stroke: var(--surface); stroke-width: 0.5; }
+.rdDepot { fill: var(--surface); stroke: var(--ink); stroke-width: 0.8; }
+.rdLegend { display: flex; gap: 16px; margin: 0 0 12px; padding: 0; list-style: none; font-size: 0.74rem; color: var(--ink-2); }
+.rdLegend i { display: inline-block; width: 18px; height: 0; margin-right: 6px; vertical-align: middle; }
+.rdKeyPlanned { border-top: 2px dashed var(--ink-2); }
+.rdKeyOptimised { border-top: 2px solid var(--accent); }
+.rdFigs { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.rdFigs li { display: grid; gap: 2px; }
+.rdFigs b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.rdFigs span, .rdNote { font-size: 0.74rem; color: var(--ink-2); line-height: 1.5; }
+.rdNote { margin: 12px 0 0; }
+@media (max-width: 640px) { .rdBody { grid-template-columns: minmax(0, 1fr); } }

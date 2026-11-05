@@ -1,6 +1,6 @@
 # LateLens — Product and Technical Spec
 
-Repo: root-route · Status: draft v0.18 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
+Repo: root-route · Status: draft v0.21 · Owner: Priyank + team (three problem areas: Email orders, Warehouse & promise, Carriers)
 Hackathon: FDE AI Hackathon 5.0, Problem 2 (Halcyon Logistics). Coding: Mon 26 – Thu 29 Oct 2026. Code submission: 29 Oct, `[DEADLINE_TIME]`.
 Source brief: `docs/Halcyon.docx` (Participant Problem Statement). Data: `Halcyon-Hackathon-Dataset/` (supplied) and `backend/synthetic-data/` (ours, §12.1).
 
@@ -72,6 +72,27 @@ with the expected behaviour, the REQ/AC id, the code that handles it and the tes
 records two gaps between REQ-INT-09 and the code (a `medium` map result and an unreachable map both still reach
 `ALL_CLEAR`; the operator approval, SEC-04, still stands before WMS entry) and that SEC-06 automatic replies are not built.
 No requirement, figure, cause or fair-data definition changes.
+**Changes in v0.21** (5 Nov, team decision): new feature C9c "Route reordering demo (synthetic)" (§3, new §5.19). A
+Labs card shows one delivery's invented stops (SD-11), a nearest-neighbour planned order scaled to the real
+`planned_route_km`, a shorter 2-opt reordering, and the real planned and actual km. OS-03 is reworded: an optimiser for
+Halcyon's real routes stays out (C9b); C9c is allowed only as a badged synthetic illustration that feeds no headline
+figure, the replay, the assistant or MCP. Design: `docs/superpowers/specs/2026-11-05-route-reordering-demo-design.md`.
+**Changes in v0.20** (5 Nov, team decision): the last step of the expected-adoption programme, "last-mile watch",
+is relabelled "+ route overruns cut by 30% (assumed; no fix built)" (§2.4). No feature removes route overruns, and the
+route data does not say which routes will overrun (§5.18). The step stays in the programme, so every figure is unchanged:
+92.0%, 10,150 late avoided, $980,764. The Replay screen names no fix for route-overrun accounts and leaves them out of
+the "protects" line. The §12 question is answered (§14.1).
+Also v0.20 (5 Nov, team decision): screens round points lost so the five causes add up to the total (largest
+remainder, `pointsToTotal` in `frontend/lib/metrics.ts`): 7.6 / 7.0 / 5.6 / 5.6 / 3.2 = 29.0, as in §2.2 and CLAUDE.md.
+Routes were shown as 3.1 (3.149 rounded on its own).
+**Changes in v0.19** (4 Nov, team decision): new feature C9a "Route overrun diagnostics" (§3, new §5.18). The pipeline
+writes `route_overruns`: route overruns (`f_route`, §5.1) by carrier, region, warehouse, stops, weekday and month, with
+the late rate, cost and deliveries that have no actual route distance. `GET /api/routes/overruns` serves it, a Routes
+panel on Carriers shows it, and the assistant reads it through a read-only `route_overruns` tool (REQ-ROUTE-01 to -07,
+AC-ROUTE-01 to -07). The routing engine stays out of scope as C9b; OS-03 now also says why the data cannot support one
+(no stop locations, stop order or road network). The overrun rate is about the same in every slice known before
+despatch, so the cause is an open question (`[ROUTE_OVERRUN_CAUSE]`, §12) and a sponsor question (§14). Plan:
+`docs/superpowers/plans/2026-11-04-route-overruns.md`. No existing figure, cause or fair-data definition changes.
 **Changes in v0.18** (30 Oct, two decisions by the user, nvarada, after local testing). (1) E19 address link: the
 server looks up the typed address on the map at Confirm. `pin` in the confirm body is optional; the page sends it only
 when it had a working map and the client placed the pin, never its display default (the centre of the contiguous US).
@@ -259,7 +280,8 @@ all shipments and breaks: that is a capacity problem, fixed by a Friday cap, not
 ### 2.4 Replay scenarios (method in §5.1 and §5.8)
 
 **Expected adoption (headline).** Each fix works on part of its cause: address 85%, lanes and Friday cap 90%, cut-off
-promise 85%, warehouse fallback 60%, last-mile watch 30%.
+promise 85%, warehouse fallback 60%, and route overruns cut by 30%. That last rate is an assumption: no fix is built, and
+nothing known before despatch predicts which route will overrun (§5.18, v0.20).
 
 | Programme step (cumulative) | All | Email orders | At-risk accounts | Late avoided | Cost avoided (6 mo) |
 |---|---|---|---|---|---|
@@ -268,7 +290,7 @@ promise 85%, warehouse fallback 60%, last-mile watch 30%.
 | + lane rules and Friday cap | 82.5% | 86.1% | 83.1% | 5,551 | $554,867 |
 | + cutoff-aware promise | 87.3% | 89.4% | 87.7% | 7,876 | $767,984 |
 | + warehouse fallback | 91.0% | 91.8% | 91.2% | 9,649 | $934,781 |
-| **+ last-mile watch: full programme** | **92.0%** | **92.6%** | **92.1%** | **10,150** | **$980,764** |
+| **+ route overruns cut by 30% (assumed; no fix built): full programme** | **92.0%** | **92.6%** | **92.1%** | **10,150** | **$980,764** |
 | LateLens as built (expected adoption) | 85.9% | 89.6% | 86.8% | 7,191 | $707,950 |
 
 **Full fix (upper bounds).** Every delivery with the cause is fixed.
@@ -366,6 +388,8 @@ Four tiers. **Core** must work at submission. **Synthetic** features are built o
 | C7 | Backtest (Apr–Jul train, Aug–Sep test) | Carriers | Core (real data) | §5.2 |
 | C8 | Unified carrier tracking | Carriers | Synthetic | §5.13 |
 | C10 | Carrier capacity contracts | Carriers | Synthetic | §5.2 |
+| C9a | Route overrun diagnostics: overruns, late rate and cost by carrier, region, warehouse, stops, weekday and month; Routes panel on Carriers; read-only `route_overruns` tool | Carriers | Stretch (after submission; real data) | §5.18 |
+| C9c | Route reordering demo: one delivery's invented stops (SD-11), planned vs reordered order, real planned and actual km; Labs card | Carriers | Stretch (after submission; synthetic) | §5.19 |
 | D1 | Diagnostic engine | Warehouse (shared) | Core | §5.1 |
 | D2 | Data-quality report | Warehouse (shared) | Core | §5.1 |
 | D3 | Overview screen | Warehouse (shared) | Core | §5.7 |
@@ -391,13 +415,15 @@ Four tiers. **Core** must work at submission. **Synthetic** features are built o
 | P5 | Azure deployment | Carriers | Core | §9.3 |
 | P6 | Playwright smoke test against the deployed app | Carriers | Core | §9.3 |
 
-**Pitch only:** C9 routing engine for route overruns (the vendor's product; revisit after the pilot); P7 sign-in and
+**Pitch only:** C9b routing engine or route optimiser for route overruns (the vendor's product, and the supplied data has
+no stop locations or stop order; revisit after the pilot); P7 sign-in and
 roles (Entra ID plus demo accounts, one role per agent gate; specified in `docs/SPEC-auth.md`, built after submission), full Bicep, Logic App on a real mailbox; live carrier portal automation (needs carrier permission); demand forecasting
 for stock replenishment.
 
 **After submission** (29 Oct decision, §14.1): D10 and E19 are not part of the submitted build. Each ships behind a flag
 that defaults to off (`ASK_ASSISTANT`, `CONFIRM_LINK`), so turning it off restores the submitted behaviour. E20 (30 Oct)
 has no flag: a client with no `sku_catalog` rows keeps the submitted behaviour (REQ-SKU-05), so an empty table turns it off.
+C9a (4 Nov) has no flag either: it adds a read-only table, endpoint, panel and tool and changes no existing screen's figures.
 
 **Drop order if behind schedule** (never drop Core for these): E13 → C8 → W5 → E11 → E10. The three core agents
 (E1–E9 intake, E12 complaint triage, D7 Ask LateLens) are never dropped: Level 1 requires agents across roles (§16).
@@ -409,14 +435,14 @@ Root Route does not do the following. Each line names why and where it was decid
 |---|---|---|---|
 | OS-01 | Modelling another company's product: routing-vendor scenarios, vendor on-time estimates, vendor internals | We show what Halcyon's own data says; we have no data on the vendor's product | CLAUDE.md; v0.9 note (removed `adopt_vendor`) |
 | OS-02 | Making the customer's business decisions in the product: "sign / don't sign" verdicts on screens, approve-pilot buttons, "share with leadership" framing | Root Route is an external tool; leadership decides. Asked what to do, the assistant gives the evidence and a suggestion labelled as one, and says the decision stays with Halcyon (REQ-ASK-13, v0.16) | CLAUDE.md; REQ-ASK-11, -13 |
-| OS-03 | Building a routing engine for route overruns (C9) | It is the vendor's product; revisit after the pilot | §3 Pitch only |
+| OS-03 | Building a routing engine or route optimiser for Halcyon's real routes (C9b) | It is the vendor's product, and the supplied data has no stop locations, stop order or road network to optimise (only `stops_on_route`, `planned_route_km`, `actual_route_km`); revisit after the pilot. Reporting what the route data shows (C9a, §5.18) is in scope, and so is a badged synthetic illustration of reordering (C9c, §5.19) that feeds no headline figure, the replay, the assistant or MCP | §3 Pitch only; v0.19; v0.21 |
 | OS-04 | Full Bicep, a Logic App on a real mailbox, demand forecasting for stock replenishment | Pitch only; not needed for the working slice | §3 Pitch only |
 | OS-05 | Live carrier feeds or carrier portal automation | Three of the six carriers have no API; portal automation needs the carrier's permission. Tracking (C8) runs on synthetic events | Brief (data supplied); §3 Pitch only; §5.13; §12 |
 | OS-06 | Writing to a live WMS | The WMS interface is assumed (`[WMS_CONTRACT]`); `send_to_wms` only marks the order ENTERED, and only after an operator approves | §12 (Q-002); SEC-04 |
 | OS-07 | Any email to an address outside the test allow-list | Hackathon safety rule | SEC-03 |
 | OS-08 | Real personal, employee or customer data | Brief ground rule; only the supplied dataset and labelled synthetic data | Brief (ground rules); SEC-05; §12.1 |
 | OS-09 | Synthetic data in a headline figure, the replay or the recommendation | Headline figures come from the supplied data only | §12.1 rule 3; REQ-REP-04 |
-| OS-10 | D10 (in-app assistant), E19 (one-time address link) and E20 (SKU catalogue check) in the submitted build | Decided after submission; D10 and E19 sit behind a flag that defaults to off; E20 is off while `sku_catalog` is empty | §3 After submission; §14.1 (29 and 30 Oct) |
+| OS-10 | D10 (in-app assistant), E19 (one-time address link), E20 (SKU catalogue check) and C9a (route overrun diagnostics) in the submitted build | Decided after submission; D10 and E19 sit behind a flag that defaults to off; E20 is off while `sku_catalog` is empty; C9a only adds read-only views | §3 After submission; §14.1 (29 and 30 Oct) |
 | OS-11 | Assistant questions its read-only tools cannot answer, per-order questions, and any action (sending, approving, writing rows) | The assistant only reads aggregates and never acts | §5.16 Out of scope; Q-ASK-04; REQ-ASK-07 |
 | OS-12 | Real stock levels, SKUs, product catalogues and carrier capacity contracts | Not in the dataset; W5, C10 and E20 run on synthetic SD-05, SD-06 and SD-10 | §12 assumptions; §12.1 |
 | OS-13 | An Outlook / Microsoft 365 inbox | The intake reads Gmail; Microsoft Graph would sit behind the same three mailbox calls if Halcyon uses Outlook | §12 open questions |
@@ -474,7 +500,7 @@ replay and the live app cannot disagree.
 
 | Written by Python (`backend/analytics/`) | Written by Node (`backend/api/`) |
 |---|---|
-| `deliveries_clean`, `delivery_causes`, `dq_report`, `kpis`, `cause_summary`, `cause_attribution`, `cause_kpis`, `accounts`, `clients`, `carriers`, `warehouses`, `complaints`, `lane_scores`, `carrier_capacity`, `carrier_backtest`, `scenario_results`, `scenario_breakdown` (D11), `risk_lookup`, `warehouse_region_distance`, `client_region_nearest`, `warehouse_stats`, `penalty_reconciliation`, `stock_daily`, `placement_suggestions`, `placement_impact`, `carrier_events` | `audit_log` (approvals and actions), `intake_emails`, `intake_extractions`, `outbound_messages`, `saved_addresses`, `client_domains`, `inbound_orders`, `recommendations`, `alerts`, `override_log`, `complaint_triage`, `address_confirm_tokens` (E19), `sku_catalog` (E20; written only by the seed from SD-10, like `saved_addresses`) |
+| `deliveries_clean`, `delivery_causes`, `dq_report`, `kpis`, `cause_summary`, `cause_attribution`, `cause_kpis`, `accounts`, `clients`, `carriers`, `warehouses`, `complaints`, `lane_scores`, `carrier_capacity`, `carrier_backtest`, `route_overruns` (C9a), `scenario_results`, `scenario_breakdown` (D11), `risk_lookup`, `warehouse_region_distance`, `client_region_nearest`, `warehouse_stats`, `penalty_reconciliation`, `stock_daily`, `placement_suggestions`, `placement_impact`, `carrier_events` | `audit_log` (approvals and actions), `intake_emails`, `intake_extractions`, `outbound_messages`, `saved_addresses`, `client_domains`, `inbound_orders`, `recommendations`, `alerts`, `override_log`, `complaint_triage`, `address_confirm_tokens` (E19), `sku_catalog` (E20; written only by the seed from SD-10, like `saved_addresses`) |
 
 ### 4.3 Repository layout (one folder per problem area in every layer)
 Two top-level apps: `frontend/` (everything the browser loads) and `backend/` (everything else). The root `package.json`
@@ -1001,7 +1027,7 @@ MCP server and the in-app assistant read (REQ-ASK-02). MCP behaviour, its token 
 
 | ID | Requirement |
 |---|---|
-| REQ-MCP-01 | The MCP server **MUST** expose only read-only tools (`delivery_causes`, `lane_scores`, `scenario`, `recommend_carrier`, `check_promise`). |
+| REQ-MCP-01 | The MCP server **MUST** expose only read-only tools (`delivery_causes`, `lane_scores`, `scenario`, `recommend_carrier`, `check_promise`; `route_overruns` from C9a, §5.18). |
 | REQ-MCP-02 | The MCP endpoint **MUST** require a token. |
 | REQ-MCP-03 | Answers **SHOULD** use only figures returned by the tools, so they match the dashboard. |
 
@@ -1102,6 +1128,7 @@ as every screen opens today.
 | `check_promise` | the promise rule (§5.4), no stored data | every role |
 | `lane_scores` | `GET /api/carriers` | `carrier_manager`, `leadership`, `admin` |
 | `recommend_carrier` | `GET /api/carriers` | `carrier_manager`, `leadership`, `admin` |
+| `route_overruns` (C9a, §5.18) | `GET /api/routes/overruns` | `carrier_manager`, `leadership`, `admin` |
 
 **Design settings** (chosen by the team, not data; environment variables in CONTRACTS §7): at most 5 tool calls per
 question (`ASK_MAX_TOOL_CALLS`); 10 questions per user per minute (`ASK_RATE_PER_MINUTE`); a question of at most 500
@@ -1125,10 +1152,10 @@ shared key to anonymous calls (NS-01, 29 Oct), so the route would be open to any
 | REQ-ASK-06 | A question outside the scope above (not about the current client's data or Root Route's analysis of it, about another company's product or data, or asking to act) **MUST** get the fixed refusal text. A question in scope that the tools cannot answer **MUST** be answered with a plain statement that starts "Root Route's tools don't hold that" and holds no figures, not refused; any other answer that called no tool is a refusal (v0.17); a question about what Halcyon should do about its deliveries is in scope (REQ-ASK-13). An answer that called no tool **MUST** be treated as a refusal. |
 | REQ-ASK-07 | The assistant **MUST NOT** send email, approve, reject, override, call the WMS or write to any database table. |
 | REQ-ASK-08 | `ASK_ASSISTANT` **MUST** default to off (unset or empty counts as off). When off, the panel **MUST NOT** show, Router **MUST** answer typed questions with its built-in answers without calling the API, and `POST /api/assistant` **MUST** return 404 without calling the model. |
-| REQ-ASK-09 | With `AUTH_REQUIRED=on`, the assistant **MUST** offer a user only the tools whose data their roles may read (tools-by-role table). |
+| REQ-ASK-09 | With `AUTH_REQUIRED=on`, the assistant **MUST** offer a user only the tools whose data their roles may read (tools-by-role table). A question that needs a tool the user is not offered (e.g. `order_desk` asking which carrier lanes are blocked) **MUST** be answered as one the tools cannot answer (REQ-ASK-06), never from another tool's totals (5 Nov, eval case `role-02`). |
 | REQ-ASK-10 | The model step **MUST** run through the LLM interface (§4.4, `ToolChatLLM` in CONTRACTS §1.1), so `LLM_PROVIDER=recorded` replays a whole question (every tool-call turn and the final answer) from saved responses, and `RECORD=1` refreshes them. A recorded turn **MUST** be keyed by the conversation, the tools offered and the answer schema, so changing any of them needs a new recording. |
 | REQ-ASK-11 | The system prompt **MUST** tell the model, for a question about the data, to say what the data shows and not what Halcyon should do; to write every rate as a percentage with one decimal, never as a fraction or cut short; never to write a number found only in the question; and to keep an answer under 1,800 characters. In code (v0.16): a raw fraction left in an answer (0.8035…) **MUST** be written as a percentage with one decimal before the check; tool field names (camelCase, snake_case) and advice ("stop using", "should", "we recommend") outside the labelled suggestion **MUST** get the one rewrite turn (REQ-ASK-04); advice that survives the rewrite **MUST NOT** be returned. A style-only rewrite that refuses, fails the check, loses every figure or halves the answer **MUST** fall back to the first, checked answer. |
-| REQ-ASK-13 | A question asking what Halcyon should do about its deliveries (for example whether to go ahead with a routing contract) **MUST** be answered, not refused: first the evidence from the tools, then one paragraph starting "Suggestion (from the data, not a decision):", ending "The decision stays with Halcyon." The suggestion **MUST** rest on Halcyon's data only and **MUST NOT** describe or estimate another company's product (OS-01). Its figures go through the same check (REQ-ASK-04). |
+| REQ-ASK-13 | A question asking what Halcyon should do about its deliveries (for example whether to go ahead with a routing contract) **MUST** be answered, not refused: first the evidence from the tools, then one paragraph starting "Suggestion (from the data, not a decision):", ending "The decision stays with Halcyon." The suggestion **MUST** rest on Halcyon's data only and **MUST NOT** describe or estimate another company's product (OS-01). Its figures go through the same check (REQ-ASK-04). A bare one-word verdict ("SIGN", "DON'T SIGN") **MUST NOT** be shown: code replaces it with the fixed refusal (`verdictOnly`, 5 Nov, eval case `injection-05`). |
 | REQ-ASK-14 | The dock and Overview's Router **MUST** share one conversation for the browser window, carried across dashboard screens (client-side navigation) and sent with each question as up to 12 earlier turns, oldest first. Overview's opening question and its fix plan, as plain text, **MUST** be sent as the first exchange of a question asked from Overview, so a follow-up can refer to the plan. |
 | REQ-ASK-12 | When the model, a recording or a tool's read fails, `POST /api/assistant` **MUST** answer 503 `{ error: "assistant_unavailable" }` with no server text, and log one warn line with the failure kind and never the question. |
 | NFR-ASK-01 | An answer **SHOULD** arrive within 20 s at p95 with the live model. |
@@ -1341,6 +1368,76 @@ could make N times as many requests, so a scale-out must move the count to a sha
 | AC-SEC-LINK-11 | Given a confirmation, then `audit_log` has one row with actor `client-link:<email id>`, and each logged link event holds the 8-character hash prefix and not the token. |
 | AC-SEC-LINK-12 | Given a code sent and verified and the address confirmed, when every table (but the hash columns), the API and web logs and `outbound_messages.body` are searched for the code and the token, then neither is found. |
 
+### 5.18 Route overrun diagnostics (owner: Carriers; C9a, real data, after submission)
+Reports what Halcyon's own route data says about route overruns (`f_route`: actual route more than 20% over the planned
+route, §5.1). It does not plan or optimise routes (C9b, OS-03): `deliveries.csv` holds only `stops_on_route`,
+`planned_route_km` and `actual_route_km`, with no stop locations, stop order or road network.
+
+**What the data shows** (supplied dataset, computed 4 Nov; tests recompute these, never copy them): 2,880 deliveries
+overran, 6.1% of the 47,001 with an actual route distance; 1,339 have none. 62.6% of overrun deliveries were late against
+26.9% of the rest; the late overruns cost $102,960 in penalties and $61,336 in late-delivery handling, and routes cost 3.2
+points of on-time (3.149, rounded with the other four causes so the five add to 29.0: §2.2, v0.20). The overrun rate is about the same in every slice known before despatch: by carrier 5.1–7.0%,
+destination region 5.9–6.3%, fulfilment warehouse 5.9–6.4%, stops band 5.9–6.4%, shipping weekday 5.5–6.6%, order month
+5.6–6.5%. No slice stands out, so the data does not say which routes will overrun or why (`[ROUTE_OVERRUN_CAUSE]`, §12).
+
+**Rule** (`backend/analytics/rules.json`, `route_stands_out`): a value of a slice **stands out** when it has at least
+`min_n` (30) deliveries with an actual route distance and its overrun rate is more than `ratio` (1.5) times the `all`
+rate. Like the lane rule (§5.2: n ≥ 30, more than 2 × the median), it is a team choice, not a figure from the data. With
+the supplied data the highest value is carrier B at 1.14 × the `all` rate.
+
+**Slices**: `all`; `carrier` (`carrier_id`); `region` (`destination_region`); `warehouse` (`fulfilment_warehouse_id`);
+`stops_band` (`stops_on_route` up to 10, 11–20, 21–30, 31+, open at both ends so a new extract never stops the pipeline;
+the data's range is 6–40); `weekday` (of `shipped_ts`);
+`month` (of `order_received_ts`). Overrun rates use deliveries with an actual route distance as the base.
+
+| ID | Requirement |
+|---|---|
+| REQ-ROUTE-01 | The pipeline **MUST** write `route_overruns` from the supplied data only, one row per slice and value, with `n`, `n_measured`, `n_overrun`, `overrun_rate`, `late_rate_overrun` and `late_rate_other`. It **MUST** use `f_route` from §5.1 and never recompute the flag. |
+| REQ-ROUTE-02 | Each row **MUST** carry the cost of its late overrun deliveries: `penalty_usd` (their `sla_penalties` rows) and `handling_usd` ($34 × late overruns, §2.1). The `all` row **MUST** carry `points_lost` equal to `cause_attribution`'s `f_route` row. |
+| REQ-ROUTE-03 | Each row **MUST** carry `n_blank`, the deliveries with no `actual_route_km`. A blank is never an overrun and no row is dropped (EC-14). |
+| REQ-ROUTE-04 | Each row **MUST** carry `stands_out` by the rule above and `ratio_to_all` (its overrun rate over the `all` rate), and each slice its `min_rate`, `max_rate` and `spread_pts` (lowest and highest overrun rate among values with at least `min_n`, and their gap in points). The panel shows these as written; it computes none of them. |
+| REQ-ROUTE-05 | The Carriers screen **MUST** show a Routes panel (anchor `#routes`) with the `all` figures, each slice's lowest and highest overrun rate, the values that stand out or one sentence saying none does, the deliveries with no route distance as a data-quality note, and `[ROUTE_OVERRUN_CAUSE]` as an open question. It shows evidence only: no verdict, and nothing about the vendor's product (OS-01, OS-02). |
+| REQ-ROUTE-06 | `GET /api/routes/overruns` **MUST** serve `route_overruns` (CONTRACTS §6) to the roles that may read `GET /api/carriers`, and return 503 when the table is empty. |
+| REQ-ROUTE-07 | The tool registry (`modules/mcp/tools.ts`, REQ-ASK-02) **SHOULD** add a read-only `route_overruns` tool (optional `slice`) returning the table's rows, for the roles of `lane_scores`. Questions about the vendor's routing engine stay refused (AC-ASK-06). |
+
+| ID | Acceptance criterion |
+|---|---|
+| AC-ROUTE-01 | Given the supplied dataset, when the pipeline runs, then the `all` row has `n` 48,340, `n_measured` 47,001 and `n_overrun` 2,880; in every slice `n` sums to 48,340 and `n_overrun` to 2,880; the overrun deliveries are exactly those with `f_route` in `delivery_causes`. |
+| AC-ROUTE-02 | Given the supplied dataset, then the `all` row has `late_rate_overrun` greater than `late_rate_other`, `handling_usd` equal to 34 × its late overruns, `penalty_usd` equal to the sum of `sla_penalties` on those deliveries, and `points_lost` equal to `cause_attribution`'s `f_route`. |
+| AC-ROUTE-03 | Given the supplied dataset, then the `all` row has `n_blank` 1,339 and `n_measured` + `n_blank` = `n`; given a fixture delivery with a blank `actual_route_km`, then it is counted in `n` and `n_blank` and not in `n_overrun`. |
+| AC-ROUTE-04 | Given the supplied dataset, then no row has `stands_out`; given a fixture where one carrier overruns at 20% of 100 measured deliveries and the rest at 5%, then that carrier's row stands out; given the same rate on 20 deliveries, then it does not (`min_n`). |
+| AC-ROUTE-05 | Given a response with no value standing out, when the Routes panel renders, then it shows the overrun count, both late rates, the cost, each slice's lowest and highest rate, the sentence "No carrier, region, warehouse, route size, weekday or month stands out: overruns happen at about the same rate everywhere.", the no-distance count and the open question; given a response where a carrier stands out, then the panel names it instead of the sentence. |
+| AC-ROUTE-06 | Given the pipeline has run, when `GET /api/routes/overruns` is called, then it returns the `all` row, the slices and their rows in the CONTRACTS §6 shape; given an empty table, then 503; given a role that may not read `GET /api/carriers`, then it is refused the same way. |
+| AC-ROUTE-07 | Given the registry, then `route_overruns` is annotated read-only and offered to the roles of `lane_scores`; given "Which carrier has the most route overruns?" (recorded), then the answer calls `route_overruns` and cites it; given "How fast is the vendor's routing engine?", then the reply is still the fixed refusal text. |
+
+### 5.19 Route reordering demo (owner: Carriers; C9c, synthetic, after submission)
+C9a (§5.18) showed what Halcyon's route data says: 2,880 routes ran more than 20% over plan, at about the same rate in
+every slice known before despatch, and the data has no stop locations, stop order or road network. C9c is one picture
+of one route. In Labs, the viewer picks a delivery and sees invented stop positions for it (SD-11, §12.1), the order a
+reasonable dispatcher would plan, the shorter order a reordering finds, and the delivery's real planned and actual
+kilometres. It makes one point: reordering can shorten a plan a little, but `f_route` measures the actual route against
+the plan, so a shorter plan does not change the overrun. Out of scope: any aggregate "routing would save X%" figure,
+any use of these numbers in the replay, Overview, assistant or MCP, any model of the routing vendor's product, real maps
+or road distances, and multi-vehicle routing. Design: `docs/superpowers/specs/2026-11-05-route-reordering-demo-design.md`.
+
+| ID | Requirement |
+|---|---|
+| REQ-RDEMO-01 | SD-11 **MUST** place `stops_on_route` points per delivery, seeded by the delivery id, with a nearest-neighbour planned order whose length equals `planned_route_km` (to 0.01 km). |
+| REQ-RDEMO-02 | The optimiser **MUST** return an order that visits every stop once and starts and ends at the warehouse, with `optimised_km` ≤ `planned_km`. |
+| REQ-RDEMO-03 | The pipeline **MUST** write `route_demo` (columns in §6, `synthetic` true, one row per delivery, the three examples) unless `ROUTE_DEMO=off`, which the scale runs set. |
+| REQ-RDEMO-04 | `GET /api/labs/route-demo[/:deliveryId]` **MUST** serve the table to the Labs roles as in CONTRACTS §6, with 400, 404 and 503 as stated. |
+| REQ-RDEMO-05 | The Labs card **MUST** show the badge, the drawing, the three figures marked real or synthetic, and the fixed sentence. |
+| REQ-RDEMO-06 | No headline figure, replay scenario, Overview or Carriers figure, assistant tool or MCP tool **MAY** read `route_demo`. |
+
+| ID | Acceptance criterion |
+|---|---|
+| AC-RDEMO-01 | Given delivery `D000001` with 10 stops and 71.7 planned km, when SD-11 runs twice, then both runs give the same 10 points, and the nearest-neighbour tour over them measures 71.7 km ± 0.01; given 6, 23 and 40 stops, the same holds. |
+| AC-RDEMO-02 | Given every row of `route_demo` from the supplied data, then `planned_order` and `optimised_order` are each a permutation of `0..n_stops-1` and `optimised_km` ≤ `planned_km` + 0.01. |
+| AC-RDEMO-03 | Given the pipeline runs, then `route_demo` has one row per delivery (48,340), `synthetic` true on all, and exactly one row each with `example` `overrun`, `on_plan` and `no_distance`; given `ROUTE_DEMO=off`, then no `route_demo` table is produced. |
+| AC-RDEMO-04 | Given the table, when `GET /api/labs/route-demo` is called, then it lists the three examples; when `GET /api/labs/route-demo/D000001` is called, then it returns the CONTRACTS §6 shape with `synthetic: true`; `D1`, `x`, `D0000001` get 400, `D999999` gets 404, a missing table gets 503; `order_desk` and `customer_support` get 403 with `AUTH_REQUIRED=on`. |
+| AC-RDEMO-05 | Given an API response, when the Labs card renders, then it shows the "Synthetic data" badge, the fixed sentence, planned km marked real, reordered km marked synthetic with "x% shorter than the plan", actual km with "over plan by y%" when it overran or "no actual distance recorded" when null, and the three example chips; a 404 shows "No delivery with that id."; no text matches `sign|vendor|approve`. |
+| AC-RDEMO-06 | Given the source of `backend/api/src/modules/mcp/` and `backend/api/src/modules/assistant/`, and of `backend/analytics/core/`, then none mentions `route_demo`. |
+
 ---
 
 ## 6. Data model (PostgreSQL)
@@ -1352,6 +1449,9 @@ score_default, score_sla, blocked, reason) · `carrier_capacity` (carrier, regio
 `scenario_results` (scenario, segment, on_time, late_avoided, cost_avoided) · `risk_lookup` · `warehouse_stats` ·
 `penalty_reconciliation` · `stock_daily` (warehouse, sku, date, qty, synthetic) · `placement_suggestions` ·
 `carrier_events` (delivery_id, carrier, event, ts, source, synthetic) ·
+`route_overruns` (slice, value, n, n_measured, n_overrun, overrun_rate, late rates, n_blank, cost, stands_out; C9a) ·
+`route_demo` (delivery_id, n_stops, stops, planned_order, optimised_order, planned_km, optimised_km,
+actual_km, overran, example, synthetic; C9c, synthetic) ·
 `intake_emails` (id, source, gmail_id, thread_id, message_id, from_addr, subject, body, redacted_body, pii_map,
 received_at, in_reply_to, hash, client_id, status, auth_result, auto_submitted) ·
 `intake_extractions` (email_id, extraction, decision, checks incl. map confidence and issues, reply_draft, reply_source) ·
@@ -1369,7 +1469,7 @@ Tables holding synthetic data carry a `synthetic boolean` column set to true.
 ## 7. API (Node)
 `GET /api/health` · `GET /api/overview` · `GET /api/causes?segment=` · `GET /api/warehouses` ·
 `GET /api/carriers?region=&commitment=` · `GET /api/carriers/backtest` · `GET /api/tracking?carrier=` ·
-`GET /api/replay?segment=` · `GET /api/accounts` · `GET /api/attribution` · `GET /api/cause-kpis` · `GET /api/penalties/unpaid` · `GET /api/placement?week=` ·
+`GET /api/replay?segment=` · `GET /api/routes/overruns` (C9a) · `GET /api/labs/route-demo[/:deliveryId]` (C9c) · `GET /api/accounts` · `GET /api/attribution` · `GET /api/cause-kpis` · `GET /api/penalties/unpaid` · `GET /api/placement?week=` ·
 `GET /api/intake` · `GET /api/intake/:id` · `POST /api/intake/email` · `POST /api/intake/fetch` (the poll, also the button) ·
 `GET /api/intake/review` (`ALL_CLEAR` orders awaiting approval, with unblocked carriers for each lane) ·
 `POST /api/intake/:id/action` (approve [carrier, reason] | reject [reason] | send_reply | send_to_wms) ·
@@ -1558,6 +1658,12 @@ Assumptions (how we would test each):
   simulator `tools/wms-simulator` (design `docs/superpowers/specs/2026-10-30-order-journey-simulator-design.md`).
 - "If fixed" estimates assume causes are independent of the other flags and that carrier volume can move. Test: the pilot (§9.2).
 - Adoption rates (address 85%, lanes 90%, cut-off 85%, warehouse 60%, route 30%) are the team's estimates. Test: per-cause KPIs in the pilot.
+- `[ROUTE_OVERRUN_CAUSE]` (C9a, §5.18): why 2,880 routes ran more than 20% over plan is not in the data. The overrun rate is
+  about the same for every carrier, region, warehouse, stops band, weekday and month, so no pre-despatch fact explains
+  it. Test: GPS traces or stop sequences from the carriers with an API (§14, Head of Procurement). The replay's 30% route
+  step stays as a labelled assumption with no fix built (answered 5 Nov, §14.1). Carriers owner.
+- Route points lost are 3.149 (`cause_attribution`). Answered 5 Nov (§14.1): every screen rounds the five causes so they
+  add to the total (largest remainder), showing 3.2 as §2.2, CLAUDE.md, the deck and the pitch do.
 - Carriers A, B and C have spare lane capacity for the volume moved off the bad lanes and D's Friday overflow. Test: procurement.
 - Warehouses can run a midday pick wave (second pick run). Test: warehouse supervisor.
 - Weekend picking and shipping is normal operation. Test: warehouse supervisor.
@@ -1659,6 +1765,7 @@ screens using synthetic data show a badge (REQ-UI-04).
 | SD-08 | Gmail demo inbox loaded with the SD-02 fixtures (insert, never sent) + mock WMS form | — | E13 | Email | Outlook, WMS |
 | SD-09 | 10× replica of the deliveries and a second client, for the timed scale run (`sd09_scale.py`) | Every supplied delivery, copied with new ids | Scale run (`docs/SCALE-RUN.md`) | All | — |
 | SD-10 | Product catalogue per client: `client_id`, `sku`, `name`, `unit`, `synthetic` (`sd10_catalog.py` → `sku_catalog`, migration 104, written by the seed) | Every client in `clients.csv`; the codes each client's fixture emails use (SD-02) and its `stock_daily` codes (SD-05); invented product names and units | E20 | Email | WMS item master per client |
+| SD-11 | Stop positions per delivery for the C9c demo: `stops_on_route` points around the fulfilment warehouse, nearest-neighbour planned order scaled to the real `planned_route_km` (`sd11_route_stops.py` → `route_demo`) | Real delivery id (seed), `stops_on_route`, `planned_route_km`; positions invented | C9c | Carriers | GPS traces or stop sequences from carriers (§14) |
 
 ## 13. Related artifacts
 - Deck: https://claude.ai/artifact/FHzG4eA9c79H8sfrjtUpSp
@@ -1680,7 +1787,7 @@ Record each answer and what changed in this spec.
 | COO | What does the vendor's proof of concept measure, on which data? Is the $680K one-time or per year? Would you accept an 8-week pilot before signing? Is the ~75% you quoted on the same basis as the 71.0% in the data? |
 | VP Customer Success | How are email orders keyed and checked today? Is the order inbox Gmail or Outlook? May we email a client automatically about an address problem? (Answered in §14.1: who tells a client about a delay, and email timestamps.) |
 | Warehouse supervisor | What happens to a same-day order that arrives after 8am? Could a second pick run at 11:00 be staffed? Why would an order ship from a non-nearest warehouse that had stock (691 cases)? How is the carrier picked at despatch in practice, and why does D take 39% of Friday volume? What does the shipped time record, given 59% are before the collection window? Can the WMS give pick and pack timestamps? |
-| Head of Procurement | What daily capacity can each carrier take per lane, and on Fridays? What does the F agreement commit to (volume, lanes, penalties)? Can volume move off D and F within the contract? |
+| Head of Procurement | What daily capacity can each carrier take per lane, and on Fridays? What does the F agreement commit to (volume, lanes, penalties)? Can volume move off D and F within the contract? Can the carriers with an API (`has_api = Y`) share GPS traces or stop sequences, so route overruns can be explained (`[ROUTE_OVERRUN_CAUSE]`, §5.18)? |
 | Onboarding team / COO | Could stock placement be reviewed weekly instead of quarterly? Can we get a WMS inventory extract? |
 | CFO | Why were 2,002 eligible penalties not paid? What does a lost Tier 1 account cost beyond revenue? |
 
@@ -1728,6 +1835,10 @@ changed. A question with no answer yet stays in §12 and §14 until it gets one.
 | 31 Oct | Should the address page ask the client to prove they hold the mailbox? | The user (nvarada) | Yes: a 6-digit code emailed to the order's sender before the page shows the address (REQ-LINK-17 to -19, SEC-LINK-12); sent by a button, not on page load (mail scanners); flag `CONFIRM_LINK_CODE`, default on |
 | 31 Oct | Should a reply that asks for the address list the client's saved addresses? | The user (nvarada), on a live reply that offered Main DC and Riverside store | No: the reply asks for the updated address and lists no saved or other address (REQ-INT-06, AC-INT-06 changed; template and model prompt). Saved addresses still match the email's address internally |
 | 31 Oct | Why did a client testing the address page get "Too many tries from this connection"? | The user (nvarada), testing E19 locally | Every pin move is a look-up (REQ-LINK-16), so a few adjustments and page loads reached the 10-per-minute IP limit. Raised to 30 per minute (SEC-LINK-04, AC-SEC-LINK-04); the page looks the pin up once it has been still for half a second; the 20 map look-ups per link still bound Maps use |
+| 4 Nov | Does Root Route do route optimisation, and can it? | Team (Priyank; scope change agreed by the team 4 Nov); the supplied data (`deliveries.csv` route columns) | No, and not from this data: there are no stop locations, stop order or road network, and a routing engine is the vendor's product (OS-03). The data does show 2,880 overruns, 62.6% of them late, at about the same rate in every slice known before despatch | v0.19: C9a route overrun diagnostics (§3, §5.18, REQ-ROUTE-01 to -07); C9b routing engine stays Pitch only (OS-03 reworded); `[ROUTE_OVERRUN_CAUSE]` in §12; Procurement question in §14; plan `2026-11-04-route-overruns.md` |
+| 5 Nov | Should the replay keep "last-mile watch" (30% of route overruns fixed), given no feature does it and the route data predicts nothing (§5.18)? | Team (Priyank), after the C9a review | Keep the step, relabelled as an assumption: "route overruns cut by 30% (assumed; no fix built)". Figures are unchanged | v0.20: §2.4 label and note; §12 answered; Replay screen names no fix for route-overrun accounts and leaves them out of the "protects" line; IMPACT, pitch and slides relabelled |
+| 5 Nov | Route points lost are 3.149: screens showed 3.1 (parts adding to 28.9 next to a 29.0 total) while §2.2, CLAUDE.md and the deck show 3.2. Which rounding? | Team (Priyank), after the numbers audit | Screens round the five causes so they add to the total (largest remainder): 7.6 / 7.0 / 5.6 / 5.6 / 3.2 = 29.0; the docs are unchanged | v0.20: `pointsToTotal` (`frontend/lib/metrics.ts`) on Overview, the Replay assumptions card and the Routes panel; §5.18 and §12 updated |
+| 5 Nov | May Root Route show route reordering at all, given OS-03 and the vendor's product? | Team (Priyank) | Yes, as a synthetic one-route illustration in Labs only, badged, feeding no headline figure, the replay, the assistant or MCP; an optimiser for real routes stays out (C9b) | v0.21: C9c, §5.19, OS-03 reworded, SD-11 (§12.1); design and plan `2026-11-05-route-reordering-demo` |
 
 ## 15. Mapping to the brief's task list
 | Brief asks | Where in this spec |

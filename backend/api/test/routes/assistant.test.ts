@@ -51,6 +51,16 @@ describe.skipIf(!hasDb || !hasRecordings)('Ask LateLens, recorded (needs test da
     expect({ ...(await ask(q)).json(), questionId: a.questionId }).toEqual(a);
   });
 
+  it('AC-ROUTE-07: a route-overrun question is answered from route_overruns, every figure checked', async () => {
+    const [{ question }] = fixture<{ id: string; question: string }[]>('questions.json').filter((q) => q.id === 'AC-ROUTE-07');
+    const a = (await ask(question)).json();
+    expect(a).toMatchObject({ checked: true, refused: false });
+    expect(a.sources.map((s: { tool: string }) => s.tool)).toContain('route_overruns');
+    // "Most" reads as a count (A, 682) or a rate (B, 7.0%); either is the data, and every figure is checked above.
+    expect(a.answer).toMatch(/\bA\b[^.]*682|\bB\b[^.]*7\.0%/);
+    expect(a.answer).not.toMatch(/\bvendor\b|routing engine/i);
+  });
+
   it('AC-ASK-04, AC-ASK-11: the on-time rate is written as a percentage, never as a raw fraction', async () => {
     const a = (await ask('What is our on-time rate?')).json();
     expect(a).toMatchObject({ checked: true, refused: false });
@@ -77,7 +87,7 @@ describe.skipIf(!hasDb || !hasRecordings)('Ask LateLens, recorded (needs test da
     expect(a.answer).not.toBe(REFUSAL);
   });
 
-  it('AC-ASK-06: every out-of-scope question gets the fixed refusal', async () => {
+  it('AC-ASK-06, AC-ROUTE-07: every out-of-scope question gets the fixed refusal (the vendor routing-engine one too)', async () => {
     for (const q of fixture<string[]>('out-of-scope.json')) expect((await ask(q)).json(), q).toMatchObject({ answer: REFUSAL, refused: true });
   });
 

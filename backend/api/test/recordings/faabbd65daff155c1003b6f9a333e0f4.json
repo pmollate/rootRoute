@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_LiksYvWtZUE7Tv1Ae8dpSrjj\",\"name\":\"check_promise\",\"arguments\":\"{\\\"commitment\\\":\\\"same_day\\\",\\\"receivedAt\\\":\\\"2026-10-22 09:15\\\"}\"}]}"
+}

@@ -56,7 +56,7 @@ describe('POST /api/assistant (D10)', () => {
     expect(r).toMatchObject({ skipped: ['lane_scores'], sources: [], refused: true });
     seen = [];
     await on.inject(ask(await bearer({ sub: 'u-cm', roles: ['carrier_manager'] })));
-    expect(seen[0].tools).toHaveLength(6);
+    expect(seen[0].tools).toHaveLength(7);
   });
 
   it('AC-ASK-12: a tool that fails (a database read) gives 503 assistant_unavailable, with no server text', async () => {

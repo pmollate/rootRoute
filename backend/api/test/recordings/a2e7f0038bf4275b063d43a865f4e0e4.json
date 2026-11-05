@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_NUg4drDGQIcK5v24dQO0WPxu\",\"name\":\"recommend_carrier\",\"arguments\":\"{\\\"region\\\":\\\"West\\\",\\\"commitment\\\":\\\"same_day\\\",\\\"slaClause\\\":true}\"}]}"
+}

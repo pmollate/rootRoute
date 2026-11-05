@@ -154,11 +154,11 @@ matrix; `backend/api/src/core/permissions.ts` gives each GET the roles of the pa
 |---|---|---|
 | `overview`, `causes`, `replay`, `attribution`, `cause-kpis`, `journey/:ref`, `settings` | Overview, Order journey (and others); the Settings card reads `settings` | every role |
 | `accounts` | Warehouses, Replay | `warehouse_supervisor`, `carrier_manager`, `leadership`, `admin` |
-| `compare` (D11, SPEC §5.8) | Replay | `warehouse_supervisor`, `carrier_manager`, `leadership`, `admin` |
+| `compare` (D11, SPEC §5.8), `labs/route-demo`, `labs/route-demo/:deliveryId` (C9c, SPEC §5.19) | Replay | `warehouse_supervisor`, `carrier_manager`, `leadership`, `admin` |
 | `warehouses`, `placement`, `penalties/unpaid` | Warehouses | `warehouse_supervisor`, `leadership`, `admin` |
 | `intake`, `intake/:id`, `intake/review` | Order emails (Order journey lists email orders only for these roles) | `order_desk`, `warehouse_supervisor`, `admin` |
 | `complaints` | Complaints | `customer_support`, `admin` |
-| `carriers`, `carriers/backtest`, `tracking` | Carriers | `carrier_manager`, `leadership`, `admin` |
+| `carriers`, `carriers/backtest`, `tracking`, `routes/overruns` (C9a, SPEC §5.18) | Carriers | `carrier_manager`, `leadership`, `admin` |
 
 - **Start page after sign-in** (`HOME` in `frontend/lib/auth/roles.ts`): `order_desk` Order emails, `warehouse_supervisor`
   Warehouses, `carrier_manager` Carriers, `customer_support` Complaints, `leadership` and `admin` Overview. A user with

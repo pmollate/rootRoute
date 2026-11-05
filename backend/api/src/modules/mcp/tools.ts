@@ -4,11 +4,12 @@
 import { z } from 'zod';
 import type { Commitment as CommitmentId, Region as RegionId } from '../../core/contracts.js';
 import { recommendFromLane } from '../carriers/domain.js';
-import { laneRows } from '../carriers/queries.js';
+import { laneRows, routeOverruns } from '../carriers/queries.js';
 import { warehouseApi } from '../warehouse/index.js';
 import * as q from '../warehouse/queries.js';
 
-export const TOOL_NAMES = ['overview', 'delivery_causes', 'scenario', 'lane_scores', 'recommend_carrier', 'check_promise'] as const;
+export const TOOL_NAMES = ['overview', 'delivery_causes', 'scenario', 'lane_scores', 'recommend_carrier', 'check_promise',
+  'route_overruns'] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 export interface ToolDef<I extends z.ZodRawShape = z.ZodRawShape> {
@@ -23,6 +24,7 @@ export interface ToolDef<I extends z.ZodRawShape = z.ZodRawShape> {
 const REGIONS = ['Midwest', 'Northeast', 'Southeast', 'West'] as const;
 const Region = z.enum(REGIONS);
 const Commitment = z.enum(['same_day', 'next_day', 'standard']);
+const RouteSlice = z.enum(['carrier', 'region', 'warehouse', 'stops_band', 'weekday', 'month']);
 
 /** recommendFromLane, not carriersApi.recommendCarrier: the latter logs a `recommendations` row on every call. */
 const lane = async (region: RegionId, commitment: CommitmentId, sla = false) => recommendFromLane(await laneRows(region, commitment), sla);
@@ -32,7 +34,8 @@ const tool = <I extends z.ZodRawShape>(t: ToolDef<I>): ToolDef => t as unknown a
 export const TOOLS: readonly ToolDef[] = [
   tool({
     name: 'overview', title: 'Headline KPIs', readOnly: true, input: {},
-    description: 'On-time rate vs the 94% benchmark, late deliveries, penalty and handling costs, at-risk accounts.',
+    description: 'On-time rate vs the 94% benchmark, late deliveries, penalty and handling costs, at-risk accounts and '
+      + 'their revenue, and the share of late deliveries with a cause before pickup.',
     // Headline KPIs only: the data line (window, warehouse and carrier counts) is for the dashboard shell, and leaving
     // it out keeps the tool's output, and so the recorded answers keyed on it, unchanged.
     run: async () => {
@@ -57,7 +60,8 @@ export const TOOLS: readonly ToolDef[] = [
   }),
   tool({
     name: 'lane_scores', title: 'Carrier lanes', readOnly: true,
-    description: 'Without arguments: the carrier lanes Root Route blocks, with the reason for each. With region and '
+    description: 'Without arguments: the carrier lanes Root Route blocks, with the reason for each, and carrier D\'s '
+      + 'Friday capacity cap. With region and '
       + 'commitment: every carrier on that lane, with on-time rate on fair data, cost and status.',
     input: { region: Region.optional(), commitment: Commitment.optional() },
     run: async ({ region, commitment }) => {
@@ -81,6 +85,20 @@ export const TOOLS: readonly ToolDef[] = [
     description: 'The delivery date Halcyon can keep for an order received at a local time (08:00 pick-list cut-off).',
     input: { commitment: Commitment, receivedAt: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/).describe('YYYY-MM-DD HH:mm') },
     run: async ({ commitment, receivedAt }) => warehouseApi.checkPromise(commitment, receivedAt),
+  }),
+  tool({
+    name: 'route_overruns', title: 'Route overruns', readOnly: true,
+    description: 'Deliveries whose actual route ran more than 20% over plan: count, overrun rate, late rate with and '
+      + 'without an overrun, penalty and handling cost, and deliveries with no route distance; overall and by carrier, '
+      + 'region, warehouse, stops on route, shipping weekday or order month, with any value that stands out. '
+      + 'Rates are fractions. Diagnostic only: Root Route does not plan or optimise routes. Only for routes driven '
+      + 'over plan: for carrier lanes, carrier on-time rates or carrier D on Fridays, use lane_scores.',
+    input: { slice: RouteSlice.optional() },
+    run: async ({ slice }) => {
+      const data = await routeOverruns();
+      if (!data) throw new Error('route_overruns: table is empty (run the pipeline)');
+      return slice ? { ...data, slices: data.slices.filter((x) => x.slice === slice) } : data;
+    },
   }),
 ];
 

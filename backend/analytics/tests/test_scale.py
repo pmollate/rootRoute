@@ -8,7 +8,7 @@ import pytest
 from analytics import bench, scaledata
 from analytics.core.load import DATA_DIR
 
-STEP_NAMES = ["load", "core", "warehouse", "carriers", "intake"]
+STEP_NAMES = ["load", "core", "warehouse", "carriers", "routes", "intake"]
 
 
 @pytest.fixture(scope="module")
@@ -27,7 +27,9 @@ def second(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def run_x2(x2, tmp_path_factory):
-    return bench.run_dataset(x2, tmp_path_factory.mktemp("x2_tracking"))
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("ROUTE_DEMO", "off")   # the scale runs skip the route demo, like the bench subprocesses
+        return bench.run_dataset(x2, tmp_path_factory.mktemp("x2_tracking"))
 
 
 def test_ac_data_23_replica_is_seeded_labelled_and_unique(x2, tmp_path):
@@ -66,12 +68,13 @@ def test_ac_data_23_replica_keeps_the_golden_rates(run_x2):
     assert h["points_lost"] == pytest.approx(bench.GOLDEN_POINTS, abs=bench.POINTS_TOLERANCE)
 
 
-def test_ac_data_23_second_client_runs_with_a_profile_only(second, tmp_path):
+def test_ac_data_23_second_client_runs_with_a_profile_only(second, tmp_path, monkeypatch):
     """AC-DATA-23 reuse: renamed clients, carriers, warehouses and shifted dates give Halcyon's numbers once the
     client profile names that client's carriers and dates; no analysis code changes."""
     d = pd.read_csv(second / "deliveries.csv")
     assert not d.client_id.str.startswith("C").any() and not d.carrier_id.isin(list("ABCDEF")).any()
     assert pd.to_datetime(d.order_received_ts).dt.year.eq(scaledata.SECOND_YEAR).all()
+    monkeypatch.setenv("ROUTE_DEMO", "off")
     r = bench.run_dataset(second, tmp_path)
     h = r["headline"]
     assert round(h["on_time_pct"], 1) == 71.0 and h["late"] == 14019

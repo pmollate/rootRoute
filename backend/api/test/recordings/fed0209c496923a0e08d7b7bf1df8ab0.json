@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"I can’t send notices or take actions on Halcyon’s behalf. The request to send the delay notice is outside the tools and scope I may use here. I can, if you’d like, prepare the delay notice text for you to send, or retrieve the delivery and cause data for Client 25 so you can review it before sending. Tell me which you want: draft notice, or show Client 25’s deliveries and causes.\\\",\\\"refused\\\":true}\"}"
+}

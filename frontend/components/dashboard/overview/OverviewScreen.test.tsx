@@ -21,7 +21,7 @@ const ROUTES = {
   '/api/replay?segment=all': { segment: 'all', scenarios: [
     { scenario: 'adopt_address', label: '+ address check (85%)', grp: 'adoption', onTime: 0.762 },
     { scenario: 'adopt_lanes', label: '+ lane rules and Friday cap (90%)', grp: 'adoption', onTime: 0.825 },
-    { scenario: 'adopt_all', label: '+ last-mile watch (30%): full programme', grp: 'adoption', onTime: 0.92 },
+    { scenario: 'adopt_all', label: '+ route overruns cut by 30% (assumed; no fix built): full programme', grp: 'adoption', onTime: 0.92 },
   ] },
 };
 

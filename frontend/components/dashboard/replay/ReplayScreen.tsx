@@ -8,9 +8,10 @@ import { BRAND } from '@/config/copy';
 import { canOpen } from '@/lib/auth/roles';
 import { useApi } from '@/hooks/useApi';
 import { periods } from '@/lib/dataWindow';
-import { int, pct, points, usd, usdShort } from '@/lib/metrics';
+import { int, pct, points, pointsToTotal, usd, usdShort } from '@/lib/metrics';
 import type { Overview } from '../overview/OverviewScreen';
 import { CompareCard } from './CompareCard';
+import { RouteDemoCard } from './RouteDemoCard';
 import s from './replay.module.css';
 
 interface Scenario { scenario: string; label: string; grp: string; onTime: number; lateAvoided: number; costAvoided: number }
@@ -64,7 +65,8 @@ const FIXES = [
   { scenario: 'adopt_lanes', label: 'Lane rules + Friday cap', rate: 0.9, cause: 'f_lane', causeLabel: 'Bad lanes, D on Fridays' },
   { scenario: 'adopt_cutoff', label: 'Cut-off-aware promise', rate: 0.85, cause: 'f_cutoff', causeLabel: 'Orders after 08:00' },
   { scenario: 'adopt_warehouse', label: 'Warehouse fallback', rate: 0.6, cause: 'f_stock', causeLabel: 'Non-nearest site' },
-  { scenario: 'adopt_all', label: 'Last-mile watch', rate: 0.3, cause: 'f_route', causeLabel: 'Route overrun >20%' },
+  // An assumption, not a built fix (SPEC §2.4, §14.1 4 Nov): nothing in the data predicts which route will overrun (§5.18).
+  { scenario: 'adopt_all', label: 'Route overruns cut (assumed)', rate: 0.3, cause: 'f_route', causeLabel: 'Route overrun >20%, no fix built' },
 ] as const;
 
 type Tone = 'base' | 'added' | 'full' | 'built';
@@ -81,7 +83,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
 
 /** Full-fix reference scenarios: what each option reaches if it worked on every delivery. */
 const ALTERNATIVES: { scenario: string; kicker: string; label: string; icon: IconName; fixes: string[] }[] = [
-  { scenario: 'lanes_routes', kicker: 'Case A', label: 'Carrier lanes + routes', icon: 'truck', fixes: ['Lane rules', 'Friday cap', 'Last-mile watch'] },
+  { scenario: 'lanes_routes', kicker: 'Case A', label: 'Carrier lanes + routes', icon: 'truck', fixes: ['Lane rules', 'Friday cap', 'Every route overrun'] },
   { scenario: 'as_built', kicker: 'Case B', label: `${BRAND} as built`, icon: 'route', fixes: ['This week’s build', 'Full fix'] },
   { scenario: 'all_but_route', kicker: 'Case C', label: 'The four in-house fixes', icon: 'home', fixes: ['Address', 'Cut-off', 'Stock', 'Lanes'] },
 ];
@@ -92,12 +94,13 @@ const segments = (recent: string | null) =>
 type Segment = ReturnType<typeof segments>[number][0];
 
 /** Account main causes (analytics/core/diagnosis.py LABELS): short name, icon, the fix that protects them and where it lives. */
-const CAUSES: Record<string, { short: string; title: string; icon: IconName; fix: string; href: string }> = {
+/** `link`: the link's words when the screen it opens is not the fix itself (the Routes panel only reports overruns). */
+const CAUSES: Record<string, { short: string; title: string; icon: IconName; fix: string; href: string; link?: string; assumed?: boolean }> = {
   'Bad carrier lane or D on a Friday': { short: 'Lane / carrier D', title: 'Bad carrier lane or D on a Friday', icon: 'truck', fix: 'Lane rules + Friday cap', href: '/dashboard/carriers' },
   'Incomplete address at intake': { short: 'Incomplete address', title: 'Incomplete address at intake', icon: 'pin', fix: 'Address check', href: '/dashboard/intake' },
   'Same-day order after 8am cut-off': { short: 'After cut-off', title: 'Same-day order after the 08:00 cut-off', icon: 'clock', fix: 'Cut-off-aware promise', href: '/dashboard/warehouses' },
   'Shipped from a non-nearest warehouse': { short: 'Non-nearest site', title: 'Shipped from a non-nearest warehouse', icon: 'warehouse', fix: 'Warehouse fallback', href: '/dashboard/warehouses' },
-  'Route >20% over plan': { short: 'Route overrun', title: 'Route more than 20% over plan', icon: 'route', fix: 'Last-mile watch', href: '/dashboard/carriers' },
+  'Route >20% over plan': { short: 'Route overrun', title: 'Route more than 20% over plan', icon: 'route', fix: 'No fix built', href: '/dashboard/carriers#routes', link: 'See route overruns', assumed: true },
 };
 const causeOf = (a: Account) => CAUSES[a.mainCause] ?? { short: a.mainCause, title: a.mainCause, icon: 'alert' as IconName, fix: 'Other fixes', href: '/dashboard/overview' };
 const CHANNEL_ICON: Record<string, IconName> = { Email: 'mail', EDI: 'plug', API: 'code' };
@@ -162,6 +165,7 @@ export function ReplayScreen() {
   const ready = today && full && built && route;
   const lost = o.data ? o.data.penaltiesUsd + o.data.handlingCostUsd : undefined;
   const lostBy = new Map((attr.data?.causes ?? []).map((c) => [c.cause, c.pointsLost]));
+  const shownPts = pointsToTotal(attr.data?.causes ?? []); // the same figures as the Overview (SPEC §2.2, v0.20)
 
   const accounts = a.data?.accounts ?? [];
   const atRisk = new Set(accounts.map((x) => x.clientId));
@@ -171,6 +175,8 @@ export function ReplayScreen() {
     const g = m.get(c.title) ?? { ...c, n: 0, revenue: 0 };
     return m.set(c.title, { ...g, n: g.n + 1, revenue: g.revenue + x.revenueUsd });
   }, new Map<string, ReturnType<typeof causeOf> & { n: number; revenue: number }>()).values()].sort((p, q) => q.n - p.n || q.revenue - p.revenue);
+  // "Protects" names built fixes only: an assumed one (route overruns) protects no account.
+  const covered = byCause.filter((g) => !g.assumed);
   // Rows run group by group (largest group first), worst-hit accounts first within each.
   const order = new Map(byCause.map((g, i) => [g.title, i]));
   const sorted = [...accounts].sort((p, q) => order.get(causeOf(p).title)! - order.get(causeOf(q).title)! || q.complaints - p.complaints || q.revenueUsd - p.revenueUsd);
@@ -275,6 +281,7 @@ export function ReplayScreen() {
       )}
 
       <CompareCard atRisk={atRisk} />
+      <RouteDemoCard />
 
       <div className={s.grid}>
         <section className={`${s.card} ${s.chartCard}`} aria-labelledby="chart-head">
@@ -352,7 +359,7 @@ export function ReplayScreen() {
                   <div className={s.atop}><span>{f.label}</span><b>{pct(f.rate, 0)}</b></div>
                   <div className={s.asub}>
                     <span>{f.causeLabel}</span>
-                    {pts != null && <span>removes <b>{points(pts * f.rate)}</b> of {points(pts)} pts</span>}
+                    {pts != null && <span>removes <b>{points(pts * f.rate)}</b> of {shownPts.get(f.cause) ?? points(pts)} pts</span>}
                   </div>
                   <span className={s.meter}><i style={{ width: pct(f.rate, 0) }} /></span>
                 </li>
@@ -463,7 +470,7 @@ export function ReplayScreen() {
                             </td>
                             <td className={`${s.right} ${s.go}`}>
                               {canOpen(roles, c.href)
-                                ? <Link className={s.fixl} href={c.href} aria-label={`${x.clientName}: open the ${c.fix} screen`}>{c.fix}<Icon name="arrow" size={12} /></Link>
+                                ? <Link className={s.fixl} href={c.href} aria-label={c.link ? `${x.clientName}: ${c.link.toLowerCase()}` : `${x.clientName}: open the ${c.fix} screen`}>{c.link ?? c.fix}<Icon name="arrow" size={12} /></Link>
                                 : <span>{c.fix}</span>}
                             </td>
                           </tr>
@@ -477,15 +484,15 @@ export function ReplayScreen() {
                 <span>Showing {accountPage.rows.length} of {accounts.length} accounts · {usdShort(revenue)} revenue at stake</span>
                 <Pager p={accountPage} className={s.pager} />
               </div>
-              <p className={s.closing} data-testid="coverage">
+              {covered.length > 0 && <p className={s.closing} data-testid="coverage">
                 <Icon name="shield" />
-                <span>{byCause.map((g, i) => (
+                <span>{covered.map((g, i) => (
                   <Fragment key={g.title}>
-                    {i > 0 && (i === byCause.length - 1 ? ' and ' : ', ')}
+                    {i > 0 && (i === covered.length - 1 ? ' and ' : ', ')}
                     <b>{g.fix}</b> {i === 0 ? `protects ${g.n} account${g.n === 1 ? '' : 's'}` : g.n}
                   </Fragment>
                 ))}.</span>
-              </p>
+              </p>}
             </>
           )}
         </div>

@@ -68,6 +68,7 @@ export function homeFor(roles: readonly Role[] | null | undefined): string {
 /** Whether a role may open `path`. Paths that are not a screen (`/`, `/dashboard`, the forbidden page) are open. */
 export function canOpen(roles: readonly Role[] | null | undefined, path: string): boolean {
   if (!roles) return true;
-  const screen = Object.keys(PAGE_ROLES).find((href) => path === href || path.startsWith(`${href}/`));
+  const page = path.split(/[?#]/)[0]; // a section link (#routes) or a query belongs to its screen
+  const screen = Object.keys(PAGE_ROLES).find((href) => page === href || page.startsWith(`${href}/`));
   return !screen || roles.some((r) => PAGE_ROLES[screen].includes(r));
 }

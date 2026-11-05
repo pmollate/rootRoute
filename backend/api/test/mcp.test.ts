@@ -14,7 +14,7 @@ describe('Ask LateLens MCP server (D7)', () => {
   it('AC-MCP-01: lists only read-only tools, each marked read-only', async () => {
     const { tools } = await (await connect()).listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(
-      ['check_promise', 'delivery_causes', 'lane_scores', 'overview', 'recommend_carrier', 'scenario']);
+      ['check_promise', 'delivery_causes', 'lane_scores', 'overview', 'recommend_carrier', 'route_overruns', 'scenario']);
     for (const t of tools) {
       expect(t.annotations?.readOnlyHint).toBe(true);
       expect(t.annotations?.destructiveHint).toBe(false);

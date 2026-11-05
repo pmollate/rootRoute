@@ -12,7 +12,7 @@ async function mcpTools() {
 }
 
 describe('one tool registry for MCP and the assistant (D10, REQ-ASK-02)', () => {
-  it('AC-ASK-02: MCP lists the registry: same six names, descriptions and input schemas', async () => {
+  it('AC-ASK-02: MCP lists the registry: same seven names, descriptions and input schemas', async () => {
     const listed = await mcpTools();
     expect(listed.map((t) => t.name)).toEqual(TOOLS.map((t) => t.name));
     for (const t of TOOLS) {
@@ -26,8 +26,15 @@ describe('one tool registry for MCP and the assistant (D10, REQ-ASK-02)', () => 
 
   it('AC-ASK-07: every tool is read-only, as MCP clients see it too', async () => {
     const listed = await mcpTools();
-    expect(listed).toHaveLength(6);
+    expect(listed).toHaveLength(7);
     for (const t of listed) expect(t.annotations?.readOnlyHint, t.name).toBe(true);
+  });
+
+  it('AC-ROUTE-07: route_overruns is read-only, takes an optional slice and refuses an unknown one', async () => {
+    const t = toolByName('route_overruns')!;
+    expect(t.readOnly).toBe(true);
+    expect((toolParameters(t) as { required?: string[] }).required ?? []).toEqual([]);
+    await expect(runTool(t, { slice: 'driver' })).rejects.toThrow(/slice/);
   });
 
   it('AC-ASK-03: runTool checks the arguments before the tool runs', async () => {

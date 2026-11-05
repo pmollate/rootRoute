@@ -25,6 +25,9 @@ const ROUTES = {
   '/api/carriers?region=West&commitment=standard&sla=false': lane(['E'], 'Carrier A for West standard'),
   '/api/carriers/backtest': { rows: [] },
   '/api/tracking?asOf=2026-09-10': { synthetic: true, asOf: '2026-09-10', freshness: [], atRisk: [] },
+  // C9a Routes panel (SPEC §5.18): its own tests are in RoutesPanel.test.tsx.
+  '/api/routes/overruns': { all: { value: 'all', n: 10, nMeasured: 10, nOverrun: 1, overrunRate: 0.1, lateRateOverrun: 0.5,
+    lateRateOther: 0.2, nBlank: 0, penaltyUsd: 0, handlingUsd: 34, pointsLost: 0.01, standsOut: false }, slices: [] },
 };
 
 describe('Carriers', () => {

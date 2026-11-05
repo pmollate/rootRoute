@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"For Midwest next-day the data shows: Carrier E — 96.4% on time, meanRate 13.193377483443708, n 302, status: recommended. Carrier C — 95.4% on time, meanRate 16.476827133479212, n 457, status: backup. Carrier F — 95.5% on time, meanRate 11.536294498381878, n 618, status: eligible. Carrier A — 95.7% on time, meanRate 15.39941628264209, n 651, status: eligible. Carrier B — 95.1% on time, meanRate 14.835817901234568, n 648, status: eligible. Carrier D — 54.3% on time, meanRate 12.647785547785547, n 429, status: blocked. Root Route blocks D. The tool summary notes: \\\\\\\"Carrier E for Midwest next-day: 96% on time vs 54% for D; $0.55 more per shipment\\\\\\\".\\\",\\\"refused\\\":false}\"}"
+}

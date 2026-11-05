@@ -14,6 +14,7 @@ const CALLS: Record<string, object[]> = {
     ['same_day', 'next_day', 'standard'].map((commitment) => ({ region, commitment, slaClause: true }))),
   check_promise: ['2026-10-28 07:59', '2026-10-28 08:00', '2026-10-30 17:45'].flatMap((receivedAt) =>
     ['same_day', 'next_day', 'standard'].map((commitment) => ({ commitment, receivedAt }))),
+  route_overruns: [{}, ...['carrier', 'region', 'warehouse', 'stops_band', 'weekday', 'month'].map((slice) => ({ slice }))],
 };
 const PERSONAL_KEY = /name|email|phone|address|street|line1|zip|contact|body|text/i;
 

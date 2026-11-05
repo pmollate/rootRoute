@@ -12,7 +12,7 @@ import { PageHero } from '@/components/dashboard/PageHero';
 import { Status } from '@/components/dashboard/ui';
 import { useApi } from '@/hooks/useApi';
 import type { DataWindow } from '@/lib/dataWindow';
-import { int, pct, points, usdK, usdShort } from '@/lib/metrics';
+import { int, pct, points, pointsToTotal, usdK, usdShort } from '@/lib/metrics';
 import s from './overview.module.css';
 
 /** `GET /api/overview`, with the data line (window, sites, carriers) of `DataWindow`. */
@@ -98,6 +98,8 @@ const SUGGESTIONS = ["Show carrier D's Friday lanes", 'Who owns each fix?', 'Wha
 interface AssistantProps {
   deliveries?: number; onTime?: number; steps: Step[]; lost: number; ceiling?: number; largest?: string;
   owners: Record<string, string>; loading: boolean; error?: string;
+  /** A cause's points lost as shown everywhere: rounded so the five add up to the total (`pointsToTotal`). */
+  ptsOf: (cause: string, v: number) => string;
 }
 
 /**
@@ -105,7 +107,7 @@ interface AssistantProps {
  * the page. With the assistant on (D10), a typed follow-up goes to the assistant instead (`useAsk`, plain text answers);
  * the suggestion chips keep their worked-out answers.
  */
-function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, loading, error }: AssistantProps) {
+function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, loading, error, ptsOf }: AssistantProps) {
   const [picked, setPicked] = useState(0);
   const carriersOpen = useCanOpen('/dashboard/carriers');
   // `at`: for a typed question sent to the assistant, its place in the window's conversation (REQ-ASK-14).
@@ -123,7 +125,7 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
     }
     if (/carrier|friday|lane/i.test(q)) {
       const lane = steps.find((x) => x.cause === 'f_lane');
-      return <p>Carrier D on Fridays is a capacity problem on specific lanes and costs {lane ? points(lane.pointsLost) : '—'} points of on-time.
+      return <p>Carrier D on Fridays is a capacity problem on specific lanes and costs {lane ? ptsOf(lane.cause, lane.pointsLost) : '—'} points of on-time.
         The lane-by-lane view is on {carriersOpen ? <Link href="/dashboard/carriers">Lanes &amp; carriers</Link> : 'Lanes & carriers'}.</p>;
     }
     if (/last|close|gap|target|95/i.test(q) && final != null && ceiling != null) {
@@ -179,7 +181,7 @@ function Assistant({ deliveries, onTime, steps, lost, ceiling, largest, owners, 
                       </span>
                       {open && (
                         <span className={s.fixDetail}>
-                          <span><small>Cause removed</small>{points(x.pointsLost)} pts lost</span>
+                          <span><small>Cause removed</small>{ptsOf(x.cause, x.pointsLost)} pts lost</span>
                           <span><small>Lifecycle stage</small>{x.stage}, {PRE_PICKUP.has(x.stage) ? 'before' : 'after'} pickup</span>
                           <span><small>Replayed on-time</small>{(x.from * 100).toFixed(1)} → {pct(x.to)}</span>
                         </span>
@@ -235,6 +237,8 @@ export function OverviewScreen() {
   const attribution = a.data?.causes ?? [];
   const byCause = new Map(attribution.map((x) => [x.cause, x]));
   const lost = attribution.reduce((t, x) => t + x.pointsLost, 0);
+  const shownPts = pointsToTotal(attribution);
+  const ptsOf = (cause: string, v: number) => shownPts.get(cause) ?? points(v);
   const maxLost = Math.max(0, ...attribution.map((x) => x.pointsLost));
   const kpis = k.data?.kpis ?? [];
   /** A cause's headline measure is the first one /api/cause-kpis lists for it. */
@@ -414,7 +418,7 @@ export function OverviewScreen() {
                   <span className={s.stage}>
                     <span className={s.num}>{i + 1}</span>
                     <span><b>{stage}</b> · {text}</span>
-                    <span className={s.pts}>{points(c.pointsLost)}</span>
+                    <span className={s.pts}>{ptsOf(c.cause, c.pointsLost)}</span>
                   </span>
                 </li>
               );
@@ -431,7 +435,7 @@ export function OverviewScreen() {
               <li key={x.cause}>
                 <span className={s.causeHead}>
                   <span><b>{measure(x.cause)?.label ?? x.label}</b><small>{x.stage}{i === 0 && ' · largest cause'}</small></span>
-                  <span className={s.causePts}>{points(x.pointsLost)} <small>pts</small></span>
+                  <span className={s.causePts}>{ptsOf(x.cause, x.pointsLost)} <small>pts</small></span>
                 </span>
                 <span className={s.causeBar}><span className={i === 0 ? s.hot : undefined} style={{ width: `${(x.pointsLost / maxLost) * 100}%`, '--i': i } as CSSProperties} /></span>
               </li>
@@ -443,7 +447,7 @@ export function OverviewScreen() {
 
       <Assistant deliveries={o.data?.deliveries} onTime={o.data?.onTime} steps={steps} lost={lost} ceiling={ceiling}
         largest={largest} owners={Object.fromEntries(attribution.map((x) => [x.cause, measure(x.cause)?.owner ?? '']))}
-        loading={a.loading || r.loading} error={a.error ?? r.error} />
+        loading={a.loading || r.loading} error={a.error ?? r.error} ptsOf={ptsOf} />
 
       <section className={`${s.panel} ${s.tablePanel}`}>
         <div className={s.head}>
@@ -471,7 +475,7 @@ export function OverviewScreen() {
                       <td>{m && <span className={s.cell}>{today(m)}</span>}</td>
                       <td>{m && <span className={s.cell} title={m.target}>{shortTarget(m.target)}</span>}</td>
                       <td>{m && <span className={s.owner}><span className={s.avatar} aria-hidden="true">{initials(m.owner)}</span>{m.owner}</span>}</td>
-                      <td className={`${s.right} ${s.strong}`}>{points(x.pointsLost)}</td>
+                      <td className={`${s.right} ${s.strong}`}>{ptsOf(x.cause, x.pointsLost)}</td>
                     </tr>
                   );
                 })}

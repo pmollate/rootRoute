@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"tool_calls\",\"calls\":[{\"id\":\"call_wTvr3pibkaLinO95j4iVNM60\",\"name\":\"overview\",\"arguments\":\"{}\"},{\"id\":\"call_mfrJpZiPt3ba2lsGeWvdWrcU\",\"name\":\"scenario\",\"arguments\":\"{\\\"segment\\\": \\\"all\\\"}\"}]}"
+}

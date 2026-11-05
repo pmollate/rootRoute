@@ -48,6 +48,8 @@ export const PERMISSIONS: Record<string, Permission> = {
   'GET /api/causes': { roles: ALL },
   'GET /api/replay': { roles: ALL },
   'GET /api/compare': { roles: ACCOUNTS_READ }, // D11: Replay only
+  'GET /api/labs/route-demo': { roles: ACCOUNTS_READ }, // C9c: Labs (SPEC §5.19)
+  'GET /api/labs/route-demo/:deliveryId': { roles: ACCOUNTS_READ }, // C9c: Labs
   'GET /api/attribution': { roles: ALL },
   'GET /api/cause-kpis': { roles: ALL },
   'GET /api/journey/:ref': { roles: ALL },
@@ -61,6 +63,7 @@ export const PERMISSIONS: Record<string, Permission> = {
   'GET /api/complaints': { roles: COMPLAINTS_READ },
   'GET /api/carriers': { roles: CARRIER_READ },
   'GET /api/carriers/backtest': { roles: CARRIER_READ },
+  'GET /api/routes/overruns': { roles: CARRIER_READ }, // C9a: Carriers screen (SPEC §5.18)
   'GET /api/tracking': { roles: CARRIER_READ },
   'GET /api/settings': { roles: ALL }, // the Settings page shows every role the switch's state
 

@@ -3,6 +3,7 @@
   "cutoff_hour": 8,
   "second_pick_hour": 11,
   "route_overrun": 1.2,
+  "route_stands_out": { "ratio": 1.5, "min_n": 30 },
   "friday_cap": { "carrier": "D", "day_of_week": 4 },
   "bad_lanes": [
     ["D", "Midwest"],

@@ -1,0 +1,4 @@
+{
+  "kind": "tool",
+  "text": "{\"kind\":\"final\",\"content\":\"{\\\"answer\\\":\\\"I can’t send emails or take operational actions. The request is outside the scope of what Root Route’s tools and I may do. I can, however, run Root Route’s reports and provide the data you’d need to email clients: for example, the list of at-risk accounts and their revenue, which deliveries are late or at risk and why, the replayed effect of fixing causes, and carrier/route options. Tell me which report you want (at-risk accounts, delivery causes, the replay of fixes, or recommended carriers) and I will fetch the data for you to use in your emails. The decision and the sending of messages stays with Halcyon.\\\",\\\"refused\\\":true}\"}"
+}

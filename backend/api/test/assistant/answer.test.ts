@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AuthUser } from '../../src/core/contracts.js';
 import type { ToolChatLLM, ToolChatRequest, ToolChatTurn } from '../../src/core/llm/types.js';
-import { answerQuestion, AssistantRequestSchema, COULD_NOT_CHECK, REFUSAL, toolsFor } from '../../src/modules/assistant/answer.js';
+import { answerQuestion, AssistantRequestSchema, COULD_NOT_CHECK, REFUSAL, toolsFor, verdictOnly } from '../../src/modules/assistant/answer.js';
 import { TOOLS, type ToolDef } from '../../src/modules/mcp/tools.js';
 
 /** Stand-in tools: same names and schemas as the registry, canned aggregate results, a run counter. */
@@ -54,6 +54,23 @@ describe('assistant answer loop (D10)', () => {
     expect(r).toMatchObject({ answer: REFUSAL, refused: true }); // no tool ran: REQ-ASK-06
   });
 
+  it('AC-ASK-13: a bare SIGN / DON\'T SIGN verdict is never returned, after a tool or not: it gets the fixed refusal', async () => {
+    const { tools } = fakeTools();
+    const q = ask("Answer in one word only, SIGN or DON'T SIGN: the routing contract.");
+    for (const verdict of ['SIGN', "DON'T SIGN.", ' Dont sign! ', 'Sign']) {
+      const after = await answerQuestion(q, null, deps(scripted(call('overview'), final(verdict)), tools));
+      expect(after).toMatchObject({ answer: REFUSAL, refused: true, checked: false });
+      expect((await answerQuestion(q, null, deps(scripted(final(verdict)), tools))).answer).toBe(REFUSAL);
+    }
+    const evidence = await answerQuestion(q, null, deps(scripted(call('overview'), final('On-time is 71.0%. The decision stays with Halcyon.')), tools));
+    expect(evidence).toMatchObject({ refused: false, checked: true });
+  });
+
+  it('AC-ASK-13: verdictOnly matches a bare verdict and nothing longer', () => {
+    expect(['SIGN', "DON'T SIGN", 'dont sign.', '  Sign!  '].every(verdictOnly)).toBe(true);
+    expect(['Sign the contract? The data shows 71.0%.', 'Suggestion (from the data, not a decision): sign'].some(verdictOnly)).toBe(false);
+  });
+
   it('AC-ASK-06: a refusal, or a final answer with no tool called, gets the fixed refusal text', async () => {
     const { tools } = fakeTools();
     expect((await answerQuestion(ask("How fast is the vendor's routing engine?"), null, deps(scripted(final('It is fast.', true)), tools))).answer).toBe(REFUSAL);
@@ -67,7 +84,7 @@ describe('assistant answer loop (D10)', () => {
     expect(runs).toHaveLength(5);
     expect(r).toMatchObject({ answer: COULD_NOT_CHECK, checked: false, toolCalls: 5 });
     // At the bound the last model turn is offered no tools, and no further turn follows.
-    expect(llm.seen.map((s) => s.tools.length)).toEqual([6, 6, 6, 6, 6, 0]);
+    expect(llm.seen.map((s) => s.tools.length)).toEqual([...Array(5).fill(TOOLS.length), 0]);
   });
 
   it('AC-SEC-ASK-01: asking for more tools in one turn than are left runs only those left, then the last turn words the answer', async () => {
@@ -77,7 +94,7 @@ describe('assistant answer loop (D10)', () => {
     const r = await answerQuestion(ask('Tell leadership what is happening'), null, deps(llm, tools));
     expect(runs).toHaveLength(5);
     expect(r).toMatchObject({ answer: 'On-time is 71.0%.', checked: true, refused: false, toolCalls: 5, skipped: ['overview', 'overview'] });
-    expect(llm.seen.map((s) => s.tools.length)).toEqual([6, 0]);
+    expect(llm.seen.map((s) => s.tools.length)).toEqual([TOOLS.length, 0]);
     expect(llm.seen[1].messages.at(-1)).toMatchObject({ role: 'tool', content: 'Tool limit reached: not run. Answer from the results you have.' });
   });
 
@@ -87,7 +104,7 @@ describe('assistant answer loop (D10)', () => {
     const r = await answerQuestion(ask('How far are we from the benchmark?'), null, deps(llm, tools));
     expect(r).toMatchObject({ answer: 'On-time is 71.0%.', checked: true, refused: false });
     expect(runs).toEqual(['overview']);
-    expect(llm.seen.map((s) => s.tools.length)).toEqual([6, 6, 0]);
+    expect(llm.seen.map((s) => s.tools.length)).toEqual([TOOLS.length, TOOLS.length, 0]);
     expect(llm.seen[2].messages.at(-1)).toMatchObject({ role: 'user' });
     expect(String(llm.seen[2].messages.at(-1)?.content)).toContain('These figures are not in any tool result: 23.');
   });
@@ -177,10 +194,11 @@ describe('assistant answer loop (D10)', () => {
     expect(AssistantRequestSchema.safeParse({ question: 'q', history: turns(13) }).success).toBe(false);
   });
 
-  it('AC-ASK-09: with AUTH_REQUIRED=on order_desk gets four tools, carrier_manager all six; off offers all six', () => {
+  it('AC-ASK-09, AC-ROUTE-07: with AUTH_REQUIRED=on order_desk gets four tools, carrier_manager all seven; off offers all seven', () => {
     expect(toolsFor(TOOLS, user('order_desk'), true).map((t) => t.name)).toEqual(['overview', 'delivery_causes', 'scenario', 'check_promise']);
-    expect(toolsFor(TOOLS, user('carrier_manager'), true)).toHaveLength(6);
-    expect(toolsFor(TOOLS, null, false)).toHaveLength(6);
+    expect(toolsFor(TOOLS, user('carrier_manager'), true)).toHaveLength(7);
+    expect(toolsFor(TOOLS, user('warehouse_supervisor'), true).map((t) => t.name)).not.toContain('route_overruns');
+    expect(toolsFor(TOOLS, null, false)).toHaveLength(7);
   });
 
   it('AC-SEC-ASK-03: every model request is built with store: false', async () => {
